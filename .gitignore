@@ -1,2 +1,5 @@
 /target
-\ndocs/node_modules\ndocs/dist\ndocs/.astro
+docs/node_modules
+docs/dist
+docs/.astro
+engrams/
