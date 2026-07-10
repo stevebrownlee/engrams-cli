@@ -1,0 +1,156 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="How Engrams Works" description="Architecture and design of the Engrams memory platform.">
+  <h1>How Engrams Works</h1>
+  <p class="lead">
+    Every time you start a new chat with your AI assistant, it has no memory of your previous conversations.
+    Engrams changes that. It quietly sits alongside your AI tool, remembering your project decisions,
+    design patterns, and progress — and automatically provides the right information when it's needed.
+  </p>
+
+  <h2>How a typical interaction works</h2>
+  <ol>
+    <li><strong>You ask your AI something.</strong> For example: "Add a /users endpoint."</li>
+    <li><strong>Your AI checks with Engrams</strong> to see if there are any relevant decisions, patterns, or notes about this area of the project.</li>
+    <li><strong>Engrams picks the best matches</strong> — only the most useful items, so the response stays fast and affordable.</li>
+    <li><strong>Your AI writes code informed by real project context</strong> — not generic guesses.</li>
+    <li><strong>New decisions get saved.</strong> As you work, Engrams records what you decide so it's there next time.</li>
+  </ol>
+
+  <h2>Storage: the filesystem-first architecture</h2>
+  <p>
+    Engrams uses a <strong>two-layer storage model</strong> designed for team collaboration:
+  </p>
+  <table>
+    <thead><tr><th>Layer</th><th>Location</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong><code>.engrams/</code></strong></td>
+        <td>Project root (committed to Git)</td>
+        <td>Authoritative source for team decisions, patterns, and shared data — human-readable markdown files</td>
+      </tr>
+      <tr>
+        <td><strong><code>engrams/context.db</code></strong></td>
+        <td>Project root (in <code>.gitignore</code>)</td>
+        <td>Local SQLite cache for fast queries, FTS, semantic search, progress tracking, and session state</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    The core invariant: <strong><code>.engrams/</code> is the source of truth for team items</strong>.
+    The SQLite database is a derived cache that can always be rebuilt from the filesystem. If the
+    database is deleted, Engrams reconstructs it automatically from the markdown files.
+  </p>
+
+  <h2>Visibility levels</h2>
+  <p>
+    Every item stored in Engrams — decisions, patterns, custom data — carries an optional
+    <strong>visibility</strong> label that controls who sees it and how it's stored.
+  </p>
+  <table>
+    <thead><tr><th>Visibility</th><th>Stored in <code>.engrams/</code>?</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>team</code></td><td>✅ Yes (write-through)</td><td>Shared across all teammates via Git</td></tr>
+      <tr><td><code>individual</code></td><td>❌ No (SQLite only)</td><td>Personal notes or local state — never committed</td></tr>
+      <tr><td><code>proposed</code></td><td>❌ No (until accepted)</td><td>Suggestions under review before becoming team decisions</td></tr>
+      <tr><td><code>workspace</code></td><td>✅ Yes</td><td>Workspace-wide defaults visible to anyone using this repo</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Team sync via Git</h2>
+  <p>
+    When your AI logs a team decision, Engrams performs a <strong>guaranteed write-through</strong>:
+    the item goes into SQLite <em>and</em> is written as a markdown file in <code>.engrams/</code>.
+    If the filesystem write fails, the entire operation fails — no silent data loss.
+  </p>
+  <p>
+    Sharing is then just normal Git:
+  </p>
+  <ol>
+    <li><strong>Commit</strong> the <code>.engrams/</code> directory alongside your code changes.</li>
+    <li>Teammates <strong>pull</strong> and receive the new markdown files.</li>
+    <li>On the next MCP tool call, Engrams <strong>auto-imports</strong> new files into each
+        teammate's local SQLite cache.</li>
+  </ol>
+  <p>
+    Decisions are identified across machines by a <strong>content-addressed slug</strong>
+    (a 12-character SHA-256 of the summary text), so the same decision is recognized as
+    identical and never duplicated.
+  </p>
+  <p>
+    See <a href="/docs/features/team-sync">Team Sync</a> for the full architecture, directory
+    structure, and setup guide.
+  </p>
+
+  <h2>Decision enforcement</h2>
+  <p>
+    Before making changes, your AI can check whether a planned action conflicts with existing
+    team decisions using <code>tool_check_planned_action</code>. This pre-mutation check ensures
+    the AI respects prior architectural choices — like "use PostgreSQL for all storage" — before
+    writing any code.
+  </p>
+
+  <h2>Workspace detection</h2>
+  <p>
+    Engrams figures out which project you're working in automatically by looking for common project
+    files like <code>.git</code>, <code>package.json</code>, <code>pyproject.toml</code>, or <code>Cargo.toml</code>.
+    You never need to tell it where your project lives.
+  </p>
+
+  <h2>How Engrams connects to your AI tool</h2>
+  <table>
+    <thead><tr><th>Mode</th><th>What it does</th><th>Best for</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Local (stdio)</strong></td>
+        <td>Runs directly alongside your AI tool as a local process</td>
+        <td>IDE extensions like Roo Code, Cline, Cursor, and Windsurf</td>
+      </tr>
+      <tr>
+        <td><strong>Network (HTTP)</strong></td>
+        <td>Runs as a web server that clients can connect to</td>
+        <td>Remote setups, or multiple people sharing one Engrams instance</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Most users will use <strong>Local (stdio)</strong> — it's the default and requires no extra configuration.</p>
+
+  <h2>Smart search (semantic search)</h2>
+  <p>
+    When you save a decision or pattern, Engrams also creates a compact representation of its
+    <em>meaning</em>. Later, when your AI searches for something like "caching strategy," Engrams can
+    find related items — even if they use completely different words, like "Redis configuration"
+    or "query performance." This is called <strong>semantic search</strong>, and it's what makes Engrams
+    feel like it actually understands your project.
+  </p>
+
+  <h2>Keyword search</h2>
+  <p>
+    Engrams also supports fast, traditional keyword search. If you know the exact term you're
+    looking for — like a specific library name or error message — keyword search finds it
+    instantly without any extra processing.
+  </p>
+
+  <h2>The knowledge graph</h2>
+  <p>
+    Your project knowledge isn't isolated facts — it's all connected. Engrams lets you link
+    related items together. For example, you can connect a design decision to the coding patterns
+    that implement it, or link a task to the decisions it depends on. Your AI can follow these
+    connections to understand the bigger picture.
+  </p>
+
+  <h2>Context budgeting</h2>
+  <p>
+    As your project grows, you might have hundreds of saved decisions and patterns. Loading all
+    of them into every AI conversation would be slow and expensive. Engrams solves this by ranking
+    items by how relevant they are to your current question and only including the most useful
+    ones. The result: fast, focused, affordable responses. See
+    <a href="/docs/features/budgeting">Context Budgeting</a> for details.
+  </p>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+</style>

@@ -1,0 +1,229 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Team Governance" description="Enforce team-level architectural mandates while allowing individual flexibility.">
+  <h1>Team Governance</h1>
+  <p class="lead">
+    Two-layer scope hierarchy with conflict detection and amendment workflows. Enforce team
+    standards while allowing individual developers flexibility.
+  </p>
+
+  <h2>The two scopes</h2>
+  <table>
+    <thead><tr><th>Scope</th><th>Who owns it</th><th>Override rules</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Team</strong></td>
+        <td>The whole engineering team</td>
+        <td>Cannot be overridden by individual decisions without an approved amendment</td>
+      </tr>
+      <tr>
+        <td><strong>Individual</strong></td>
+        <td>A single developer</td>
+        <td>Can extend team decisions; cannot contradict them</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Recording a team-level decision</h2>
+  <p>
+    Team decisions are recorded by first creating a team scope (if one doesn't exist) and then
+    logging a governance rule under that scope. Any AI with access to the Engrams MCP server will
+    enforce the rule automatically from that point forward.
+  </p>
+  <pre><code>{`You: "Record a team decision: all data storage must use PostgreSQL.
+       This is a hard block — no exceptions without a formal amendment."
+
+AI:  I'll create a team scope and record that as a governance rule.
+
+     Scope created: "Core Architecture" (team)
+     Governance rule logged:
+       Rule #23 — "Standardize on PostgreSQL for all data storage"
+       Scope: Core Architecture (Team-level)
+       Enforcement: hard_block
+       Tags: database, architecture
+
+     Any proposal that conflicts with this rule will be blocked until
+     the team approves a formal amendment.`}</code></pre>
+  <p>
+    Under the hood this calls <code>create_scope</code> (once, if the scope is new) and then
+    <code>log_governance_rule</code> with the chosen enforcement level.
+  </p>
+
+  <h2>Enforcement levels</h2>
+  <p>
+    Every governance rule carries one of three enforcement levels. Choose the level that matches
+    how strictly the rule should be applied.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Level</th>
+        <th>What the AI does</th>
+        <th>When to use it</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>hard_block</code></td>
+        <td>Stops the work entirely and requires an explicit amendment before proceeding.</td>
+        <td>Non-negotiable standards — security policies, licensing requirements, core architecture mandates.</td>
+      </tr>
+      <tr>
+        <td><code>soft_warn</code></td>
+        <td>Raises a visible warning and asks for acknowledgement, but allows the developer to proceed.</td>
+        <td>Strong preferences the team usually follows but that may have legitimate exceptions (e.g. preferred libraries, naming conventions).</td>
+      </tr>
+      <tr>
+        <td><code>allow_with_flag</code></td>
+        <td>Permits the action and silently records a flag in the context so the deviation is visible in reviews and reports.</td>
+        <td>Advisory guidelines or emerging best practices where awareness matters but blocking would be counterproductive.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>hard_block example</h3>
+  <pre><code>{`You: "Record a team rule: never store credentials in source code.
+       Enforcement: hard_block."
+
+AI:  Governance rule logged:
+     Rule #7 — "No credentials in source code"
+     Scope: Security (Team-level)
+     Enforcement: hard_block
+
+---
+
+You: "Add the DB password directly to config.py for now."
+
+AI:  ⛔ Governance Conflict — hard_block
+
+     Rule #7: "No credentials in source code"
+     Scope: Security (Team-level)
+
+     This action is blocked. Please use environment variables or a
+     secrets manager. Would you like to propose a formal amendment?`}</code></pre>
+
+  <h3>soft_warn example</h3>
+  <pre><code>{`You: "Record a team rule: prefer React Query for all server-state fetching.
+       Enforcement: soft_warn."
+
+AI:  Governance rule logged:
+     Rule #14 — "Prefer React Query for server-state management"
+     Scope: Frontend (Team-level)
+     Enforcement: soft_warn
+
+---
+
+You: "Fetch the user list with useEffect and useState."
+
+AI:  ⚠️ Governance Advisory
+
+     Rule #14: "Prefer React Query for server-state management"
+
+     The team prefers React Query here. Proceeding with useEffect/useState
+     is allowed, but consider refactoring later. Continue anyway?`}</code></pre>
+
+  <h3>allow_with_flag example</h3>
+  <pre><code>{`You: "Record a team guideline: prefer named exports over default exports.
+       Enforcement: allow_with_flag."
+
+AI:  Governance rule logged:
+     Rule #31 — "Prefer named exports"
+     Scope: Code Style (Team-level)
+     Enforcement: allow_with_flag
+
+---
+
+You: "Add a default export to this utility module."
+
+AI:  (Proceeding — deviation from Rule #31 "Prefer named exports" has been
+     flagged in the active context for visibility in code review.)`}</code></pre>
+
+  <h2>Pre-mutation decision check</h2>
+  <p>
+    Before making any changes, your AI should verify the planned action against existing team
+    decisions using <code>tool_check_planned_action</code>. This is a lightweight pre-check
+    that runs <em>before</em> any code is written.
+  </p>
+  <pre><code>{`You: "I want to use MongoDB for the analytics module"
+
+AI:  [Checking planned action against team decisions...]
+
+     ⛔ Conflict detected with Decision #23:
+     "Standardize on PostgreSQL for all data storage"
+
+     This decision is marked as a team-level hard block.
+     I cannot proceed without a formal amendment.
+     Would you like to propose one?`}</code></pre>
+  <p>
+    The pre-check is part of the <strong>defense-in-depth</strong> governance system:
+  </p>
+  <ol>
+    <li><strong>Pre-mutation</strong> — <code>tool_check_planned_action</code> checks against accepted team decisions before any work</li>
+    <li><strong>Post-write</strong> — <code>check_compliance</code> verifies items against scope rules after they are saved</li>
+  </ol>
+  <p>
+    Even if the pre-check is skipped, the post-write safety net still flags conflicts. Both
+    layers work together to prevent accidental violations of team standards.
+  </p>
+
+  <h2>Conflict detection (post-write)</h2>
+  <pre><code>{`You: "I want to use MongoDB for the analytics module"
+
+AI:  Governance Conflict Detected
+
+     Your proposal conflicts with Team Decision #23:
+     "Standardize on PostgreSQL for all data storage"
+     Scope: Core Architecture (Team-level)
+
+     This is a hard block. Would you like to propose an amendment?`}</code></pre>
+
+  <h2>Amendment workflow</h2>
+  <pre><code>{`You: "Propose an amendment to allow InfluxDB for time-series metrics"
+
+AI:  Amendment proposal created:
+     Amendment #2 to Decision #5
+     Proposal: Allow InfluxDB for time-series metrics data
+     Rationale: PostgreSQL isn't optimized for high-volume time-series
+     Status: Pending team review`}</code></pre>
+
+  <h2>Individual strategies</h2>
+  <pre><code>{`You: "When I say I'm ready to create a PR, compare my branch with main
+      and generate a succinct summary for the PR description. Then run
+      autoflake and npm run lint -- --fix."
+
+AI:  Individual strategy #4 created:
+     Code summarization, import cleanup, and JS linting on PR creation.`}</code></pre>
+
+  <h2>Effective context</h2>
+  <p>
+    <code>get_effective_context</code> merges team and individual decisions, applying the correct
+    precedence rules. Your AI always sees the right combined view.
+  </p>
+
+  <h2>Team sync via Git</h2>
+  <p>
+    Governance decisions with <code>visibility=team</code> are automatically written to the
+    <code>.engrams/decisions/</code> directory as human-readable markdown files. Commit them
+    to Git and every teammate receives the architectural mandates on their next pull.
+  </p>
+  <p>
+    See <a href="/docs/features/team-sync">Team Sync</a> for the full filesystem-first
+    architecture and setup guide.
+  </p>
+
+  <h2>MCP tools</h2>
+  <ul>
+    <li><code>tool_check_planned_action</code> — <strong>pre-mutation check</strong> against accepted team decisions</li>
+    <li><code>create_scope</code> / <code>get_scopes</code></li>
+    <li><code>log_governance_rule</code> / <code>get_governance_rules</code></li>
+    <li><code>check_compliance</code> — post-write compliance verification</li>
+    <li><code>get_scope_amendments</code> / <code>review_amendment</code></li>
+    <li><code>get_effective_context</code></li>
+  </ul>
+</DocsLayout>
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+</style>
