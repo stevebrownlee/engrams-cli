@@ -26,7 +26,9 @@ pub enum Format {
 pub enum Command {
     /// Initialize the database schema
     Init,
-    
+
+    /// Migrate the database schema to the latest version
+    Migrate,
     /// Manage the product context document
     ProductContext {
         #[command(subcommand)]

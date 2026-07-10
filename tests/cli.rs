@@ -228,3 +228,55 @@ fn test_export_import() {
     engrams(&db2).args(&["decision", "list"]).assert().success()
         .stdout(predicate::str::contains("exp_d1"));
 }
+
+#[test]
+fn test_migrate_command() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Run migrate on non-existent db (creates it)
+    engrams(&db).arg("migrate").assert().success()
+        .stdout(predicate::str::contains(r#""status":"success""#).or(predicate::str::contains(r#""status": "success""#)));
+
+    // Run migrate again (noop)
+    engrams(&db).arg("migrate").assert().success()
+        .stdout(predicate::str::contains(r#""status":"success""#).or(predicate::str::contains(r#""status": "success""#)));
+}
+
+#[test]
+fn test_version_validation() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Init db
+    engrams(&db).arg("init").assert().success();
+
+    // Manually set user_version = 99 (newer version)
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute("PRAGMA user_version = 99", []).unwrap();
+    }
+
+    // Run a command, it should fail
+    let out = engrams(&db).arg("decision").arg("list")
+        .output().unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert!(stderr.contains("Database schema is newer than this CLI version"));
+    assert_eq!(out.status.code(), Some(1));
+
+    // Manually set user_version = 0 (simulating old version pre-migration framework)
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute("PRAGMA user_version = 0", []).unwrap();
+    }
+
+    // Run a command, it should succeed and auto-upgrade version to 1
+    engrams(&db).arg("decision").arg("list").assert().success();
+
+    // Verify it was upgraded back to 1
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let ver: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0)).unwrap();
+        assert_eq!(ver, 1);
+    }
+}

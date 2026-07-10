@@ -16,10 +16,14 @@ use std::path::Path;
 
 use crate::cli::{Command, ContextCmd, HistoryDoc};
 
-pub fn dispatch(conn: &Connection, cmd: Command, db_path: &Path, created: bool) -> Result<Value> {
+pub fn dispatch(conn: &mut Connection, cmd: Command, db_path: &Path, created: bool) -> Result<Value> {
     match cmd {
         Command::Init => {
             Ok(json!({"db_path": db_path.display().to_string(), "created": created}))
+        }
+        Command::Migrate => {
+            crate::db::run_migrations(conn)?;
+            Ok(json!({"status": "success", "message": "Database migrated to the latest version"}))
         }
         Command::ProductContext { cmd } => match cmd {
             ContextCmd::Get => context::get(conn, "product_context"),

@@ -23,9 +23,12 @@ fn run() -> Result<()> {
     let db_existed = db_path.exists();
     
     // We open (and create) the db for all commands.
-    let conn = db::open(&db_path)?;
+    let mut conn = db::open(&db_path)?;
 
-    let result = ops::dispatch(&conn, cli.command, &db_path, !db_existed)?;
+    let is_migrate_or_init = matches!(cli.command, cli::Command::Migrate | cli::Command::Init);
+    db::validate_version(&conn, is_migrate_or_init)?;
+
+    let result = ops::dispatch(&mut conn, cli.command, &db_path, !db_existed)?;
 
     output::emit(cli.format, result)?;
 
