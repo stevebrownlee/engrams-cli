@@ -28,7 +28,7 @@ Traditionally, developers feed AI agents context by pasting massive `README` fil
 You can supercharge your development by instructing your AI agents to use `engrams` directly. Here is a typical workflow and integration guide.
 
 ### 1. System Prompt Configuration
-Add a block to your agent's system instructions (or `.cursorrules` / MCP instructions) telling it how to interact with the database:
+Add the following instructions to your `AGENTS.md` file or `CLAUDE.md`, or even a rule or skill in your tool of choice:
 
 ```markdown
 ## Memory & Project Context (engrams)
@@ -40,10 +40,6 @@ You have access to the `engrams` CLI tool, which maintains a local SQLite databa
 4. **On Task Progress:** Track your progress using `engrams progress log`.
 5. **On Exit:** Update the `active-context` to summarize where you left off for the next agent/developer.
 ```
-
-### 2. MCP (Model Context Protocol) Integration
-If you are using an MCP-compatible environment (like Claude Desktop or Cursor), you can expose `engrams` as a set of tools by wrapping it in an MCP server. This gives the model direct access to get, search, and update memories.
-
 ---
 
 ## Feature Set
