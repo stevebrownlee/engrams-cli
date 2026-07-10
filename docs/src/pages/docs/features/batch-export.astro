@@ -2,160 +2,98 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Batch Operations & Export" description="Bulk log items and export/import your knowledge base to markdown.">
+<DocsLayout title="Batch Operations & Export / Import" description="Perform bulk database operations and serialize context to Markdown.">
   <h1>Batch Operations &amp; Export / Import</h1>
   <p class="lead">
-    Log multiple items in one call, export for backup or snapshots, and import from
-    version-controlled markdown.
+    Engrams provides robust commands for committing data in bulk and moving your project memory back and forth between a local SQLite database and version-controlled Markdown files.
   </p>
 
-  <div class="callout tip">
-    <strong>Primary team sync is now <code>.engrams/</code>.</strong>
-    In v1.4, team decisions are written through to <code>.engrams/</code> immediately when
-    created — no export step needed. The export/import tools below are useful for
-    <strong>backup</strong>, <strong>migration</strong>, and the <strong>legacy hook-based workflow</strong>.
-    See <a href="/docs/features/team-sync">Team Sync</a> for the primary sharing mechanism.
-  </div>
-
-  <h2>Batch logging</h2>
-  <pre><code>{`You: "Log these tech stack decisions all at once:
-      - FastAPI for REST API
-      - Pydantic for validation
-      - SQLAlchemy for ORM
-      - Alembic for migrations
-      - pytest for testing"
-
-AI:  Logged 5 decisions:
-     Decision #24: Use FastAPI for REST API
-     Decision #25: Use Pydantic for validation
-     Decision #26: Use SQLAlchemy for ORM
-     Decision #27: Use Alembic for migrations
-     Decision #28: Use pytest for testing
-
-     All tagged with "tech_stack".`}</code></pre>
-
-  <h2>Export to markdown</h2>
-  <pre><code>{`You: "Export all project knowledge to markdown"
-
-AI:  Exporting Engrams database to markdown...
-
-     Created ./docs/engrams_export/ with:
-     decisions.md    (28 decisions)
-     patterns.md     (8 patterns)
-     progress.md     (15 tasks)
-     glossary.md     (12 terms)
-     relationships.md (all links)
-
-     You can commit this to version control.`}</code></pre>
-
-  <h3>Team-only export (for Git commit)</h3>
+  <h2>Batch Operations</h2>
   <p>
-    Pass <code>visibility_filter="team"</code> to export only items that belong to the whole
-    team — personal progress, individual notes, and active-context files are excluded.
-    This is the format used by the pre-commit Git hook.
+    The <code>engrams batch</code> command allows you to insert multiple records of the same type in a single transaction. This is useful for seeding a new project or importing existing data.
   </p>
-  <pre><code>{`You: "Export only team-scoped decisions and patterns"
-
-AI:  Exporting with visibility_filter=team...
-
-     Created ./engrams-export/ with:
-     decision_log.md    (12 team decisions)
-     system_patterns.md (5 patterns)
-     custom_data/       (3 category files)
-
-     Personal progress and context files excluded.`}</code></pre>
-
-  <h2>Import from markdown</h2>
-  <pre><code>{`You: "Import the project knowledge from markdown"
-
-AI:  Importing from ./docs/engrams_export/...
-
-     Imported:
-     28 decisions
-     8 patterns
-     15 progress items
-     12 glossary terms
-     All relationships
-
-     Your project memory is fully restored.`}</code></pre>
-
-  <h3>Merge import (additive — for Git pull)</h3>
   <p>
-    Pass <code>merge=True</code> to import in <strong>additive-only mode</strong>.  Items that
-    already exist locally are skipped rather than overwritten, so personal notes and progress
-    are safe:
+    You pass a JSON array of items directly via the <code>--items</code> flag, or pass <code>-</code> to read from standard input:
   </p>
+
+  <h3>Examples</h3>
+
+  <h4>Provide JSON inline:</h4>
+  <pre><code>{`engrams batch --type decision --items '[{"summary": "Use Rust", "rationale": "Speed"}, {"summary": "Use SQLite", "rationale": "Local"}]'`}</code></pre>
+
+  <h4>Provide JSON via standard input:</h4>
+  <pre><code>cat items.json | engrams batch --type custom_data --items -</code></pre>
+
+  <p>
+    Supported batch types are: <code>decision</code>, <code>progress_entry</code>, <code>system_pattern</code>, <code>custom_data</code>.
+  </p>
+
+  <h2>Export to Markdown</h2>
+  <p>
+    To make your database contents readable by developers and commit-safe for Git, serialize it to human-readable Markdown files:
+  </p>
+  <pre><code>engrams export --path ./engrams_export</code></pre>
+  <p>
+    This dumps decisions, patterns, progress, custom configurations, and relationships as individual Markdown files and a <code>links.json</code> file in the target directory (defaults to <code>./engrams_export</code>).
+  </p>
+
+  <h2>Import from Markdown</h2>
+  <p>
+    When pulling updates from colleagues or restoring context after checkout, import the Markdown files back into your local SQLite database:
+  </p>
+  <pre><code>engrams import --path ./engrams_export</code></pre>
+  <p>
+    The import command automatically resolves duplicates (using summary-derived slugs) and updates existing items, ensuring your local SQLite database remains in sync with the repository.
+  </p>
+
+  <h2>Summary of Sync Commands</h2>
   <ul>
-    <li><strong>Decisions</strong> are matched by a 12-character content-hash slug (SHA-256 of the summary text), so the same decision exported from any machine is recognised as identical.</li>
-    <li><strong>Patterns</strong> are matched by name (case-insensitive).</li>
-    <li><strong>Custom data</strong> is matched by <code>category + key</code>.</li>
-    <li><strong>Context files</strong> (<code>product_context.md</code>, <code>active_context.md</code>, <code>progress_log.md</code>) are always skipped in merge mode — they are personal local state.</li>
-  </ul>
-  <pre><code>{`You: "Import team knowledge after pulling"
-
-AI:  Importing with merge=True from ./engrams-export/...
-
-     items_logged:  { decision_log: 3, system_patterns: 1 }
-     items_skipped: { decision_log: 9, system_patterns: 4, custom_data: 2 }
-     (existing local items untouched)
-
-     Your local database is up to date.`}</code></pre>
-
-  <h2>Legacy: Team sync via Git hooks</h2>
-  <p>
-    Prior to v1.4, team sync relied on Git hooks to export and import. This approach still works
-    and can serve as a <strong>backup mechanism</strong> alongside the primary
-    <a href="/docs/features/team-sync"><code>.engrams/</code> write-through</a>:
-  </p>
-  <table>
-    <thead><tr><th>Hook</th><th>When it runs</th><th>What it does</th></tr></thead>
-    <tbody>
-      <tr>
-        <td><strong>pre-commit</strong></td>
-        <td>Before every <code>git commit</code></td>
-        <td>Exports <code>visibility=team</code> data to <code>engrams-export/</code> and stages it</td>
-      </tr>
-      <tr>
-        <td><strong>post-merge</strong></td>
-        <td>After every <code>git pull</code> / <code>git merge</code></td>
-        <td>Imports <code>engrams-export/</code> in merge mode (additive only)</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Installing the hooks</h3>
-  <pre><code>{`# From your project root (requires a .git directory)
-engrams install-hooks
-
-# Custom export directory
-engrams install-hooks --export-dir team-engrams
-
-# Overwrite existing hooks
-engrams install-hooks --force`}</code></pre>
-  <p>
-    After running <code>install-hooks</code>, commit the <code>engrams-export/</code> directory
-    once so teammates receive your current team-scoped knowledge on their next pull.
-  </p>
-
-  <div class="callout tip">
-    <strong>Commit your export to version control.</strong>
-    Exporting and committing your Engrams database as markdown means new team members can
-    restore the full project memory by importing after cloning — or automatically via the
-    post-merge hook.
-  </div>
-
-  <h2>MCP tools</h2>
-  <ul>
-    <li><code>batch_log_items</code> — log multiple items of the same type in one call</li>
-    <li><code>export_engrams_to_markdown</code> — export knowledge to a markdown directory; supports <code>visibility_filter</code></li>
-    <li><code>import_markdown_to_engrams</code> — restore knowledge from a markdown export; supports <code>merge</code></li>
-  </ul>
-
-  <h2>CLI commands</h2>
-  <ul>
-    <li><code>engrams install-hooks</code> — write pre-commit and post-merge Git hooks for team sync</li>
+    <li><code>engrams batch --type &lt;type&gt; --items &lt;json&gt;</code> — Commit bulk records programmatically.</li>
+    <li><code>engrams export [--path &lt;DIR&gt;]</code> — Dump SQLite tables to Markdown files.</li>
+    <li><code>engrams import [--path &lt;DIR&gt;]</code> — Sync the SQLite database using the Markdown directory contents.</li>
   </ul>
 </DocsLayout>
+
 <style>
-  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  ul {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
 </style>

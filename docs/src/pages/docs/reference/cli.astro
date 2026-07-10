@@ -2,139 +2,202 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="CLI Reference" description="All engrams CLI commands and flags.">
+<DocsLayout title="CLI Reference" description="All engrams CLI commands, flags, and options.">
   <h1>CLI Reference</h1>
-  <p class="lead">Complete reference for the <code>engrams</code> command-line interface.</p>
+  <p class="lead">Complete reference for the standalone <code>engrams</code> command-line interface.</p>
 
-  <h2>Global usage</h2>
-  <pre><code>engrams &lt;command&gt; [options]</code></pre>
+  <h2>Global Usage</h2>
+  <pre><code>{`engrams [options] <command> [args]`}</code></pre>
 
-  <h2>Top-level flags</h2>
+  <h2>Global Options</h2>
   <table>
-    <thead><tr><th>Flag</th><th>Description</th></tr></thead>
+    <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>--help</code>, <code>-h</code></td><td>Show help and exit</td></tr>
-      <tr><td><code>--version</code></td><td>Print the Engrams version and exit</td></tr>
+      <tr><td><code>--db &lt;PATH&gt;</code></td><td>Auto-detected</td><td>Direct path to the SQLite <code>.db</code> file.</td></tr>
+      <tr><td><code>--workspace &lt;PATH&gt;</code></td><td>Closest workspace root</td><td>Directory to treat as the workspace root.</td></tr>
+      <tr><td><code>--format &lt;json|human&gt;</code></td><td><code>json</code></td><td>Output formatting style. Agents prefer <code>json</code>, developers prefer <code>human</code>.</td></tr>
+      <tr><td><code>-h, --help</code></td><td>-</td><td>Print help and usage information.</td></tr>
+      <tr><td><code>-V, --version</code></td><td>-</td><td>Print the version number.</td></tr>
     </tbody>
   </table>
 
-  <hr />
+  <h2>Commands</h2>
 
-  <h2><code>engrams serve</code></h2>
-  <p>Start the Engrams MCP server. This is the default command when no subcommand is provided.</p>
-  <pre><code>engrams serve [--mode stdio|http] [--host HOST] [--port PORT] [--log-level LEVEL]</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td><code>--mode</code></td><td><code>stdio</code></td><td>Communication mode: <code>stdio</code> or <code>http</code></td></tr>
-      <tr><td><code>--host</code></td><td><code>127.0.0.1</code></td><td>Host to bind (HTTP mode only)</td></tr>
-      <tr><td><code>--port</code></td><td><code>8000</code></td><td>Port to listen on (HTTP mode only)</td></tr>
-      <tr><td><code>--log-level</code></td><td><code>INFO</code></td><td>Logging level: DEBUG, INFO, WARNING, ERROR</td></tr>
-    </tbody>
-  </table>
+  <h3>1. <code>init</code></h3>
+  <p>Initialize the database schema at the resolved database path (creates <code>engrams/context.db</code> if missing).</p>
+  <pre><code>{`engrams init`}</code></pre>
 
-  <h3>Examples</h3>
-  <pre><code>{`# stdio mode (for IDE MCP clients)
-engrams serve --mode stdio
+  <h3>2. <code>migrate</code></h3>
+  <p>Migrate the database schema to the latest version.</p>
+  <pre><code>{`engrams migrate`}</code></pre>
 
-# HTTP mode
-engrams serve --mode http --host 0.0.0.0 --port 8000
+  <h3>3. <code>product-context</code></h3>
+  <p>Manage the product context document.</p>
+  <pre><code>{`engrams product-context get
+engrams product-context update --content '<JSON>'
+engrams product-context update --patch '<JSON>'`}</code></pre>
 
-# Verbose logging
-engrams serve --mode stdio --log-level DEBUG`}</code></pre>
+  <h3>4. <code>active-context</code></h3>
+  <p>Manage the active context document (current tasks, next steps, open questions).</p>
+  <pre><code>{`engrams active-context get
+engrams active-context update --content '<JSON>'
+engrams active-context update --patch '<JSON>'`}</code></pre>
 
-  <hr />
+  <h3>5. <code>history</code></h3>
+  <p>View historical revisions of context documents.</p>
+  <pre><code>{`engrams history <product-context|active-context> [--version <N>] [--limit <LIMIT>]`}</code></pre>
 
-  <h2><code>engrams init</code></h2>
-  <p>
-    Scaffold the AI strategy file for a supported coding tool into the current project directory.
-    Run this from your <strong>project root</strong>.
-  </p>
-  <pre><code>engrams init --tool &lt;name&gt; [--list] [--force] [--skip-prompts] [--team|--solo] [--project-dir DIR]</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td><code>--tool NAME</code></td><td>Target AI tool (see supported tools below)</td></tr>
-      <tr><td><code>--list</code></td><td>List all supported tool names and exit</td></tr>
-      <tr><td><code>--force</code></td><td>Overwrite an existing strategy file</td></tr>
-      <tr><td><code>--skip-prompts</code></td><td>Skip installing system prompt files (Roo only, rules-only mode)</td></tr>
-      <tr><td><code>--team</code></td><td>Configure as a team project (decisions shared via git)</td></tr>
-      <tr><td><code>--solo</code></td><td>Configure as a solo project (decisions stay local)</td></tr>
-      <tr><td><code>--project-dir DIR</code></td><td>Target project directory (default: <code>.</code>)</td></tr>
-    </tbody>
-  </table>
+  <h3>6. <code>decision</code></h3>
+  <p>Log, list, search, update, or delete architectural decisions (ADRs).</p>
+  <pre><code>{`# Log a new decision
+engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql"
 
-  <h3>Supported tools</h3>
-  <table>
-    <thead><tr><th>Tool name</th><th>Output file</th></tr></thead>
-    <tbody>
-      <tr>
-        <td><code>roo</code></td>
-        <td>
-          <code>.roo/rules/engrams_strategy</code><br/>
-          <code>.roomodes</code> (5 Flow modes)<br/>
-          <code>.roo/system-prompt-flow-*</code> (architect, code, ask, debug, orchestrator)
-        </td>
-      </tr>
-      <tr><td><code>cline</code></td><td><code>.clinerules</code></td></tr>
-      <tr><td><code>cursor</code></td><td><code>.cursorrules</code></td></tr>
-      <tr><td><code>windsurf</code></td><td><code>.windsurfrules</code></td></tr>
-      <tr><td><code>claude-code</code></td><td><code>CLAUDE.md</code></td></tr>
-      <tr><td><code>claude-desktop</code></td><td>Prints instructions for manual paste</td></tr>
-      <tr><td><code>generic</code></td><td><code>engrams_strategy.md</code></td></tr>
-    </tbody>
-  </table>
+# List decisions
+engrams decision list [--tags "db,sql"] [--limit 20]
 
-  <h3>Examples</h3>
-  <pre><code>{`# List available tools
-engrams init --list
+# Search decisions using FTS5
+engrams decision search "Postgres" [--limit 10]
 
-# Initialize for Roo Code
-engrams init --tool roo
+# Retrieve a decision by ID
+engrams decision get <ID>
 
-# Force overwrite an existing file
-engrams init --tool cursor --force
+# Update a decision
+engrams decision update <ID> [--summary "New summary"] [--rationale "New rationale"] [--details "details"] [--tags "new,tags"]
 
-# Initialize for Roo Code (rules only, no system prompts)
-engrams init --tool roo --skip-prompts
+# Delete a decision
+engrams decision delete <ID>`}</code></pre>
 
-# Scaffold into a specific directory
-engrams init --tool cline --project-dir /path/to/project`}</code></pre>
+  <h3>7. <code>progress</code></h3>
+  <p>Log and track tasks and subtasks.</p>
+  <pre><code>{`# Log progress
+engrams progress log --status "InProgress" --description "Database schema setup" [--parent-id <ID>]
 
-  <hr />
+# List progress
+engrams progress list [--status "Done"] [--parent-id <ID>] [--limit 20]
 
-  <h2><code>engrams dashboard</code></h2>
-  <p>Start the browser-based Engrams knowledge dashboard.</p>
-  <pre><code>engrams dashboard [--workspace DIR] [--port PORT] [--enable-chat] [--ollama-model MODEL]</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td><code>--workspace DIR</code></td><td>Auto-detected</td><td>Path to the project workspace</td></tr>
-      <tr><td><code>--port PORT</code></td><td><code>8080</code></td><td>Port for the dashboard web server</td></tr>
-      <tr><td><code>--enable-chat</code></td><td>off</td><td>Enable the Ollama chat panel</td></tr>
-      <tr><td><code>--ollama-model MODEL</code></td><td><code>llama3.2</code></td><td>Ollama model for the chat panel</td></tr>
-    </tbody>
-  </table>
+# Retrieve a task by ID
+engrams progress get <ID>
 
-  <h3>Examples</h3>
-  <pre><code>{`# Auto-detect workspace
-cd /path/to/project && engrams dashboard
+# Update a task
+engrams progress update <ID> [--status "Done"] [--description "New description"] [--parent-id <ID>]
 
-# Explicit workspace
-engrams dashboard --workspace /path/to/project
+# Delete a task
+engrams progress delete <ID>`}</code></pre>
 
-# With Ollama chat
-engrams dashboard --enable-chat --ollama-model llama3.2
+  <h3>8. <code>pattern</code></h3>
+  <p>Log and track design patterns and codebase conventions.</p>
+  <pre><code>{`# Log a pattern
+engrams pattern log --name "API response format" --description "Always return JSON with status code" --tags "api,rules"
 
-# Custom port
-engrams dashboard --port 9000`}</code></pre>
+# List patterns
+engrams pattern list [--tags "api"] [--limit 20]
 
-  <div class="callout note">
-    <strong>Legacy command:</strong> <code>engrams-dashboard</code> remains available for backward
-    compatibility but <code>engrams dashboard</code> is preferred.
-  </div>
+# Get a pattern by ID
+engrams pattern get <ID>
+
+# Delete a pattern
+engrams pattern delete <ID>`}</code></pre>
+
+  <h3>9. <code>custom</code></h3>
+  <p>Store arbitrary key-value pairs grouped by category.</p>
+  <pre><code>{`# Set a value (string or JSON)
+engrams custom set --category "config" --key "api_host" --value "localhost:8080"
+engrams custom set --category "config" --key "features" --value '{"auth": true}' --json
+
+# Get a value
+engrams custom get --category "config" [--key "api_host"]
+
+# Search custom values using FTS5
+engrams custom search "localhost" [--category "config"] [--limit 10]
+
+# Delete a value
+engrams custom delete --category "config" --key "api_host"`}</code></pre>
+
+  <h3>10. <code>link</code></h3>
+  <p>Create and list relationships (edges) in the workspace knowledge graph.</p>
+  <pre><code>{`# Link two entities
+engrams link add \\
+  --source-type system_pattern --source-id 1 \
+  --target-type decision --target-id 7 \
+  --rel implements \\
+  --description "Verify JWT middleware implements decision 7"
+
+# List links
+engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-type system_pattern]`}</code></pre>
+
+  <h3>11. <code>activity</code></h3>
+  <p>Get a summary digest of all modifications across the database.</p>
+  <pre><code>{`engrams activity [--hours <N>] [--limit-per-type <LIMIT>]`}</code></pre>
+
+  <h3>12. <code>batch</code></h3>
+  <p>Perform bulk operations in a single atomic transaction.</p>
+  <pre><code>{`# From JSON string
+engrams batch --type decision --items '[{"summary": "A"}, {"summary": "B"}]'
+
+# From stdin
+cat items.json | engrams batch --type custom_data --items -`}</code></pre>
+
+  <h3>13. <code>export</code></h3>
+  <p>Dump the SQLite tables to Markdown files for Git versioning.</p>
+  <pre><code>{`engrams export [--path <DIR>]`}</code></pre>
+
+  <h3>14. <code>import</code></h3>
+  <p>Import/update the database using exported Markdown files.</p>
+  <pre><code>{`engrams import [--path <DIR>]`}</code></pre>
 </DocsLayout>
 
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.35rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+  }
+
+  table thead {
+    background: var(--color-bg-sidebar);
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    line-height: 1.5;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
 </style>

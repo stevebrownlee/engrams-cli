@@ -9,6 +9,20 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     Make sure you have completed the <a href="/docs/installation">installation</a> first.
   </p>
 
+  <h2>Agent Integration</h2>
+  <p>
+    To teach your AI agent how to interact with Engrams CLI, add these instructions to your <code>AGENTS.md</code> file, <code>.clinerules</code>, <code>.cursorrules</code>, or system prompt settings:
+  </p>
+  <pre><code>{`## Memory & Project Context (engrams)
+You have access to the \`engrams\` CLI tool, which maintains a local SQLite database of project decisions, conventions, and progress.
+
+1. **On Startup:** Run \`engrams activity\` to see what has changed recently. Get the \`product-context\` and \`active-context\` to orient yourself.
+2. **Before Implementing:** Search \`engrams decision search "<topic>"\` and \`engrams pattern list\` to make sure your approach aligns with established decisions and codebase conventions.
+3. **When making design choices:** Log them with \`engrams decision log\` so they are documented for future sessions.
+4. **On Task Progress:** Track your progress using \`engrams progress log\`.
+5. **On Exit:** Update the \`active-context\` to summarize where you left off for the next agent/developer.`}</code></pre>
+
+  <h2>Interactive Walkthrough</h2>
   <div class="steps">
 
     <!-- Step 1 -->
@@ -18,16 +32,13 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
         <h3>Bootstrap from existing docs (optional)</h3>
         <p>
           If you already have a <code>README.md</code>, architecture doc, or similar, ask your AI
-          to read and store the key information in Engrams:
+          to parse it and log the key facts to the Engrams database. Behind the scenes, the AI will execute CLI commands:
         </p>
-        <pre><code>{`You: Read my README.md and docs/ARCHITECTURE.md and store
-     the key decisions, patterns, and project context in Engrams.
+        <pre><code>{`You: Parse my README.md and store our core architecture choices in Engrams.
 
-AI:  [ENGRAMS_ACTIVE] Engrams initialized.
-     Architectural patterns stored.
-     Coding standard decisions recorded.
-
-     What would you like to work on?`}</code></pre>
+AI:  I'll extract the core architecture choices.
+     [Running: engrams decision log --summary "Use Node.js with TypeScript" --rationale "Team proficiency" ...]
+     Logged 3 architectural decisions successfully!`}</code></pre>
       </div>
     </div>
 
@@ -35,15 +46,13 @@ AI:  [ENGRAMS_ACTIVE] Engrams initialized.
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-body">
-        <h3>Log your first decisions</h3>
-        <p>Start a conversation and tell your AI about important choices:</p>
-        <pre><code>{`You: The team has decided to use PostgreSQL as our primary database
-     because we need ACID guarantees and complex query support.
+        <h3>Log a decision manually</h3>
+        <p>When you and your AI agree on a design choice, have the AI log it to keep the database fresh:</p>
+        <pre><code>{`You: We've decided to use SQLite with FTS5 for local search.
 
-AI:  Decision logged to Engrams:
-     Decision #1: Use PostgreSQL for primary database
-     Rationale: ACID guarantees, complex queries, mature ecosystem
-     Tags: database, architecture`}</code></pre>
+AI:  Understood. Logging that decision.
+     [Running: engrams decision log --summary "Use SQLite with FTS5 for local search" --rationale "Fast, local, simple" --tags "search,db"]
+     Decision logged as ID 4.`}</code></pre>
       </div>
     </div>
 
@@ -51,20 +60,20 @@ AI:  Decision logged to Engrams:
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <h3>Watch context surface automatically</h3>
-        <p>Now ask your AI to implement something:</p>
-        <pre><code>{`You: Add a new /users endpoint to the API
-
-AI:  I'll help with that. Retrieving project context...
-
-     Found Decision #1: PostgreSQL is the primary database
-     Found Decision #7: JWT auth required on all routes
-     Found Pattern #2: Structured error handling
-
-     Implementing with SQLAlchemy, JWT middleware,
-     and proper error responses...`}</code></pre>
+        <h3>Retrieve context on demand</h3>
         <p>
-          The AI found those decisions <em>automatically</em> — you didn't have to mention them.
+          The AI agent checks Engrams at the start of a task or searches for topics to ensure it follows your conventions:
+        </p>
+        <pre><code>{`You: Write a search module for the database.
+
+AI:  Let me search Engrams for search-related decisions first.
+     [Running: engrams decision search "search"]
+     Found:
+     - Decision #4: Use SQLite with FTS5 for local search (Fast, local, simple)
+
+     I'll implement the search module using SQLite FTS5 as decided.`}</code></pre>
+        <p>
+          Because the AI queried the CLI directly, it aligned with your stack choice instantly—without you needing to re-state the rules.
         </p>
       </div>
     </div>
@@ -76,25 +85,24 @@ AI:  I'll help with that. Retrieving project context...
     <a href="/docs/features/team-sync" class="next-card">
       <span class="nc-icon">🔄</span>
       <strong>Team Sync</strong>
-      <span>Share decisions via <code>.engrams/</code> and Git</span>
+      <span>Share decisions via Markdown export and Git</span>
     </a>
-    <a href="/docs/features/governance" class="next-card">
-      <span class="nc-icon">🛡️</span>
-      <strong>Team Governance</strong>
-      <span>Enforce team-level architectural mandates</span>
+    <a href="/docs/features/search" class="next-card">
+      <span class="nc-icon">⚡</span>
+      <strong>FTS5 Search</strong>
+      <span>How fast local full-text search works</span>
     </a>
-    <a href="/docs/features/bindings" class="next-card">
-      <span class="nc-icon">🔗</span>
-      <strong>Codebase Bindings</strong>
-      <span>Bind decisions to file paths so context follows the code</span>
+    <a href="/docs/features/knowledge-graph" class="next-card">
+      <span class="nc-icon">🕸️</span>
+      <strong>Knowledge Graph</strong>
+      <span>Link decisions, patterns, and tasks together</span>
     </a>
-    <a href="/docs/features/dashboard" class="next-card">
-      <span class="nc-icon">📊</span>
-      <strong>Knowledge Dashboard</strong>
-      <span>Visually explore your project's knowledge graph</span>
+    <a href="/docs/reference/cli" class="next-card">
+      <span class="nc-icon">💻</span>
+      <strong>CLI Reference</strong>
+      <span>Check all commands and format options</span>
     </a>
   </div>
-</DocsLayout>
 
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }

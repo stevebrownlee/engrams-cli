@@ -5,29 +5,29 @@
    ============================================================ */
 
 :root {
-  --sky-aqua:    #56CBF9;
-  --maya-blue:   #7FBEEB;
-  --powder-blue: #AFBED1;
-  --pastel-petal:#EAC5D8;
-  --lavender:    #DBD8F0;
+  --sky-aqua:    #cca43b; /* Brass / Gold */
+  --maya-blue:   #242f40; /* Gunmetal */
+  --powder-blue: #e5e5e5; /* Platinum */
+  --pastel-petal:#363636; /* Jet */
+  --lavender:    #ffffff; /* White */
 
   /* Semantic tokens */
-  --color-bg:          #f8f9fc;
+  --color-bg:          #fafafa; /* Soft off-white */
   --color-bg-sidebar:  #ffffff;
-  --color-bg-code:     #f0f3f8;
+  --color-bg-code:     #f0f0f0;
   --color-surface:     #ffffff;
-  --color-border:      #e2e8f2;
-  --color-accent:      var(--sky-aqua);
-  --color-accent-dim:  var(--maya-blue);
-  --color-accent-soft: var(--lavender);
-  --color-muted:       var(--powder-blue);
-  --color-highlight:   var(--pastel-petal);
+  --color-border:      #e5e5e5; /* Platinum */
+  --color-accent:      #cca43b; /* Brass / Gold */
+  --color-accent-dim:  #242f40; /* Gunmetal */
+  --color-accent-soft: #e5e5e5; /* Platinum */
+  --color-muted:       #e5e5e5; /* Platinum */
+  --color-highlight:   #cca43b; /* Brass / Gold */
 
-  --color-text:        #1e2430;
-  --color-text-muted:  #5a6478;
-  --color-text-light:  #8492aa;
-  --color-link:        #2a7eb8;
-  --color-link-hover:  #1a5f8e;
+  --color-text:        #242f40; /* Gunmetal */
+  --color-text-muted:  #363636; /* Jet */
+  --color-text-light:  #5c677d; /* Muted gray-blue */
+  --color-link:        #cca43b; /* Brass / Gold */
+  --color-link-hover:  #242f40; /* Gunmetal */
 
   --sidebar-width: 260px;
   --toc-width:     220px;

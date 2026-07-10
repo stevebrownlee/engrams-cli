@@ -2,67 +2,108 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Knowledge Graph" description="Explicitly link entities to build a queryable relationship network.">
+<DocsLayout title="Knowledge Graph" description="Explicitly link entities to build a queryable relationship network using Engrams CLI.">
   <h1>Knowledge Graph &amp; Relationships</h1>
   <p class="lead">
-    Capture how decisions relate to patterns, how tasks track decisions, and how features depend
-    on each other. Build a queryable relationship network that gives your AI real project topology.
+    Capture how decisions relate to patterns, how tasks track decisions, and how configurations depend on other entities. Build a queryable relationship network that gives your AI agent complete workspace topology.
   </p>
 
-  <h2>Creating links</h2>
-  <pre><code>{`You: "Link the rate limiting pattern to Decision #14.
-      The pattern implements the decision."
+  <h2>Creating Links</h2>
+  <p>
+    Use the <code>engrams link add</code> command to connect any two entities in your database:
+  </p>
+  <pre><code>engrams link add \
+  --source-type system_pattern --source-id 2 \
+  --target-type decision --target-id 7 \
+  --rel implements \
+  --description "JWT token verification middleware"</code></pre>
 
-AI:  Relationship created:
-     Pattern #8 (Rate limiting) implements Decision #14 (API protection)
+  <h2>Supported Entity Types</h2>
+  <p>
+    You can establish links between the following four core entity types in the database:
+  </p>
+  <ul>
+    <li><code>decision</code> — Architectural or design decisions (ADRs).</li>
+    <li><code>system_pattern</code> — Codebase patterns or design standards.</li>
+    <li><code>progress_entry</code> — Task tracking and status progress.</li>
+    <li><code>custom_data</code> — Configuration key-value data.</li>
+  </ul>
 
-     Now when you review Decision #14, you'll see which patterns
-     implement it. When you work on the rate limiting pattern, you'll
-     see the decision it addresses.`}</code></pre>
-
-  <h2>Exploring relationships</h2>
-  <pre><code>{`You: "Show me everything related to the authentication decision"
-
-AI:  Linked items for Decision #7 (JWT authentication):
-
-     Implements:
-     - Pattern #3: Token validation middleware
-     - Pattern #5: Token refresh strategy
-
-     Tracks:
-     - Progress #12: Implement JWT endpoints
-     - Progress #18: Add token refresh logic
-
-     Related Decisions:
-     - Decision #12: Token expiry (7 days)
-     - Decision #18: CORS policy
-
-     Code Bindings:
-     src/auth/login.py
-     src/auth/middleware.py`}</code></pre>
-
-  <h2>Relationship types</h2>
+  <h2>Recommended Relationship Types</h2>
+  <p>
+    While the database allows any relationship string, the following standard values are recommended for best agent alignment:
+  </p>
   <table>
-    <thead><tr><th>Type</th><th>Meaning</th></tr></thead>
+    <thead><tr><th>Relationship type</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr><td><code>implements</code></td><td>A pattern or task implements a decision</td></tr>
+      <tr><td><code>tracks</code></td><td>A task progress entry tracks a decision</td></tr>
+      <tr><td><code>blocks</code></td><td>One progress entry blocks another</td></tr>
+      <tr><td><code>depends_on</code></td><td>General dependency relationship</td></tr>
+      <tr><td><code>supersedes</code></td><td>A new decision replaces/deprecates an older decision</td></tr>
+      <tr><td><code>resolves</code></td><td>A task progress entry completes a decision requirement</td></tr>
+      <tr><td><code>clarifies</code></td><td>Custom data clarifies a decision or pattern</td></tr>
       <tr><td><code>related_to</code></td><td>General association</td></tr>
-      <tr><td><code>tracks</code></td><td>Progress item tracks a decision</td></tr>
-      <tr><td><code>blocks</code></td><td>One item blocks progress on another</td></tr>
-      <tr><td><code>clarifies</code></td><td>Custom data clarifies a decision</td></tr>
-      <tr><td><code>depends_on</code></td><td>Dependency relationship</td></tr>
-      <tr><td><code>supersedes</code></td><td>A new decision supersedes an old one</td></tr>
-      <tr><td><code>resolves</code></td><td>A progress item resolves a decision</td></tr>
-      <tr><td><code>derived_from</code></td><td>An item was derived from another</td></tr>
     </tbody>
   </table>
 
-  <h2>MCP tools</h2>
-  <ul>
-    <li><code>link_engrams_items</code> — create a relationship between two items</li>
-    <li><code>get_linked_items</code> — retrieve all items linked to a given item (with optional filters)</li>
-  </ul>
+  <h2>Listing and Querying Links</h2>
+  <p>
+    Retrieve all linked items for a specific entity using the <code>list</code> subcommand:
+  </p>
+  <pre><code>engrams link list --item-type decision --item-id 7</code></pre>
+  <p>
+    You can filter the query to only return specific relationship types or linked entity types:
+  </p>
+  <pre><code># Find all patterns that implement decision 7
+engrams link list --item-type decision --item-id 7 --rel implements --linked-type system_pattern</code></pre>
+
+  <h2>Practical Benefit</h2>
+  <p>
+    By building these relations, your AI assistant can recursively query the graph to understand why certain code files are written the way they are. For example, if it sees a pattern in place, it can retrieve the linked decision to understand the business logic and constraints behind it.
+  </p>
 </DocsLayout>
+
 <style>
-  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  ul, ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
 </style>

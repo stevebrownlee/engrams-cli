@@ -38,31 +38,20 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h3>1. Clone and install</h3>
   <pre><code>{`git clone https://github.com/stevebrownlee/engrams.git
-cd engrams-mcp
+cd engrams-cli
 
-# Create virtual environment (uv recommended)
-uv venv
-source .venv/bin/activate   # macOS/Linux
-# .venv\\Scripts\\activate  # Windows
-
-# Install all dependencies including dev extras
-uv pip install -r requirements.txt
-uv pip install -e ".[dev,dashboard,test]"`}</code></pre>
+# Build the project locally
+cargo build`}</code></pre>
 
   <h3>2. Run tests</h3>
-  <pre><code>{`pytest
-# or with coverage
-pytest --cov=src/engrams`}</code></pre>
+  <pre><code>{`cargo test`}</code></pre>
 
   <h3>3. Code style</h3>
-  <pre><code>{`# Format
-black src/ tests/
-isort src/ tests/
+  <pre><code>{`# Format code
+cargo fmt
 
-# Lint
-flake8 src/ tests/
-autoflake --remove-all-unused-imports -r src/`}</code></pre>
-
+# Run linter
+cargo clippy`}</code></pre>
   <h2>Pull request workflow</h2>
   <ol>
     <li>Fork the repository</li>

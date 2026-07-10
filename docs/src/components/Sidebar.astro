@@ -14,10 +14,8 @@ const nav = [
     section: 'Core Concepts',
     items: [
       { label: 'How Engrams Works', href: '/docs/concepts/how-it-works' },
-      { label: 'Knowledge Types',   href: '/docs/concepts/knowledge-types' },
-      { label: 'Why Engrams as MCP', href: '/docs/concepts/why-engrams-mcp' },
+      { label: 'Why Engrams CLI', href: '/docs/concepts/why-engrams' },
       { label: 'Markdown vs Engrams', href: '/docs/concepts/markdown-vs-engrams' },
-      { label: 'MCP Protocol',      href: '/docs/concepts/mcp' },
     ],
   },
   {
@@ -25,13 +23,9 @@ const nav = [
     items: [
       { label: 'Structured Context',   href: '/docs/features/structured-context' },
       { label: 'Team Sync',            href: '/docs/features/team-sync' },
-      { label: 'Team Governance',      href: '/docs/features/governance' },
-      { label: 'Semantic Search',      href: '/docs/features/semantic-search' },
-      { label: 'Codebase Bindings',    href: '/docs/features/bindings' },
-      { label: 'Context Budgeting',    href: '/docs/features/budgeting' },
+      { label: 'Full-Text Search',     href: '/docs/features/search' },
       { label: 'Cost Efficiency',      href: '/docs/features/cost-efficiency' },
       { label: 'Project Onboarding',   href: '/docs/features/onboarding' },
-      { label: 'Knowledge Dashboard',  href: '/docs/features/dashboard' },
       { label: 'Knowledge Graph',      href: '/docs/features/knowledge-graph' },
       { label: 'Batch & Export',       href: '/docs/features/batch-export' },
     ],
@@ -40,7 +34,6 @@ const nav = [
     section: 'Reference',
     items: [
       { label: 'CLI Reference',    href: '/docs/reference/cli' },
-      { label: 'MCP Tools',        href: '/docs/reference/mcp-tools' },
       { label: 'AI Tool Setup',    href: '/docs/reference/ai-tool-setup' },
       { label: 'Security & Trust',  href: '/docs/reference/security-model' },
     ],
@@ -87,9 +80,9 @@ function isActive(href: string) {
   </nav>
 
   <div class="sidebar-footer">
-    <a href="https://pypi.org/project/engrams-mcp/" class="version-badge" target="_blank" rel="noopener">
+    <a href="https://github.com/stevebrownlee/engrams" class="version-badge" target="_blank" rel="noopener">
       <span class="badge-dot"></span>
-      engrams-mcp v{__APP_VERSION__}
+      engrams v{__APP_VERSION__}
     </a>
   </div>
 </aside>

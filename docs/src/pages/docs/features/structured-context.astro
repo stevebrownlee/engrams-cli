@@ -48,17 +48,17 @@ AI:  Found relevant decisions:
     </tbody>
   </table>
 
-  <h2>MCP tools</h2>
+  <h2>CLI Commands Reference</h2>
   <ul>
-    <li><code>get_product_context</code> / <code>update_product_context</code></li>
-    <li><code>get_active_context</code> / <code>update_active_context</code></li>
-    <li><code>log_decision</code> / <code>get_decisions</code> / <code>search_decisions_fts</code></li>
-    <li><code>log_progress</code> / <code>get_progress</code></li>
-    <li><code>log_system_pattern</code> / <code>get_system_patterns</code></li>
-    <li><code>log_custom_data</code> / <code>get_custom_data</code></li>
+    <li><code>engrams product-context get</code> / <code>update</code> — Manage high-level project goals and tech stack.</li>
+    <li><code>engrams active-context get</code> / <code>update</code> — Track current sprint focus and session goals.</li>
+    <li><code>engrams decision log</code> / <code>search</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Record and find architectural decisions (ADRs).</li>
+    <li><code>engrams progress log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Log tasks and track hierarchical subtasks.</li>
+    <li><code>engrams pattern log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Standardize and retrieve codebase patterns and design conventions.</li>
+    <li><code>engrams custom set</code> / <code>get</code> / <code>search</code> / <code>delete</code> — Store arbitrary configuration or key-value pairs.</li>
   </ul>
 
-  <p>See the full <a href="/docs/reference/mcp-tools">MCP Tools reference</a> for parameters.</p>
+  <p>See the full <a href="/docs/reference/cli">CLI Reference</a> for arguments and options.</p>
 </DocsLayout>
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }

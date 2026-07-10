@@ -69,41 +69,37 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h2>Key capabilities</h2>
   <ul>
-    <li><strong>Team sync via Git</strong> — decisions are written to <code>.engrams/</code> as markdown files, committed alongside your code</li>
-    <li><strong>Decision enforcement</strong> — your AI checks existing team decisions before proposing changes</li>
-    <li><strong>Smart search</strong> — find relevant decisions even if you use different words</li>
-    <li><strong>Codebase links</strong> — connect decisions to specific files so context appears when your AI opens them</li>
-    <li><strong>Cost control</strong> — only the most relevant items are included, so your AI stays fast and affordable</li>
-    <li><strong>Team rules</strong> — set project-wide standards that every contributor's AI respects</li>
-    <li><strong>Visual dashboard</strong> — explore your project knowledge in an interactive browser-based view</li>
+    <li><strong>Team sync via Git</strong> — Export project memory to Markdown using <code>engrams export</code> to commit to Git, and restore using <code>engrams import</code> on checkout.</li>
+    <li><strong>Lightweight & Performant</strong> — Built in Rust, accessing local SQLite database files directly in a few milliseconds with zero daemon overhead.</li>
+    <li><strong>Full-Text Search (FTS5)</strong> — Instantly query decisions and custom settings using SQLite's built-in FTS5 engine.</li>
+    <li><strong>Relationship Links</strong> — Establish typed connections between decisions, patterns, and progress to form a queryable knowledge graph.</li>
+    <li><strong>Agent-Native API</strong> — Clean JSON output by default for programmatic consumption, with a structured <code>--format human</code> mode for developer reading.</li>
   </ul>
 
   <h2>Architecture overview</h2>
   <p>
-    Engrams runs quietly alongside your AI coding tool. It works with popular tools like Roo Code,
-    Cline, Cursor, and Windsurf. Each project gets its own storage — a <code>.engrams/</code>
-    directory for team-shared markdown files (committed to Git) and a local <code>engrams/context.db</code>
-    SQLite cache. Your data stays local and separate per project.
+    Engrams runs as a standalone CLI tool in your project workspace. It integrates with any AI coding tool
+    supporting shell commands (like Zoo Code, Cursor, Antigravity, Zed, or Claude Code). The CLI maintains a local
+    SQLite database at <code>engrams/context.db</code> for high-performance FTS5 queries and updates. To share context
+    with your team, developers export database state to version-controlled Markdown files in the workspace.
   </p>
 
   <div class="arch-diagram" aria-label="Architecture diagram">
-    <div class="arch-row">
+    <div class="arch-grid">
+      <!-- Row 1 -->
       <div class="arch-box user">You</div>
       <div class="arch-arrow">↔</div>
-      <div class="arch-box ai">AI Agent<br/><small>(Roo, Cline, Cursor…)</small></div>
+      <div class="arch-box ai">AI Agent<br/><small>(Zoo, Cursor, Antigravity, Zed…)</small></div>
       <div class="arch-arrow">↔</div>
-      <div class="arch-box mcp">Engrams MCP<br/><small>(uvx engrams-mcp)</small></div>
+      <div class="arch-box mcp">Engrams CLI<br/><small>(Rust binary)</small></div>
       <div class="arch-arrow">↔</div>
-      <div class="arch-box db">.engrams/<br/><small>Team markdown (Git)</small></div>
-    </div>
-    <div class="arch-row" style="margin-top: .5rem;">
-      <div class="arch-box" style="visibility:hidden; min-width:110px;"></div>
-      <div class="arch-arrow" style="visibility:hidden;">↔</div>
-      <div class="arch-box" style="visibility:hidden; min-width:110px;"></div>
-      <div class="arch-arrow" style="visibility:hidden;">↔</div>
-      <div class="arch-box" style="visibility:hidden; min-width:110px;"></div>
-      <div class="arch-arrow" style="visibility:hidden;">↔</div>
       <div class="arch-box db">SQLite DB<br/><small>engrams/context.db (local)</small></div>
+
+      <!-- Row 2 -->
+      <div style="grid-column: 5; text-align: center; font-size: 1.25rem; color: var(--color-text-light); margin-top: -0.35rem; margin-bottom: -0.35rem;">↕</div>
+
+      <!-- Row 3 -->
+      <div class="arch-box db" style="grid-column: 5;">Markdown Sync<br/><small>engrams_export/ (Git)</small></div>
     </div>
   </div>
 
@@ -141,12 +137,13 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     margin: 2rem 0;
     overflow-x: auto;
   }
-  .arch-row {
-    display: flex;
+  .arch-grid {
+    display: grid;
+    grid-template-columns: auto auto auto auto auto auto auto;
     align-items: center;
     justify-content: center;
     gap: .75rem;
-    flex-wrap: wrap;
+    min-width: 680px;
   }
   .arch-box {
     background: #fff;

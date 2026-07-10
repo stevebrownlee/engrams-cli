@@ -8,175 +8,51 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 >
   <h1>Installation</h1>
   <p class="lead">
-    Engrams runs as an MCP server and requires <strong>Python 3.10+</strong>.
-    The recommended way is <code>uvx</code>, which manages the Python
-    environment automatically.
+    Engrams is a standalone Rust binary. It runs entirely locally in your workspace with zero daemon or server overhead.
   </p>
 
-  <h2>Prerequisites</h2>
-  <ul>
-    <li>
-      <strong>Python 3.10+</strong> — I recommend using <a
-        href="https://github.com/pyenv/pyenv?tab=readme-ov-file#table-of-contents"
-        target="_blank"
-        rel="noopener">pyenv</a>
-    </li>
-    <li>
-      <strong>uv</strong> (recommended) — fast Python package manager. Install with:
-      <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
-    </li>
-  </ul>
+  <h2>Step 1 — Install the CLI</h2>
+  <p>Choose the installation method that fits your operating system:</p>
 
-  <h2>Step 1 — Configure Editor</h2>
+  <h3>Via Installer Script (macOS & Linux)</h3>
+  <pre><code>curl -fsSL https://engrams.sh/install | bash</code></pre>
+
+  <h3>Via Homebrew (macOS)</h3>
+  <p>Install the CLI using Homebrew by tapping the official repository:</p>
+  <pre><code>brew install stevebrownlee/engrams/engrams</code></pre>
+
+  <h3>From Source (Rust Toolchain Required)</h3>
+  <p>If you have Rust installed, you can compile and install directly from source:</p>
+  <pre><code>cargo install --git https://github.com/stevebrownlee/engrams.git</code></pre>
+
+  <h2>Step 2 — Initialize your project</h2>
   <p>
-    <code>uvx</code> runs Engrams directly from PyPI. Add the following to your MCP
-    client's configuration file:
+    Navigate to your project root directory and run:
+  </p>
+  <pre><code>engrams init</code></pre>
+  <p>
+    This command initializes the local SQLite database at <code>engrams/context.db</code> and outputs the resolved path.
   </p>
 
-  <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": [
-        "--reinstall",
-        "--from", "engrams-mcp",
-        "engrams-mcp",
-        "--mode", "stdio",
-        "--log-level", "INFO"
-      ]
-    }
-  }
-}`}</code></pre>
-
-  <h2>Where is the config file?</h2>
-  <table>
-    <thead><tr><th>Tool</th><th>Config file location</th></tr></thead>
-    <tbody>
-      <tr
-        ><td>Roo Code</td><td
-          ><code>~/.roo/mcp.json</code> or workspace <code>.roo/mcp.json</code
-          ></td
-        ></tr
-      >
-      <tr><td>Cline</td><td>VS Code settings → Cline → MCP Servers</td></tr>
-      <tr><td>Cursor</td><td><code>~/.cursor/mcp.json</code></td></tr>
-      <tr
-        ><td>Windsurf</td><td
-          ><code>~/.codeium/windsurf/mcp_config.json</code></td
-        ></tr
-      >
-      <tr><td>Claude Code</td><td><code>~/.claude/mcp.json</code></td></tr>
-      <tr
-        ><td>Claude Desktop</td><td
-          ><code
-            >~/Library/Application Support/Claude/claude_desktop_config.json</code
-          ></td
-        ></tr
-      >
-    </tbody>
-  </table>
-
-  <div class="callout tip">
-    <strong>Workspace detection is automatic.</strong>
-    You do <em>not</em> need to pass <code>--workspace_id</code>. Engrams
-    detects the active project directory per-call using common project
-    indicators (<code>.git</code>, <code>package.json</code>, etc.).
-  </div>
-
-  <h2>Step 2 — Install the CLI</h2>
-  <p>In your project root directory, run this command to install the CLI tools:</p>
-  <pre><code>pip install engrams-mcp</code></pre>
-
-  <h2>Step 3 — Initialize your project</h2>
+  <h2>Step 3 — Configure your AI Tool</h2>
   <p>
-    Run <code>engrams init</code> from your project root. This does three things:
-    installs the AI strategy file, sets up team or solo mode, and creates the Engrams database.
-  </p>
-  <pre><code>{`# See all supported tools
-engrams init --list
-
-# Initialize for your AI tool (interactive — prompts for team/solo)
-engrams init --tool roo
-engrams init --tool cline
-engrams init --tool cursor
-engrams init --tool windsurf
-engrams init --tool claude-code
-engrams init --tool generic
-
-# Or specify team/solo directly
-engrams init --tool roo --team    # Team: decisions shared via .engrams/ + Git
-engrams init --tool roo --solo    # Solo: decisions stay in local database`}</code></pre>
-
-  <div class="callout note">
-    <strong>What does this do?</strong>
-    <ol>
-      <li><strong>Strategy file</strong> — tells your AI how and when to use Engrams tools</li>
-      <li><strong>Team/solo config</strong> — sets the default visibility for decisions</li>
-      <li><strong>Database</strong> — creates <code>engrams/context.db</code> with the visibility config seeded</li>
-      <li><strong>(Team only) <code>.engrams/</code> directory</strong> — creates the filesystem structure for Git-shared decisions</li>
-    </ol>
-  </div>
-
-  <h3>For Roo Code users</h3>
-  <p>
-    <code>engrams init --tool roo</code> installs the complete Roo scaffold:
-  </p>
-  <ul>
-    <li><code>.roo/rules/engrams_strategy</code> — Engrams memory strategy rules</li>
-    <li><code>.roomodes</code> — 5 custom Flow modes (Code, Architect, Ask, Debug, Orchestrator)</li>
-    <li><code>.roo/system-prompt-flow-*</code> — Per-mode system prompts with Engrams integration</li>
-  </ul>
-  <p>Use <code>--skip-prompts</code> to install only the strategy rules without system prompt files.</p>
-
-  <h2>Step 4 — (Team) Commit <code>.engrams/</code> to Git</h2>
-  <p>
-    If you chose <strong>Team</strong> mode, Engrams created a <code>.engrams/</code> directory.
-    Commit it to share team decisions through Git:
-  </p>
-  <pre><code>{`git add .engrams/
-git commit -m "chore: initialize Engrams team sync"
-git push`}</code></pre>
-  <p>
-    From this point on, every decision your AI logs with <code>visibility=team</code> is
-    automatically written as a markdown file in <code>.engrams/decisions/</code>. When you
-    commit and push, teammates get those decisions on their next pull.
-  </p>
-
-  <div class="callout tip">
-    <strong>No Git hooks required.</strong>
-    Unlike earlier versions, v1.4 uses a <strong>write-through</strong> approach — team items
-    are written to <code>.engrams/</code> immediately when created. You just commit the
-    directory as part of your normal Git workflow. See
-    <a href="/docs/features/team-sync">Team Sync</a> for the full architecture.
-  </div>
-
-  <h3>Teammates joining the project</h3>
-  <p>
-    When a teammate clones the repo, they already have all team decisions in <code>.engrams/</code>.
-    They just need to:
-  </p>
-  <pre><code>{`pip install engrams-mcp
-engrams init --tool roo --team   # (or their preferred AI tool)`}</code></pre>
-  <p>
-    On the first MCP tool call, Engrams auto-imports the <code>.engrams/</code> files into
-    their local SQLite cache.
+    To allow your AI assistant to read from and write to Engrams, you must add instructions to its system prompt.
+    See the detailed <a href="/docs/reference/ai-tool-setup">AI Tool Setup guide</a> to set up Cursor, Zoo Code, Antigravity, Zed, or Claude Code.
   </p>
 
   <h2>Verify the installation</h2>
-  <p>In a new chat, ask your AI:</p>
-  <pre><code>What is the Engrams schema? List all available MCP tools.</code></pre>
-  <p>If Engrams is connected, the AI will respond with a full list of tools.</p>
+  <p>Run a test command in your terminal to verify Engrams is working:</p>
+  <pre><code>engrams product-context get</code></pre>
+  <p>It should output a default empty JSON or database path indicating it was resolved correctly.</p>
 
-  <div class="callout warning">
-    <strong>No manual database setup required.</strong>
-    The SQLite database is created automatically the first time any Engrams MCP
-    tool is called. Do <em>not</em> run <code>alembic</code>, migration scripts,
-    or any other database commands manually — Engrams handles this internally.
+  <div class="callout tip">
+    <strong>Where is the database stored?</strong>
+    By default, <code>engrams</code> looks for the closest workspace root (indicated by <code>.git</code>, <code>Cargo.toml</code>, or <code>package.json</code>) and stores the database at <code>&lt;workspace&gt;/engrams/context.db</code>.
+    You can override this by passing the <code>--db &lt;PATH&gt;</code> or <code>--workspace &lt;PATH&gt;</code> flags.
   </div>
 
   <hr />
   <p>Next: <a href="/docs/quick-start">Quick Start →</a></p>
-</DocsLayout>
 
 <style>
   .lead {

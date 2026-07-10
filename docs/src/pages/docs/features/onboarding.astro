@@ -2,64 +2,124 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Project Onboarding" description="Progressive briefing system for getting up to speed on any project.">
-  <h1>Project Onboarding</h1>
+<DocsLayout title="Project Onboarding" description="How to onboard new developers and AI agents using Engrams CLI.">
+  <h1>Project Onboarding & Agent Orientation</h1>
   <p class="lead">
-    Progressive briefing system for getting up to speed on any project. Perfect for new team
-    members, returning to a project after time away, or starting a fresh AI session.
+    When a new developer joins your team or you start a fresh conversation with an AI agent, they need a quick way to get oriented. Engrams provides a structured onboarding flow using product context, active sprint goals, and recent activity.
   </p>
 
-  <h2>Request a briefing</h2>
-  <pre><code>{`You: "Give me a project briefing"
-
-AI:  PROJECT BRIEFING: TaskMaster API
-
-     Purpose: RESTful API for task management with team collaboration
-
-     Key Decisions:
-     - PostgreSQL for primary database (ACID guarantees)
-     - JWT tokens for stateless authentication
-     - Redis for session caching
-     - Microservices architecture with event sourcing
-
-     Current Status:
-     - User authentication: Complete
-     - Task CRUD: In progress
-     - Real-time notifications: Planned
-
-     Tech Stack: Python, FastAPI, PostgreSQL, Redis, Docker`}</code></pre>
-
-  <h2>Drill into a section</h2>
-  <pre><code>{`You: "Tell me more about the authentication system"
-
-AI:  AUTHENTICATION SYSTEM DETAILS
-
-     Decision #7: Use JWT tokens for stateless auth
-     Rationale: Scales better than sessions, works with microservices
-
-     Pattern #3: Token validation middleware
-     Implementation: src/auth/middleware.py
-
-     Related decisions:
-     - Decision #12: Token refresh strategy (7-day expiry)
-     - Decision #18: CORS policy for token endpoints
-
-     Code locations:
-     src/auth/login.py     — Token generation
-     src/auth/middleware.py — Token validation
-     src/auth/session.py   — Session management`}</code></pre>
-
-  <h2>Briefing staleness</h2>
+  <h2>Orienting an AI Agent Instantly</h2>
   <p>
-    Engrams tracks when each briefing section was last updated and flags stale sections —
-    so you know which parts of the briefing may be out of date.
+    Instead of spending time copy-pasting code trees or drafting custom explanations, your AI agent can run a standard series of orientation commands at startup:
   </p>
 
-  <h2>MCP tools</h2>
+  <div class="steps">
+    <ol>
+      <li>
+        <strong>Read the Product Context:</strong>
+        <p>The agent runs <code>engrams product-context get</code> to understand the project's purpose, tech stack, and primary architecture goals.</p>
+        <pre><code>engrams product-context get</code></pre>
+      </li>
+      <li>
+        <strong>Read the Active Context:</strong>
+        <p>The agent runs <code>engrams active-context get</code> to see what the team is currently working on, what open questions exist, and what the immediate next steps are.</p>
+        <pre><code>engrams active-context get</code></pre>
+      </li>
+      <li>
+        <strong>Fetch Recent Activity:</strong>
+        <p>The agent runs <code>engrams activity</code> to get a reverse-chronological digest of recent additions and updates, showing what code decisions and patterns were logged recently.</p>
+        <pre><code>engrams activity --hours 48</code></pre>
+      </li>
+    </ol>
+  </div>
+
+  <h2>Example Onboarding Session</h2>
+  <p>
+    Here is what a typical agent startup sequence looks like under the hood:
+  </p>
+  <pre><code>{`AI: [Running: engrams product-context get]
+    Result: { "stack": "Rust, SQLite", "purpose": "High-performance CLI tool" }
+
+AI: [Running: engrams active-context get]
+    Result: { "focus": "Implementing link commands", "status": "InProgress" }
+
+AI: [Running: engrams activity --hours 24]
+    Result: [
+      { "type": "decision", "summary": "Use rusqlite with bundled feature", "timestamp": "2026-07-10T12:00:00Z" }
+    ]
+
+AI: "Hello! I see this is a Rust CLI tool utilizing SQLite (via rusqlite with bundled features).
+    The current active focus is implementing the 'link' commands. I am ready to assist."`}</code></pre>
+
+  <h2>Summary of Onboarding Commands</h2>
   <ul>
-    <li><code>get_project_briefing</code> — generate a project briefing (set <code>staleness_only=True</code> to check freshness, pass a single section in <code>sections</code> to drill down)</li>
+    <li><code>engrams product-context get</code> — Retrieves the stable high-level overview.</li>
+    <li><code>engrams active-context get</code> — Retrieves the current session focus and status.</li>
+    <li><code>engrams activity [--hours &lt;N&gt;]</code> — Generates a chronological digest of recent changes across all memory records.</li>
   </ul>
 </DocsLayout>
+
 <style>
-  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  ul, ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+
+  .steps {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .steps ol {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .steps li {
+    margin-bottom: 1rem;
+  }
+
+  .steps li:last-child {
+    margin-bottom: 0;
+  }
 </style>

@@ -39,12 +39,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             target="_blank"
             rel="noopener">GitHub</a
           >
-          <a
-            href="https://pypi.org/project/engrams-mcp/"
-            target="_blank"
-            rel="noopener">PyPI</a
-          >
-        </nav>
       </div>
     </header>
 
@@ -66,45 +60,45 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <!-- ── Feature Cards ── -->
     <section class="features">
       <div class="features-inner">
-        <h2 class="section-heading">What Engrams provides...</h2>
-
         <div class="feature-grid">
           {
             [
               {
-                icon: "",
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path></svg>',
                 title: "Structured Memory",
-                desc: "Save architectural decisions, design patterns, task progress, and project notes.",
+                desc: "Save architectural decisions (ADRs), system patterns, task progress, and product context.",
               },
               {
-                icon: "",
-                title: "Smart Search",
-                desc: 'Search by meaning, not just exact words because Engrams understands what you mean.',
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
+                title: "FTS5 Search",
+                desc: "Blazing fast local full-text search in SQLite lets your AI retrieve relevant details instantly.",
               },
               {
-                icon: "",
-                title: "Team Governance",
-                desc: "Set team-wide rules — like \"always use PostgreSQL\" — that every contributor's LLM respects.",
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>',
+                title: "Git-Sync Friendly",
+                desc: "Export the database to clean markdown files for version control, and import them back on checkout.",
               },
               {
-                icon: "",
-                title: "Codebase Bindings",
-                desc: "Link decisions to specific files and folders. Relevant context shows up automatically when editing.",
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+                title: "Zero Overhead",
+                desc: "Written in Rust with no background daemons, servers, memory footprint, or external APIs.",
               },
               {
-                icon: "",
-                title: "Context Budgeting",
-                desc: "As your project grows, Engrams retrieves only relevant items so you keep costs down.",
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
+                title: "Knowledge Graph",
+                desc: "Link decisions to patterns, progress to decisions, and features to custom configuration data.",
               },
               {
-                icon: "",
-                title: "Knowledge Dashboard",
-                desc: "See all your project knowledge in a visual, browser-based dashboard.",
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>',
+                title: "Agent-Native",
+                desc: "Simple JSON inputs/outputs designed for direct terminal tool execution by AI coding assistants.",
               },
             ].map((f) => (
               <div class="feature-card">
-                <span class="feature-icon">{f.icon}</span>
-                <h3>{f.title}</h3>
+                <div class="feature-card-header">
+                  <span class="feature-icon" set:html={f.icon}></span>
+                  <h3>{f.title}</h3>
+                </div>
                 <p>{f.desc}</p>
               </div>
             ))
@@ -121,17 +115,35 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <div class="hero-code" style="margin: 0 auto;">
         <div class="code-bar">
           <span class="dot red"></span><span class="dot yellow"></span><span
-            class="dot green"></span><span class="filename">mcp.json</span>
+            class="dot green"></span><span class="filename">terminal</span>
         </div>
-        <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": ["--reinstall", "--from", "engrams-mcp",
-               "engrams-mcp", "--mode", "stdio"]
-    }
-  }
-}`}</code></pre>
+        <pre><code>{`$ engrams --help
+Usage: engrams [OPTIONS] <COMMAND>
+
+Commands:
+  init             Initialize the database schema
+  migrate          Migrate the database schema to the latest version
+  product-context  Manage the product context document
+  active-context   Manage the active context document
+  history          View history of context documents
+  decision         Log and search architectural decisions
+  progress         Track task execution and progress
+  pattern          Log recurring system patterns and conventions
+  custom           Store arbitrary configuration or key-value data
+  link             Create knowledge-graph relations between items
+  activity         Get a recent summary of all modifications
+  batch            Perform multiple operations in a single transaction
+  export           Dump database to Markdown files for git sync
+  import           Import Markdown files back into the database
+
+$ engrams decision log \\
+  --summary "Use PostgreSQL for primary database" \\
+  --rationale "Need ACID guarantees and complex queries" \\
+  --tags "db,arch"
+Decision logged as ID 1.
+
+$ engrams decision search "caching"
+# Search results retrieved instantly via FTS5 index...`}</code></pre>
       </div>
     </section>
   </body>
@@ -144,13 +156,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <div class="tool-chips">
         {
           [
-            "Roo Code",
-            "Cline",
             "Cursor",
-            "Windsurf",
             "Claude Code",
-            "Claude Desktop",
-            "Any MCP client",
+            "Antigravity",
+            "Zed",
+            "Terminal agents (e.g. pi, omp, etc.)",
           ].map((t) => <span class="chip">{t}</span>)
         }
       </div>
@@ -300,7 +310,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     letter-spacing: 0.04em;
   }
   .hero-title {
-    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-size: clamp(2rem, 5vw, 3rem);
     font-weight: 800;
     line-height: 1.1;
     margin-bottom: 1.25rem;
@@ -376,7 +386,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   /* Hero code block */
   .hero-code {
     width: 100%;
-    max-width: 520px;
+    max-width: 640px;
     background: #1a2035;
     border-radius: var(--radius-lg);
     overflow: hidden;
@@ -456,16 +466,26 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
   }
+  .feature-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+  }
   .feature-icon {
-    font-size: 1.75rem;
     display: block;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0;
+  }
+  .feature-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--color-link);
+    display: block;
   }
   .feature-card h3 {
     font-size: 1rem;
     font-weight: 700;
-    margin-bottom: 0.4rem;
-    margin-top: 0;
+    margin: 0;
   }
   .feature-card p {
     font-size: 0.875rem;

@@ -1,0 +1,100 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Full-Text Search (FTS5)" description="Fast, local full-text search in Engrams CLI.">
+  <h1>Full-Text Search (FTS5)</h1>
+  <p class="lead">
+    Engrams CLI uses SQLite's built-in <strong>FTS5 virtual tables</strong> to index architectural decisions and custom data. 
+    This enables your AI coding assistant to query and retrieve project memory instantly without external API calls or vector embedding overhead.
+  </p>
+
+  <h2>Why FTS5 over Vector Search?</h2>
+  <p>
+    While semantic vector search sounds high-tech, it introduces significant downsides for local development:
+  </p>
+  <ul>
+    <li><strong>High Resource Usage:</strong> Local vector search requires loading large machine learning models (like sentence-transformers) into memory, eating CPU/GPU.</li>
+    <li><strong>External Costs & Network Dependency:</strong> Cloud embedding APIs (like OpenAI's) cost money per request, require active internet, and leak your codebase decisions to third parties.</li>
+    <li><strong>Fragile Dependency Chains:</strong> C++ vector databases and Python bindings are notorious for breaking on OS updates or arch changes (e.g., Apple Silicon).</li>
+  </ul>
+  <p>
+    <strong>SQLite FTS5</strong> is built directly into the SQLite binary. It requires zero configuration, has zero memory footprint when idle, and searches your database in under <strong>5 milliseconds</strong>.
+  </p>
+
+  <h2>How to Search</h2>
+  <p>
+    You can query the database using the <code>search</code> subcommand under decisions and custom data:
+  </p>
+
+  <h3>1. Search decisions (ADRs)</h3>
+  <pre><code>engrams decision search "PostgreSQL"</code></pre>
+
+  <h3>2. Search custom data</h3>
+  <pre><code>engrams custom search "api_host"</code></pre>
+
+  <h2>Under the Hood: SQLite Virtual Tables</h2>
+  <p>
+    Engrams automatically maintains the search index behind the scenes. When you initialize the database, the CLI creates FTS virtual tables:
+  </p>
+  <pre><code>{`CREATE VIRTUAL TABLE decisions_fts USING fts5(
+  summary, rationale, implementation_details, tags,
+  content='decisions', content_rowid='id'
+);`}</code></pre>
+  <p>
+    Automatic database triggers are configured for <code>INSERT</code>, <code>UPDATE</code>, and <code>DELETE</code>. Whenever you or your AI changes a decision or custom key-value pair, the FTS index updates instantly in the same transaction.
+  </p>
+
+  <h2>Practical Benefits for AI Assistants</h2>
+  <p>
+    Because FTS5 search is so fast and lightweight, your AI assistant can proactively run searches during a task. For example, before editing a database file, the agent's system prompt instructs it to run:
+  </p>
+  <pre><code>engrams decision search "database"</code></pre>
+  <p>
+    The agent receives matching ADRs immediately, preventing it from suggesting out-of-spec packages or storage engines.
+  </p>
+</DocsLayout>
+
+<style>
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  ul {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+</style>

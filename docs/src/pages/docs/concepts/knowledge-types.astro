@@ -5,15 +5,15 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 <DocsLayout title="Knowledge Types" description="The structured knowledge types stored in Engrams.">
   <h1>Knowledge Types</h1>
   <p class="lead">
-    Engrams stores six distinct types of structured knowledge. Each maps to a database table and
-    a set of MCP tools for creating, reading, searching, and deleting records.
+    Engrams stores structured knowledge across several distinct types. Each type maps to a database table
+    and is managed via specific <code>engrams</code> CLI subcommands.
   </p>
 
   <h2>Product Context</h2>
   <p>
     A single JSON document representing the high-level, relatively stable description of your project —
-    goals, architecture overview, key features, tech stack.
-    Updated with <code>update_product_context</code>; retrieved with <code>get_product_context</code>.
+    goals, architecture overview, key features, and tech stack.
+    Updated with <code>engrams product-context update</code>; retrieved with <code>engrams product-context get</code>.
   </p>
   <div class="callout note">
     <strong>When to use it:</strong> Think of this as your project's README in structured form.
@@ -23,30 +23,31 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <h2>Active Context</h2>
   <p>
     A single JSON document representing the <em>current</em> state of work — the present focus,
-    open questions, next steps, recent changes. Updated frequently during a session.
+    open questions, next steps, and recent changes. Updated frequently during a session.
+    Updated with <code>engrams active-context update</code>; retrieved with <code>engrams active-context get</code>.
   </p>
 
   <h2>Decisions</h2>
   <p>
-    Individual architectural or implementation choices with a summary, rationale, implementation
+    Individual architectural or implementation choices (ADRs) with a summary, rationale, implementation
     details, and optional tags. Decisions are the most commonly used knowledge type.
   </p>
   <pre><code>{`Decision #7: Use JWT tokens for stateless authentication
 Rationale: Scales better than sessions, works with microservices
 Tags: auth, security, architecture`}</code></pre>
-  <p>Supports full-text search (FTS5) and semantic vector search.</p>
+  <p>Supports fast keyword and phrase queries via SQLite FTS5 index: <code>engrams decision search &lt;query&gt;</code>.</p>
 
   <h2>Progress</h2>
   <p>
-    Task tracking with hierarchical parent/child support. Each entry has a status
-    (<code>TODO</code>, <code>IN_PROGRESS</code>, <code>DONE</code>, <code>BLOCKED</code>) and
+    Task tracking with hierarchical parent/child support. Managed via <code>engrams progress</code>. Each entry has a status
+    (e.g., <code>TODO</code>, <code>InProgress</code>, <code>Done</code>) and
     an optional parent ID for subtask relationships.
   </p>
 
   <h2>System Patterns</h2>
   <p>
     Recurring architectural or design patterns observed or used in the project. Unlike decisions
-    (which capture <em>why</em>), patterns capture <em>how</em>.
+    (which capture <em>why</em>), patterns capture <em>how</em>. Managed via <code>engrams pattern</code>.
   </p>
   <pre><code>{`Pattern #3: Token validation middleware
 Description: All API routes validate JWT in Authorization header
@@ -55,16 +56,16 @@ Description: All API routes validate JWT in Authorization header
   <h2>Custom Data</h2>
   <p>
     A flexible category/key/value store for any project knowledge that doesn't fit the above types:
-    glossaries, technical specifications, meeting notes, configuration snippets.
+    glossaries, technical specifications, config values, or team guidelines. Managed via <code>engrams custom</code>.
   </p>
-  <pre><code>{`Category: ProjectGlossary
-Key: "notification_channel"
-Value: { "schema": "...", "description": "WebSocket channel for push notifications" }`}</code></pre>
-  <p>Supports FTS via <code>search_custom_data_value_fts</code> with <code>category_filter="ProjectGlossary"</code>.</p>
+  <pre><code>{`Category: config
+Key: "api_host"
+Value: "localhost:8080"`}</code></pre>
+  <p>Supports custom value FTS search: <code>engrams custom search &lt;query&gt;</code>.</p>
 
   <h2>Context Links (Relationships)</h2>
   <p>
-    Explicit edges in the knowledge graph. A link connects two entities with a named relationship type:
+    Explicit edges in the knowledge graph. A link connects two entities with a named relationship type using the <code>engrams link</code> command:
   </p>
   <table>
     <thead><tr><th>Relationship type</th><th>Meaning</th></tr></thead>

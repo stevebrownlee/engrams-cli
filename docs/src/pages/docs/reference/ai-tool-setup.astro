@@ -2,106 +2,120 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="AI Tool Setup" description="Step-by-step setup guides for each supported AI coding tool.">
+<DocsLayout title="AI Tool Setup" description="Configure your AI coding assistant to use the Engrams CLI.">
   <h1>AI Tool Setup</h1>
   <p class="lead">
-    Detailed configuration guides for each supported AI coding tool.
-    All require the same two steps: add Engrams to the MCP config, then run <code>engrams init</code>.
+    Configure Cursor, Zoo Code, Antigravity, Zed, or Claude Code to leverage the <code>engrams</code> CLI. 
+    Because Engrams is a standard terminal command, setup requires no background servers — just a custom system instruction.
   </p>
 
-  <h2>Roo Code</h2>
-  <p>Add to <code>~/.roo/mcp.json</code> or <code>&lt;project&gt;/.roo/mcp.json</code>:</p>
-  <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": ["--reinstall", "--from", "engrams-mcp", "engrams-mcp", "--mode", "stdio"]
-    }
-  }
-}`}</code></pre>
-  <pre><code>engrams init --tool roo</code></pre>
-  <p>This installs the complete Roo scaffold:</p>
-  <ul>
-    <li><code>.roo/rules/engrams_strategy</code> — Engrams memory strategy rules</li>
-    <li><code>.roomodes</code> — 5 custom Flow modes (Code, Architect, Ask, Debug, Orchestrator)</li>
-    <li><code>.roo/system-prompt-flow-*</code> — Per-mode system prompts with Engrams integration</li>
-  </ul>
-  <p>Use <code>--skip-prompts</code> to install only the strategy rules without system prompt files.</p>
-
-  <h2>Cline</h2>
-  <p>In VS Code, open Settings → Extensions → Cline → MCP Servers and add:</p>
-  <pre><code>{`{
-  "engrams": {
-    "command": "uvx",
-    "args": ["--reinstall", "--from", "engrams-mcp", "engrams-mcp", "--mode", "stdio"]
-  }
-}`}</code></pre>
-  <pre><code>engrams init --tool cline</code></pre>
-
-  <h2>Cursor</h2>
-  <p>Add to <code>~/.cursor/mcp.json</code>:</p>
-  <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": ["--reinstall", "--from", "engrams-mcp", "engrams-mcp", "--mode", "stdio"]
-    }
-  }
-}`}</code></pre>
-  <pre><code>engrams init --tool cursor</code></pre>
-
-  <h2>Windsurf</h2>
-  <p>Add to <code>~/.codeium/windsurf/mcp_config.json</code>:</p>
-  <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": ["--reinstall", "--from", "engrams-mcp", "engrams-mcp", "--mode", "stdio"]
-    }
-  }
-}`}</code></pre>
-  <pre><code>engrams init --tool windsurf</code></pre>
-
-  <h2>Claude Code</h2>
-  <p>Add to <code>~/.claude/mcp.json</code>:</p>
-  <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": ["--reinstall", "--from", "engrams-mcp", "engrams-mcp", "--mode", "stdio"]
-    }
-  }
-}`}</code></pre>
-  <pre><code>engrams init --tool claude-code</code></pre>
-  <p>This creates a <code>CLAUDE.md</code> file in your project root with the Engrams strategy.</p>
-
-  <h2>Claude Desktop</h2>
-  <p>Add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code>%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):</p>
-  <pre><code>{`{
-  "mcpServers": {
-    "engrams": {
-      "command": "uvx",
-      "args": ["--reinstall", "--from", "engrams-mcp", "engrams-mcp", "--mode", "stdio"]
-    }
-  }
-}`}</code></pre>
-  <pre><code>engrams init --tool claude-desktop</code></pre>
-  <p>This prints custom instructions to paste into Claude Desktop's Project Instructions field.</p>
-
-  <h2>Any other MCP client</h2>
-  <pre><code>engrams init --tool generic</code></pre>
+  <h2>The Core Rule Template</h2>
   <p>
-    This creates <code>engrams_strategy.md</code> — a tool-agnostic strategy document you can
-    paste into any AI's system prompt or custom instructions field.
+    Add the following instructions to your tool's custom instructions or rules file. This teaches the AI agent exactly when and how to call the <code>engrams</code> binary:
+  </p>
+
+  <pre><code>{`## Memory & Project Context (Engrams CLI)
+You have access to the \`engrams\` CLI command in this workspace. It manages project memory (ADRs, patterns, progress, context) in a local SQLite database.
+
+1. **Orientation at Startup:**
+   At the beginning of a conversation, run:
+   \`engrams product-context get\`
+   \`engrams active-context get\`
+   \`engrams activity --hours 24\`
+   to orient yourself with the tech stack, current goals, and recent changes.
+
+2. **Check Before Implementing:**
+   Before writing code or making design choices, search the database to check for existing decisions and patterns:
+   \`engrams decision search "<topic>"\`
+   \`engrams pattern list\`
+   Always align your work with these established guidelines.
+
+3. **Log Design Decisions:**
+   When you make an architectural choice or solve a design problem, log it:
+   \`engrams decision log --summary "<choice>" --rationale "<reason>"\`
+
+4. **Track Task Progress:**
+   Update your progress as you work:
+   \`engrams progress log --status "InProgress" --description "<task>"\`
+   When complete, log the update with \`--status "Done"\`.
+
+5. **Session handoff:**
+   Before ending the session, update the active context to orient the next agent:
+   \`engrams active-context update --content '{"focus": "<next_task>", "status": "InProgress"}'\``}</code></pre>
+
+  <h2>Tool-Specific Locations</h2>
+  <p>
+    Place the template above in the appropriate location for your preferred AI tool:
+  </p>
+
+  <h3>Zoo Code</h3>
+  <p>
+    Create a new rule file in your project root at:
+    <br />
+    <code>.roo/rules/engrams-memory.md</code> (or <code>.zoo/rules/engrams-memory.md</code>)
+  </p>
+
+  <h3>Cursor</h3>
+  <p>
+    Create or append to the rules file in your project root at:
+    <br />
+    <code>.cursorrules</code> (or create a file in <code>.cursor/rules/</code>)
+  </p>
+
+  <h3>Antigravity</h3>
+  <p>
+    Create or append to the rules file in your project root at:
+    <br />
+    <code>.antigravityrules</code>
+  </p>
+
+  <h3>Zed</h3>
+  <p>
+    Add the instruction template to your custom instructions or workspace settings at:
+    <br />
+    <code>.zed/settings.json</code>
+  </p>
+
+  <h3>Claude Code</h3>
+  <p>
+    Create a file named <code>CLAUDE.md</code> in your project root. Claude Code reads this file automatically at startup to determine build, test, and style commands.
   </p>
 
   <div class="callout tip">
-    <strong>Restart required.</strong>
-    After modifying your MCP config, restart your IDE or reload the window for the changes
-    to take effect.
+    <strong>Verifying connection:</strong>
+    Once configured, start a new chat with your agent and ask:
+    <br />
+    <code>"Search Engrams for database decisions"</code>
+    <br />
+    The agent should execute <code>engrams decision search "database"</code> in its terminal and output the results.
   </div>
 </DocsLayout>
 
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
 </style>
