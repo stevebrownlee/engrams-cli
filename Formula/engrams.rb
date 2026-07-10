@@ -1,7 +1,7 @@
 class Engrams < Formula
   desc "Standalone, high-performance Rust CLI for managing contextual memory"
   homepage "https://github.com/stevebrownlee/engrams-cli"
-  version "0.0.1"
+  version "0.0.2"
 
   if OS.mac?
     if Hardware::CPU.intel?
