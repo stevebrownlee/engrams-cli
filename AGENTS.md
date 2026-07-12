@@ -1,3 +1,9 @@
+# Engrams CLI Tool
+
+## Purpose
+
+To maintain long-term context about the project so that valuable tokens aren't wasted between separate conversations with an LLM agent. It stored project patterns, architectural decisions, active context with progress, a linked knowledge graph, and any custom data the developer wants.
+
 ## Memory & Project Context (engrams)
 You have access to the `engrams` CLI tool, which maintains a local SQLite database of project decisions, conventions, and progress.
 

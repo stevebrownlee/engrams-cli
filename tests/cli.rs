@@ -510,7 +510,7 @@ fn test_report() {
         .args(&["--format", "human", "report"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("ENGRAMS REPORT"))
+        .stdout(predicate::str::contains("PROJECT REPORT"))
         .stdout(predicate::str::contains("Active Context"))
         .stdout(predicate::str::contains("Progress"))
         .stdout(predicate::str::contains("Decisions"))
