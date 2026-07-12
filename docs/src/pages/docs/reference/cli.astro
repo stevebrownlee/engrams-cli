@@ -15,7 +15,6 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     <tbody>
       <tr><td><code>--db &lt;PATH&gt;</code></td><td>Auto-detected</td><td>Direct path to the SQLite <code>.db</code> file.</td></tr>
       <tr><td><code>--workspace &lt;PATH&gt;</code></td><td>Closest workspace root</td><td>Directory to treat as the workspace root.</td></tr>
-      <tr><td><code>--format &lt;json|human&gt;</code></td><td><code>json</code></td><td>Output formatting style. Agents prefer <code>json</code>, developers prefer <code>human</code>.</td></tr>
       <tr><td><code>-h, --help</code></td><td>-</td><td>Print help and usage information.</td></tr>
       <tr><td><code>-V, --version</code></td><td>-</td><td>Print the version number.</td></tr>
     </tbody>
@@ -136,18 +135,18 @@ engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-
   <pre><code>{`engrams activity [--hours <N>] [--limit-per-type <LIMIT>]`}</code></pre>
 
   <h3>12. <code>report</code></h3>
-  <p>Generate a structured project knowledge report of active context, progress, decisions, patterns, and links. Can be filtered by a specific topic. Supports JSON (default) and human-readable Markdown tables.</p>
+  <p>Generate a structured project knowledge report of active context, progress, decisions, patterns, and links. Output is always JSON. Can be filtered by a specific topic. Or, open a browser-based HTML dashboard using the <code>open</code> subcommand.</p>
   <pre><code>{`# Generate full report in JSON format
 engrams report
 
-# Generate full report in Markdown format (Human-readable)
-engrams --format human report
+# Show only decisions in JSON format
+engrams report decisions
 
-# Show only progress entries in Markdown format
-engrams --format human report progress
+# Generate and open the interactive HTML dashboard with knowledge graph
+engrams report open
 
-# Export report to a Markdown file to open in a reader
-engrams --format human report > report.md`}</code></pre>
+# Generate the dashboard HTML file at a custom path without opening a browser
+engrams report open --no-browser --out /path/to/report.html`}</code></pre>
 
   <h3>13. <code>batch</code></h3>
   <p>Perform bulk operations in a single atomic transaction.</p>

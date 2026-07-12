@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Engrams Knowledge Dashboard</title>
+  <style>/*__ENGRAMS_SLOT__*/</style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-main">
+      <h1>Engrams Dashboard</h1>
+      <span class="db-path" id="header-db-path"></span>
+    </div>
+    <div class="header-meta">
+      <span class="meta-item">Generated at: <strong id="header-gen-time"></strong></span>
+      <span class="meta-item">Version: <strong id="header-version"></strong></span>
+      <span class="meta-note">Snapshot — re-run <code>engrams report open</code> to refresh</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tab-graph">Graph</button>
+    <button class="tab-btn" data-tab="tab-overview">Overview</button>
+    <button class="tab-btn" data-tab="tab-decisions">Decisions</button>
+    <button class="tab-btn" data-tab="tab-progress">Progress</button>
+    <button class="tab-btn" data-tab="tab-patterns">Patterns</button>
+    <button class="tab-btn" data-tab="tab-custom">Custom Data</button>
+    <button class="tab-btn" data-tab="tab-links">Links</button>
+  </nav>
+
+  <main class="content-area">
+    <div id="tab-graph" class="tab-content active">
+      <div id="dangling-banner" class="banner hidden"></div>
+      <div class="graph-layout">
+        <aside class="sidebar-left">
+          <h2>Controls</h2>
+          <div class="control-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="chk-show-isolated"> Show isolated items
+            </label>
+          </div>
+          
+          <h3>Filter Item Types</h3>
+          <div class="control-group" id="filter-node-types">
+            <label class="checkbox-label"><input type="checkbox" data-type="decision" checked> Decisions</label>
+            <label class="checkbox-label"><input type="checkbox" data-type="progress_entry" checked> Progress</label>
+            <label class="checkbox-label"><input type="checkbox" data-type="system_pattern" checked> Patterns</label>
+            <label class="checkbox-label"><input type="checkbox" data-type="custom_data" checked> Custom Data</label>
+          </div>
+
+          <h3>Filter Relationship Types</h3>
+          <div class="control-group scrollable" id="filter-relationship-types">
+            <!-- Dynamic checklist -->
+          </div>
+
+          <h3>Search Nodes</h3>
+          <div class="control-group">
+            <input type="text" id="search-input" placeholder="Search by name, description, rationale, tags...">
+          </div>
+
+          <div class="control-group actions">
+            <button id="btn-re-layout" class="btn">Re-run Layout</button>
+            <button id="btn-reset-view" class="btn">Reset View</button>
+          </div>
+
+          <h3>Legend</h3>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-dot" style="background: #4f8ef7;"></span> Decision</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #34c98e;"></span> Progress (Pending)</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #34c98e; border: 2px solid #107e54; box-sizing: border-box;"></span> Progress (Done)</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #b678f2;"></span> System Pattern</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #f2a13c;"></span> Custom Data</div>
+            <div class="legend-item"><span class="legend-line"></span> context link (solid)</div>
+            <div class="legend-item"><span class="legend-line dashed"></span> subtask of (dashed)</div>
+          </div>
+        </aside>
+
+        <div id="cy-container">
+          <div id="cy"></div>
+          <div id="graph-empty-message" class="empty-message hidden">
+            No links recorded yet. Create relations with <code>engrams link add ...</code> to build the knowledge graph.
+          </div>
+        </div>
+
+        <aside class="sidebar-right" id="detail-panel">
+          <div class="detail-placeholder">
+            Click a node to inspect details.<br>Double-click to focus neighborhood.
+          </div>
+          <div class="detail-content hidden" id="detail-content">
+            <div class="detail-header">
+              <span class="detail-type-badge" id="detail-type"></span>
+              <h2 id="detail-title"></h2>
+            </div>
+            <div class="detail-body" id="detail-body-container">
+              <!-- Rendered details -->
+            </div>
+            <div class="detail-focus-depth hidden" id="detail-focus-depth-container">
+              <label for="focus-depth">Focus depth: </label>
+              <select id="focus-depth">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+            <div class="detail-links-section">
+              <h3>Connections</h3>
+              <ul id="detail-links-list"></ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div id="tab-overview" class="tab-content">
+      <div class="overview-cards">
+        <div class="card">
+          <span class="card-num" id="card-decisions">-</span>
+          <span class="card-label">Decisions</span>
+        </div>
+        <div class="card">
+          <span class="card-num" id="card-progress">-</span>
+          <span class="card-label">Progress Entries</span>
+        </div>
+        <div class="card">
+          <span class="card-num" id="card-patterns">-</span>
+          <span class="card-label">System Patterns</span>
+        </div>
+        <div class="card">
+          <span class="card-num" id="card-custom">-</span>
+          <span class="card-label">Custom Data</span>
+        </div>
+        <div class="card">
+          <span class="card-num" id="card-links">-</span>
+          <span class="card-label">Context Links</span>
+        </div>
+      </div>
+
+      <div class="context-docs">
+        <div class="context-panel">
+          <h2>Product Context</h2>
+          <div class="context-doc-body" id="doc-product-context"></div>
+        </div>
+        <div class="context-panel">
+          <h2>Active Context</h2>
+          <div class="context-doc-body" id="doc-active-context"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-decisions" class="tab-content">
+      <div class="table-wrapper">
+        <table id="table-decisions"></table>
+      </div>
+    </div>
+
+    <div id="tab-progress" class="tab-content">
+      <div class="table-wrapper">
+        <table id="table-progress"></table>
+      </div>
+    </div>
+
+    <div id="tab-patterns" class="tab-content">
+      <div class="table-wrapper">
+        <table id="table-patterns"></table>
+      </div>
+    </div>
+
+    <div id="tab-custom" class="tab-content">
+      <div class="table-wrapper">
+        <table id="table-custom"></table>
+      </div>
+    </div>
+
+    <div id="tab-links" class="tab-content">
+      <div class="table-wrapper">
+        <table id="table-links"></table>
+      </div>
+    </div>
+  </main>
+
+  <script>/*__ENGRAMS_SLOT__*/</script>
+  <script>const ENGRAMS_DATA = /*__ENGRAMS_SLOT__*/;</script>
+  <script>/*__ENGRAMS_SLOT__*/</script>
+</body>
+</html>

@@ -1,33 +1,181 @@
 use anyhow::Result;
+use chrono::{SecondsFormat, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
-use std::io::{self, Write};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
-use crate::cli::{Format, ReportTopic};
-use crate::models::{ContextDoc, Decision, Link, Pattern, Progress};
+const TEMPLATE: &str = include_str!("../assets/report/template.html");
+const APP_CSS: &str = include_str!("../assets/report/app.css");
+const VENDOR_JS: &str = include_str!("../assets/report/vendor/cytoscape.min.js");
+const APP_JS: &str = include_str!("../assets/report/app.js");
 
-pub fn handle(
+use crate::cli::ReportTopic;
+use crate::models::{ContextDoc, CustomData, Decision, Link, Pattern, Progress};
+
+#[derive(serde::Serialize)]
+struct DashboardPayload {
+    generated_at: String,
+    db_path: String,
+    version: &'static str,
+    product_context: Option<ContextDoc>,
+    active_context: Option<ContextDoc>,
+    decisions: Vec<Decision>,
+    progress: Vec<Progress>,
+    patterns: Vec<Pattern>,
+    custom_data: Vec<CustomData>,
+    links: Vec<Link>,
+}
+pub fn open(
     conn: &Connection,
-    topic: Option<ReportTopic>,
-    limit: i64,
-    format: Format,
+    db_path: &Path,
+    no_browser: bool,
+    out: Option<PathBuf>,
 ) -> Result<Value> {
-    match format {
-        Format::Json => handle_json(conn, topic, limit),
-        Format::Human => {
-            handle_human(conn, topic, limit)?;
-            Ok(Value::Null)
+    let generated_at = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
+
+    let product_context = query_context_doc(conn, "product_context")?;
+    let active_context = query_context_doc(conn, "active_context")?;
+    let decisions = query_decisions(conn, -1)?;
+    let progress = query_progress(conn, -1)?;
+    let patterns = query_patterns(conn, -1)?;
+    let custom_data = query_custom_data(conn)?;
+    let links = query_links(conn, -1)?;
+
+    let counts = serde_json::json!({
+        "decisions": decisions.len(),
+        "progress": progress.len(),
+        "patterns": patterns.len(),
+        "custom_data": custom_data.len(),
+        "links": links.len(),
+    });
+
+    let payload = DashboardPayload {
+        generated_at,
+        db_path: db_path.display().to_string(),
+        version: env!("CARGO_PKG_VERSION"),
+        product_context,
+        active_context,
+        decisions,
+        progress,
+        patterns,
+        custom_data,
+        links,
+    };
+
+    let html_path = match out {
+        Some(path) => path,
+        None => {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            db_path.hash(&mut hasher);
+            let hash = hasher.finish() as u32;
+            std::env::temp_dir().join(format!("engrams-report-{:08x}.html", hash))
         }
+    };
+
+    write_html(&html_path, &payload)?;
+
+    let mut opened = false;
+    if !no_browser {
+        opened = launch_browser(&html_path);
+    }
+
+    Ok(serde_json::json!({
+        "path": html_path.display().to_string(),
+        "opened": opened,
+        "counts": counts,
+    }))
+}
+
+struct ScriptSafe<W: std::io::Write>(W);
+impl<W: std::io::Write> std::io::Write for ScriptSafe<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut rest = buf;
+        while let Some(i) = rest.iter().position(|&b| b == b'<') {
+            self.0.write_all(&rest[..i])?;
+            self.0.write_all(b"\\u003c")?;
+            rest = &rest[i + 1..];
+        }
+        self.0.write_all(rest)?;
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
     }
 }
 
-fn query_active_context(conn: &Connection) -> Result<Option<ContextDoc>> {
+fn write_html(path: &Path, payload: &DashboardPayload) -> Result<()> {
+    let file = std::fs::File::create(path)?;
+    let mut writer = std::io::BufWriter::new(file);
+
+    let seg: Vec<&str> = TEMPLATE.split("/*__ENGRAMS_SLOT__*/").collect();
+    debug_assert_eq!(seg.len(), 5);
+
+    if seg.len() == 5 {
+        writer.write_all(seg[0].as_bytes())?;
+        writer.write_all(APP_CSS.as_bytes())?;
+        writer.write_all(seg[1].as_bytes())?;
+        writer.write_all(VENDOR_JS.as_bytes())?;
+        writer.write_all(seg[2].as_bytes())?;
+
+        let mut safe_writer = ScriptSafe(&mut writer);
+        serde_json::to_writer(&mut safe_writer, payload)?;
+
+        writer.write_all(seg[3].as_bytes())?;
+        writer.write_all(APP_JS.as_bytes())?;
+        writer.write_all(seg[4].as_bytes())?;
+    }
+    writer.flush()?;
+    Ok(())
+}
+
+fn launch_browser(path: &Path) -> bool {
+    let mut cmd = if cfg!(target_os = "windows") {
+        let mut c = std::process::Command::new("cmd");
+        c.arg("/C").arg("start").arg("").arg(path);
+        c
+    } else if cfg!(target_os = "macos") {
+        let mut c = std::process::Command::new("open");
+        c.arg(path);
+        c
+    } else {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg(path);
+        c
+    };
+
+    cmd.spawn().is_ok()
+}
+
+pub fn handle(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Result<Value> {
+    let active_context = query_context_doc(conn, "active_context")?;
+    let progress = query_progress(conn, limit)?;
+    let decisions = query_decisions(conn, limit)?;
+    let patterns = query_patterns(conn, limit)?;
+    let links = query_links(conn, limit)?;
+    match topic {
+        None => Ok(serde_json::json!({
+            "active_context": active_context,
+            "progress": progress,
+            "decisions": decisions,
+            "patterns": patterns,
+            "links": links,
+        })),
+        Some(ReportTopic::Context) => Ok(serde_json::to_value(active_context)?),
+        Some(ReportTopic::Progress) => Ok(serde_json::to_value(progress)?),
+        Some(ReportTopic::Decisions) => Ok(serde_json::to_value(decisions)?),
+        Some(ReportTopic::Patterns) => Ok(serde_json::to_value(patterns)?),
+        Some(ReportTopic::Links) => Ok(serde_json::to_value(links)?),
+    }
+}
+fn query_context_doc(conn: &Connection, table: &str) -> Result<Option<ContextDoc>> {
+    let sql = format!(
+        "SELECT content, version, updated_at FROM {} WHERE id = 1",
+        table
+    );
     let row: Option<(String, i64, String)> = conn
-        .query_row(
-            "SELECT content, version, updated_at FROM active_context WHERE id = 1",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )
+        .query_row(&sql, [], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
         .optional()?;
 
     let doc = row.map(|(content_str, version, updated_at)| ContextDoc {
@@ -50,7 +198,7 @@ fn query_progress(conn: &Connection, limit: i64) -> Result<Vec<Progress>> {
             parent_id: row.get(4)?,
         })
     })?;
-    let mut progress = Vec::with_capacity(limit as usize);
+    let mut progress = Vec::with_capacity(limit.max(0) as usize);
     for r in rows {
         progress.push(r?);
     }
@@ -75,7 +223,7 @@ fn query_decisions(conn: &Connection, limit: i64) -> Result<Vec<Decision>> {
             timestamp: row.get(6)?,
         })
     })?;
-    let mut decisions = Vec::with_capacity(limit as usize);
+    let mut decisions = Vec::with_capacity(limit.max(0) as usize);
     for r in rows {
         decisions.push(r?);
     }
@@ -99,7 +247,7 @@ fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
             timestamp: row.get(5)?,
         })
     })?;
-    let mut patterns = Vec::with_capacity(limit as usize);
+    let mut patterns = Vec::with_capacity(limit.max(0) as usize);
     for r in rows {
         patterns.push(r?);
     }
@@ -121,316 +269,20 @@ fn query_links(conn: &Connection, limit: i64) -> Result<Vec<Link>> {
             direction: None,
         })
     })?;
-    let mut links = Vec::with_capacity(limit as usize);
+    let mut links = Vec::with_capacity(limit.max(0) as usize);
     for r in rows {
         links.push(r?);
     }
     Ok(links)
 }
 
-fn handle_json(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Result<Value> {
-    let active_context = query_active_context(conn)?;
-    let progress = query_progress(conn, limit)?;
-    let decisions = query_decisions(conn, limit)?;
-    let patterns = query_patterns(conn, limit)?;
-    let links = query_links(conn, limit)?;
-    match topic {
-        None => Ok(serde_json::json!({
-            "active_context": active_context,
-            "progress": progress,
-            "decisions": decisions,
-            "patterns": patterns,
-            "links": links,
-        })),
-        Some(ReportTopic::Context) => Ok(serde_json::to_value(active_context)?),
-        Some(ReportTopic::Progress) => Ok(serde_json::to_value(progress)?),
-        Some(ReportTopic::Decisions) => Ok(serde_json::to_value(decisions)?),
-        Some(ReportTopic::Patterns) => Ok(serde_json::to_value(patterns)?),
-        Some(ReportTopic::Links) => Ok(serde_json::to_value(links)?),
+fn query_custom_data(conn: &Connection) -> Result<Vec<CustomData>> {
+    let mut stmt = conn
+        .prepare("SELECT id, timestamp, category, key, value FROM custom_data ORDER BY id ASC")?;
+    let rows = stmt.query_map([], crate::ops::custom::parse_custom_row)?;
+    let mut results = Vec::new();
+    for r in rows {
+        results.push(r?);
     }
-}
-
-fn handle_human(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Result<()> {
-    let stdout = io::stdout();
-    let mut w = stdout.lock();
-
-    if topic.is_none() {
-        writeln!(w, "# Engrams Project Report")?;
-        writeln!(w)?;
-    }
-
-    match topic {
-        None => {
-            write_active_context_section(&mut w, conn)?;
-            writeln!(w)?;
-            write_progress_section(&mut w, conn, limit)?;
-            writeln!(w)?;
-            write_decisions_section(&mut w, conn, limit)?;
-            writeln!(w)?;
-            write_patterns_section(&mut w, conn, limit)?;
-            writeln!(w)?;
-            write_links_section(&mut w, conn, limit)?;
-        }
-        Some(ReportTopic::Context) => {
-            write_active_context_section(&mut w, conn)?;
-        }
-        Some(ReportTopic::Progress) => {
-            write_progress_section(&mut w, conn, limit)?;
-        }
-        Some(ReportTopic::Decisions) => {
-            write_decisions_section(&mut w, conn, limit)?;
-        }
-        Some(ReportTopic::Patterns) => {
-            write_patterns_section(&mut w, conn, limit)?;
-        }
-        Some(ReportTopic::Links) => {
-            write_links_section(&mut w, conn, limit)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn format_status(status: &str) -> &'static str {
-    match status.to_lowercase().as_str() {
-        "d" | "done" | "c" | "complete" => "[✓]",
-        "ip" | "inprogress" | "started" | "doing" | "p" => "[▶]",
-        "t" | "todo" | "planned" => "[ ]",
-        _ => "[•]",
-    }
-}
-
-fn format_time(timestamp: &str) -> String {
-    timestamp
-        .replace('T', " ")
-        .replace('Z', "")
-        .split('.')
-        .next()
-        .unwrap_or(timestamp)
-        .to_string()
-}
-
-fn write_active_context_section(w: &mut impl Write, conn: &Connection) -> io::Result<()> {
-    let doc = match query_active_context(conn) {
-        Ok(Some(d)) => d,
-        _ => {
-            writeln!(w, "### Active Context")?;
-            writeln!(w)?;
-            writeln!(w, "*(not set)*")?;
-            return Ok(());
-        }
-    };
-
-    let updated = doc
-        .updated_at
-        .as_deref()
-        .map(format_time)
-        .unwrap_or_else(|| "unknown".to_string());
-    writeln!(w, "### Active Context (v{})", doc.version)?;
-    writeln!(w)?;
-    writeln!(w, "| Key | Value |")?;
-    writeln!(w, "| :--- | :--- |")?;
-    writeln!(w, "| **updated_at** | {} |", updated)?;
-
-    match &doc.content {
-        Value::Object(map) => {
-            for (k, v) in map {
-                match v {
-                    Value::String(s) => {
-                        writeln!(
-                            w,
-                            "| **{}** | {} |",
-                            k,
-                            s.replace('|', "\\|").replace('\n', " ")
-                        )?;
-                    }
-                    Value::Null => {
-                        writeln!(w, "| **{}** | *(null)* |", k)?;
-                    }
-                    Value::Object(_) | Value::Array(_) => {
-                        let pretty = serde_json::to_string(v).unwrap_or_else(|_| v.to_string());
-                        writeln!(w, "| **{}** | `{}` |", k, pretty.replace('|', "\\|"))?;
-                    }
-                    _ => {
-                        writeln!(
-                            w,
-                            "| **{}** | {} |",
-                            k,
-                            v.to_string().replace('|', "\\|").replace('\n', " ")
-                        )?;
-                    }
-                }
-            }
-        }
-        Value::String(s) => {
-            writeln!(
-                w,
-                "| **content** | {} |",
-                s.replace('|', "\\|").replace('\n', " ")
-            )?;
-        }
-        Value::Null => {
-            writeln!(w, "| **content** | *(null)* |")?;
-        }
-        other => {
-            writeln!(
-                w,
-                "| **content** | {} |",
-                other.to_string().replace('|', "\\|").replace('\n', " ")
-            )?;
-        }
-    }
-
-    Ok(())
-}
-
-fn write_progress_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io::Result<()> {
-    let entries = query_progress(conn, limit).unwrap_or_default();
-    let count = entries.len();
-    let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "### Progress ({} {})", count, entry_word)?;
-    writeln!(w)?;
-
-    if entries.is_empty() {
-        writeln!(w, "*(none)*")?;
-    } else {
-        writeln!(w, "| Status | Description | Parent | Timestamp |")?;
-        writeln!(w, "| :---: | :--- | :---: | :--- |")?;
-        for p in entries {
-            let status_icon = format_status(&p.status);
-            let parent_str = p
-                .parent_id
-                .map(|id| format!("#{}", id))
-                .unwrap_or_else(|| "-".to_string());
-            let desc = p.description.replace('|', "\\|").replace('\n', " ");
-            let ts = format_time(&p.timestamp);
-            writeln!(
-                w,
-                "| {} | {} | {} | {} |",
-                status_icon, desc, parent_str, ts
-            )?;
-        }
-    }
-    Ok(())
-}
-
-fn write_decisions_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io::Result<()> {
-    let entries = query_decisions(conn, limit).unwrap_or_default();
-    let count = entries.len();
-    let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "### Decisions ({} {})", count, entry_word)?;
-    writeln!(w)?;
-
-    if entries.is_empty() {
-        writeln!(w, "*(none)*")?;
-    } else {
-        writeln!(w, "| ID | Summary | Rationale | Tags | Date |")?;
-        writeln!(w, "| :---: | :--- | :--- | :--- | :--- |")?;
-        for d in entries {
-            let summary = d.summary.replace('|', "\\|").replace('\n', " ");
-            let rationale = d
-                .rationale
-                .as_deref()
-                .unwrap_or("-")
-                .replace('|', "\\|")
-                .replace('\n', " ");
-            let tags_str = if let Some(tags_val) = &d.tags {
-                if let Some(arr) = tags_val.as_array() {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .map(|t| format!("`{}`", t))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                } else {
-                    "-".to_string()
-                }
-            } else {
-                "-".to_string()
-            };
-            let date = format_time(&d.timestamp);
-            writeln!(
-                w,
-                "| #{} | {} | {} | {} | {} |",
-                d.id, summary, rationale, tags_str, date
-            )?;
-        }
-    }
-    Ok(())
-}
-
-fn write_patterns_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io::Result<()> {
-    let entries = query_patterns(conn, limit).unwrap_or_default();
-    let count = entries.len();
-    let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "### Patterns ({} {})", count, entry_word)?;
-    writeln!(w)?;
-
-    if entries.is_empty() {
-        writeln!(w, "*(none)*")?;
-    } else {
-        writeln!(w, "| ID | Name | Description | Tags | Date |")?;
-        writeln!(w, "| :---: | :--- | :--- | :--- | :--- |")?;
-        for p in entries {
-            let name = p.name.replace('|', "\\|").replace('\n', " ");
-            let desc = p
-                .description
-                .as_deref()
-                .unwrap_or("-")
-                .replace('|', "\\|")
-                .replace('\n', " ");
-            let tags_str = if let Some(tags_val) = &p.tags {
-                if let Some(arr) = tags_val.as_array() {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .map(|t| format!("`{}`", t))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                } else {
-                    "-".to_string()
-                }
-            } else {
-                "-".to_string()
-            };
-            let date = format_time(&p.timestamp);
-            writeln!(
-                w,
-                "| #{} | {} | {} | {} | {} |",
-                p.id, name, desc, tags_str, date
-            )?;
-        }
-    }
-    Ok(())
-}
-
-fn write_links_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io::Result<()> {
-    let entries = query_links(conn, limit).unwrap_or_default();
-    let count = entries.len();
-    let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "### Links ({} {})", count, entry_word)?;
-    writeln!(w)?;
-
-    if entries.is_empty() {
-        writeln!(w, "*(none)*")?;
-    } else {
-        writeln!(w, "| Source | Target | Relationship | Description | Date |")?;
-        writeln!(w, "| :--- | :--- | :---: | :--- | :--- |")?;
-        for l in entries {
-            let source = format!("`{}` #{}", l.source_item_type, l.source_item_id);
-            let target = format!("`{}` #{}", l.target_item_type, l.target_item_id);
-            let rel = l.relationship_type.replace('|', "\\|").replace('\n', " ");
-            let desc = l
-                .description
-                .as_deref()
-                .unwrap_or("-")
-                .replace('|', "\\|")
-                .replace('\n', " ");
-            let date = format_time(&l.timestamp);
-            writeln!(
-                w,
-                "| {} | {} | {} | {} | {} |",
-                source, target, rel, desc, date
-            )?;
-        }
-    }
-    Ok(())
+    Ok(results)
 }

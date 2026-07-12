@@ -506,24 +506,89 @@ fn test_report() {
     assert!(r.is_array());
     assert_eq!(r.as_array().unwrap().len(), 1);
 
-    // Full report (human)
+    // Human formatting flag should now fail since it was removed
     engrams(&db)
         .args(&["--format", "human", "report"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("Engrams Project Report"))
-        .stdout(predicate::str::contains("Active Context"))
-        .stdout(predicate::str::contains("Progress"))
-        .stdout(predicate::str::contains("Decisions"))
-        .stdout(predicate::str::contains("Use SQLite"));
+        .failure();
+}
 
-    // Topic report (human)
+#[test]
+fn test_report_open() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Init first
+    engrams(&db).arg("init").assert().success();
+
+    // Seed data
     engrams(&db)
-        .args(&["--format", "human", "report", "progress"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Progress"))
-        .stdout(predicate::str::contains("Set up DB"));
+        .args(&["decision", "log", "--summary", "Use SQLite"])
+        .output()
+        .unwrap();
+    engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "D",
+            "--description",
+            "Set up DB",
+        ])
+        .output()
+        .unwrap();
+    engrams(&db)
+        .args(&[
+            "pattern",
+            "log",
+            "--name",
+            "Singleton docs",
+            "--description",
+            "Upsert pattern",
+        ])
+        .output()
+        .unwrap();
+    engrams(&db)
+        .args(&[
+            "link",
+            "add",
+            "--source-type",
+            "decision",
+            "--source-id",
+            "1",
+            "--target-type",
+            "system-pattern",
+            "--target-id",
+            "1",
+            "--rel",
+            "implements",
+        ])
+        .output()
+        .unwrap();
+
+    let html_file = temp.path().join("dash.html");
+    let out = engrams(&db)
+        .args(&[
+            "report",
+            "open",
+            "--no-browser",
+            "--out",
+            html_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let r: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(r["path"].as_str().unwrap(), html_file.to_str().unwrap());
+    assert!(!r["opened"].as_bool().unwrap());
+    assert_eq!(r["counts"]["decisions"].as_i64().unwrap(), 1);
+    assert_eq!(r["counts"]["links"].as_i64().unwrap(), 1);
+
+    assert!(html_file.exists());
+    let html_content = std::fs::read_to_string(&html_file).unwrap();
+    assert!(html_content.contains("ENGRAMS_DATA"));
+    assert!(html_content.contains("cytoscape"));
+    assert!(html_content.contains("Use SQLite"));
+    assert!(html_content.contains("implements"));
 }
 
 #[test]

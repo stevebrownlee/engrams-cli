@@ -1,0 +1,124 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="HTML Report" description="Generate and open an interactive, self-contained HTML dashboard with a knowledge graph.">
+  <h1>HTML Report &amp; Dashboard</h1>
+  <p class="lead">
+    Visualize your project's decisions, progress, patterns, and custom data. Compiles your entire context database into a single, self-contained interactive HTML file that opens in your browser.
+  </p>
+
+  <div class="image-wrapper">
+    <img src="/engrams-report.png" alt="Engrams HTML Dashboard and Knowledge Graph" class="screenshot" />
+  </div>
+
+  <h2>How to Open the Report</h2>
+  <p>
+    To generate the report and launch your system's default browser to view the interactive dashboard, run:
+  </p>
+  <pre><code>engrams report open</code></pre>
+
+  <h3>Customizing the Output</h3>
+  <p>
+    By default, the HTML file is written to your system's temporary directory and opened immediately. You can customize this behavior with the following options:
+  </p>
+  <ul>
+    <li>
+      <strong>Write without opening:</strong> If you want to generate the HTML report but skip launching the browser (for example, in CI/CD pipelines or background scripts), use <code>--no-browser</code>:
+      <pre><code>engrams report open --no-browser</code></pre>
+    </li>
+    <li>
+      <strong>Specify output file:</strong> To save the HTML file to a custom path (useful for hosting or archiving), pass the <code>--out</code> parameter:
+      <pre><code>engrams report open --out ./dist/report.html</code></pre>
+    </li>
+  </ul>
+
+  <h2>Dashboard Interface &amp; Features</h2>
+  <p>
+    The dashboard is split into several tabs to help you explore your codebase's state:
+  </p>
+
+  <h3>1. Knowledge Graph</h3>
+  <p>
+    The default view renders an interactive node-link diagram showing the relationships between your project's entities:
+  </p>
+  <ul>
+    <li><strong>Interactive Nodes:</strong> Colored nodes represent different entity types (Blue for Decisions, Green for Progress, Purple for System Patterns, Orange/Yellow for Custom Data). Click any node to inspect its complete details in the right-hand panel, or double-click a node to focus on its immediate neighborhood.</li>
+    <li><strong>Filtering:</strong> Use the left-side control panel to toggle isolated items, filter which item types are visible, or filter by specific relationship types (such as <em>subtask of</em>, <em>extends</em>, <em>supersedes</em>, <em>supports</em>, and <em>uses</em>).</li>
+    <li><strong>Search:</strong> Easily find nodes by searching for text within their names, descriptions, or rationales.</li>
+    <li><strong>Layout Controls:</strong> Re-run Cytoscape's layout algorithm or reset the viewport view at any time.</li>
+  </ul>
+
+  <h3>2. Structured Tabs</h3>
+  <p>
+    Explore your project's context in tabular and readable forms:
+  </p>
+  <ul>
+    <li><strong>Overview:</strong> Displays overall metrics, database metadata, and the latest versions of your <em>Product Context</em> and <em>Active Context</em>.</li>
+    <li><strong>Decisions:</strong> Lists all logged Architectural Decision Records (ADRs) with their rationale, status, and tags.</li>
+    <li><strong>Progress:</strong> Tracks the timeline and status of your active sprint tasks.</li>
+    <li><strong>Patterns:</strong> Shows registered codebase patterns and practices.</li>
+    <li><strong>Custom Data:</strong> Contains general-purpose metadata categories and key-value records.</li>
+    <li><strong>Links:</strong> Lists all defined relationships between nodes in a structured list.</li>
+  </ul>
+</DocsLayout>
+
+<style>
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  .image-wrapper {
+    margin: 2rem 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-bg-sidebar);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .screenshot {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+  }
+
+  h2 {
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  ul {
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+  }
+
+  pre {
+    background: var(--color-bg-sidebar);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-text);
+  }
+</style>

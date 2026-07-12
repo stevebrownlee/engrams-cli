@@ -87,18 +87,9 @@ You can override this explicitly:
 
 ---
 
-## Output Formats
+## Output Format
 
-By default, all commands output clean JSON to `stdout` for programmatic consumption by AI agents or `jq`.
-
-Use `--format human` to get a structured, readable plain-text output instead. Note that global options like `--format` must be passed **before** the subcommand:
-```bash
-# JSON output (default)
-engrams decision list
-
-# Human-readable output
-engrams --format human decision list
-```
+All commands output clean JSON to `stdout` for programmatic consumption by AI agents or `jq`.
 
 ---
 

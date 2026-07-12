@@ -2,12 +2,12 @@ mod cli;
 mod db;
 mod models;
 mod ops;
-mod output;
 mod release;
 mod schema;
 
 use anyhow::Result;
 use clap::Parser;
+use std::io::Write;
 
 fn main() {
     if let Err(e) = run() {
@@ -32,9 +32,11 @@ fn run() -> Result<()> {
     let is_migrate_or_init = matches!(cli.command, cli::Command::Migrate | cli::Command::Init);
     db::validate_version(&conn, is_migrate_or_init)?;
 
-    let result = ops::dispatch(&mut conn, cli.command, &db_path, !db_existed, cli.format)?;
+    let result = ops::dispatch(&mut conn, cli.command, &db_path, !db_existed)?;
 
-    output::emit(cli.format, result)?;
+    let mut out = std::io::stdout().lock();
+    serde_json::to_writer_pretty(&mut out, &result)?;
+    out.write_all(b"\n")?;
 
     // Print notification if a new version is available
     checker.print_notification();

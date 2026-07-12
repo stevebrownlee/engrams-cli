@@ -9,17 +9,8 @@ pub struct Cli {
     #[arg(long)]
     pub workspace: Option<String>,
 
-    #[arg(long, value_enum, default_value_t = Format::Json)]
-    pub format: Format,
-
     #[command(subcommand)]
     pub command: Command,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
-pub enum Format {
-    Json,
-    Human,
 }
 
 #[derive(Subcommand, Debug)]
@@ -85,6 +76,8 @@ pub enum Command {
 
     /// Generate a structured report of project knowledge
     Report {
+        #[command(subcommand)]
+        cmd: Option<ReportCmd>,
         /// Show only a specific topic
         topic: Option<ReportTopic>,
         /// Max items per section
@@ -109,6 +102,19 @@ pub enum Command {
     Import {
         #[arg(long, default_value = "./engrams_export")]
         path: std::path::PathBuf,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ReportCmd {
+    /// Generate and open a browser-based HTML dashboard with the knowledge graph
+    Open {
+        /// Write the HTML file without launching a browser
+        #[arg(long)]
+        no_browser: bool,
+        /// Output path for the generated HTML (defaults to the system temp dir)
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
     },
 }
 

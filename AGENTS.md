@@ -7,6 +7,11 @@ To maintain long-term context about the project so that valuable tokens aren't w
 ## Memory & Project Context (engrams)
 You have access to the `engrams` CLI tool, which maintains a local SQLite database of project decisions, conventions, and progress.
 
+### Core Rules for Agent Memory
+- **CLI-First Querying:** ALWAYS use the `engrams` CLI tool (e.g., `engrams decision search`, `engrams pattern list`, etc.) to query project history and context.
+- **DO NOT read or grep exported files:** The files under `engrams_export/` are for human Git-tracking only. Reading/parsing them directly via `read` or `grep` is highly token-inefficient and prone to missing database-only state.
+- **Run local builds:** Prioritize executing the compiled local binary (e.g., `./target/debug/engrams`) to query/write context directly.
+
 1. **On Startup:** Run `engrams activity` to see what has changed recently. Get the `product-context` and `active-context` to orient yourself.
 2. **Before Implementing:** Search `engrams decision search "<topic>"` and `engrams pattern list` to make sure your approach aligns with established decisions and codebase conventions.
 3. **When making design choices:** Log them with `engrams decision log`. By default, this checks for similar existing decisions via FTS and returns them instead of inserting a duplicate. If similar decisions are returned, either update the existing decision with `engrams decision update <id>` or use `--force` only when you have verified the new decision is genuinely distinct. Use `engrams decision consolidate <source-id> <into-id>` to merge two decisions that cover the same topic.
@@ -40,7 +45,6 @@ You have access to the `engrams` CLI tool, which maintains a local SQLite databa
 You can override this discovery by passing global flags **before** the subcommand:
 - `--workspace <PATH>`: Force workspace directory
 - `--db <PATH>`: Force exact database path
-- `--format <human|json>`: Force output format (defaults to `json` for easy machine parsing)
 
 ---
 

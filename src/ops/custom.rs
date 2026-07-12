@@ -133,7 +133,7 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
     }
 }
 
-fn parse_custom_row(row: &rusqlite::Row) -> rusqlite::Result<CustomData> {
+pub(crate) fn parse_custom_row(row: &rusqlite::Row) -> rusqlite::Result<CustomData> {
     let value_str: String = row.get(4)?;
     let value = serde_json::from_str(&value_str).unwrap_or(Value::String(value_str));
 

@@ -15,14 +15,13 @@ use serde_json::json;
 use serde_json::Value;
 use std::path::Path;
 
-use crate::cli::{Command, ContextCmd, Format, HistoryDoc};
+use crate::cli::{Command, ContextCmd, HistoryDoc, ReportCmd};
 
 pub fn dispatch(
     conn: &mut Connection,
     cmd: Command,
     db_path: &Path,
     created: bool,
-    format: Format,
 ) -> Result<Value> {
     match cmd {
         Command::Init => Ok(json!({"db_path": db_path.display().to_string(), "created": created})),
@@ -58,6 +57,11 @@ pub fn dispatch(
         Command::Batch { r#type, items } => batch::handle(conn, r#type, items),
         Command::Export { path } => transfer::export::handle(conn, &path),
         Command::Import { path } => transfer::import::handle(conn, &path),
-        Command::Report { topic, limit } => report::handle(conn, topic, limit, format),
+        Command::Report { cmd, topic, limit } => match cmd {
+            Some(ReportCmd::Open { no_browser, out }) => {
+                report::open(conn, db_path, no_browser, out)
+            }
+            None => report::handle(conn, topic, limit),
+        },
     }
 }
