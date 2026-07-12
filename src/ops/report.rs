@@ -124,13 +124,13 @@ fn query_links(conn: &Connection, limit: i64) -> Result<Vec<Link>> {
 }
 
 fn handle_json(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Result<Value> {
+    let active_context = query_active_context(conn)?;
+    let progress = query_progress(conn, limit)?;
+    let decisions = query_decisions(conn, limit)?;
+    let patterns = query_patterns(conn, limit)?;
+    let links = query_links(conn, limit)?;
     match topic {
         None => {
-            let active_context = query_active_context(conn)?;
-            let progress = query_progress(conn, limit)?;
-            let decisions = query_decisions(conn, limit)?;
-            let patterns = query_patterns(conn, limit)?;
-            let links = query_links(conn, limit)?;
             Ok(serde_json::json!({
                 "active_context": active_context,
                 "progress": progress,
@@ -140,23 +140,18 @@ fn handle_json(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Res
             }))
         }
         Some(ReportTopic::Context) => {
-            let active_context = query_active_context(conn)?;
             Ok(serde_json::to_value(active_context)?)
         }
         Some(ReportTopic::Progress) => {
-            let progress = query_progress(conn, limit)?;
             Ok(serde_json::to_value(progress)?)
         }
         Some(ReportTopic::Decisions) => {
-            let decisions = query_decisions(conn, limit)?;
             Ok(serde_json::to_value(decisions)?)
         }
         Some(ReportTopic::Patterns) => {
-            let patterns = query_patterns(conn, limit)?;
             Ok(serde_json::to_value(patterns)?)
         }
         Some(ReportTopic::Links) => {
-            let links = query_links(conn, limit)?;
             Ok(serde_json::to_value(links)?)
         }
     }
@@ -167,9 +162,7 @@ fn handle_human(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Re
     let mut w = stdout.lock();
     
     if topic.is_none() {
-        writeln!(w, "================================================================================")?;
-        writeln!(w, "                             ENGRAMS PROJECT REPORT                             ")?;
-        writeln!(w, "================================================================================")?;
+        writeln!(w, "# Engrams Project Report")?;
         writeln!(w)?;
     }
 
@@ -228,51 +221,48 @@ fn write_active_context_section(w: &mut impl Write, conn: &Connection) -> io::Re
     let doc = match query_active_context(conn) {
         Ok(Some(d)) => d,
         _ => {
-            writeln!(w, "Active Context")?;
-            writeln!(w, "└── (not set)")?;
+            writeln!(w, "### Active Context")?;
+            writeln!(w)?;
+            writeln!(w, "*(not set)*")?;
             return Ok(());
         }
     };
     
     let updated = doc.updated_at.as_deref().map(format_time).unwrap_or_else(|| "unknown".to_string());
-    writeln!(w, "Active Context (v{}) • Updated {}", doc.version, updated)?;
+    writeln!(w, "### Active Context (v{})", doc.version)?;
+    writeln!(w)?;
+    writeln!(w, "| Key | Value |")?;
+    writeln!(w, "| :--- | :--- |")?;
+    writeln!(w, "| **updated_at** | {} |", updated)?;
     
     match &doc.content {
         Value::Object(map) => {
-            let len = map.len();
-            for (idx, (k, v)) in map.iter().enumerate() {
-                let is_last = idx == len - 1;
-                let prefix = if is_last { "└── " } else { "├── " };
-                let child_prefix = if is_last { "    " } else { "│   " };
-                
+            for (k, v) in map {
                 match v {
                     Value::String(s) => {
-                        writeln!(w, "{}{}: {}", prefix, k, s)?;
+                        writeln!(w, "| **{}** | {} |", k, s.replace('|', "\\|").replace('\n', " "))?;
                     }
                     Value::Null => {
-                        writeln!(w, "{}{}: (null)", prefix, k)?;
+                        writeln!(w, "| **{}** | *(null)* |", k)?;
                     }
                     Value::Object(_) | Value::Array(_) => {
-                        let pretty = serde_json::to_string_pretty(v).unwrap_or_else(|_| v.to_string());
-                        writeln!(w, "{}{}:", prefix, k)?;
-                        for line in pretty.lines() {
-                            writeln!(w, "{}{}", child_prefix, line)?;
-                        }
+                        let pretty = serde_json::to_string(v).unwrap_or_else(|_| v.to_string());
+                        writeln!(w, "| **{}** | `{}` |", k, pretty.replace('|', "\\|"))?;
                     }
                     _ => {
-                        writeln!(w, "{}{}: {}", prefix, k, v)?;
+                        writeln!(w, "| **{}** | {} |", k, v.to_string().replace('|', "\\|").replace('\n', " "))?;
                     }
                 }
             }
         }
         Value::String(s) => {
-            writeln!(w, "└── {}", s)?;
+            writeln!(w, "| **content** | {} |", s.replace('|', "\\|").replace('\n', " "))?;
         }
         Value::Null => {
-            writeln!(w, "└── (null)")?;
+            writeln!(w, "| **content** | *(null)* |")?;
         }
         other => {
-            writeln!(w, "└── {}", other)?;
+            writeln!(w, "| **content** | {} |", other.to_string().replace('|', "\\|").replace('\n', " "))?;
         }
     }
     
@@ -283,21 +273,20 @@ fn write_progress_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
     let entries = query_progress(conn, limit).unwrap_or_default();
     let count = entries.len();
     let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "Progress ({} {})", count, entry_word)?;
+    writeln!(w, "### Progress ({} {})", count, entry_word)?;
+    writeln!(w)?;
     
     if entries.is_empty() {
-        writeln!(w, "└── (none)")?;
+        writeln!(w, "*(none)*")?;
     } else {
-        for (idx, p) in entries.iter().enumerate() {
-            let is_last = idx == count - 1;
-            let prefix = if is_last { "└── " } else { "├── " };
-            let child_prefix = if is_last { "    " } else { "│   " };
-            
+        writeln!(w, "| Status | Description | Parent | Timestamp |")?;
+        writeln!(w, "| :---: | :--- | :---: | :--- |")?;
+        for p in entries {
             let status_icon = format_status(&p.status);
-            let parent = p.parent_id.map(|id| format!(" [parent: #{}]", id)).unwrap_or_default();
-            
-            writeln!(w, "{}{} {}{}", prefix, status_icon, p.description, parent)?;
-            writeln!(w, "{}    {}", child_prefix, format_time(&p.timestamp))?;
+            let parent_str = p.parent_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "-".to_string());
+            let desc = p.description.replace('|', "\\|").replace('\n', " ");
+            let ts = format_time(&p.timestamp);
+            writeln!(w, "| {} | {} | {} | {} |", status_icon, desc, parent_str, ts)?;
         }
     }
     Ok(())
@@ -307,34 +296,32 @@ fn write_decisions_section(w: &mut impl Write, conn: &Connection, limit: i64) ->
     let entries = query_decisions(conn, limit).unwrap_or_default();
     let count = entries.len();
     let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "Decisions ({} {})", count, entry_word)?;
+    writeln!(w, "### Decisions ({} {})", count, entry_word)?;
+    writeln!(w)?;
     
     if entries.is_empty() {
-        writeln!(w, "└── (none)")?;
+        writeln!(w, "*(none)*")?;
     } else {
-        for (idx, d) in entries.iter().enumerate() {
-            let is_last = idx == count - 1;
-            let prefix = if is_last { "└── " } else { "├── " };
-            let child_prefix = if is_last { "    " } else { "│   " };
-            
-            writeln!(w, "{}{} {}", prefix, format!("#{}", d.id), d.summary)?;
-            if let Some(r) = &d.rationale {
-                if !r.trim().is_empty() {
-                    writeln!(w, "{}Rationale: {}", child_prefix, r)?;
-                }
-            }
-            if let Some(tags_val) = &d.tags {
+        writeln!(w, "| ID | Summary | Rationale | Tags | Date |")?;
+        writeln!(w, "| :---: | :--- | :--- | :--- | :--- |")?;
+        for d in entries {
+            let summary = d.summary.replace('|', "\\|").replace('\n', " ");
+            let rationale = d.rationale.as_deref().unwrap_or("-").replace('|', "\\|").replace('\n', " ");
+            let tags_str = if let Some(tags_val) = &d.tags {
                 if let Some(arr) = tags_val.as_array() {
-                    let tags_joined = arr.iter()
+                    arr.iter()
                         .filter_map(|v| v.as_str())
+                        .map(|t| format!("`{}`", t))
                         .collect::<Vec<_>>()
-                        .join(", ");
-                    if !tags_joined.is_empty() {
-                        writeln!(w, "{}Tags:      {}", child_prefix, tags_joined)?;
-                    }
+                        .join(", ")
+                } else {
+                    "-".to_string()
                 }
-            }
-            writeln!(w, "{}Date:      {}", child_prefix, format_time(&d.timestamp))?;
+            } else {
+                "-".to_string()
+            };
+            let date = format_time(&d.timestamp);
+            writeln!(w, "| #{} | {} | {} | {} | {} |", d.id, summary, rationale, tags_str, date)?;
         }
     }
     Ok(())
@@ -344,34 +331,32 @@ fn write_patterns_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
     let entries = query_patterns(conn, limit).unwrap_or_default();
     let count = entries.len();
     let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "Patterns ({} {})", count, entry_word)?;
+    writeln!(w, "### Patterns ({} {})", count, entry_word)?;
+    writeln!(w)?;
     
     if entries.is_empty() {
-        writeln!(w, "└── (none)")?;
+        writeln!(w, "*(none)*")?;
     } else {
-        for (idx, p) in entries.iter().enumerate() {
-            let is_last = idx == count - 1;
-            let prefix = if is_last { "└── " } else { "├── " };
-            let child_prefix = if is_last { "    " } else { "│   " };
-            
-            writeln!(w, "{}{} {}", prefix, format!("#{}", p.id), p.name)?;
-            if let Some(desc) = &p.description {
-                if !desc.trim().is_empty() {
-                    writeln!(w, "{}Detail: {}", child_prefix, desc)?;
-                }
-            }
-            if let Some(tags_val) = &p.tags {
+        writeln!(w, "| ID | Name | Description | Tags | Date |")?;
+        writeln!(w, "| :---: | :--- | :--- | :--- | :--- |")?;
+        for p in entries {
+            let name = p.name.replace('|', "\\|").replace('\n', " ");
+            let desc = p.description.as_deref().unwrap_or("-").replace('|', "\\|").replace('\n', " ");
+            let tags_str = if let Some(tags_val) = &p.tags {
                 if let Some(arr) = tags_val.as_array() {
-                    let tags_joined = arr.iter()
+                    arr.iter()
                         .filter_map(|v| v.as_str())
+                        .map(|t| format!("`{}`", t))
                         .collect::<Vec<_>>()
-                        .join(", ");
-                    if !tags_joined.is_empty() {
-                        writeln!(w, "{}Tags:   {}", child_prefix, tags_joined)?;
-                    }
+                        .join(", ")
+                } else {
+                    "-".to_string()
                 }
-            }
-            writeln!(w, "{}Date:   {}", child_prefix, format_time(&p.timestamp))?;
+            } else {
+                "-".to_string()
+            };
+            let date = format_time(&p.timestamp);
+            writeln!(w, "| #{} | {} | {} | {} | {} |", p.id, name, desc, tags_str, date)?;
         }
     }
     Ok(())
@@ -381,23 +366,21 @@ fn write_links_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io:
     let entries = query_links(conn, limit).unwrap_or_default();
     let count = entries.len();
     let entry_word = if count == 1 { "entry" } else { "entries" };
-    writeln!(w, "Links ({} {})", count, entry_word)?;
+    writeln!(w, "### Links ({} {})", count, entry_word)?;
+    writeln!(w)?;
     
     if entries.is_empty() {
-        writeln!(w, "└── (none)")?;
+        writeln!(w, "*(none)*")?;
     } else {
-        for (idx, l) in entries.iter().enumerate() {
-            let is_last = idx == count - 1;
-            let prefix = if is_last { "└── " } else { "├── " };
-            let child_prefix = if is_last { "    " } else { "│   " };
-            
-            writeln!(w, "{}{} #{} ➔ {} #{} [{}]", prefix, l.source_item_type, l.source_item_id, l.target_item_type, l.target_item_id, l.relationship_type)?;
-            if let Some(desc) = &l.description {
-                if !desc.trim().is_empty() {
-                    writeln!(w, "{}Detail: {}", child_prefix, desc)?;
-                }
-            }
-            writeln!(w, "{}Date:   {}", child_prefix, format_time(&l.timestamp))?;
+        writeln!(w, "| Source | Target | Relationship | Description | Date |")?;
+        writeln!(w, "| :--- | :--- | :---: | :--- | :--- |")?;
+        for l in entries {
+            let source = format!("`{}` #{}", l.source_item_type, l.source_item_id);
+            let target = format!("`{}` #{}", l.target_item_type, l.target_item_id);
+            let rel = l.relationship_type.replace('|', "\\|").replace('\n', " ");
+            let desc = l.description.as_deref().unwrap_or("-").replace('|', "\\|").replace('\n', " ");
+            let date = format_time(&l.timestamp);
+            writeln!(w, "| {} | {} | {} | {} | {} |", source, target, rel, desc, date)?;
         }
     }
     Ok(())
