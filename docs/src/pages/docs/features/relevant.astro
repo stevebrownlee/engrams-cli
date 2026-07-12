@@ -1,0 +1,97 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Context Relevance & Git Integration" description="Retrieve decisions and patterns relevant to specific paths or staged files.">
+  <h1>Context Relevance &amp; Git Integration</h1>
+  <p class="lead">
+    Find architectural decisions and codebase patterns relevant to the files you are currently modifying. By querying anchors matched to specific file paths or staged git files, you can quickly review relevant constraints.
+  </p>
+
+  <h2>How it works</h2>
+  <p>
+    Both decisions and patterns can have one or more <strong>file anchors</strong> attached to them. Anchors can point to files (e.g. <code>src/main.rs</code>) or directories (e.g. <code>src/ops/</code>).
+  </p>
+  <p>
+    The <code>relevant</code> command scans these anchors for any matches. If an anchor is a directory, it matches any files inside that directory recursively.
+  </p>
+
+  <h2>Retrieval Options</h2>
+
+  <h3>1. Query by Specific Paths</h3>
+  <p>
+    Retrieve decisions and patterns matching one or more specific files or directories:
+  </p>
+  <pre><code>engrams relevant src/db.rs tests/cli.rs</code></pre>
+
+  <h3>2. Query by Staged Git Files (<code>--staged</code>)</h3>
+  <p>
+    An extremely powerful workflow is checking for relevant context based on your current Git staging area. Running:
+  </p>
+  <pre><code>engrams relevant --staged</code></pre>
+  <p>
+    calls <code>git diff --cached --name-only</code> behind the scenes to list all staged files, and returns the decisions and patterns anchored to them.
+  </p>
+
+  <h3>3. Include Superseded Context (<code>--all</code>)</h3>
+  <p>
+    By default, the <code>relevant</code> command only returns active decisions. If you want to include historical/superseded decisions to see how an area of the codebase evolved, pass the <code>--all</code> flag:
+  </p>
+  <pre><code>engrams relevant src/auth.rs --all</code></pre>
+
+  <h2>Example Output</h2>
+  <p>
+    The command returns a JSON object containing lists of matching decisions and patterns:
+  </p>
+  <pre><code>{`{
+  "decisions": [
+    {
+      "id": 4,
+      "uuid": "f5e6d7c8-b9a0-4f1e-9d2c-8b7a6f5e4d3c",
+      "summary": "Encrypt session tokens in SQLite",
+      "rationale": "Protect user authentication tokens at rest",
+      "implementation_details": "Use AES-GCM-256 via AEAD",
+      "tags": ["security", "auth"],
+      "timestamp": "2026-07-12T10:00:00Z",
+      "status": "active",
+      "commit_sha": "f1a2b3c4",
+      "pr_urls": [
+        "https://github.com/stevebrownlee/engrams-cli/pull/88"
+      ],
+      "anchors": [
+        "src/db.rs"
+      ]
+    }
+  ],
+  "patterns": [
+    {
+      "id": 1,
+      "uuid": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Database Transaction Wrapper",
+      "description": "Always execute writes inside a transaction block",
+      "tags": ["db", "concurrency"],
+      "timestamp": "2026-07-12T09:30:00Z",
+      "pr_urls": [],
+      "anchors": [
+        "src/db.rs"
+      ]
+    }
+  ]
+}`}</code></pre>
+
+  <h2>Git Hook &amp; Agent Workflows</h2>
+  <p>
+    You can easily integrate <code>engrams relevant --staged</code> into a pre-commit hook to block commits or issue warnings if a developer modifies files in violation of active codebase patterns or decisions.
+  </p>
+  <p>
+    For AI agents, running <code>engrams relevant --staged</code> is the recommended practice right before they make or propose a code change. This guarantees they are aware of all anchors associated with the files they are touching.
+  </p>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  h3 { margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.35rem; }
+  pre { background: var(--color-bg-sidebar); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  code { font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-text); }
+</style>

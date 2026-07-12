@@ -1,0 +1,83 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Unified Search" description="Search across all decisions, patterns, and custom data in a single command.">
+  <h1>Unified Search (Query)</h1>
+  <p class="lead">
+    Find information across your entire project knowledge base instantly. The <code>query</code> command executes a unified search across decisions, system patterns, and custom key-value pairs using SQLite FTS5.
+  </p>
+
+  <h2>How to Query</h2>
+  <p>
+    Run the command with your search term to query all tracked knowledge types simultaneously:
+  </p>
+  <pre><code>engrams query "PostgreSQL"</code></pre>
+
+  <h2>Refining Queries with Options</h2>
+  <p>
+    You can customize your search with flags to restrict types, filter by tags, set limits, or include history:
+  </p>
+  <ul>
+    <li>
+      <strong>Filter by Type (<code>--types</code>)</strong>:
+      Search only specific tables (comma-separated list of <code>decision</code>, <code>pattern</code>, <code>custom</code>).
+      <pre><code>engrams query "auth" --types decision,pattern</code></pre>
+    </li>
+    <li>
+      <strong>Filter by Tags (<code>--tags</code>)</strong>:
+      Restrict search to items containing specific tags (comma-separated).
+      <pre><code>engrams query "redis" --tags database,cache</code></pre>
+    </li>
+    <li>
+      <strong>Time Cutoff (<code>--since</code>)</strong>:
+      Only return items created or modified after a given timestamp.
+      <pre><code>engrams query "JWT" --since "2026-07-01T00:00:00Z"</code></pre>
+    </li>
+    <li>
+      <strong>Result Limits (<code>--limit</code>)</strong>:
+      Limit the number of results returned (defaults to 10).
+      <pre><code>engrams query "sqlite" --limit 5</code></pre>
+    </li>
+    <li>
+      <strong>Include Superseded (<code>--all</code>)</strong>:
+      By default, decisions marked as superseded are ignored. Pass <code>--all</code> to include them in the query results.
+      <pre><code>engrams query "database" --all</code></pre>
+    </li>
+  </ul>
+
+  <h2>FTS5 Highlighted Snippets</h2>
+  <p>
+    The <code>query</code> command automatically returns FTS5 snippet highlights around matching terms. Snippets are truncated and format matching terms inside <code>&gt;&gt;</code> and <code>&lt;&lt;</code> markers to make them easy for developers and AI agents to scan.
+  </p>
+
+  <h2>Example Output</h2>
+  <p>
+    Search results are ranked by relevance and returned in a unified JSON array:
+  </p>
+  <pre><code>{`[
+  {
+    "type": "decision",
+    "id": 4,
+    "title": "Use PostgreSQL for primary database",
+    "snippet": "...decision to use >>PostgreSQL<< for caching and...",
+    "timestamp": "2026-07-12T10:15:30Z",
+    "rank": -0.892
+  },
+  {
+    "type": "system_pattern",
+    "id": 1,
+    "title": "Connection Pooling",
+    "snippet": "...pools database connections for >>PostgreSQL<< clients...",
+    "timestamp": "2026-07-12T09:30:00Z",
+    "rank": -0.415
+  }
+]`}</code></pre>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  pre { background: var(--color-bg-sidebar); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  code { font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-text); }
+</style>

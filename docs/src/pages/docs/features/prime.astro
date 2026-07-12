@@ -1,0 +1,95 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Token-Budget Briefing (Prime)" description="Generate a consolidated briefing of your project context optimized for LLM token limits.">
+  <h1>Token-Budget Briefing (Prime)</h1>
+  <p class="lead">
+    Orient your AI agent at startup with a single, consolidated, and token-budget-aware command. The <code>prime</code> command generates a unified briefing that auto-scales to fit within a specified token limit.
+  </p>
+
+  <h2>Why use Prime?</h2>
+  <p>
+    Normally, briefing an AI agent requires running multiple commands (e.g. retrieving product context, active context, listing decisions, checking progress, and querying patterns). This causes high latency and manual overhead.
+  </p>
+  <p>
+    The <code>prime</code> command solves this by fanning out database queries, joining relevant metadata (like PRs and anchors), and packaging the result into a single JSON object.
+  </p>
+
+  <h2>How to use Prime</h2>
+  <pre><code># Get a full, unconstrained briefing
+engrams prime
+
+# Get a briefing constrained to approximately 1000 tokens
+engrams prime --budget 1000</code></pre>
+
+  <h2>Understanding Token Scaling</h2>
+  <p>
+    When you pass the optional <code>--budget</code> parameter, Engrams estimates the token count of the output payload (calculated as JSON string length divided by 4). If the estimated size exceeds your budget, it automatically discards less critical context sections to fit the boundary in the following order:
+  </p>
+  <ol>
+    <li><strong>Progress logs</strong>: Discarded first (newest to oldest).</li>
+    <li><strong>System patterns</strong>: Discarded next.</li>
+    <li><strong>Decisions</strong>: Discarded after patterns.</li>
+    <li><strong>Product Context</strong>: Set to <code>null</code> as a last resort.</li>
+  </ol>
+  <p>
+    Note: The <code>active-context</code> is <strong>never</strong> discarded as it contains the immediate goals, open questions, and next steps for the current session.
+  </p>
+
+  <h2>Briefing Content</h2>
+  <p>
+    A fully resolved briefing includes:
+  </p>
+  <ul>
+    <li><strong>Product Context</strong>: High-level overview, target audience, and architecture.</li>
+    <li><strong>Active Context</strong>: Current session focus, open questions, and next steps.</li>
+    <li><strong>Decisions</strong>: Up to 10 active architectural decisions with their associated file anchors and pull request links.</li>
+    <li><strong>Patterns</strong>: Up to 10 codebase patterns/conventions with their associated anchors and pull requests.</li>
+    <li><strong>Progress</strong>: Up to 10 latest progress entries.</li>
+  </ul>
+
+  <h2>Example Output</h2>
+  <pre><code>{`{
+  "product_context": {
+    "content": "Building a high-performance CLI tool...",
+    "timestamp": "2026-07-12T12:00:00Z"
+  },
+  "active_context": {
+    "content": "Focusing on documentation and developer setup.",
+    "timestamp": "2026-07-12T12:30:00Z"
+  },
+  "decisions": [
+    {
+      "id": 1,
+      "uuid": "e44d03e1-7ceb-419b-b0b3-96b613271708",
+      "summary": "Use SQLite FTS5 for local search",
+      "rationale": "Fast and zero dependency",
+      "implementation_details": "Create triggers for FTS tables",
+      "tags": ["db", "search"],
+      "timestamp": "2026-07-12T10:00:00Z",
+      "status": "active",
+      "commit_sha": "d41d8cd98f00b204e9800998ecf8427e",
+      "pr_urls": [
+        "https://github.com/stevebrownlee/engrams-cli/pull/42"
+      ],
+      "anchors": [
+        "src/schema.rs"
+      ]
+    }
+  ],
+  "patterns": [],
+  "progress": [],
+  "budget": {
+    "limit": 1000,
+    "estimated_tokens": 420
+  }
+}`}</code></pre>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  pre { background: var(--color-bg-sidebar); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  code { font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-text); }
+</style>

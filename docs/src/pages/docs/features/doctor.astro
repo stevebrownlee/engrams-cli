@@ -1,0 +1,93 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Database Audits (Doctor)" description="Keep your knowledge base healthy with automated audits and drift detection.">
+  <h1>Database Auditing (Doctor)</h1>
+  <p class="lead">
+    Keep your engrams database healthy and up-to-date. The <code>doctor</code> command automatically scans your knowledge base for broken links, missing files, stale decisions, and unlinked context.
+  </p>
+
+  <h2>Running the Doctor</h2>
+  <p>
+    Run the command from any workspace directory to perform a complete database audit:
+  </p>
+  <pre><code>engrams doctor</code></pre>
+
+  <h2>Audit Checks Performed</h2>
+  <p>
+    The doctor performs four key checks on your engrams database:
+  </p>
+
+  <h3>1. Missing File Anchors</h3>
+  <p>
+    Checks all registered file anchors (links from decisions or patterns to specific paths on disk) and verifies that the target files or directories still exist. If a file was renamed, moved, or deleted, it reports it as missing.
+  </p>
+
+  <h3>2. Dangling Links</h3>
+  <p>
+    Checks relationships (edges) in the workspace knowledge graph and verifies that both the source entity and the target entity still exist in the database. If an entity was deleted but the relation remains, it is flagged as dangling.
+  </p>
+
+  <h3>3. Stale Decisions</h3>
+  <p>
+    Detects when an active decision might need to be re-evaluated. If a decision has a registered <code>commit_sha</code> and file anchors, the doctor checks the git history of those anchored files. If any of those files have been modified since the decision's commit, the decision is flagged as stale.
+  </p>
+
+  <h3>4. Unlinked Decisions</h3>
+  <p>
+    Identifies active decisions that have a <code>commit_sha</code> associated with them but do not have a Pull Request (PR) link attached. This ensures all decisions made in the codebase are properly traced to their implementation PR.
+  </p>
+
+  <h2>Example Output</h2>
+  <p>
+    The command outputs a structured JSON report detailing the health of your database:
+  </p>
+  <pre><code>{`{
+  "missing_anchor_paths": [
+    {
+      "item_type": "decision",
+      "item_id": 12,
+      "path": "src/old_auth.rs"
+    }
+  ],
+  "dangling_links": [
+    {
+      "id": 4,
+      "source": "system_pattern:2",
+      "target": "decision:8"
+    }
+  ],
+  "stale_decisions": [
+    {
+      "id": 5,
+      "summary": "Use PostgreSQL for caching",
+      "commit_sha": "a1b2c3d4",
+      "changed_paths": [
+        "src/db/cache.rs"
+      ]
+    }
+  ],
+  "unlinked_decisions": [
+    {
+      "id": 9,
+      "summary": "Switch to rustls for TLS connection"
+    }
+  ],
+  "git": "ok",
+  "ok": false
+}`}</code></pre>
+
+  <h2>AI Agent Integration</h2>
+  <p>
+    For AI agents, it is highly recommended to run <code>engrams doctor</code> periodically. Agents can use the output of the doctor command to proactively clean up obsolete anchors, link decisions to relevant PRs, or alert you when a modified codebase drifts from the documented architectural decisions.
+  </p>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  h3 { margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.35rem; }
+  pre { background: var(--color-bg-sidebar); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  code { font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-text); }
+</style>

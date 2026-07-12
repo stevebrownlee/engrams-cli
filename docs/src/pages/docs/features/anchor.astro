@@ -1,0 +1,77 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="File Anchors" description="Link decisions and patterns directly to files and directories in your codebase.">
+  <h1>File Anchors</h1>
+  <p class="lead">
+    File anchors create direct links between the knowledge in your database (decisions and patterns) and the source code in your repository. By anchoring items to specific files or directories, you make your context highly queryable and context-aware.
+  </p>
+
+  <h2>Managing Anchors</h2>
+  <p>
+    You can manage file anchors using the dedicated <code>anchor</code> command, or attach them inline when logging new decisions.
+  </p>
+
+  <h3>1. Adding Anchors</h3>
+  <p>
+    To attach file or directory paths to an existing decision or pattern:
+  </p>
+  <pre><code>engrams anchor add --type decision --id 4 --path src/db.rs --path src/models.rs
+engrams anchor add --type pattern --id 1 --path src/controllers/</code></pre>
+  <p>
+    Alternatively, you can attach anchors immediately when creating a decision:
+  </p>
+  <pre><code>engrams decision log --summary "Use AES-GCM-256 encryption" --anchor src/db.rs --anchor src/models.rs</code></pre>
+
+  <h3>2. Listing Anchors</h3>
+  <p>
+    To view all file anchors currently attached to an item:
+  </p>
+  <pre><code>engrams anchor list --type decision --id 4</code></pre>
+  <p>
+    The command returns a JSON array of registered anchors:
+  </p>
+  <pre><code>{`[
+  {
+    "path": "src/db.rs",
+    "timestamp": "2026-07-12T10:15:30Z"
+  },
+  {
+    "path": "src/models.rs",
+    "timestamp": "2026-07-12T10:15:30Z"
+  }
+]`}</code></pre>
+
+  <h3>3. Removing Anchors</h3>
+  <p>
+    To remove a specific file anchor from an item:
+  </p>
+  <pre><code>engrams anchor remove --type decision --id 4 --path src/models.rs</code></pre>
+
+  <h2>Path Normalization &amp; Directory Resolving</h2>
+  <p>
+    Engrams automatically normalizes paths to keep them consistent across different environments:
+  </p>
+  <ul>
+    <li>Relative path prefixes like <code>./</code> are automatically stripped (e.g. <code>./src/db.rs</code> becomes <code>src/db.rs</code>).</li>
+    <li>If you anchor an item to a directory (e.g. <code>src/controllers/</code>), any query for file paths inside that directory (e.g. <code>src/controllers/auth.rs</code>) will match that anchor.</li>
+  </ul>
+
+  <h2>Why Anchors Matter</h2>
+  <p>
+    By building a map of file anchors, the CLI enables features like:
+  </p>
+  <ul>
+    <li><strong>Relevant Context Queries</strong>: Retrieve only the decisions/patterns relevant to the files you are currently staging or modifying (see <a href="/docs/features/relevant">Context Relevance</a>).</li>
+    <li><strong>Drift/Staleness Auditing</strong>: Automatically check if files associated with a decision have been modified in Git since the decision was committed (see <a href="/docs/features/doctor">Database Auditing</a>).</li>
+  </ul>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  h3 { margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.35rem; }
+  pre { background: var(--color-bg-sidebar); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  code { font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-text); }
+</style>

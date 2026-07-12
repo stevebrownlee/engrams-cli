@@ -1,0 +1,71 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Pull Request Linking" description="Link decisions and patterns directly to implementation Pull Requests.">
+  <h1>Pull Request Linking</h1>
+  <p class="lead">
+    Pull Request (PR) linking associates architectural decisions and codebase patterns with the actual implementation work in your version control platform.
+  </p>
+
+  <h2>Managing PR Links</h2>
+  <p>
+    You can manage PR links using the dedicated <code>pr</code> command, or attach them inline when logging new decisions.
+  </p>
+
+  <h3>1. Adding PR Links</h3>
+  <p>
+    To attach one or more PR links to an existing decision or pattern:
+  </p>
+  <pre><code>engrams pr add --type decision --id 4 --pr 42 --pr 43
+engrams pr add --type pattern --id 1 --pr "https://github.com/org/repo/pull/101"</code></pre>
+  <p>
+    Alternatively, you can attach PRs immediately when creating a decision:
+  </p>
+  <pre><code>engrams decision log --summary "Use AES-GCM-256 encryption" --pr 42</code></pre>
+
+  <h3>Automatic PR URL Resolution</h3>
+  <p>
+    Engrams makes linking fast by automatically converting raw PR numbers into full URLs.
+    If you provide a numeric PR (e.g. <code>42</code>), Engrams inspects your Git remote configuration (e.g. <code>origin</code>) to resolve the GitHub repository URL automatically, producing:
+    <code>https://github.com/stevebrownlee/engrams-cli/pull/42</code>.
+  </p>
+
+  <h3>2. Listing PR Links</h3>
+  <p>
+    To view all PR links currently attached to an item:
+  </p>
+  <pre><code>engrams pr list --type decision --id 4</code></pre>
+  <p>
+    The command returns a JSON array of registered PR links:
+  </p>
+  <pre><code>{`[
+  {
+    "url": "https://github.com/stevebrownlee/engrams-cli/pull/42",
+    "timestamp": "2026-07-12T10:15:30Z"
+  }
+]`}</code></pre>
+
+  <h3>3. Removing PR Links</h3>
+  <p>
+    To remove a specific PR link from an item:
+  </p>
+  <pre><code>engrams pr remove --type decision --id 4 --url "https://github.com/stevebrownlee/engrams-cli/pull/42"</code></pre>
+
+  <h2>Traceability and Audit Health</h2>
+  <p>
+    Linking your decisions directly to PRs keeps your knowledge base complete and transparent:
+    <ul>
+      <li><strong>Traceability</strong>: Developers and AI agents can jump straight from an architectural decision in the CLI to the code diff and discussion thread where it was implemented.</li>
+      <li><strong>Completeness Auditing</strong>: Running the <code>doctor</code> command automatically flags active decisions that lack associated PR links, helping maintain compliance and documentation standards.</li>
+    </ul>
+  </p>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2rem; margin-bottom: 1rem; }
+  h3 { margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.35rem; }
+  pre { background: var(--color-bg-sidebar); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  code { font-family: var(--font-mono); font-size: 0.9rem; color: var(--color-text); }
+</style>
