@@ -129,7 +129,21 @@ engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-
   <p>Get a summary digest of all modifications across the database.</p>
   <pre><code>{`engrams activity [--hours <N>] [--limit-per-type <LIMIT>]`}</code></pre>
 
-  <h3>12. <code>batch</code></h3>
+  <h3>12. <code>report</code></h3>
+  <p>Generate a structured project knowledge report of active context, progress, decisions, patterns, and links. Can be filtered by a specific topic. Supports JSON (default) and human-readable Markdown tables.</p>
+  <pre><code>{`# Generate full report in JSON format
+engrams report
+
+# Generate full report in Markdown format (Human-readable)
+engrams --format human report
+
+# Show only progress entries in Markdown format
+engrams --format human report progress
+
+# Export report to a Markdown file to open in a reader
+engrams --format human report > report.md`}</code></pre>
+
+  <h3>13. <code>batch</code></h3>
   <p>Perform bulk operations in a single atomic transaction.</p>
   <pre><code>{`# From JSON string
 engrams batch --type decision --items '[{"summary": "A"}, {"summary": "B"}]'
@@ -137,14 +151,13 @@ engrams batch --type decision --items '[{"summary": "A"}, {"summary": "B"}]'
 # From stdin
 cat items.json | engrams batch --type custom_data --items -`}</code></pre>
 
-  <h3>13. <code>export</code></h3>
+  <h3>14. <code>export</code></h3>
   <p>Dump the SQLite tables to Markdown files for Git versioning.</p>
   <pre><code>{`engrams export [--path <DIR>]`}</code></pre>
 
-  <h3>14. <code>import</code></h3>
+  <h3>15. <code>import</code></h3>
   <p>Import/update the database using exported Markdown files.</p>
   <pre><code>{`engrams import [--path <DIR>]`}</code></pre>
-</DocsLayout>
 
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }

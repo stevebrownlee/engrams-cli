@@ -46,7 +46,7 @@ mkdir -p "$BIN_DIR"
 
 # Fetch latest release URL from GitHub API
 echo "Fetching latest release..."
-LATEST_URL=$(curl -fsSL https://api.github.com/repos/$GITHUB_REPO/releases/latest | grep "browser_download_url.*engrams-$TARGET.tar.gz" | cut -d : -f 2,3 | tr -d \")
+LATEST_URL=$(curl -fsSL https://api.github.com/repos/$GITHUB_REPO/releases/latest | grep "browser_download_url.*engrams-$TARGET.tar.gz" | cut -d : -f 2,3 | tr -d ' "')
 
 if [ -z "$LATEST_URL" ]; then
     echo "Error: Could not find a release for $TARGET"

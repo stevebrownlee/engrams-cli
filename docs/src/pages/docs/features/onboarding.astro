@@ -30,6 +30,11 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
         <p>The agent runs <code>engrams activity</code> to get a reverse-chronological digest of recent additions and updates, showing what code decisions and patterns were logged recently.</p>
         <pre><code>engrams activity --hours 48</code></pre>
       </li>
+      <li>
+        <strong>Generate a Full Report:</strong>
+        <p>Alternatively, the agent or developer can run <code>engrams report</code> to get a complete, structured snapshot of active context, progress, decisions, patterns, and links in one command. To save it for offline reference or view it in a markdown reader, export it in human-readable Markdown format:</p>
+        <pre><code>engrams --format human report > report.md</code></pre>
+      </li>
     </ol>
   </div>
 
@@ -56,6 +61,7 @@ AI: "Hello! I see this is a Rust CLI tool utilizing SQLite (via rusqlite with bu
     <li><code>engrams product-context get</code> — Retrieves the stable high-level overview.</li>
     <li><code>engrams active-context get</code> — Retrieves the current session focus and status.</li>
     <li><code>engrams activity [--hours &lt;N&gt;]</code> — Generates a chronological digest of recent changes across all memory records.</li>
+    <li><code>engrams report</code> — Generates a comprehensive project knowledge report (supports JSON and Markdown tables).</li>
   </ul>
 </DocsLayout>
 
