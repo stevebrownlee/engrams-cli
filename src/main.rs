@@ -3,6 +3,7 @@ mod db;
 mod models;
 mod ops;
 mod output;
+mod release;
 mod schema;
 
 use anyhow::Result;
@@ -25,12 +26,18 @@ fn run() -> Result<()> {
     // We open (and create) the db for all commands.
     let mut conn = db::open(&db_path)?;
 
+    // Instantiate UpdateChecker (spawns background thread if check is needed)
+    let checker = release::UpdateChecker::new(&db_path);
+
     let is_migrate_or_init = matches!(cli.command, cli::Command::Migrate | cli::Command::Init);
     db::validate_version(&conn, is_migrate_or_init)?;
 
     let result = ops::dispatch(&mut conn, cli.command, &db_path, !db_existed, cli.format)?;
 
     output::emit(cli.format, result)?;
+
+    // Print notification if a new version is available
+    checker.print_notification();
 
     Ok(())
 }

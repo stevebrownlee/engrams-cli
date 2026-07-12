@@ -48,9 +48,12 @@ engrams active-context update --patch '<JSON>'`}</code></pre>
   <pre><code>{`engrams history <product-context|active-context> [--version <N>] [--limit <LIMIT>]`}</code></pre>
 
   <h3>6. <code>decision</code></h3>
-  <p>Log, list, search, update, or delete architectural decisions (ADRs).</p>
-  <pre><code>{`# Log a new decision
+  <p>Log, list, search, update, delete, or consolidate architectural decisions (ADRs). To prevent knowledge duplication, <code>decision log</code> checks for similar existing decisions by default. If near-matches are found, it outputs them and skips insertion unless <code>--force</code> is passed.</p>
+  <pre><code>{`# Log a new decision (fails if similar summary exists)
 engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql"
+
+# Log a new decision unconditionally
+engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql" --force
 
 # List decisions
 engrams decision list [--tags "db,sql"] [--limit 20]
@@ -65,12 +68,15 @@ engrams decision get <ID>
 engrams decision update <ID> [--summary "New summary"] [--rationale "New rationale"] [--details "details"] [--tags "new,tags"]
 
 # Delete a decision
-engrams decision delete <ID>`}</code></pre>
+engrams decision delete <ID>
+
+# Consolidate two decisions (merges fields, repoints links, and deletes source)
+engrams decision consolidate <SOURCE_ID> <INTO_ID>`}</code></pre>
 
   <h3>7. <code>progress</code></h3>
-  <p>Log and track tasks and subtasks.</p>
+  <p>Log and track tasks and subtasks. Use <code>--check-similar</code> to prevent logging duplicate entries for the same status and description.</p>
   <pre><code>{`# Log progress
-engrams progress log --status "InProgress" --description "Database schema setup" [--parent-id <ID>]
+engrams progress log --status "InProgress" --description "Database schema setup" [--parent-id <ID>] [--check-similar]
 
 # List progress
 engrams progress list [--status "Done"] [--parent-id <ID>] [--limit 20]
@@ -117,13 +123,13 @@ engrams custom delete --category "config" --key "api_host"`}</code></pre>
   <p>Create and list relationships (edges) in the workspace knowledge graph.</p>
   <pre><code>{`# Link two entities
 engrams link add \\
-  --source-type system_pattern --source-id 1 \
+  --source-type system-pattern --source-id 1 \
   --target-type decision --target-id 7 \
   --rel implements \\
   --description "Verify JWT middleware implements decision 7"
 
 # List links
-engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-type system_pattern]`}</code></pre>
+engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-type system-pattern]`}</code></pre>
 
   <h3>11. <code>activity</code></h3>
   <p>Get a summary digest of all modifications across the database.</p>

@@ -148,7 +148,7 @@ pub struct ContextUpdateArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum DecisionCmd {
-    /// Log a new architectural decision
+    /// Log a new architectural decision (checks for similar existing decisions by default)
     Log {
         /// Short summary of the decision
         #[arg(long)]
@@ -162,6 +162,9 @@ pub enum DecisionCmd {
         /// Comma-separated list of tags
         #[arg(long, value_delimiter = ',')]
         tags: Vec<String>,
+        /// Skip similarity check and insert unconditionally
+        #[arg(long)]
+        force: bool,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -182,6 +185,13 @@ pub enum DecisionCmd {
     Update(DecisionUpdateArgs),
     /// Delete a decision and its links
     Delete { id: i64 },
+    /// Merge source decision into target, combining rationale/details/tags and repointing links
+    Consolidate {
+        /// ID of the decision to merge away (will be deleted)
+        source_id: i64,
+        /// ID of the decision to merge into (will be updated)
+        into_id: i64,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -222,6 +232,9 @@ pub enum ProgressCmd {
         /// ID of the parent progress entry
         #[arg(long)]
         parent_id: Option<i64>,
+        /// Check for recent entries with similar descriptions before inserting
+        #[arg(long)]
+        check_similar: bool,
     },
     /// List progress entries
     List {

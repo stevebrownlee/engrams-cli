@@ -6,6 +6,7 @@ use tempfile::TempDir;
 fn engrams(db_path: &std::path::Path) -> Command {
     let mut cmd = Command::cargo_bin("engrams").unwrap();
     cmd.arg("--db").arg(db_path);
+    cmd.env("ENGRAMS_NO_UPDATE_CHECK", "1");
     cmd
 }
 
@@ -523,4 +524,275 @@ fn test_report() {
         .success()
         .stdout(predicate::str::contains("Progress"))
         .stdout(predicate::str::contains("Set up DB"));
+}
+
+#[test]
+fn test_decision_similarity_check() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Log a decision with --force (bypasses check, ensures insert)
+    let out1 = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Use Rust for the CLI tool",
+            "--rationale",
+            "Performance and safety",
+            "--tags",
+            "lang,arch",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let j1: Value = serde_json::from_slice(&out1.stdout).unwrap();
+    assert!(j1["inserted"].as_bool().unwrap());
+    let id1 = j1["id"].as_i64().unwrap();
+
+    // Log a similar decision WITHOUT --force — should be blocked
+    let out2 = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Use Rust for CLI",
+            "--rationale",
+            "Speed",
+        ])
+        .output()
+        .unwrap();
+    let j2: Value = serde_json::from_slice(&out2.stdout).unwrap();
+    assert!(!j2["inserted"].as_bool().unwrap());
+    assert!(j2["similar"].is_array());
+    let similar = j2["similar"].as_array().unwrap();
+    assert!(!similar.is_empty());
+    assert_eq!(similar[0]["id"].as_i64().unwrap(), id1);
+
+    // Log the same decision WITH --force — should insert
+    let out3 = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Use Rust for CLI",
+            "--rationale",
+            "Speed",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let j3: Value = serde_json::from_slice(&out3.stdout).unwrap();
+    assert!(j3["inserted"].as_bool().unwrap());
+    assert!(j3["id"].as_i64().unwrap() > id1);
+
+    // A completely different decision should insert without --force
+    let out4 = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Deploy to Kubernetes",
+            "--rationale",
+            "Scalability",
+        ])
+        .output()
+        .unwrap();
+    let j4: Value = serde_json::from_slice(&out4.stdout).unwrap();
+    assert!(j4["inserted"].as_bool().unwrap());
+}
+
+#[test]
+fn test_decision_consolidate() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Create two decisions
+    let out1 = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Use SQLite for storage",
+            "--rationale",
+            "Embedded, zero config",
+            "--tags",
+            "db,arch",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let j1: Value = serde_json::from_slice(&out1.stdout).unwrap();
+    let id1 = j1["id"].as_i64().unwrap();
+
+    let out2 = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "SQLite with FTS5",
+            "--rationale",
+            "Full-text search capability",
+            "--details",
+            "Use bundled feature",
+            "--tags",
+            "db,search",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let j2: Value = serde_json::from_slice(&out2.stdout).unwrap();
+    let id2 = j2["id"].as_i64().unwrap();
+
+    // Add a link from id2 to id1 to verify repointing
+    engrams(&db)
+        .args(&[
+            "link",
+            "add",
+            "--source-type",
+            "decision",
+            "--source-id",
+            &id2.to_string(),
+            "--target-type",
+            "decision",
+            "--target-id",
+            &id1.to_string(),
+            "--rel",
+            "refines",
+        ])
+        .assert()
+        .success();
+
+    // Consolidate id2 into id1
+    let out3 = engrams(&db)
+        .args(&[
+            "decision",
+            "consolidate",
+            &id2.to_string(),
+            &id1.to_string(),
+        ])
+        .output()
+        .unwrap();
+    let j3: Value = serde_json::from_slice(&out3.stdout).unwrap();
+    assert_eq!(j3["id"].as_i64().unwrap(), id1);
+    assert_eq!(j3["consolidated_from"].as_i64().unwrap(), id2);
+
+    // Rationale should be merged
+    let rationale = j3["rationale"].as_str().unwrap();
+    assert!(rationale.contains("Embedded, zero config"));
+    assert!(rationale.contains("Full-text search capability"));
+
+    // Details from source should be present
+    let details = j3["implementation_details"].as_str().unwrap();
+    assert!(details.contains("Use bundled feature"));
+
+    // Tags should be unioned
+    let tags = j3["tags"].as_array().unwrap();
+    let tag_strs: Vec<&str> = tags.iter().map(|t| t.as_str().unwrap()).collect();
+    assert!(tag_strs.contains(&"db"));
+    assert!(tag_strs.contains(&"arch"));
+    assert!(tag_strs.contains(&"search"));
+
+    // Source decision should be gone
+    engrams(&db)
+        .args(&["decision", "get", &id2.to_string()])
+        .assert()
+        .failure();
+
+    // Consolidating into self should fail
+    engrams(&db)
+        .args(&[
+            "decision",
+            "consolidate",
+            &id1.to_string(),
+            &id1.to_string(),
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_progress_check_similar() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Log a progress entry
+    let out1 = engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Implemented auth module",
+        ])
+        .output()
+        .unwrap();
+    let j1: Value = serde_json::from_slice(&out1.stdout).unwrap();
+    let id1 = j1["id"].as_i64().unwrap();
+
+    // Log an identical entry with --check-similar — should be blocked
+    let out2 = engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Implemented auth module",
+            "--check-similar",
+        ])
+        .output()
+        .unwrap();
+    let j2: Value = serde_json::from_slice(&out2.stdout).unwrap();
+    assert!(!j2["inserted"].as_bool().unwrap());
+    assert_eq!(j2["existing"]["id"].as_i64().unwrap(), id1);
+
+    // Case-insensitive match
+    let out3 = engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "done",
+            "--description",
+            "implemented auth module",
+            "--check-similar",
+        ])
+        .output()
+        .unwrap();
+    let j3: Value = serde_json::from_slice(&out3.stdout).unwrap();
+    assert!(!j3["inserted"].as_bool().unwrap());
+
+    // Different description should insert
+    let out4 = engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Implemented billing module",
+            "--check-similar",
+        ])
+        .output()
+        .unwrap();
+    let j4: Value = serde_json::from_slice(&out4.stdout).unwrap();
+    assert!(j4["inserted"].as_bool().unwrap());
+
+    // Without --check-similar, duplicates insert freely
+    let out5 = engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Implemented auth module",
+        ])
+        .output()
+        .unwrap();
+    let j5: Value = serde_json::from_slice(&out5.stdout).unwrap();
+    // No "inserted" key when check_similar is false (original behavior)
+    assert!(j5["id"].as_i64().unwrap() > id1);
 }

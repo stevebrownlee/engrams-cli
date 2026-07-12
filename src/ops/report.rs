@@ -6,7 +6,12 @@ use std::io::{self, Write};
 use crate::cli::{Format, ReportTopic};
 use crate::models::{ContextDoc, Decision, Link, Pattern, Progress};
 
-pub fn handle(conn: &Connection, topic: Option<ReportTopic>, limit: i64, format: Format) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    topic: Option<ReportTopic>,
+    limit: i64,
+    format: Format,
+) -> Result<Value> {
     match format {
         Format::Json => handle_json(conn, topic, limit),
         Format::Human => {
@@ -24,13 +29,13 @@ fn query_active_context(conn: &Connection) -> Result<Option<ContextDoc>> {
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .optional()?;
-    
+
     let doc = row.map(|(content_str, version, updated_at)| ContextDoc {
         content: serde_json::from_str(&content_str).unwrap_or(Value::Null),
         version,
         updated_at: Some(updated_at),
     });
-    
+
     Ok(doc)
 }
 
@@ -130,37 +135,25 @@ fn handle_json(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Res
     let patterns = query_patterns(conn, limit)?;
     let links = query_links(conn, limit)?;
     match topic {
-        None => {
-            Ok(serde_json::json!({
-                "active_context": active_context,
-                "progress": progress,
-                "decisions": decisions,
-                "patterns": patterns,
-                "links": links,
-            }))
-        }
-        Some(ReportTopic::Context) => {
-            Ok(serde_json::to_value(active_context)?)
-        }
-        Some(ReportTopic::Progress) => {
-            Ok(serde_json::to_value(progress)?)
-        }
-        Some(ReportTopic::Decisions) => {
-            Ok(serde_json::to_value(decisions)?)
-        }
-        Some(ReportTopic::Patterns) => {
-            Ok(serde_json::to_value(patterns)?)
-        }
-        Some(ReportTopic::Links) => {
-            Ok(serde_json::to_value(links)?)
-        }
+        None => Ok(serde_json::json!({
+            "active_context": active_context,
+            "progress": progress,
+            "decisions": decisions,
+            "patterns": patterns,
+            "links": links,
+        })),
+        Some(ReportTopic::Context) => Ok(serde_json::to_value(active_context)?),
+        Some(ReportTopic::Progress) => Ok(serde_json::to_value(progress)?),
+        Some(ReportTopic::Decisions) => Ok(serde_json::to_value(decisions)?),
+        Some(ReportTopic::Patterns) => Ok(serde_json::to_value(patterns)?),
+        Some(ReportTopic::Links) => Ok(serde_json::to_value(links)?),
     }
 }
 
 fn handle_human(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Result<()> {
     let stdout = io::stdout();
     let mut w = stdout.lock();
-    
+
     if topic.is_none() {
         writeln!(w, "# Engrams Project Report")?;
         writeln!(w)?;
@@ -194,7 +187,7 @@ fn handle_human(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Re
             write_links_section(&mut w, conn, limit)?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -227,20 +220,29 @@ fn write_active_context_section(w: &mut impl Write, conn: &Connection) -> io::Re
             return Ok(());
         }
     };
-    
-    let updated = doc.updated_at.as_deref().map(format_time).unwrap_or_else(|| "unknown".to_string());
+
+    let updated = doc
+        .updated_at
+        .as_deref()
+        .map(format_time)
+        .unwrap_or_else(|| "unknown".to_string());
     writeln!(w, "### Active Context (v{})", doc.version)?;
     writeln!(w)?;
     writeln!(w, "| Key | Value |")?;
     writeln!(w, "| :--- | :--- |")?;
     writeln!(w, "| **updated_at** | {} |", updated)?;
-    
+
     match &doc.content {
         Value::Object(map) => {
             for (k, v) in map {
                 match v {
                     Value::String(s) => {
-                        writeln!(w, "| **{}** | {} |", k, s.replace('|', "\\|").replace('\n', " "))?;
+                        writeln!(
+                            w,
+                            "| **{}** | {} |",
+                            k,
+                            s.replace('|', "\\|").replace('\n', " ")
+                        )?;
                     }
                     Value::Null => {
                         writeln!(w, "| **{}** | *(null)* |", k)?;
@@ -250,22 +252,35 @@ fn write_active_context_section(w: &mut impl Write, conn: &Connection) -> io::Re
                         writeln!(w, "| **{}** | `{}` |", k, pretty.replace('|', "\\|"))?;
                     }
                     _ => {
-                        writeln!(w, "| **{}** | {} |", k, v.to_string().replace('|', "\\|").replace('\n', " "))?;
+                        writeln!(
+                            w,
+                            "| **{}** | {} |",
+                            k,
+                            v.to_string().replace('|', "\\|").replace('\n', " ")
+                        )?;
                     }
                 }
             }
         }
         Value::String(s) => {
-            writeln!(w, "| **content** | {} |", s.replace('|', "\\|").replace('\n', " "))?;
+            writeln!(
+                w,
+                "| **content** | {} |",
+                s.replace('|', "\\|").replace('\n', " ")
+            )?;
         }
         Value::Null => {
             writeln!(w, "| **content** | *(null)* |")?;
         }
         other => {
-            writeln!(w, "| **content** | {} |", other.to_string().replace('|', "\\|").replace('\n', " "))?;
+            writeln!(
+                w,
+                "| **content** | {} |",
+                other.to_string().replace('|', "\\|").replace('\n', " ")
+            )?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -275,7 +290,7 @@ fn write_progress_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
     let entry_word = if count == 1 { "entry" } else { "entries" };
     writeln!(w, "### Progress ({} {})", count, entry_word)?;
     writeln!(w)?;
-    
+
     if entries.is_empty() {
         writeln!(w, "*(none)*")?;
     } else {
@@ -283,10 +298,17 @@ fn write_progress_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
         writeln!(w, "| :---: | :--- | :---: | :--- |")?;
         for p in entries {
             let status_icon = format_status(&p.status);
-            let parent_str = p.parent_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "-".to_string());
+            let parent_str = p
+                .parent_id
+                .map(|id| format!("#{}", id))
+                .unwrap_or_else(|| "-".to_string());
             let desc = p.description.replace('|', "\\|").replace('\n', " ");
             let ts = format_time(&p.timestamp);
-            writeln!(w, "| {} | {} | {} | {} |", status_icon, desc, parent_str, ts)?;
+            writeln!(
+                w,
+                "| {} | {} | {} | {} |",
+                status_icon, desc, parent_str, ts
+            )?;
         }
     }
     Ok(())
@@ -298,7 +320,7 @@ fn write_decisions_section(w: &mut impl Write, conn: &Connection, limit: i64) ->
     let entry_word = if count == 1 { "entry" } else { "entries" };
     writeln!(w, "### Decisions ({} {})", count, entry_word)?;
     writeln!(w)?;
-    
+
     if entries.is_empty() {
         writeln!(w, "*(none)*")?;
     } else {
@@ -306,7 +328,12 @@ fn write_decisions_section(w: &mut impl Write, conn: &Connection, limit: i64) ->
         writeln!(w, "| :---: | :--- | :--- | :--- | :--- |")?;
         for d in entries {
             let summary = d.summary.replace('|', "\\|").replace('\n', " ");
-            let rationale = d.rationale.as_deref().unwrap_or("-").replace('|', "\\|").replace('\n', " ");
+            let rationale = d
+                .rationale
+                .as_deref()
+                .unwrap_or("-")
+                .replace('|', "\\|")
+                .replace('\n', " ");
             let tags_str = if let Some(tags_val) = &d.tags {
                 if let Some(arr) = tags_val.as_array() {
                     arr.iter()
@@ -321,7 +348,11 @@ fn write_decisions_section(w: &mut impl Write, conn: &Connection, limit: i64) ->
                 "-".to_string()
             };
             let date = format_time(&d.timestamp);
-            writeln!(w, "| #{} | {} | {} | {} | {} |", d.id, summary, rationale, tags_str, date)?;
+            writeln!(
+                w,
+                "| #{} | {} | {} | {} | {} |",
+                d.id, summary, rationale, tags_str, date
+            )?;
         }
     }
     Ok(())
@@ -333,7 +364,7 @@ fn write_patterns_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
     let entry_word = if count == 1 { "entry" } else { "entries" };
     writeln!(w, "### Patterns ({} {})", count, entry_word)?;
     writeln!(w)?;
-    
+
     if entries.is_empty() {
         writeln!(w, "*(none)*")?;
     } else {
@@ -341,7 +372,12 @@ fn write_patterns_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
         writeln!(w, "| :---: | :--- | :--- | :--- | :--- |")?;
         for p in entries {
             let name = p.name.replace('|', "\\|").replace('\n', " ");
-            let desc = p.description.as_deref().unwrap_or("-").replace('|', "\\|").replace('\n', " ");
+            let desc = p
+                .description
+                .as_deref()
+                .unwrap_or("-")
+                .replace('|', "\\|")
+                .replace('\n', " ");
             let tags_str = if let Some(tags_val) = &p.tags {
                 if let Some(arr) = tags_val.as_array() {
                     arr.iter()
@@ -356,7 +392,11 @@ fn write_patterns_section(w: &mut impl Write, conn: &Connection, limit: i64) -> 
                 "-".to_string()
             };
             let date = format_time(&p.timestamp);
-            writeln!(w, "| #{} | {} | {} | {} | {} |", p.id, name, desc, tags_str, date)?;
+            writeln!(
+                w,
+                "| #{} | {} | {} | {} | {} |",
+                p.id, name, desc, tags_str, date
+            )?;
         }
     }
     Ok(())
@@ -368,7 +408,7 @@ fn write_links_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io:
     let entry_word = if count == 1 { "entry" } else { "entries" };
     writeln!(w, "### Links ({} {})", count, entry_word)?;
     writeln!(w)?;
-    
+
     if entries.is_empty() {
         writeln!(w, "*(none)*")?;
     } else {
@@ -378,9 +418,18 @@ fn write_links_section(w: &mut impl Write, conn: &Connection, limit: i64) -> io:
             let source = format!("`{}` #{}", l.source_item_type, l.source_item_id);
             let target = format!("`{}` #{}", l.target_item_type, l.target_item_id);
             let rel = l.relationship_type.replace('|', "\\|").replace('\n', " ");
-            let desc = l.description.as_deref().unwrap_or("-").replace('|', "\\|").replace('\n', " ");
+            let desc = l
+                .description
+                .as_deref()
+                .unwrap_or("-")
+                .replace('|', "\\|")
+                .replace('\n', " ");
             let date = format_time(&l.timestamp);
-            writeln!(w, "| {} | {} | {} | {} | {} |", source, target, rel, desc, date)?;
+            writeln!(
+                w,
+                "| {} | {} | {} | {} | {} |",
+                source, target, rel, desc, date
+            )?;
         }
     }
     Ok(())

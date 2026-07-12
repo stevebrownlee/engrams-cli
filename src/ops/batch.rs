@@ -62,6 +62,7 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                             rationale,
                             details,
                             tags: cmd_tags,
+                            force: true,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {
@@ -94,6 +95,7 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                             status,
                             description,
                             parent_id,
+                            check_similar: false,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {

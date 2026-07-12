@@ -17,6 +17,7 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             status,
             description,
             parent_id,
+            check_similar,
         } => {
             if let Some(pid) = parent_id {
                 let _: i64 = conn
@@ -29,6 +30,25 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
                     .context(format!("parent_id {} does not exist", pid))?;
             }
 
+            // Check for recent similar entries when requested
+            if check_similar {
+                let mut stmt = conn.prepare(
+                    "SELECT id, timestamp, status, description, parent_id \
+                     FROM progress_entries \
+                     WHERE LOWER(description) = LOWER(?1) AND LOWER(status) = LOWER(?2) \
+                     ORDER BY id DESC LIMIT 1",
+                )?;
+                let existing: Option<Progress> = stmt
+                    .query_row(params![description, status], parse_progress_row)
+                    .optional()?;
+                if let Some(entry) = existing {
+                    return Ok(serde_json::json!({
+                        "inserted": false,
+                        "existing": serde_json::to_value(entry)?,
+                    }));
+                }
+            }
+
             let timestamp = now();
             conn.execute(
                 "INSERT INTO progress_entries (timestamp, status, description, parent_id) VALUES (?1, ?2, ?3, ?4)",
@@ -36,7 +56,11 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             )?;
 
             let id = conn.last_insert_rowid();
-            get_progress(conn, id)
+            let mut result = get_progress(conn, id)?;
+            if let Value::Object(map) = &mut result {
+                map.insert("inserted".into(), Value::Bool(true));
+            }
+            Ok(result)
         }
         ProgressCmd::List {
             status,

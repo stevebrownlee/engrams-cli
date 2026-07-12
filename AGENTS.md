@@ -9,8 +9,8 @@ You have access to the `engrams` CLI tool, which maintains a local SQLite databa
 
 1. **On Startup:** Run `engrams activity` to see what has changed recently. Get the `product-context` and `active-context` to orient yourself.
 2. **Before Implementing:** Search `engrams decision search "<topic>"` and `engrams pattern list` to make sure your approach aligns with established decisions and codebase conventions.
-3. **When making design choices:** Log them with `engrams decision log` so they are documented for future sessions.
-4. **On Task Progress:** Track your progress using `engrams progress log`.
+3. **When making design choices:** Log them with `engrams decision log`. By default, this checks for similar existing decisions via FTS and returns them instead of inserting a duplicate. If similar decisions are returned, either update the existing decision with `engrams decision update <id>` or use `--force` only when you have verified the new decision is genuinely distinct. Use `engrams decision consolidate <source-id> <into-id>` to merge two decisions that cover the same topic.
+4. **On Task Progress:** Track your progress using `engrams progress log`. Use `--check-similar` to avoid logging duplicate entries for the same completed work.
 5. **On Exit:** Update the `active-context` to summarize where you left off for the next agent/developer.
 
 ---

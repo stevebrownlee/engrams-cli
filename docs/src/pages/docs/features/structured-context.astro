@@ -52,8 +52,8 @@ AI:  Found relevant decisions:
   <ul>
     <li><code>engrams product-context get</code> / <code>update</code> — Manage high-level project goals and tech stack.</li>
     <li><code>engrams active-context get</code> / <code>update</code> — Track current sprint focus and session goals.</li>
-    <li><code>engrams decision log</code> / <code>search</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Record and find architectural decisions (ADRs).</li>
-    <li><code>engrams progress log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Log tasks and track hierarchical subtasks.</li>
+    <li><code>engrams decision log</code> / <code>search</code> / <code>list</code> / <code>get</code> / <code>delete</code> / <code>consolidate</code> — Record and find architectural decisions (ADRs). Checks for similar decisions by default; merges duplicates via <code>consolidate</code>.</li>
+    <li><code>engrams progress log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Log tasks and track hierarchical subtasks. Supports <code>--check-similar</code> to prevent duplicates.</li>
     <li><code>engrams pattern log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Standardize and retrieve codebase patterns and design conventions.</li>
     <li><code>engrams custom set</code> / <code>get</code> / <code>search</code> / <code>delete</code> — Store arbitrary configuration or key-value pairs.</li>
   </ul>
