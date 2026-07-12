@@ -31,9 +31,20 @@ pub fn item_exists(conn: &Connection, item_type: ItemType, id: i64) -> Result<bo
 
 pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
     match cmd {
-        LinkCmd::Add { source_type, source_id, target_type, target_id, rel, description } => {
-            let s_id: i64 = source_id.parse().context(format!("invalid source id: {}", source_id))?;
-            let t_id: i64 = target_id.parse().context(format!("invalid target id: {}", target_id))?;
+        LinkCmd::Add {
+            source_type,
+            source_id,
+            target_type,
+            target_id,
+            rel,
+            description,
+        } => {
+            let s_id: i64 = source_id
+                .parse()
+                .context(format!("invalid source id: {}", source_id))?;
+            let t_id: i64 = target_id
+                .parse()
+                .context(format!("invalid target id: {}", target_id))?;
 
             if !item_exists(conn, source_type, s_id)? {
                 anyhow::bail!("{} {} does not exist", source_type.as_str(), s_id);
@@ -51,42 +62,46 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
             let id = conn.last_insert_rowid();
             get_link(conn, id)
         }
-        LinkCmd::List { item_type, item_id, rel, linked_type } => {
+        LinkCmd::List {
+            item_type,
+            item_id,
+            rel,
+            linked_type,
+        } => {
             let item_type_str = item_type.as_str();
 
             let mut conditions = Vec::new();
-            let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
+            let mut p = Vec::<&str>::with_capacity(8);
 
             conditions.push("((source_item_type = ? AND source_item_id = ?) OR (target_item_type = ? AND target_item_id = ?))");
-            p.push(Box::new(item_type_str.to_string()));
-            p.push(Box::new(item_id.clone()));
-            p.push(Box::new(item_type_str.to_string()));
-            p.push(Box::new(item_id.clone()));
+            p.push(item_type_str);
+            p.push(item_id.as_str());
+            p.push(item_type_str);
+            p.push(item_id.as_str());
 
-            if let Some(r) = rel {
+            if let Some(r) = &rel {
                 conditions.push("relationship_type = ?");
-                p.push(Box::new(r));
+                p.push(r.as_str());
             }
 
-            if let Some(lt) = linked_type {
-                let lt_str = lt.as_str().to_string();
+            if let Some(lt) = &linked_type {
+                let lt_str = lt.as_str();
                 conditions.push("((source_item_type = ? AND target_item_type = ?) OR (target_item_type = ? AND source_item_type = ?))");
-                p.push(Box::new(lt_str.clone()));
-                p.push(Box::new(item_type_str.to_string()));
-                p.push(Box::new(lt_str.clone()));
-                p.push(Box::new(item_type_str.to_string()));
+                p.push(lt_str);
+                p.push(item_type_str);
+                p.push(lt_str);
+                p.push(item_type_str);
             }
 
             let where_clause = format!("WHERE {}", conditions.join(" AND "));
             let query = format!("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp FROM context_links {} ORDER BY id ASC", where_clause);
 
-            let p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
             let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), |row| {
+            let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
                 let mut link = parse_link_row(row)?;
                 let s_type: String = row.get(1)?;
                 let s_id: String = row.get(2)?;
-                if s_type == item_type_str && s_id == item_id {
+                if s_type == item_type_str && s_id == *item_id {
                     link.direction = Some("outgoing".to_string());
                 } else {
                     link.direction = Some("incoming".to_string());
@@ -119,7 +134,8 @@ fn parse_link_row(row: &rusqlite::Row) -> rusqlite::Result<Link> {
 
 fn get_link(conn: &Connection, id: i64) -> Result<Value> {
     let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp FROM context_links WHERE id = ?")?;
-    let link = stmt.query_row(params![id], parse_link_row)
+    let link = stmt
+        .query_row(params![id], parse_link_row)
         .optional()?
         .context(format!("link {} not found", id))?;
     Ok(serde_json::to_value(link)?)

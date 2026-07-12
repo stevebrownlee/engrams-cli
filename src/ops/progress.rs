@@ -13,9 +13,18 @@ fn now() -> String {
 
 pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
     match cmd {
-        ProgressCmd::Log { status, description, parent_id } => {
+        ProgressCmd::Log {
+            status,
+            description,
+            parent_id,
+        } => {
             if let Some(pid) = parent_id {
-                let _: i64 = conn.query_row("SELECT id FROM progress_entries WHERE id = ?", params![pid], |r| r.get(0))
+                let _: i64 = conn
+                    .query_row(
+                        "SELECT id FROM progress_entries WHERE id = ?",
+                        params![pid],
+                        |r| r.get(0),
+                    )
                     .optional()?
                     .context(format!("parent_id {} does not exist", pid))?;
             }
@@ -29,7 +38,11 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             let id = conn.last_insert_rowid();
             get_progress(conn, id)
         }
-        ProgressCmd::List { status, parent_id, limit } => {
+        ProgressCmd::List {
+            status,
+            parent_id,
+            limit,
+        } => {
             let mut conditions = Vec::new();
             let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
 
@@ -49,13 +62,13 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             };
 
             let query = format!("SELECT id, timestamp, status, description, parent_id FROM progress_entries {} ORDER BY id DESC LIMIT ?", where_clause);
-            
+
             let mut p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
             p_refs.push(&limit);
 
             let mut stmt = conn.prepare(&query)?;
             let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), parse_progress_row)?;
-            
+
             let mut results = Vec::new();
             for r in rows {
                 results.push(r?);
@@ -64,12 +77,22 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
         }
         ProgressCmd::Get { id } => get_progress(conn, id),
         ProgressCmd::Update(ProgressUpdateArgs { id, fields }) => {
-            let _: i64 = conn.query_row("SELECT id FROM progress_entries WHERE id = ?", params![id], |r| r.get(0))
+            let _: i64 = conn
+                .query_row(
+                    "SELECT id FROM progress_entries WHERE id = ?",
+                    params![id],
+                    |r| r.get(0),
+                )
                 .optional()?
                 .context(format!("progress {} not found", id))?;
 
             if let Some(pid) = fields.parent_id {
-                let _: i64 = conn.query_row("SELECT id FROM progress_entries WHERE id = ?", params![pid], |r| r.get(0))
+                let _: i64 = conn
+                    .query_row(
+                        "SELECT id FROM progress_entries WHERE id = ?",
+                        params![pid],
+                        |r| r.get(0),
+                    )
                     .optional()?
                     .context(format!("parent_id {} does not exist", pid))?;
             }
@@ -94,7 +117,10 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
                 return get_progress(conn, id);
             }
 
-            let query = format!("UPDATE progress_entries SET {} WHERE id = ?", sets.join(", "));
+            let query = format!(
+                "UPDATE progress_entries SET {} WHERE id = ?",
+                sets.join(", ")
+            );
             let mut p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
             p_refs.push(&id);
 
@@ -103,14 +129,19 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
         }
         ProgressCmd::Delete { id } => {
             let tx = conn.unchecked_transaction()?;
-            
-            let _: i64 = tx.query_row("SELECT id FROM progress_entries WHERE id = ?", params![id], |r| r.get(0))
+
+            let _: i64 = tx
+                .query_row(
+                    "SELECT id FROM progress_entries WHERE id = ?",
+                    params![id],
+                    |r| r.get(0),
+                )
                 .optional()?
                 .context(format!("progress {} not found", id))?;
 
             let links_removed = delete_links_for(&tx, "progress_entry", id)?;
             let deleted = tx.execute("DELETE FROM progress_entries WHERE id = ?", params![id])?;
-            
+
             if deleted == 0 {
                 anyhow::bail!("progress {} not found", id);
             }
@@ -137,8 +168,11 @@ fn parse_progress_row(row: &rusqlite::Row) -> rusqlite::Result<Progress> {
 }
 
 fn get_progress(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, timestamp, status, description, parent_id FROM progress_entries WHERE id = ?")?;
-    let progress = stmt.query_row(params![id], parse_progress_row)
+    let mut stmt = conn.prepare(
+        "SELECT id, timestamp, status, description, parent_id FROM progress_entries WHERE id = ?",
+    )?;
+    let progress = stmt
+        .query_row(params![id], parse_progress_row)
         .optional()?
         .context(format!("progress {} not found", id))?;
     Ok(serde_json::to_value(progress)?)

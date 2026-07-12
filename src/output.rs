@@ -9,6 +9,9 @@ pub fn emit(format: Format, val: Value) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&val)?);
         }
         Format::Human => {
+            if val.is_null() {
+                return Ok(());
+            }
             if let Some(created) = val.get("created").and_then(|v| v.as_bool()) {
                 if let Some(path) = val.get("db_path").and_then(|v| v.as_str()) {
                     if val.as_object().is_some_and(|o| o.len() == 2) {
@@ -45,12 +48,11 @@ fn print_human(val: &Value) {
 }
 
 fn print_object_human(val: &Value, indent: usize) {
-    let pad = " ".repeat(indent);
     match val {
         Value::Object(obj) => {
             for (k, v) in obj {
                 if v.is_object() || v.is_array() {
-                    println!("{}{}:", pad, k);
+                    println!("{:indent$}{}:", "", k, indent = indent);
                     print_object_human(v, indent + 2);
                 } else {
                     let v_str = match v {
@@ -58,7 +60,7 @@ fn print_object_human(val: &Value, indent: usize) {
                         Value::Null => "(null)".to_string(),
                         _ => v.to_string(),
                     };
-                    println!("{}{}: {}", pad, k, v_str);
+                    println!("{:indent$}{}: {}", "", k, v_str, indent = indent);
                 }
             }
         }
@@ -72,12 +74,12 @@ fn print_object_human(val: &Value, indent: usize) {
                         Value::Null => "(null)".to_string(),
                         _ => item.to_string(),
                     };
-                    println!("{}- {}", pad, v_str);
+                    println!("{:indent$}- {}", "", v_str, indent = indent);
                 }
             }
         }
         _ => {
-            println!("{}{}", pad, val);
+            println!("{:indent$}{}", "", val, indent = indent);
         }
     }
 }

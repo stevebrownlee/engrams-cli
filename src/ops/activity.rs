@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::str::FromStr;
 
 use crate::cli::ActivityArgs;
-use crate::models::{Decision, Progress, Pattern, CustomData};
+use crate::models::{CustomData, Decision, Pattern, Progress};
 
 pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
     let cutoff = if let Some(since) = args.since {
@@ -35,7 +35,9 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 timestamp: row.get(6)?,
             })
         })?;
-        for r in rows { decisions.push(r?); }
+        for r in rows {
+            decisions.push(r?);
+        }
     }
 
     let mut progress = Vec::new();
@@ -50,7 +52,9 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 parent_id: row.get(4)?,
             })
         })?;
-        for r in rows { progress.push(r?); }
+        for r in rows {
+            progress.push(r?);
+        }
     }
 
     let mut patterns = Vec::new();
@@ -71,7 +75,9 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 timestamp: row.get(5)?,
             })
         })?;
-        for r in rows { patterns.push(r?); }
+        for r in rows {
+            patterns.push(r?);
+        }
     }
 
     let mut custom_data = Vec::new();
@@ -88,7 +94,9 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 value,
             })
         })?;
-        for r in rows { custom_data.push(r?); }
+        for r in rows {
+            custom_data.push(r?);
+        }
     }
 
     Ok(serde_json::json!({

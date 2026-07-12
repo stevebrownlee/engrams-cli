@@ -14,7 +14,12 @@ fn now() -> String {
 
 pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
     match cmd {
-        DecisionCmd::Log { summary, rationale, details, tags } => {
+        DecisionCmd::Log {
+            summary,
+            rationale,
+            details,
+            tags,
+        } => {
             let uuid = Uuid::new_v4().to_string();
             let timestamp = now();
             let tags_json = if tags.is_empty() {
@@ -64,7 +69,8 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 anyhow::bail!("search query cannot be empty");
             }
             // Tokenize by whitespace and wrap in double quotes
-            let match_expr = query.split_whitespace()
+            let match_expr = query
+                .split_whitespace()
                 .map(|token| format!("\"{}\"", token.replace('"', "\"\"")))
                 .collect::<Vec<_>>()
                 .join(" ");
@@ -79,7 +85,10 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
         }
         DecisionCmd::Update(DecisionUpdateArgs { id, fields }) => {
             // First check if exists
-            let _: i64 = conn.query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| r.get(0))
+            let _: i64 = conn
+                .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
+                    r.get(0)
+                })
                 .optional()?
                 .context(format!("decision {} not found", id))?;
 
@@ -122,15 +131,18 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
         }
         DecisionCmd::Delete { id } => {
             let tx = conn.unchecked_transaction()?;
-            
+
             // ensure it exists
-            let _: i64 = tx.query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| r.get(0))
+            let _: i64 = tx
+                .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
+                    r.get(0)
+                })
                 .optional()?
                 .context(format!("decision {} not found", id))?;
 
             let links_removed = delete_links_for(&tx, "decision", id)?;
             let deleted = tx.execute("DELETE FROM decisions WHERE id = ?", params![id])?;
-            
+
             if deleted == 0 {
                 anyhow::bail!("decision {} not found", id);
             }
@@ -166,7 +178,8 @@ fn parse_decision_row(row: &rusqlite::Row) -> rusqlite::Result<Decision> {
 
 fn get_decision(conn: &Connection, id: i64) -> Result<Value> {
     let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions WHERE id = ?")?;
-    let decision = stmt.query_row(params![id], parse_decision_row)
+    let decision = stmt
+        .query_row(params![id], parse_decision_row)
         .optional()?
         .context(format!("decision {} not found", id))?;
     Ok(serde_json::to_value(decision)?)

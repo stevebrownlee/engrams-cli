@@ -11,11 +11,16 @@ fn now() -> String {
 }
 
 pub fn get(conn: &Connection, table: &str) -> Result<Value> {
-    let row: Option<(String, i64, String)> = conn.query_row(
-        &format!("SELECT content, version, updated_at FROM {} WHERE id = 1", table),
-        [],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    ).optional()?;
+    let row: Option<(String, i64, String)> = conn
+        .query_row(
+            &format!(
+                "SELECT content, version, updated_at FROM {} WHERE id = 1",
+                table
+            ),
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?;
 
     let doc = match row {
         Some((content_str, version, updated_at)) => ContextDoc {
@@ -35,9 +40,16 @@ pub fn get(conn: &Connection, table: &str) -> Result<Value> {
 
 pub fn update(conn: &Connection, table: &str, args: ContextUpdateArgs) -> Result<Value> {
     let current = get(conn, table)?;
-    let mut current_content = current.get("content").cloned().unwrap_or(serde_json::json!({}));
+    let current_content = current
+        .get("content")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     let current_version = current.get("version").and_then(|v| v.as_i64()).unwrap_or(0);
-
+    let current_content_str = if current_version > 0 {
+        Some(serde_json::to_string(&current_content)?)
+    } else {
+        None
+    };
     let new_content = if let Some(content_str) = args.content {
         let parsed: Value = serde_json::from_str(&content_str).context("invalid JSON content")?;
         if !parsed.is_object() {
@@ -49,16 +61,18 @@ pub fn update(conn: &Connection, table: &str, args: ContextUpdateArgs) -> Result
         if !patch.is_object() {
             anyhow::bail!("patch must be a JSON object");
         }
-        let patch_obj = patch.as_object().unwrap();
-        let mut obj = current_content.as_object_mut().unwrap().clone();
-        for (k, v) in patch_obj {
-            if v == "__DELETE__" {
-                obj.remove(k);
-            } else {
-                obj.insert(k.clone(), v.clone());
+        if let (Value::Object(mut obj), Value::Object(patch_obj)) = (current_content, patch) {
+            for (k, v) in patch_obj {
+                if v == "__DELETE__" {
+                    obj.remove(&k);
+                } else {
+                    obj.insert(k, v);
+                }
             }
+            Value::Object(obj)
+        } else {
+            anyhow::bail!("invalid current content or patch");
         }
-        Value::Object(obj)
     } else {
         anyhow::bail!("must provide --content or --patch");
     };
@@ -69,11 +83,10 @@ pub fn update(conn: &Connection, table: &str, args: ContextUpdateArgs) -> Result
 
     let tx = conn.unchecked_transaction()?;
 
-    if current_version > 0 {
-        let current_content_str = serde_json::to_string(&current_content)?;
+    if let Some(history_content_str) = current_content_str {
         tx.execute(
             &format!("INSERT INTO {}_history (version, content, timestamp, change_source) VALUES (?1, ?2, ?3, ?4)", table),
-            params![current_version, current_content_str, new_updated_at, "cli"],
+            params![current_version, history_content_str, new_updated_at, "cli"],
         )?;
     }
 
@@ -91,7 +104,12 @@ pub fn update(conn: &Connection, table: &str, args: ContextUpdateArgs) -> Result
     })?)
 }
 
-pub fn history(conn: &Connection, doc_table: &str, version: Option<i64>, limit: i64) -> Result<Value> {
+pub fn history(
+    conn: &Connection,
+    doc_table: &str,
+    version: Option<i64>,
+    limit: i64,
+) -> Result<Value> {
     let table = format!("{}_history", doc_table);
     let mut stmt = if let Some(_v) = version {
         conn.prepare(&format!("SELECT version, content, timestamp, change_source FROM {} WHERE version = ? ORDER BY version DESC LIMIT ?", table))?
@@ -100,7 +118,7 @@ pub fn history(conn: &Connection, doc_table: &str, version: Option<i64>, limit: 
     };
 
     let mut result = Vec::new();
-    
+
     if let Some(v) = version {
         let rows = stmt.query_map(params![v, limit], |row| {
             let content_str: String = row.get(1)?;

@@ -13,7 +13,12 @@ fn now() -> String {
 
 pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
     match cmd {
-        CustomCmd::Set { category, key, value, json } => {
+        CustomCmd::Set {
+            category,
+            key,
+            value,
+            json,
+        } => {
             let value_json = if json {
                 serde_json::from_str::<Value>(&value).context("invalid JSON in --value")?
             } else {
@@ -27,7 +32,11 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
                 params![timestamp, category, key, value_str],
             )?;
 
-            let id: i64 = conn.query_row("SELECT id FROM custom_data WHERE category = ? AND key = ?", params![category, key], |r| r.get(0))?;
+            let id: i64 = conn.query_row(
+                "SELECT id FROM custom_data WHERE category = ? AND key = ?",
+                params![category, key],
+                |r| r.get(0),
+            )?;
             get_custom(conn, id)
         }
         CustomCmd::Get { category, key } => {
@@ -49,24 +58,32 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
                 format!("WHERE {}", conditions.join(" AND "))
             };
 
-            let query = format!("SELECT id, timestamp, category, key, value FROM custom_data {} ORDER BY id ASC", where_clause);
-            
+            let query = format!(
+                "SELECT id, timestamp, category, key, value FROM custom_data {} ORDER BY id ASC",
+                where_clause
+            );
+
             let p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
 
             let mut stmt = conn.prepare(&query)?;
             let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), parse_custom_row)?;
-            
+
             let mut results = Vec::new();
             for r in rows {
                 results.push(r?);
             }
             Ok(serde_json::to_value(results)?)
         }
-        CustomCmd::Search { query, category, limit } => {
+        CustomCmd::Search {
+            query,
+            category,
+            limit,
+        } => {
             if query.trim().is_empty() {
                 anyhow::bail!("search query cannot be empty");
             }
-            let match_expr = query.split_whitespace()
+            let match_expr = query
+                .split_whitespace()
                 .map(|token| format!("\"{}\"", token.replace('"', "\"\"")))
                 .collect::<Vec<_>>()
                 .join(" ");
@@ -91,8 +108,13 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
         }
         CustomCmd::Delete { category, key } => {
             let tx = conn.unchecked_transaction()?;
-            
-            let id: i64 = tx.query_row("SELECT id FROM custom_data WHERE category = ? AND key = ?", params![category, key], |r| r.get(0))
+
+            let id: i64 = tx
+                .query_row(
+                    "SELECT id FROM custom_data WHERE category = ? AND key = ?",
+                    params![category, key],
+                    |r| r.get(0),
+                )
                 .optional()?
                 .context(format!("custom_data {}/{} not found", category, key))?;
 
@@ -125,8 +147,10 @@ fn parse_custom_row(row: &rusqlite::Row) -> rusqlite::Result<CustomData> {
 }
 
 fn get_custom(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, timestamp, category, key, value FROM custom_data WHERE id = ?")?;
-    let custom = stmt.query_row(params![id], parse_custom_row)
+    let mut stmt =
+        conn.prepare("SELECT id, timestamp, category, key, value FROM custom_data WHERE id = ?")?;
+    let custom = stmt
+        .query_row(params![id], parse_custom_row)
         .optional()?
         .context(format!("custom_data {} not found", id))?;
     Ok(serde_json::to_value(custom)?)

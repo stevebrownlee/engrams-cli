@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand, ValueEnum, Args};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -34,7 +34,7 @@ pub enum Command {
         #[command(subcommand)]
         cmd: ContextCmd,
     },
-    
+
     /// Manage the active context document
     ActiveContext {
         #[command(subcommand)]
@@ -83,6 +83,14 @@ pub enum Command {
     /// Get a recent summary of all modifications
     Activity(ActivityArgs),
 
+    /// Generate a structured report of project knowledge
+    Report {
+        /// Show only a specific topic
+        topic: Option<ReportTopic>,
+        /// Max items per section
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
     /// Perform multiple operations in a single transaction
     Batch {
         #[arg(long)]
@@ -102,6 +110,15 @@ pub enum Command {
         #[arg(long, default_value = "./engrams_export")]
         path: std::path::PathBuf,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum ReportTopic {
+    Context,
+    Progress,
+    Decisions,
+    Patterns,
+    Links,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
@@ -154,9 +171,7 @@ pub enum DecisionCmd {
         limit: i64,
     },
     /// Get a specific decision by ID
-    Get {
-        id: i64,
-    },
+    Get { id: i64 },
     /// Full-text search across decisions
     Search {
         query: String,
@@ -166,9 +181,7 @@ pub enum DecisionCmd {
     /// Update fields of an existing decision
     Update(DecisionUpdateArgs),
     /// Delete a decision and its links
-    Delete {
-        id: i64,
-    },
+    Delete { id: i64 },
 }
 
 #[derive(Args, Debug)]
@@ -365,7 +378,7 @@ impl ItemType {
             ItemType::CustomData => "custom_data",
         }
     }
-    
+
     pub fn table_name(&self) -> &'static str {
         match self {
             ItemType::Decision => "decisions",

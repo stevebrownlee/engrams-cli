@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
-use std::path::{Path, PathBuf};
 use std::env;
+use std::path::{Path, PathBuf};
 
 use crate::schema::SCHEMA;
 
@@ -51,8 +51,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     if current >= LATEST_VERSION {
         return Ok(());
     }
-    
+
     let tx = conn.transaction()?;
+    #[allow(clippy::never_loop, clippy::match_single_binding)]
     for v in (current + 1)..=LATEST_VERSION {
         match v {
             _ => anyhow::bail!("Unknown migration version {}", v),
@@ -67,29 +68,57 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
     if let Some(path) = db_arg {
         return Ok(PathBuf::from(path));
     }
-    
+
     if let Some(workspace) = workspace_arg {
         return Ok(Path::new(workspace).join("engrams").join("context.db"));
     }
-    
+
     // Auto-detect workspace
     let cwd = env::current_dir().context("Failed to get current directory")?;
     let mut current = cwd.as_path();
-    
+    let mut check_path = current.to_path_buf();
+
     loop {
-        if current.join(".engrams").exists() ||
-           current.join("engrams/context.db").exists() ||
-           current.join(".git").exists() ||
-           current.join("pyproject.toml").exists() ||
-           current.join("package.json").exists() ||
-           current.join("Cargo.toml").exists() ||
-           current.join("go.mod").exists()
-        {
+        let mut found = false;
+        for marker in &[
+            ".engrams",
+            "engrams/context.db",
+            ".git",
+            "pyproject.toml",
+            "package.json",
+            "Cargo.toml",
+            "go.mod",
+        ] {
+            if *marker == "engrams/context.db" {
+                check_path.push("engrams");
+                check_path.push("context.db");
+                let exists = check_path.exists();
+                check_path.pop();
+                check_path.pop();
+                if exists {
+                    found = true;
+                    break;
+                }
+            } else {
+                check_path.push(marker);
+                let exists = check_path.exists();
+                check_path.pop();
+                if exists {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if found {
             return Ok(current.join("engrams").join("context.db"));
         }
-        
+
         match current.parent() {
-            Some(parent) => current = parent,
+            Some(parent) => {
+                current = parent;
+                check_path = current.to_path_buf();
+            }
             None => return Ok(cwd.join("engrams").join("context.db")), // Default to cwd if none found
         }
     }
@@ -99,19 +128,19 @@ pub fn open(db_path: &Path) -> Result<Connection> {
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    
+
     let conn = Connection::open(db_path)?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
-    
+
     let has_tbls = has_tables(&conn)?;
     let user_ver = get_user_version(&conn)?;
-    
+
     if !has_tbls {
         conn.execute_batch(SCHEMA)?;
         set_user_version(&conn, LATEST_VERSION)?;
     } else if user_ver == 0 {
         set_user_version(&conn, 1)?;
     }
-    
+
     Ok(conn)
 }

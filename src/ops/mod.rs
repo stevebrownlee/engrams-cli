@@ -1,26 +1,31 @@
-pub mod context;
-pub mod batch;
-pub mod transfer;
 pub mod activity;
+pub mod batch;
+pub mod context;
 pub mod custom;
 pub mod decision;
 pub mod link;
 pub mod pattern;
 pub mod progress;
+pub mod report;
+pub mod transfer;
 
 use anyhow::Result;
 use rusqlite::Connection;
-use serde_json::Value;
 use serde_json::json;
+use serde_json::Value;
 use std::path::Path;
 
-use crate::cli::{Command, ContextCmd, HistoryDoc};
+use crate::cli::{Command, ContextCmd, Format, HistoryDoc};
 
-pub fn dispatch(conn: &mut Connection, cmd: Command, db_path: &Path, created: bool) -> Result<Value> {
+pub fn dispatch(
+    conn: &mut Connection,
+    cmd: Command,
+    db_path: &Path,
+    created: bool,
+    format: Format,
+) -> Result<Value> {
     match cmd {
-        Command::Init => {
-            Ok(json!({"db_path": db_path.display().to_string(), "created": created}))
-        }
+        Command::Init => Ok(json!({"db_path": db_path.display().to_string(), "created": created})),
         Command::Migrate => {
             crate::db::run_migrations(conn)?;
             Ok(json!({"status": "success", "message": "Database migrated to the latest version"}))
@@ -33,7 +38,11 @@ pub fn dispatch(conn: &mut Connection, cmd: Command, db_path: &Path, created: bo
             ContextCmd::Get => context::get(conn, "active_context"),
             ContextCmd::Update(args) => context::update(conn, "active_context", args),
         },
-        Command::History { doc, version, limit } => {
+        Command::History {
+            doc,
+            version,
+            limit,
+        } => {
             let table = match doc {
                 HistoryDoc::ProductContext => "product_context",
                 HistoryDoc::ActiveContext => "active_context",
@@ -49,5 +58,6 @@ pub fn dispatch(conn: &mut Connection, cmd: Command, db_path: &Path, created: bo
         Command::Batch { r#type, items } => batch::handle(conn, r#type, items),
         Command::Export { path } => transfer::export::handle(conn, &path),
         Command::Import { path } => transfer::import::handle(conn, &path),
+        Command::Report { topic, limit } => report::handle(conn, topic, limit, format),
     }
 }

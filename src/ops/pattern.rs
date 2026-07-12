@@ -14,7 +14,11 @@ fn now() -> String {
 
 pub fn handle(conn: &Connection, cmd: PatternCmd) -> Result<Value> {
     match cmd {
-        PatternCmd::Log { name, description, tags } => {
+        PatternCmd::Log {
+            name,
+            description,
+            tags,
+        } => {
             let uuid = Uuid::new_v4().to_string();
             let timestamp = now();
             let tags_json = if tags.is_empty() {
@@ -30,7 +34,11 @@ pub fn handle(conn: &Connection, cmd: PatternCmd) -> Result<Value> {
             )?;
 
             // retrieve by name to get id
-            let id: i64 = conn.query_row("SELECT id FROM system_patterns WHERE name = ?", params![name], |r| r.get(0))?;
+            let id: i64 = conn.query_row(
+                "SELECT id FROM system_patterns WHERE name = ?",
+                params![name],
+                |r| r.get(0),
+            )?;
             get_pattern(conn, id)
         }
         PatternCmd::List { tags, limit } => {
@@ -62,14 +70,19 @@ pub fn handle(conn: &Connection, cmd: PatternCmd) -> Result<Value> {
         PatternCmd::Get { id } => get_pattern(conn, id),
         PatternCmd::Delete { id } => {
             let tx = conn.unchecked_transaction()?;
-            
-            let _: i64 = tx.query_row("SELECT id FROM system_patterns WHERE id = ?", params![id], |r| r.get(0))
+
+            let _: i64 = tx
+                .query_row(
+                    "SELECT id FROM system_patterns WHERE id = ?",
+                    params![id],
+                    |r| r.get(0),
+                )
                 .optional()?
                 .context(format!("pattern {} not found", id))?;
 
             let links_removed = delete_links_for(&tx, "system_pattern", id)?;
             let deleted = tx.execute("DELETE FROM system_patterns WHERE id = ?", params![id])?;
-            
+
             if deleted == 0 {
                 anyhow::bail!("pattern {} not found", id);
             }
@@ -103,8 +116,11 @@ fn parse_pattern_row(row: &rusqlite::Row) -> rusqlite::Result<Pattern> {
 }
 
 fn get_pattern(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns WHERE id = ?")?;
-    let pattern = stmt.query_row(params![id], parse_pattern_row)
+    let mut stmt = conn.prepare(
+        "SELECT id, uuid, name, description, tags, timestamp FROM system_patterns WHERE id = ?",
+    )?;
+    let pattern = stmt
+        .query_row(params![id], parse_pattern_row)
         .optional()?
         .context(format!("pattern {} not found", id))?;
     Ok(serde_json::to_value(pattern)?)

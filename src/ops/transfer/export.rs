@@ -1,9 +1,9 @@
 use anyhow::Result;
+use chrono::Utc;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
-use chrono::Utc;
 
 pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     fs::create_dir_all(path)?;
@@ -17,16 +17,32 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
 
     // Export Product Context
     let product_context = crate::ops::context::get(conn, "product_context")?;
-    if product_context.get("version").and_then(|v| v.as_i64()).unwrap_or(0) > 0 {
-        let content = format!("# Product Context\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&product_context)?);
+    if product_context
+        .get("version")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+        > 0
+    {
+        let content = format!(
+            "# Product Context\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&product_context)?
+        );
         fs::write(path.join("product_context.md"), content)?;
         counts.insert("product_context".to_string(), serde_json::json!(1));
     }
 
     // Export Active Context
     let active_context = crate::ops::context::get(conn, "active_context")?;
-    if active_context.get("version").and_then(|v| v.as_i64()).unwrap_or(0) > 0 {
-        let content = format!("# Active Context\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&active_context)?);
+    if active_context
+        .get("version")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+        > 0
+    {
+        let content = format!(
+            "# Active Context\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&active_context)?
+        );
         fs::write(path.join("active_context.md"), content)?;
         counts.insert("active_context".to_string(), serde_json::json!(1));
     }
@@ -54,14 +70,19 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let summary = r.get("summary").unwrap().as_str().unwrap();
-        let content = format!("# {}\n\n```json\n{}\n```\n", summary, serde_json::to_string_pretty(&r)?);
+        let content = format!(
+            "# {}\n\n```json\n{}\n```\n",
+            summary,
+            serde_json::to_string_pretty(&r)?
+        );
         fs::write(path.join("decisions").join(format!("{}.md", id)), content)?;
         decisions_count += 1;
     }
     counts.insert("decisions".to_string(), serde_json::json!(decisions_count));
 
     // Export Progress
-    let mut stmt = conn.prepare("SELECT id, timestamp, status, description, parent_id FROM progress_entries")?;
+    let mut stmt =
+        conn.prepare("SELECT id, timestamp, status, description, parent_id FROM progress_entries")?;
     let rows = stmt.query_map([], |row| {
         Ok(serde_json::json!({
             "id": row.get::<_, i64>(0)?,
@@ -76,14 +97,19 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let description = r.get("description").unwrap().as_str().unwrap();
-        let content = format!("# {}\n\n```json\n{}\n```\n", description, serde_json::to_string_pretty(&r)?);
+        let content = format!(
+            "# {}\n\n```json\n{}\n```\n",
+            description,
+            serde_json::to_string_pretty(&r)?
+        );
         fs::write(path.join("progress").join(format!("{}.md", id)), content)?;
         progress_count += 1;
     }
     counts.insert("progress".to_string(), serde_json::json!(progress_count));
 
     // Export Patterns
-    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns")?;
+    let mut stmt =
+        conn.prepare("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns")?;
     let rows = stmt.query_map([], |row| {
         let tags_str: Option<String> = row.get(4)?;
         let tags = match tags_str {
@@ -104,7 +130,11 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let name = r.get("name").unwrap().as_str().unwrap();
-        let content = format!("# {}\n\n```json\n{}\n```\n", name, serde_json::to_string_pretty(&r)?);
+        let content = format!(
+            "# {}\n\n```json\n{}\n```\n",
+            name,
+            serde_json::to_string_pretty(&r)?
+        );
         fs::write(path.join("patterns").join(format!("{}.md", id)), content)?;
         patterns_count += 1;
     }
@@ -129,7 +159,12 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let id = r.get("id").unwrap().as_i64().unwrap();
         let category = r.get("category").unwrap().as_str().unwrap();
         let key = r.get("key").unwrap().as_str().unwrap();
-        let content = format!("# {}:{}\n\n```json\n{}\n```\n", category, key, serde_json::to_string_pretty(&r)?);
+        let content = format!(
+            "# {}:{}\n\n```json\n{}\n```\n",
+            category,
+            key,
+            serde_json::to_string_pretty(&r)?
+        );
         fs::write(path.join("custom_data").join(format!("{}.md", id)), content)?;
         custom_count += 1;
     }
@@ -154,7 +189,11 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let rel = r.get("relationship_type").unwrap().as_str().unwrap();
-        let content = format!("# {}\n\n```json\n{}\n```\n", rel, serde_json::to_string_pretty(&r)?);
+        let content = format!(
+            "# {}\n\n```json\n{}\n```\n",
+            rel,
+            serde_json::to_string_pretty(&r)?
+        );
         fs::write(path.join("links").join(format!("{}.md", id)), content)?;
         links_count += 1;
     }
@@ -164,7 +203,10 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         "exported_at": Utc::now().to_rfc3339(),
         "counts": counts,
     });
-    fs::write(path.join("manifest.json"), serde_json::to_string_pretty(&manifest)?)?;
+    fs::write(
+        path.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
 
     Ok(serde_json::json!({
         "path": path.display().to_string(),
