@@ -78,32 +78,73 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
             query,
             category,
             limit,
+            snippets,
         } => {
             if query.trim().is_empty() {
                 anyhow::bail!("search query cannot be empty");
             }
-            let match_expr = query
-                .split_whitespace()
-                .map(|token| format!("\"{}\"", token.replace('"', "\"\"")))
-                .collect::<Vec<_>>()
-                .join(" ");
+            let match_expr = crate::ops::fts_match_expr(&query);
 
-            if let Some(c) = category {
-                let mut stmt = conn.prepare("SELECT d.id, d.timestamp, d.category, d.key, d.value FROM custom_data d JOIN custom_data_fts f ON d.id = f.rowid WHERE custom_data_fts MATCH ?1 AND d.category = ?2 ORDER BY rank LIMIT ?3")?;
-                let rows = stmt.query_map(params![match_expr, c, limit], parse_custom_row)?;
-                let mut results = Vec::new();
-                for r in rows {
-                    results.push(r?);
+            if snippets {
+                if let Some(c) = category {
+                    let mut stmt = conn.prepare(
+                        "SELECT d.id, d.category, d.key, snippet(custom_data_fts, -1, '>>', '<<', '…', 12) \
+                         FROM custom_data d JOIN custom_data_fts f ON d.id = f.rowid \
+                         WHERE custom_data_fts MATCH ?1 AND d.category = ?2 \
+                         ORDER BY rank LIMIT ?3"
+                    )?;
+                    let rows = stmt.query_map(params![match_expr, c, limit], |row| {
+                        Ok(serde_json::json!({
+                            "id": row.get::<_, i64>(0)?,
+                            "category": row.get::<_, String>(1)?,
+                            "key": row.get::<_, String>(2)?,
+                            "snippet": row.get::<_, String>(3)?,
+                        }))
+                    })?;
+                    let mut results = Vec::new();
+                    for r in rows {
+                        results.push(r?);
+                    }
+                    Ok(serde_json::to_value(results)?)
+                } else {
+                    let mut stmt = conn.prepare(
+                        "SELECT d.id, d.category, d.key, snippet(custom_data_fts, -1, '>>', '<<', '…', 12) \
+                         FROM custom_data d JOIN custom_data_fts f ON d.id = f.rowid \
+                         WHERE custom_data_fts MATCH ?1 \
+                         ORDER BY rank LIMIT ?2"
+                    )?;
+                    let rows = stmt.query_map(params![match_expr, limit], |row| {
+                        Ok(serde_json::json!({
+                            "id": row.get::<_, i64>(0)?,
+                            "category": row.get::<_, String>(1)?,
+                            "key": row.get::<_, String>(2)?,
+                            "snippet": row.get::<_, String>(3)?,
+                        }))
+                    })?;
+                    let mut results = Vec::new();
+                    for r in rows {
+                        results.push(r?);
+                    }
+                    Ok(serde_json::to_value(results)?)
                 }
-                Ok(serde_json::to_value(results)?)
             } else {
-                let mut stmt = conn.prepare("SELECT d.id, d.timestamp, d.category, d.key, d.value FROM custom_data d JOIN custom_data_fts f ON d.id = f.rowid WHERE custom_data_fts MATCH ?1 ORDER BY rank LIMIT ?2")?;
-                let rows = stmt.query_map(params![match_expr, limit], parse_custom_row)?;
-                let mut results = Vec::new();
-                for r in rows {
-                    results.push(r?);
+                if let Some(c) = category {
+                    let mut stmt = conn.prepare("SELECT d.id, d.timestamp, d.category, d.key, d.value FROM custom_data d JOIN custom_data_fts f ON d.id = f.rowid WHERE custom_data_fts MATCH ?1 AND d.category = ?2 ORDER BY rank LIMIT ?3")?;
+                    let rows = stmt.query_map(params![match_expr, c, limit], parse_custom_row)?;
+                    let mut results = Vec::new();
+                    for r in rows {
+                        results.push(r?);
+                    }
+                    Ok(serde_json::to_value(results)?)
+                } else {
+                    let mut stmt = conn.prepare("SELECT d.id, d.timestamp, d.category, d.key, d.value FROM custom_data d JOIN custom_data_fts f ON d.id = f.rowid WHERE custom_data_fts MATCH ?1 ORDER BY rank LIMIT ?2")?;
+                    let rows = stmt.query_map(params![match_expr, limit], parse_custom_row)?;
+                    let mut results = Vec::new();
+                    for r in rows {
+                        results.push(r?);
+                    }
+                    Ok(serde_json::to_value(results)?)
                 }
-                Ok(serde_json::to_value(results)?)
             }
         }
         CustomCmd::Delete { category, key } => {

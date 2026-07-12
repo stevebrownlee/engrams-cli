@@ -261,9 +261,16 @@ function initTables() {
     tr.appendChild(tdSrc);
 
     const tdTgt = document.createElement('td');
-    tdTgt.textContent = `${l.target_item_type} #${l.target_item_id}`;
+    if (l.target_item_type === 'pr') {
+      const a = document.createElement('a');
+      a.href = l.target_item_id;
+      a.target = '_blank';
+      a.textContent = `pr: ${l.target_item_id}`;
+      tdTgt.appendChild(a);
+    } else {
+      tdTgt.textContent = `${l.target_item_type} #${l.target_item_id}`;
+    }
     tr.appendChild(tdTgt);
-
     const tdRel = document.createElement('td');
     tdRel.textContent = l.relationship_type;
     tr.appendChild(tdRel);
@@ -415,6 +422,32 @@ function buildGraphData() {
   };
 
   let danglingCount = 0;
+
+  // Create PR nodes from links
+  const prLabel = (url) => {
+    const m = url.match(/\/([^\/]+)\/(?:-\/)?(?:pull|merge_requests|pull-requests)\/(\d+)/);
+    return m ? `${m[1]}#${m[2]}` : truncate(url.replace(/^https?:\/\//, ''));
+  };
+
+  ENGRAMS_DATA.links.forEach(l => {
+    if (l.target_item_type === 'pr') {
+      const url = l.target_item_id;
+      const id = `pr:${url}`;
+      if (!nodeMap.has(id)) {
+        nodeMap.set(id, {
+          data: {
+            id,
+            label: prLabel(url),
+            type: 'pr',
+            color: '#4dabf7',
+            borderColor: '#1c7ed6',
+            borderWidth: 1,
+            raw: { url }
+          }
+        });
+      }
+    }
+  });
 
   // Process explicit links
   ENGRAMS_DATA.links.forEach(l => {
@@ -717,6 +750,11 @@ function renderGraph() {
 
   window.cyInstance.on('dbltap', 'node', (evt) => {
     const node = evt.target;
+    const data = node.data();
+    if (data.type === 'pr' && data.raw && data.raw.url) {
+      window.open(data.raw.url, '_blank');
+      return;
+    }
     focusNodeId = node.id();
     isEgoFocus = true;
     showNodeDetail(node.data());
@@ -822,7 +860,16 @@ function showNodeDetail(nodeData) {
       pre.textContent = JSON.stringify(value, null, 2);
       fval.appendChild(pre);
     } else {
-      fval.textContent = String(value);
+      const valStr = String(value);
+      if (valStr.startsWith('http://') || valStr.startsWith('https://')) {
+        const a = document.createElement('a');
+        a.href = valStr;
+        a.target = '_blank';
+        a.textContent = valStr;
+        fval.appendChild(a);
+      } else {
+        fval.textContent = valStr;
+      }
     }
     field.appendChild(fval);
     body.appendChild(field);
@@ -849,6 +896,8 @@ function showNodeDetail(nodeData) {
     addField('Category', raw.category);
     addField('Key', raw.key);
     addField('Value', raw.value);
+  } else if (nodeData.type === 'pr') {
+    addField('PR URL', raw.url);
   }
   addField('Timestamp', formatDate(raw.timestamp));
 

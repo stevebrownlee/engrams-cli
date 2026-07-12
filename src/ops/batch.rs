@@ -63,6 +63,8 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                             details,
                             tags: cmd_tags,
                             force: true,
+                            prs: Vec::new(),
+                            anchors: Vec::new(),
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {
@@ -137,6 +139,8 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                             name,
                             description,
                             tags: cmd_tags,
+                            prs: Vec::new(),
+                            anchors: Vec::new(),
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {

@@ -18,7 +18,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
 
     let mut decisions = Vec::new();
     {
-        let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?")?;
+        let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?")?;
         let rows = stmt.query_map(params![cutoff, limit], |row| {
             let tags_str: Option<String> = row.get(5)?;
             let tags = match tags_str {
@@ -33,6 +33,10 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 implementation_details: row.get(4)?,
                 tags: if tags.is_null() { None } else { Some(tags) },
                 timestamp: row.get(6)?,
+                status: row.get(7)?,
+                commit_sha: row.get(8)?,
+                pr_urls: Vec::new(),
+                anchors: Vec::new(),
             })
         })?;
         for r in rows {
@@ -42,7 +46,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
 
     let mut progress = Vec::new();
     {
-        let mut stmt = conn.prepare("SELECT id, timestamp, status, description, parent_id FROM progress_entries WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?")?;
+        let mut stmt = conn.prepare("SELECT id, timestamp, status, description, parent_id, commit_sha FROM progress_entries WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?")?;
         let rows = stmt.query_map(params![cutoff, limit], |row| {
             Ok(Progress {
                 id: row.get(0)?,
@@ -50,6 +54,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 status: row.get(2)?,
                 description: row.get(3)?,
                 parent_id: row.get(4)?,
+                commit_sha: row.get(5)?,
             })
         })?;
         for r in rows {
@@ -73,6 +78,8 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 description: row.get(3)?,
                 tags: if tags.is_null() { None } else { Some(tags) },
                 timestamp: row.get(5)?,
+                pr_urls: Vec::new(),
+                anchors: Vec::new(),
             })
         })?;
         for r in rows {

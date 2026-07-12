@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::schema::SCHEMA;
 
-pub const LATEST_VERSION: i32 = 1;
+pub const LATEST_VERSION: i32 = 2;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -53,9 +53,11 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     }
 
     let tx = conn.transaction()?;
-    #[allow(clippy::never_loop, clippy::match_single_binding)]
     for v in (current + 1)..=LATEST_VERSION {
         match v {
+            2 => {
+                tx.execute_batch(crate::schema::MIGRATION_V2)?;
+            }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }
     }
@@ -139,7 +141,7 @@ pub fn open(db_path: &Path) -> Result<Connection> {
         conn.execute_batch(SCHEMA)?;
         set_user_version(&conn, LATEST_VERSION)?;
     } else if user_ver == 0 {
-        set_user_version(&conn, 1)?;
+        set_user_version(&conn, LATEST_VERSION)?;
     }
 
     Ok(conn)

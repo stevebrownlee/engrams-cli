@@ -9,6 +9,12 @@ pub struct Cli {
     #[arg(long)]
     pub workspace: Option<String>,
 
+    #[arg(long, global = true)]
+    pub compact: bool,
+
+    #[arg(long, global = true, value_delimiter = ',')]
+    pub fields: Vec<String>,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -84,6 +90,37 @@ pub enum Command {
         #[arg(long, default_value_t = 50)]
         limit: i64,
     },
+    /// Generate a context brief optimized for token budget
+    Prime {
+        /// Approximate token budget for the briefing
+        #[arg(long)]
+        budget: Option<usize>,
+    },
+
+    /// Analyze project database for orphaned records, drift, and missing context
+    Doctor,
+
+    /// Print onboarding instructions for LLM agents
+    Instructions,
+
+    /// Search across decisions, patterns, and custom data
+    Query {
+        query: String,
+        /// Restrict to types (default: all three)
+        #[arg(long, value_delimiter = ',')]
+        types: Vec<QueryType>,
+        #[arg(long, value_delimiter = ',')]
+        tags: Vec<String>,
+        /// RFC3339 lower bound on timestamp
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long, default_value_t = 10)]
+        limit: i64,
+        /// Include superseded decisions
+        #[arg(long)]
+        all: bool,
+    },
+
     /// Perform multiple operations in a single transaction
     Batch {
         #[arg(long)]
@@ -102,6 +139,30 @@ pub enum Command {
     Import {
         #[arg(long, default_value = "./engrams_export")]
         path: std::path::PathBuf,
+    },
+
+    /// Manage PR URLs/numbers associated with decisions and patterns
+    Pr {
+        #[command(subcommand)]
+        cmd: PrCmd,
+    },
+
+    /// Manage file path anchors for decisions and patterns
+    Anchor {
+        #[command(subcommand)]
+        cmd: AnchorCmd,
+    },
+
+    /// Find decisions and patterns relevant to path(s)
+    Relevant {
+        /// Paths to match against stored anchors
+        paths: Vec<String>,
+        /// Use git diff --cached --name-only as the path list
+        #[arg(long)]
+        staged: bool,
+        /// Include superseded decisions
+        #[arg(long)]
+        all: bool,
     },
 }
 
@@ -171,6 +232,12 @@ pub enum DecisionCmd {
         /// Skip similarity check and insert unconditionally
         #[arg(long)]
         force: bool,
+        /// Associated PR number or URL (repeatable)
+        #[arg(long = "pr")]
+        prs: Vec<String>,
+        /// Associated file path anchor (repeatable)
+        #[arg(long = "anchor")]
+        anchors: Vec<String>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -178,6 +245,9 @@ pub enum DecisionCmd {
         tags: Vec<String>,
         #[arg(long, default_value_t = 20)]
         limit: i64,
+        /// Include superseded decisions
+        #[arg(long)]
+        all: bool,
     },
     /// Get a specific decision by ID
     Get { id: i64 },
@@ -186,6 +256,12 @@ pub enum DecisionCmd {
         query: String,
         #[arg(long, default_value_t = 10)]
         limit: i64,
+        /// Include superseded decisions
+        #[arg(long)]
+        all: bool,
+        /// Enable snippets with FTS highlights
+        #[arg(long)]
+        snippets: bool,
     },
     /// Update fields of an existing decision
     Update(DecisionUpdateArgs),
@@ -198,8 +274,14 @@ pub enum DecisionCmd {
         /// ID of the decision to merge into (will be updated)
         into_id: i64,
     },
+    /// Supersede a decision with another
+    Supersede {
+        id: i64,
+        /// ID of the decision that supersedes this one
+        #[arg(long)]
+        by: Option<i64>,
+    },
 }
-
 #[derive(Args, Debug)]
 pub struct DecisionUpdateArgs {
     pub id: i64,
@@ -223,6 +305,9 @@ pub struct DecisionUpdateFields {
     /// New tags (replaces existing tags)
     #[arg(long, value_delimiter = ',')]
     pub tags: Option<Vec<String>>,
+    /// New status (active or superseded)
+    #[arg(long)]
+    pub status: Option<DecisionStatus>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -292,6 +377,12 @@ pub enum PatternCmd {
         /// Comma-separated list of tags
         #[arg(long, value_delimiter = ',')]
         tags: Vec<String>,
+        /// Associated PR number or URL (repeatable)
+        #[arg(long = "pr")]
+        prs: Vec<String>,
+        /// Associated file path anchor (repeatable)
+        #[arg(long = "anchor")]
+        anchors: Vec<String>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -339,6 +430,9 @@ pub enum CustomCmd {
         category: Option<String>,
         #[arg(long, default_value_t = 10)]
         limit: i64,
+        /// Enable snippets with FTS highlights
+        #[arg(long)]
+        snippets: bool,
     },
     Delete {
         /// Category grouping the data
@@ -428,4 +522,99 @@ pub enum BatchType {
     Progress,
     Pattern,
     CustomData,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PrCmd {
+    /// Attach PR URL or number to a decision or pattern
+    Add {
+        #[arg(long = "type")]
+        item_type: RefItemType,
+        #[arg(long)]
+        id: i64,
+        #[arg(long = "pr", required = true)]
+        prs: Vec<String>,
+    },
+    /// List PR URLs attached to an item
+    List {
+        #[arg(long = "type")]
+        item_type: RefItemType,
+        #[arg(long)]
+        id: i64,
+    },
+    /// Remove a PR URL from an item
+    Remove {
+        #[arg(long = "type")]
+        item_type: RefItemType,
+        #[arg(long)]
+        id: i64,
+        #[arg(long)]
+        url: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AnchorCmd {
+    /// Attach file path anchors to a decision or pattern
+    Add {
+        #[arg(long = "type")]
+        item_type: RefItemType,
+        #[arg(long)]
+        id: i64,
+        #[arg(long = "path", required = true)]
+        paths: Vec<String>,
+    },
+    /// List file anchors attached to an item
+    List {
+        #[arg(long = "type")]
+        item_type: RefItemType,
+        #[arg(long)]
+        id: i64,
+    },
+    /// Remove a file anchor from an item
+    Remove {
+        #[arg(long = "type")]
+        item_type: RefItemType,
+        #[arg(long)]
+        id: i64,
+        #[arg(long)]
+        path: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum RefItemType {
+    Decision,
+    SystemPattern,
+}
+
+impl RefItemType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RefItemType::Decision => "decision",
+            RefItemType::SystemPattern => "system_pattern",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum DecisionStatus {
+    Active,
+    Superseded,
+}
+
+impl DecisionStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DecisionStatus::Active => "active",
+            DecisionStatus::Superseded => "superseded",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum QueryType {
+    Decision,
+    Pattern,
+    Custom,
 }

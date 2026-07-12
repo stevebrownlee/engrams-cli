@@ -20,7 +20,7 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 
   <h2>Supported Entity Types</h2>
   <p>
-    You can establish links between the following four core entity types in the database:
+    You can establish links between the following core entity types in the database:
   </p>
   <ul>
     <li><code>decision</code> — Architectural or design decisions (ADRs).</li>
@@ -28,7 +28,9 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     <li><code>progress_entry</code> — Task tracking and status progress.</li>
     <li><code>custom_data</code> — Configuration key-value data.</li>
   </ul>
-
+  <p>
+    Additionally, you can link decisions and patterns to external **Pull Request (PR)** URLs. The interactive HTML dashboard renders PR links as distinct visual nodes (under the relationship type <code>implemented_in</code>), allowing you to trace design decisions directly back to the pull request discussion thread.
+  </p>
   <h2>Recommended Relationship Types</h2>
   <p>
     While the database allows any relationship string, the following standard values are recommended for best agent alignment:

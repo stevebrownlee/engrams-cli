@@ -24,15 +24,31 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 
   <h2>How to Search</h2>
   <p>
-    You can query the database using the <code>search</code> subcommand under decisions and custom data:
+    You can search the database globally across multiple types using the unified <code>query</code> command, or run FTS search under individual entities:
   </p>
 
-  <h3>1. Search decisions (ADRs)</h3>
+  <h3>1. Unified Cross-Type Query</h3>
+  <p>
+    Search across decisions, patterns, and custom data in one command, sorted by FTS BM25 relevance:
+  </p>
+  <pre><code>engrams query "PostgreSQL"</code></pre>
+  <p>
+    You can restrict the search to specific types, filter by tags, limit the results, or include superseded decisions:
+  </p>
+  <pre><code>engrams query "PostgreSQL" --types decision,pattern --tags sql --limit 5 --all</code></pre>
+
+  <h3>2. Search decisions (ADRs)</h3>
   <pre><code>engrams decision search "PostgreSQL"</code></pre>
 
-  <h3>2. Search custom data</h3>
+  <h3>3. Search custom data</h3>
   <pre><code>engrams custom search "api_host"</code></pre>
 
+  <h2>Snippet Search</h2>
+  <p>
+    To minimize token usage when searching, you can request highlighted FTS snippets instead of the full database rows by passing the <code>--snippets</code> flag:
+  </p>
+  <pre><code>engrams decision search "PostgreSQL" --snippets
+engrams query "PostgreSQL" # unified query returns snippets by default</code></pre>
   <h2>Under the Hood: SQLite Virtual Tables</h2>
   <p>
     Engrams automatically maintains the search index behind the scenes. When you initialize the database, the CLI creates FTS virtual tables:

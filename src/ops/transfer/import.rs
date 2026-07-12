@@ -115,14 +115,18 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         } else {
             None
         };
+        let status = json
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("active");
+        let commit_sha = json.get("commit_sha").and_then(|v| v.as_str());
 
         tx.execute(
-            "INSERT OR REPLACE INTO decisions (id, uuid, summary, rationale, implementation_details, tags, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![id, uuid, summary, rationale, implementation_details, tags_json, timestamp],
+            "INSERT OR REPLACE INTO decisions (id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![id, uuid, summary, rationale, implementation_details, tags_json, timestamp, status, commit_sha],
         )?;
         Ok(())
     })?;
-
     process_dir("progress", "progress_entries", "progress", &|json| {
         let id = json
             .get("id")
@@ -142,13 +146,14 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .ok_or_else(|| anyhow::anyhow!("missing description"))?;
         let parent_id = json.get("parent_id").and_then(|v| v.as_i64());
 
+        let commit_sha = json.get("commit_sha").and_then(|v| v.as_str());
+
         tx.execute(
-            "INSERT OR REPLACE INTO progress_entries (id, timestamp, status, description, parent_id) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![id, timestamp, status, description, parent_id],
+            "INSERT OR REPLACE INTO progress_entries (id, timestamp, status, description, parent_id, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![id, timestamp, status, description, parent_id, commit_sha],
         )?;
         Ok(())
     })?;
-
     process_dir("patterns", "system_patterns", "patterns", &|json| {
         let id = json
             .get("id")
@@ -246,6 +251,34 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         tx.execute(
             "INSERT OR REPLACE INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp],
+        )?;
+        Ok(())
+    })?;
+    process_dir("anchors", "item_anchors", "anchors", &|json| {
+        let id = json
+            .get("id")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| anyhow::anyhow!("missing id"))?;
+        let item_type = json
+            .get("item_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing item_type"))?;
+        let item_id = json
+            .get("item_id")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| anyhow::anyhow!("missing item_id"))?;
+        let path = json
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing path"))?;
+        let timestamp = json
+            .get("timestamp")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing timestamp"))?;
+
+        tx.execute(
+            "INSERT OR REPLACE INTO item_anchors (id, item_type, item_id, path, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![id, item_type, item_id, path, timestamp],
         )?;
         Ok(())
     })?;

@@ -10,6 +10,14 @@ pub struct Decision {
     pub implementation_details: Option<String>,
     pub tags: Option<Value>,
     pub timestamp: String,
+    #[serde(skip_serializing_if = "is_active")]
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pr_urls: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -19,6 +27,8 @@ pub struct Progress {
     pub status: String,
     pub description: String,
     pub parent_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -29,6 +39,10 @@ pub struct Pattern {
     pub description: Option<String>,
     pub tags: Option<Value>,
     pub timestamp: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pr_urls: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -67,4 +81,8 @@ pub struct HistoryRow {
     pub content: Value,
     pub timestamp: String,
     pub change_source: Option<String>,
+}
+
+fn is_active(s: &String) -> bool {
+    s == "active"
 }

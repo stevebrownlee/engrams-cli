@@ -1,14 +1,19 @@
 pub mod activity;
+pub mod anchor;
 pub mod batch;
 pub mod context;
 pub mod custom;
 pub mod decision;
+pub mod doctor;
+pub mod git;
 pub mod link;
 pub mod pattern;
+pub mod pr;
+pub mod prime;
 pub mod progress;
+pub mod query;
 pub mod report;
 pub mod transfer;
-
 use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::json;
@@ -63,5 +68,29 @@ pub fn dispatch(
             }
             None => report::handle(conn, topic, limit),
         },
+        Command::Pr { cmd } => pr::handle(conn, cmd),
+        Command::Anchor { cmd } => anchor::handle(conn, cmd),
+        Command::Relevant { paths, staged, all } => {
+            anchor::handle_relevant(conn, paths, staged, all)
+        }
+        Command::Prime { budget } => prime::handle(conn, budget),
+        Command::Doctor => doctor::handle(conn),
+        Command::Instructions => unreachable!("handled in main before dispatch"),
+        Command::Query {
+            query,
+            types,
+            tags,
+            since,
+            limit,
+            all,
+        } => query::handle(conn, query, types, tags, since, limit, all),
     }
+}
+
+pub(crate) fn fts_match_expr(query: &str) -> String {
+    query
+        .split_whitespace()
+        .map(|token| format!("\"{}\"", token.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(" ")
 }

@@ -11,23 +11,35 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h2>Agent Integration</h2>
   <p>
-    To teach your AI agent how to interact with Engrams CLI, add these instructions to your <code>AGENTS.md</code> file, <code>.clinerules</code>, <code>.cursorrules</code>, or system prompt settings:
+    Engrams provides a built-in <code>instructions</code> command designed to output the standardized instruction manual that teaches LLM agents how to interact with the Engrams CLI:
   </p>
-  <pre><code>{`## Memory & Project Context (engrams)
-You have access to the \`engrams\` CLI tool, which maintains a local SQLite database of project decisions, conventions, and progress.
-
-1. **On Startup:** Run \`engrams activity\` to see what has changed recently. Get the \`product-context\` and \`active-context\` to orient yourself.
-2. **Before Implementing:** Search \`engrams decision search "<topic>"\` and \`engrams pattern list\` to make sure your approach aligns with established decisions and codebase conventions.
-3. **When making design choices:** Log them with \`engrams decision log\` so they are documented for future sessions.
-4. **On Task Progress:** Track your progress using \`engrams progress log\`.
-5. **On Exit:** Update the \`active-context\` to summarize where you left off for the next agent/developer.`}</code></pre>
-
+  <pre><code>engrams instructions</code></pre>
+  <p>
+    Run this command in your project root and copy-paste the output directly into your project's <code>AGENTS.md</code> file, <code>.clinerules</code>, <code>.cursorrules</code>, or system prompt configuration. This teaches the AI agent exactly when and how to call the CLI to query context, log decisions, and update progress.
+  </p>
   <h2>Interactive Walkthrough</h2>
   <div class="steps">
 
     <!-- Step 1 -->
     <div class="step">
       <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Orient the agent on startup</h3>
+        <p>
+          At the start of a session, your AI agent runs <code>engrams prime</code> to fetch the project overview, active focus, decisions, and patterns all in one call:
+        </p>
+        <pre><code>{`You: Let's start working on the project.
+
+AI:  Sure, let me orient myself with the project context first.
+     [Running: engrams prime --budget 1000]
+     Loaded product context, active context, and recent decisions.
+     I see we are building a Rust CLI using SQLite, and the active task is implementing search. I'm ready!`}</code></pre>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="step-num">2</div>
       <div class="step-body">
         <h3>Bootstrap from existing docs (optional)</h3>
         <p>
@@ -42,9 +54,9 @@ AI:  I'll extract the core architecture choices.
       </div>
     </div>
 
-    <!-- Step 2 -->
+    <!-- Step 3 -->
     <div class="step">
-      <div class="step-num">2</div>
+      <div class="step-num">3</div>
       <div class="step-body">
         <h3>Log a decision manually</h3>
         <p>When you and your AI agree on a design choice, have the AI log it to keep the database fresh:</p>
@@ -56,9 +68,9 @@ AI:  Understood. Logging that decision.
       </div>
     </div>
 
-    <!-- Step 3 -->
+    <!-- Step 4 -->
     <div class="step">
-      <div class="step-num">3</div>
+      <div class="step-num">4</div>
       <div class="step-body">
         <h3>Retrieve context on demand</h3>
         <p>
@@ -77,7 +89,6 @@ AI:  Let me search Engrams for search-related decisions first.
         </p>
       </div>
     </div>
-
   </div>
 
   <h2>What to try next</h2>
@@ -96,6 +107,11 @@ AI:  Let me search Engrams for search-related decisions first.
       <span class="nc-icon">🕸️</span>
       <strong>Knowledge Graph</strong>
       <span>Link decisions, patterns, and tasks together</span>
+    </a>
+    <a href="/docs/features/html-report" class="next-card">
+      <span class="nc-icon">📊</span>
+      <strong>HTML Report</strong>
+      <span>Open a browser-based dashboard with a knowledge graph</span>
     </a>
     <a href="/docs/reference/cli" class="next-card">
       <span class="nc-icon">💻</span>

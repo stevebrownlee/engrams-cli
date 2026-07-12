@@ -12,13 +12,12 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <h2>Global Options</h2>
   <table>
     <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-    <tbody>
       <tr><td><code>--db &lt;PATH&gt;</code></td><td>Auto-detected</td><td>Direct path to the SQLite <code>.db</code> file.</td></tr>
       <tr><td><code>--workspace &lt;PATH&gt;</code></td><td>Closest workspace root</td><td>Directory to treat as the workspace root.</td></tr>
+      <tr><td><code>--compact</code></td><td>false</td><td>Output compact JSON on a single line with nulls stripped.</td></tr>
+      <tr><td><code>--fields &lt;FIELDS&gt;</code></td><td>-</td><td>Comma-separated list of fields to retain in output.</td></tr>
       <tr><td><code>-h, --help</code></td><td>-</td><td>Print help and usage information.</td></tr>
       <tr><td><code>-V, --version</code></td><td>-</td><td>Print the version number.</td></tr>
-    </tbody>
-  </table>
 
   <h2>Commands</h2>
 
@@ -57,8 +56,8 @@ engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags
 # List decisions
 engrams decision list [--tags "db,sql"] [--limit 20]
 
-# Search decisions using FTS5
-engrams decision search "Postgres" [--limit 10]
+# Search decisions using FTS5 (optionally returning snippets)
+engrams decision search "Postgres" [--limit 10] [--snippets]
 
 # Retrieve a decision by ID
 engrams decision get <ID>
@@ -70,7 +69,11 @@ engrams decision update <ID> [--summary "New summary"] [--rationale "New rationa
 engrams decision delete <ID>
 
 # Consolidate two decisions (merges fields, repoints links, and deletes source)
-engrams decision consolidate <SOURCE_ID> <INTO_ID>`}</code></pre>
+engrams decision consolidate <SOURCE_ID> <INTO_ID>
+
+# Supersede a decision with another
+# Supersede a decision with another
+engrams decision supersede <ID> --by <REPLACEMENT_ID>`}</code></pre>
 
   <h3>7. <code>progress</code></h3>
   <p>Log and track tasks and subtasks. Use <code>--check-similar</code> to prevent logging duplicate entries for the same status and description.</p>
@@ -112,8 +115,8 @@ engrams custom set --category "config" --key "features" --value '{"auth": true}'
 # Get a value
 engrams custom get --category "config" [--key "api_host"]
 
-# Search custom values using FTS5
-engrams custom search "localhost" [--category "config"] [--limit 10]
+# Search custom values using FTS5 (optionally returning snippets)
+engrams custom search "localhost" [--category "config"] [--limit 10] [--snippets]
 
 # Delete a value
 engrams custom delete --category "config" --key "api_host"`}</code></pre>
@@ -164,6 +167,64 @@ cat items.json | engrams batch --type custom_data --items -`}</code></pre>
   <p>Import/update the database using exported Markdown files.</p>
   <pre><code>{`engrams import [--path <DIR>]`}</code></pre>
 
+  <h3>16. <code>pr</code></h3>
+  <p>Manage PR URLs and numbers associated with decisions and patterns. Supports automatic host mapping for PR numbers if a git repository is configured.</p>
+  <pre><code>{`# Attach PR URLs/numbers
+engrams pr add --type decision --id <ID> --pr <PR_NUMBER_OR_URL>
+
+# List PRs attached to an item
+engrams pr list --type decision --id <ID>
+
+# Remove a PR URL from an item
+engrams pr remove --type decision --id <ID> --url <PR_URL>`}</code></pre>
+
+  <h3>17. <code>anchor</code></h3>
+  <p>Manage file path anchors for decisions and patterns.</p>
+  <pre><code>{`# Add file anchors
+engrams anchor add --type decision --id <ID> --path <FILE_PATH>
+
+# List anchors
+engrams anchor list --type decision --id <ID>
+
+# Remove an anchor
+engrams anchor remove --type decision --id <ID> --path <FILE_PATH>`}</code></pre>
+
+  <h3>18. <code>relevant</code></h3>
+  <p>Find decisions and patterns relevant to specified paths or staged git files.</p>
+  <pre><code>{`# Query relevant items by path
+engrams relevant <PATH>
+
+# Query relevant items using staged files
+engrams relevant --staged [--all]`}</code></pre>
+
+  <h3>19. <code>prime</code></h3>
+  <p>Generate a briefing optimized for token budget. Progressively drops less critical sections to fit inside the budget.</p>
+  <pre><code>{`# Generate briefing
+engrams prime [--budget <TOKENS>]`}</code></pre>
+
+  <h3>20. <code>doctor</code></h3>
+  <p>Perform database audits for orphaned links, missing file anchors, and drift detection.</p>
+  <pre><code>{`engrams doctor`}</code></pre>
+
+  <h3>21. <code>query</code></h3>
+  <p>Unified query search across decisions, patterns, and custom data, with FTS5 highlighting.</p>
+  <pre><code>{`engrams query <QUERY> [--types decision,pattern,custom] [--tags <TAGS>] [--since <TIMESTAMP>] [--limit <LIMIT>] [--all]`}</code></pre>
+
+  <h3>22. <code>instructions</code></h3>
+  <p>Print agent onboarding instructions in raw markdown.</p>
+  <pre><code>{`engrams instructions`}</code></pre>
+  <h2>Automatic Update Checks</h2>
+  <p>
+    Engrams CLI automatically checks for new releases in the background (at most once every 24 hours). If a new version is available, a notification is printed to standard error.
+  </p>
+  <p>
+    To disable these update checks (for example, in CI environments or offline setups), set any of the following environment variables to any value:
+  </p>
+  <ul>
+    <li><code>ENGRAMS_NO_UPDATE_CHECK</code></li>
+    <li><code>NO_UPDATE_CHECK</code></li>
+    <li><code>CI</code></li>
+  </ul>
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
   

@@ -8,31 +8,48 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     When a new developer joins your team or you start a fresh conversation with an AI agent, they need a quick way to get oriented. Engrams provides a structured onboarding flow using product context, active sprint goals, and recent activity.
   </p>
 
-  <h2>Orienting an AI Agent Instantly</h2>
+  <h2>Orientation Instructions (<code>instructions</code>)</h2>
   <p>
-    Instead of spending time copy-pasting code trees or drafting custom explanations, your AI agent can run a standard series of orientation commands at startup:
+    Engrams provides a built-in <code>instructions</code> command designed to output a standardized onboarding instruction manual for LLM agents. You can print this directly to stdout to dynamically brief the agent on how to use engrams in the project:
+  </p>
+  <pre><code>engrams instructions</code></pre>
+  <p>
+    This markdown content can be easily piped into your agent setup or saved to your agent instructions (e.g. <code>AGENTS.md</code> or <code>.cursorrules</code>) to teach the agent to run the orientation commands, document decisions, and leverage the knowledge base.
   </p>
 
+  <h2>Orienting an AI Agent Instantly</h2>
+  <p>
+    Instead of fanning out multiple commands or copy-pasting massive prompt templates, the recommended way to orient your AI agent at startup is running a single, token-budget-aware command:
+  </p>
+  <pre><code>engrams prime [--budget &lt;tokens&gt;]</code></pre>
+  <p>
+    The <code>prime</code> command generates a consolidated briefing containing the product context, active context, recent decisions, patterns, and progress. If a <code>--budget</code> limit is specified, Engrams will automatically drop less critical sections to fit inside your token budget.
+  </p>
+
+  <h3>Fine-Grained Retrieval Commands</h3>
+  <p>
+    If the agent needs specific pieces of context individually rather than the full consolidated briefing, they can query:
+  </p>
   <div class="steps">
     <ol>
       <li>
         <strong>Read the Product Context:</strong>
-        <p>The agent runs <code>engrams product-context get</code> to understand the project's purpose, tech stack, and primary architecture goals.</p>
+        <p>Understand the project's purpose, tech stack, and primary architecture goals.</p>
         <pre><code>engrams product-context get</code></pre>
       </li>
       <li>
         <strong>Read the Active Context:</strong>
-        <p>The agent runs <code>engrams active-context get</code> to see what the team is currently working on, what open questions exist, and what the immediate next steps are.</p>
+        <p>See what the team is currently working on, open questions, and immediate next steps.</p>
         <pre><code>engrams active-context get</code></pre>
       </li>
       <li>
         <strong>Fetch Recent Activity:</strong>
-        <p>The agent runs <code>engrams activity</code> to get a reverse-chronological digest of recent additions and updates, showing what code decisions and patterns were logged recently.</p>
+        <p>Get a chronological digest of recent changes to see what was logged recently.</p>
         <pre><code>engrams activity --hours 48</code></pre>
       </li>
       <li>
         <strong>Generate a Full Report:</strong>
-        <p>Alternatively, the agent or developer can run <code>engrams report</code> to get a complete, structured snapshot of active context, progress, decisions, patterns, and links in one command. To view an interactive, self-contained HTML dashboard with a knowledge graph, open it using:</p>
+        <p>Get a complete snapshot of all knowledge types, or open the interactive HTML dashboard using:</p>
         <pre><code>engrams report open</code></pre>
       </li>
     </ol>
@@ -42,22 +59,21 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <p>
     Here is what a typical agent startup sequence looks like under the hood:
   </p>
-  <pre><code>{`AI: [Running: engrams product-context get]
-    Result: { "stack": "Rust, SQLite", "purpose": "High-performance CLI tool" }
-
-AI: [Running: engrams active-context get]
-    Result: { "focus": "Implementing link commands", "status": "InProgress" }
-
-AI: [Running: engrams activity --hours 24]
-    Result: [
-      { "type": "decision", "summary": "Use rusqlite with bundled feature", "timestamp": "2026-07-10T12:00:00Z" }
-    ]
+  <pre><code>{`AI: [Running: engrams prime --budget 1000]
+    Result: {
+      "product_context": { "stack": "Rust, SQLite", "purpose": "High-performance CLI tool" },
+      "active_context": { "focus": "Implementing link commands", "status": "InProgress" },
+      "decisions": [
+        { "id": 12, "summary": "Use rusqlite with bundled feature", "timestamp": "2026-07-10T12:00:00Z" }
+      ]
+    }
 
 AI: "Hello! I see this is a Rust CLI tool utilizing SQLite (via rusqlite with bundled features).
     The current active focus is implementing the 'link' commands. I am ready to assist."`}</code></pre>
 
   <h2>Summary of Onboarding Commands</h2>
   <ul>
+    <li><code>engrams prime</code> — Generates a consolidated, token-budget-aware briefing of all contexts.</li>
     <li><code>engrams product-context get</code> — Retrieves the stable high-level overview.</li>
     <li><code>engrams active-context get</code> — Retrieves the current session focus and status.</li>
     <li><code>engrams activity [--hours &lt;N&gt;]</code> — Generates a chronological digest of recent changes across all memory records.</li>

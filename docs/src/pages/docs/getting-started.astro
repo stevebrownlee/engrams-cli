@@ -20,63 +20,132 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <a href="/docs/quick-start">Quick Start guide</a>.
   </div>
 
-  <h2>What problem does Engrams solve?</h2>
+  <h2>Why Engrams CLI?</h2>
   <p>
     Have you ever had to remind your AI assistant — again — that your project uses a
     specific framework, or that you already decided on a certain database? AI coding
     tools are powerful, but they start every conversation with a blank slate. The bigger
     your project gets, the more time you spend catching your AI up.
   </p>
+
+  <h3>The Problem: Context Window Bloat & Fragile Servers</h3>
   <p>
-    Engrams fixes this. It gives your AI a long-term memory for your project. When you
-    make a decision, Engrams saves it. Next time your AI needs that context, it's already
-    there — automatically. No copy-pasting, no re-explaining.
+    Traditionally, developers had to choose between two bad options for giving AIs project context:
+  </p>
+  <ul>
+    <li>
+      <strong>Bloated prompts:</strong> Dumping huge <code>README.md</code>, architecture docs, or complete file trees into the prompt. 
+      This wastes tokens, costs money, and degrades the AI's reasoning performance (attention decay).
+    </li>
+    <li>
+      <strong>MCP Daemons:</strong> Running background MCP servers. These are notorious for port conflicts, silent failures in sandboxed IDEs, memory leaks, and tedious setup across team members' environments.
+    </li>
+  </ul>
+
+  <h3>The Solution: A Standalone Rust CLI</h3>
+  <p>
+    Engrams solves this by running as a fast, zero-overhead CLI. AI agents simply run <code>engrams</code> commands inside their terminal tool to search or log information.
   </p>
 
-  <h2>Stored knowledge types</h2>
-  <table>
+  <h3>Key Practical Benefits</h3>
+
+  <h4>1. Zero Background Overhead</h4>
+  <p>
+    Since Engrams is a compiled Rust CLI rather than a server daemon:
+  </p>
+  <ul>
+    <li>There are no ports to allocate and no socket connections to drop.</li>
+    <li>It consumes <strong>0 MB of RAM</strong> when idle (it only runs when invoked).</li>
+    <li>No risk of background crashes freezing your editor extension.</li>
+  </ul>
+
+  <h4>2. Universal Compatibility</h4>
+  <p>
+    Any AI agent or tool with the ability to run shell commands in the workspace can use Engrams. You don't need editor-specific MCP client integrations. It works seamlessly in:
+  </p>
+  <ul>
+    <li><strong>Zoo Code</strong> (via execution tools)</li>
+    <li><strong>Claude Code</strong> (running in the terminal)</li>
+    <li><strong>Cursor / Antigravity</strong> (via terminal commands)</li>
+    <li><strong>Zed</strong> (via terminal tasks)</li>
+    <li>Custom bash/python scripts</li>
+  </ul>
+
+  <h4>3. Blazing Fast FTS5 Search</h4>
+  <p>
+    Instead of relying on heavy local vector models (which eat CPU/GPU) or calling external embedding APIs (which cost money and require internet), Engrams uses SQLite's built-in <strong>FTS5 (Full-Text Search)</strong> engine. Searches take less than <strong>5 milliseconds</strong> and run entirely locally.
+  </p>
+
+  <h4>4. Git-Friendly Collaboration</h4>
+  <p>
+    You shouldn't commit SQLite binary files to Git. Engrams has native <code>export</code> and <code>import</code> commands that serialize your database to clean, structured Markdown files under <code>engrams_export/</code>. You commit these Markdown files to your repository, allowing:
+  </p>
+  <ul>
+    <li>Easy peer reviews of architectural decisions (ADRs) and patterns in PRs.</li>
+    <li>Automatic local database synchronization upon running <code>git pull && engrams import</code>.</li>
+  </ul>
+
+  <h3>Comparison: Engrams vs. Alternatives</h3>
+  <table class="alt-comparison">
     <thead>
-      <tr><th>Type</th><th>Description</th><th>Example</th></tr>
+      <tr>
+        <th>Aspect</th>
+        <th>Manual Prompts</th>
+        <th>MCP Servers</th>
+        <th>Engrams CLI</th>
+      </tr>
     </thead>
     <tbody>
       <tr>
-        <td><strong>Decisions</strong></td>
-        <td>Choices you've made and why</td>
-        <td>"Use PostgreSQL for the database — it handles complex queries better"</td>
+        <td><strong>Setup Time</strong></td>
+        <td>None</td>
+        <td>Tedious (config files, uvx, node paths)</td>
+        <td><strong>1 Minute</strong> (binary install)</td>
       </tr>
       <tr>
-        <td><strong>Progress</strong></td>
-        <td>What's done, what's in progress, what's next</td>
-        <td>TODO → IN_PROGRESS → DONE</td>
+        <td><strong>Token Waste</strong></td>
+        <td>High (pasting files every time)</td>
+        <td>Low (query on demand)</td>
+        <td><strong>Low</strong> (query on demand)</td>
       </tr>
       <tr>
-        <td><strong>Patterns</strong></td>
-        <td>Repeatable approaches your team follows</td>
-        <td>"All API responses use the same error format"</td>
+        <td><strong>IDE Sandbox Issues</strong></td>
+        <td>None</td>
+        <td>Common (crashes, permission drops)</td>
+        <td><strong>None</strong> (runs as normal tool)</td>
       </tr>
       <tr>
-        <td><strong>Context</strong></td>
-        <td>The big picture — project goals, current focus</td>
-        <td>What the project is about and what you're working on now</td>
+        <td><strong>Offline Support</strong></td>
+        <td>Yes</td>
+        <td>Depends on embeddings API</td>
+        <td><strong>Yes</strong> (fully local SQLite)</td>
       </tr>
       <tr>
-        <td><strong>Custom Data</strong></td>
-        <td>Anything else worth remembering</td>
-        <td>Glossary terms, internal specs, style guides</td>
+        <td><strong>Git Versioning</strong></td>
+        <td>Manual files only</td>
+        <td>Binary DB or None</td>
+        <td><strong>Automatic via Export/Import</strong></td>
       </tr>
     </tbody>
   </table>
 
-  <h2>Key capabilities</h2>
-  <ul>
-    <li><strong>Team sync via Git</strong> — Export project memory to Markdown using <code>engrams export</code> to commit to Git, and restore using <code>engrams import</code> on checkout.</li>
-    <li><strong>Lightweight & Performant</strong> — Built in Rust, accessing local SQLite database files directly in a few milliseconds with zero daemon overhead.</li>
-    <li><strong>Full-Text Search (FTS5)</strong> — Instantly query decisions and custom settings using SQLite's built-in FTS5 engine.</li>
-    <li><strong>Relationship Links</strong> — Establish typed connections between decisions, patterns, and progress to form a queryable knowledge graph.</li>
-    <li><strong>Agent-Native API</strong> — Clean JSON output for programmatic consumption, with an interactive HTML dashboard for developer reading.</li>
-  </ul>
+  <h2>How Engrams Works</h2>
+  <p>
+    Every time you start a new chat with your AI assistant, it has no memory of your previous conversations.
+    Engrams changes that. It quietly sits alongside your AI tool, remembering your project decisions,
+    design patterns, and progress — and automatically provides the right information when it's needed.
+  </p>
 
-  <h2>Architecture overview</h2>
+  <h3>How a typical interaction works</h3>
+  <ol>
+    <li><strong>You ask your AI something.</strong> For example: "Implement the DB schema."</li>
+    <li><strong>Your AI queries the Engrams CLI</strong> using the shell tool: e.g., <code>engrams decision search "database"</code> or <code>engrams pattern list</code> to orient itself.</li>
+    <li><strong>Engrams returns SQLite search matches</strong> as structured JSON.</li>
+    <li><strong>Your AI writes code aligned with project context</strong>, respecting prior decisions.</li>
+    <li><strong>New choices get recorded.</strong> If a new architectural choice is made, the AI runs <code>engrams decision log</code>.</li>
+  </ol>
+
+  <h3>Architecture Overview</h3>
   <p>
     Engrams runs as a standalone CLI tool in your project workspace. It integrates with any AI coding tool
     supporting shell commands (like Zoo Code, Cursor, Antigravity, Zed, or Claude Code). The CLI maintains a local
@@ -103,11 +172,92 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     </div>
   </div>
 
+  <h3>Storage: local SQLite and Markdown exports</h3>
+  <p>
+    Engrams uses a simple, robust storage model designed for git-controlled sharing:
+  </p>
+  <table>
+    <thead><tr><th>Storage</th><th>Location</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>SQLite DB</strong></td>
+        <td><code>engrams/context.db</code> (in <code>.gitignore</code>)</td>
+        <td>Local, high-performance database supporting FTS5 search and relationships.</td>
+      </tr>
+      <tr>
+        <td><strong>Markdown Files</strong></td>
+        <td><code>engrams_export/</code> (committed to Git)</td>
+        <td>Human-readable dumps of the database items, easily version-controlled and shared.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    The core design is <strong>Git-friendly</strong>. The SQLite database is local to your machine, while the exported Markdown files are the source of truth committed to Git.
+  </p>
+
+  <h3>Team sync via Git</h3>
+  <p>
+    Sharing Engrams project memory across team members is fully manual and transparent:
+  </p>
+  <ol>
+    <li><strong>Export:</strong> Run <code>engrams export</code> to dump all SQLite items to <code>engrams_export/</code>.</li>
+    <li><strong>Commit:</strong> Push the <code>engrams_export/</code> directory alongside your code.</li>
+    <li><strong>Import:</strong> Teammates pull the changes and run <code>engrams import</code> to update their local SQLite database.</li>
+  </ol>
+
+  <h3>Workspace detection</h3>
+  <p>
+    Engrams automatically resolves where your project lives by scanning upwards for indicators like <code>.git</code>, <code>Cargo.toml</code>, or <code>package.json</code>. The database is stored relative to this discovered root.
+  </p>
+
+  <h3>How Engrams connects to your AI tool</h3>
+  <p>
+    There are no background services or daemons running. Your AI assistant calls the <code>engrams</code> binary directly as a shell/terminal command. This ensures total security, zero background memory footprint, and compatibility with any agent tool that can run terminal commands.
+  </p>
+
+  <h2>Stored Knowledge Types</h2>
+  <p>
+    Engrams stores structured knowledge across several distinct types. Each type maps to a database table
+    and is managed via specific <code>engrams</code> CLI subcommands.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Description</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Decisions</strong></td>
+        <td>Choices you've made and why (ADRs)</td>
+        <td>"Use PostgreSQL for the database — it handles complex queries better"</td>
+      </tr>
+      <tr>
+        <td><strong>Progress</strong></td>
+        <td>What's done, what's in progress, what's next</td>
+        <td>TODO → IN_PROGRESS → DONE</td>
+      </tr>
+      <tr>
+        <td><strong>Patterns</strong></td>
+        <td>Repeatable approaches your team follows (how-to)</td>
+        <td>"All API responses use the same error format"</td>
+      </tr>
+      <tr>
+        <td><strong>Context</strong></td>
+        <td>The big picture — project goals, current focus</td>
+        <td>What the project is about and what you're working on now</td>
+      </tr>
+      <tr>
+        <td><strong>Custom Data</strong></td>
+        <td>Anything else worth remembering</td>
+        <td>Glossary terms, internal specs, style guides</td>
+      </tr>
+    </tbody>
+  </table>
+
   <h2>Next steps</h2>
   <ul>
     <li><a href="/docs/installation">Install Engrams</a></li>
     <li><a href="/docs/quick-start">Run through the Quick Start</a></li>
-    <li><a href="/docs/concepts/how-it-works">Understand how Engrams works</a></li>
+    <li><a href="/docs/reference/ai-tool-setup">Set up your AI Assistant</a></li>
   </ul>
 </DocsLayout>
 
@@ -163,4 +313,37 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   .arch-box.mcp   { border-color: var(--maya-blue); background: linear-gradient(135deg,rgba(86,203,249,.08),rgba(127,190,235,.08)); }
   .arch-box.db    { border-color: var(--powder-blue); }
   .arch-arrow { font-size: 1.25rem; color: var(--color-text-light); flex-shrink: 0; }
+
+  .alt-comparison {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+  }
+
+  .alt-comparison thead {
+    background: var(--color-bg-sidebar);
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  .alt-comparison th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .alt-comparison td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    line-height: 1.5;
+  }
+
+  .alt-comparison tbody tr:hover {
+    background: rgba(86, 203, 249, 0.05);
+  }
+
+  .alt-comparison strong {
+    color: var(--color-text);
+  }
 </style>

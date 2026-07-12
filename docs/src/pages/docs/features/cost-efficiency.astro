@@ -70,7 +70,17 @@ AI: [Runs: engrams decision search "auth"]
     Instead of loading the entire project history, agents can fetch a quick digest of what changed in the last 24 hours to get up to speed:
   </p>
   <pre><code>engrams activity --hours 24</code></pre>
+  <h3>4. Budgeted Briefing (<code>prime</code>)</h3>
+  <p>
+    The <code>prime</code> command generates a deterministic project briefing fanning across product context, active context, recent decisions, patterns, and progress. It accepts a <code>--budget</code> limit in tokens, and automatically drops lower-priority sections (while preserving the hand-off active context) until the payload fits the budget:
+  </p>
+  <pre><code>engrams prime --budget 1000</code></pre>
 
+  <h3>5. Compact JSON Output (<code>--compact</code>)</h3>
+  <p>
+    Pass the global <code>--compact</code> flag to strip all <code>null</code> values from JSON results and print them on a single line (no pretty-printing whitespace), saving significant token space:
+  </p>
+  <pre><code>engrams --compact decision list</code></pre>
   <h2>Summary</h2>
   <p>
     By transitioning from static context files to the <strong>Engrams CLI</strong>, you reduce the AI's active context window by <strong>80% to 95%</strong>, directly lowering API costs while improving the agent's focus and accuracy.

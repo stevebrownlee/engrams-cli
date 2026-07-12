@@ -33,7 +33,7 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             // Check for recent similar entries when requested
             if check_similar {
                 let mut stmt = conn.prepare(
-                    "SELECT id, timestamp, status, description, parent_id \
+                    "SELECT id, timestamp, status, description, parent_id, commit_sha \
                      FROM progress_entries \
                      WHERE LOWER(description) = LOWER(?1) AND LOWER(status) = LOWER(?2) \
                      ORDER BY id DESC LIMIT 1",
@@ -50,9 +50,10 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             }
 
             let timestamp = now();
+            let commit_sha = crate::ops::git::head_sha();
             conn.execute(
-                "INSERT INTO progress_entries (timestamp, status, description, parent_id) VALUES (?1, ?2, ?3, ?4)",
-                params![timestamp, status, description, parent_id],
+                "INSERT INTO progress_entries (timestamp, status, description, parent_id, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![timestamp, status, description, parent_id, commit_sha],
             )?;
 
             let id = conn.last_insert_rowid();
@@ -85,7 +86,7 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
                 format!("WHERE {}", conditions.join(" AND "))
             };
 
-            let query = format!("SELECT id, timestamp, status, description, parent_id FROM progress_entries {} ORDER BY id DESC LIMIT ?", where_clause);
+            let query = format!("SELECT id, timestamp, status, description, parent_id, commit_sha FROM progress_entries {} ORDER BY id DESC LIMIT ?", where_clause);
 
             let mut p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
             p_refs.push(&limit);
@@ -188,12 +189,13 @@ fn parse_progress_row(row: &rusqlite::Row) -> rusqlite::Result<Progress> {
         status: row.get(2)?,
         description: row.get(3)?,
         parent_id: row.get(4)?,
+        commit_sha: row.get(5)?,
     })
 }
 
 fn get_progress(conn: &Connection, id: i64) -> Result<Value> {
     let mut stmt = conn.prepare(
-        "SELECT id, timestamp, status, description, parent_id FROM progress_entries WHERE id = ?",
+        "SELECT id, timestamp, status, description, parent_id, commit_sha FROM progress_entries WHERE id = ?",
     )?;
     let progress = stmt
         .query_row(params![id], parse_progress_row)

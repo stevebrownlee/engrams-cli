@@ -20,8 +20,14 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             details,
             tags,
             force,
+            prs,
+            anchors,
         } => {
-            // Unless --force, check FTS for similar existing decisions
+            let mut resolved_prs = Vec::new();
+            for pr in prs {
+                resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr)?);
+            }
+
             if !force {
                 let similar = find_similar(conn, &summary, 5)?;
                 if !similar.is_empty() {
@@ -40,31 +46,60 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 Some(serde_json::to_string(&tags)?)
             };
 
+            let commit_sha = crate::ops::git::head_sha();
+
             conn.execute(
-                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![uuid, timestamp, summary, rationale, details, tags_json],
+                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![uuid, timestamp, summary, rationale, details, tags_json, commit_sha],
             )?;
 
             let id = conn.last_insert_rowid();
+
+            if !resolved_prs.is_empty() {
+                crate::ops::pr::attach(conn, "decision", id, &resolved_prs)?;
+            }
+            if !anchors.is_empty() {
+                crate::ops::anchor::attach(conn, "decision", id, &anchors)?;
+            }
+
             let mut decision = get_decision(conn, id)?;
             if let Value::Object(map) = &mut decision {
                 map.insert("inserted".into(), Value::Bool(true));
             }
             Ok(decision)
         }
-        DecisionCmd::List { tags, limit } => {
+        DecisionCmd::List { tags, limit, all } => {
             if tags.is_empty() {
-                let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions ORDER BY id DESC LIMIT ?")?;
+                let sql = if all {
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions ORDER BY id DESC LIMIT ?"
+                } else {
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE status = 'active' ORDER BY id DESC LIMIT ?"
+                };
+                let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map(params![limit], parse_decision_row)?;
                 let mut results = Vec::new();
                 for r in rows {
                     results.push(r?);
                 }
+                let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
+                let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
+                for d in &mut results {
+                    if let Some(urls) = prs_map.get(&d.id) {
+                        d.pr_urls = urls.clone();
+                    }
+                    if let Some(paths) = anchors_map.get(&d.id) {
+                        d.anchors = paths.clone();
+                    }
+                }
                 Ok(serde_json::to_value(results)?)
             } else {
-                // Filter by tags using EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN (...))
                 let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let query = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions WHERE EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({})) ORDER BY id DESC LIMIT ?", placeholders);
+                let filter = if all {
+                    String::new()
+                } else {
+                    "AND status = 'active'".to_string()
+                };
+                let query = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({})) {} ORDER BY id DESC LIMIT ?", placeholders, filter);
                 let mut stmt = conn.prepare(&query)?;
                 let mut p = Vec::<&dyn rusqlite::ToSql>::new();
                 for tag in &tags {
@@ -76,28 +111,86 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 for r in rows {
                     results.push(r?);
                 }
+                let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
+                let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
+                for d in &mut results {
+                    if let Some(urls) = prs_map.get(&d.id) {
+                        d.pr_urls = urls.clone();
+                    }
+                    if let Some(paths) = anchors_map.get(&d.id) {
+                        d.anchors = paths.clone();
+                    }
+                }
                 Ok(serde_json::to_value(results)?)
             }
         }
         DecisionCmd::Get { id } => get_decision(conn, id),
-        DecisionCmd::Search { query, limit } => {
+        DecisionCmd::Search {
+            query,
+            limit,
+            all,
+            snippets,
+        } => {
             if query.trim().is_empty() {
                 anyhow::bail!("search query cannot be empty");
             }
-            // Tokenize by whitespace and wrap in double quotes
-            let match_expr = query
-                .split_whitespace()
-                .map(|token| format!("\"{}\"", token.replace('"', "\"\"")))
-                .collect::<Vec<_>>()
-                .join(" ");
+            let match_expr = crate::ops::fts_match_expr(&query);
 
-            let mut stmt = conn.prepare("SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp FROM decisions d JOIN decisions_fts f ON d.id = f.rowid WHERE decisions_fts MATCH ?1 ORDER BY rank LIMIT ?2")?;
-            let rows = stmt.query_map(params![match_expr, limit], parse_decision_row)?;
-            let mut results = Vec::new();
-            for r in rows {
-                results.push(r?);
+            if snippets {
+                let sql = if all {
+                    "SELECT d.id, d.summary, snippet(decisions_fts, -1, '>>', '<<', '…', 12) \
+                     FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
+                     WHERE decisions_fts MATCH ?1 \
+                     ORDER BY rank LIMIT ?2"
+                } else {
+                    "SELECT d.id, d.summary, snippet(decisions_fts, -1, '>>', '<<', '…', 12) \
+                     FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
+                     WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
+                     ORDER BY rank LIMIT ?2"
+                };
+                let mut stmt = conn.prepare(sql)?;
+                let rows = stmt.query_map(params![match_expr, limit], |row| {
+                    Ok(serde_json::json!({
+                        "id": row.get::<_, i64>(0)?,
+                        "summary": row.get::<_, String>(1)?,
+                        "snippet": row.get::<_, String>(2)?,
+                    }))
+                })?;
+                let mut results = Vec::new();
+                for r in rows {
+                    results.push(r?);
+                }
+                Ok(serde_json::to_value(results)?)
+            } else {
+                let sql = if all {
+                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha \
+                     FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
+                     WHERE decisions_fts MATCH ?1 \
+                     ORDER BY rank LIMIT ?2"
+                } else {
+                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha \
+                     FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
+                     WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
+                     ORDER BY rank LIMIT ?2"
+                };
+                let mut stmt = conn.prepare(sql)?;
+                let rows = stmt.query_map(params![match_expr, limit], parse_decision_row)?;
+                let mut results = Vec::new();
+                for r in rows {
+                    results.push(r?);
+                }
+                let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
+                let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
+                for d in &mut results {
+                    if let Some(urls) = prs_map.get(&d.id) {
+                        d.pr_urls = urls.clone();
+                    }
+                    if let Some(paths) = anchors_map.get(&d.id) {
+                        d.anchors = paths.clone();
+                    }
+                }
+                Ok(serde_json::to_value(results)?)
             }
-            Ok(serde_json::to_value(results)?)
         }
         DecisionCmd::Update(DecisionUpdateArgs { id, fields }) => {
             // First check if exists
@@ -133,8 +226,12 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 p.push(Box::new(tags_json));
             }
 
+            if let Some(status) = fields.status {
+                sets.push("status = ?");
+                p.push(Box::new(status.as_str().to_string()));
+            }
+
             if sets.is_empty() {
-                // Shouldn't happen due to clap ArgGroup but just in case
                 return get_decision(conn, id);
             }
 
@@ -144,6 +241,64 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             conn.execute(&query, rusqlite::params_from_iter(p_refs))?;
             get_decision(conn, id)
+        }
+        DecisionCmd::Supersede { id, by } => {
+            let _: i64 = conn
+                .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
+                    r.get(0)
+                })
+                .optional()?
+                .context(format!("decision {} not found", id))?;
+
+            if let Some(by_id) = by {
+                if by_id == id {
+                    anyhow::bail!("a decision cannot supersede itself");
+                }
+                let _: i64 = conn
+                    .query_row(
+                        "SELECT id FROM decisions WHERE id = ?",
+                        params![by_id],
+                        |r| r.get(0),
+                    )
+                    .optional()?
+                    .context(format!("decision {} not found", by_id))?;
+            }
+
+            let tx = conn.unchecked_transaction()?;
+
+            tx.execute(
+                "UPDATE decisions SET status = 'superseded' WHERE id = ?",
+                params![id],
+            )?;
+
+            if let Some(by_id) = by {
+                let exists: bool = tx.query_row(
+                    "SELECT count(*) FROM context_links \
+                     WHERE source_item_type = 'decision' AND source_item_id = ?1 \
+                     AND target_item_type = 'decision' AND target_item_id = ?2 \
+                     AND relationship_type = 'supersedes'",
+                    params![by_id.to_string(), id.to_string()],
+                    |row| row.get(0),
+                )?;
+                if !exists {
+                    let timestamp = now();
+                    tx.execute(
+                        "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) \
+                         VALUES ('decision', ?1, 'decision', ?2, 'supersedes', NULL, ?3)",
+                        params![by_id.to_string(), id.to_string(), timestamp],
+                    )?;
+                }
+            }
+
+            tx.commit()?;
+
+            let mut result = get_decision(conn, id)?;
+            if let Some(by_id) = by {
+                if let Value::Object(map) = &mut result {
+                    map.insert("superseded_by".into(), serde_json::json!(by_id));
+                }
+            }
+            Ok(result)
         }
         DecisionCmd::Delete { id } => {
             let tx = conn.unchecked_transaction()?;
@@ -157,8 +312,11 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 .context(format!("decision {} not found", id))?;
 
             let links_removed = delete_links_for(&tx, "decision", id)?;
+            tx.execute(
+                "DELETE FROM item_anchors WHERE item_type='decision' AND item_id=?",
+                params![id],
+            )?;
             let deleted = tx.execute("DELETE FROM decisions WHERE id = ?", params![id])?;
-
             if deleted == 0 {
                 anyhow::bail!("decision {} not found", id);
             }
@@ -181,7 +339,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             // Fetch both decisions
             let source: Decision = tx
                 .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions WHERE id = ?",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id = ?",
                     params![source_id],
                     parse_decision_row,
                 )
@@ -190,13 +348,12 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let target: Decision = tx
                 .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions WHERE id = ?",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id = ?",
                     params![into_id],
                     parse_decision_row,
                 )
                 .optional()?
                 .context(format!("target decision {} not found", into_id))?;
-
             // Merge rationale
             let merged_rationale =
                 merge_text_fields(target.rationale.as_deref(), source.rationale.as_deref());
@@ -223,6 +380,16 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             // Repoint links from source to target
             let repointed = repoint_links(&tx, "decision", source_id, into_id)?;
+
+            // Repoint anchors from source to target, then delete source anchors
+            tx.execute(
+                "UPDATE OR IGNORE item_anchors SET item_id = ?1 WHERE item_type = 'decision' AND item_id = ?2",
+                params![into_id, source_id],
+            )?;
+            tx.execute(
+                "DELETE FROM item_anchors WHERE item_type = 'decision' AND item_id = ?1",
+                params![source_id],
+            )?;
 
             // Delete source
             tx.execute("DELETE FROM decisions WHERE id = ?", params![source_id])?;
@@ -254,15 +421,21 @@ fn parse_decision_row(row: &rusqlite::Row) -> rusqlite::Result<Decision> {
         implementation_details: row.get(4)?,
         tags: if tags.is_null() { None } else { Some(tags) },
         timestamp: row.get(6)?,
+        status: row.get(7)?,
+        commit_sha: row.get(8)?,
+        pr_urls: Vec::new(),
+        anchors: Vec::new(),
     })
 }
 
 fn get_decision(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions WHERE id = ?")?;
-    let decision = stmt
+    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id = ?")?;
+    let mut decision = stmt
         .query_row(params![id], parse_decision_row)
         .optional()?
         .context(format!("decision {} not found", id))?;
+    decision.pr_urls = crate::ops::pr::pr_urls_for(conn, "decision", id)?;
+    decision.anchors = crate::ops::anchor::anchors_for(conn, "decision", id)?;
     Ok(serde_json::to_value(decision)?)
 }
 
@@ -296,9 +469,9 @@ fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Result<Vec<Deci
     );
 
     let mut stmt = conn.prepare(
-        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp \
+        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha \
          FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
-         WHERE decisions_fts MATCH ?1 \
+         WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
          ORDER BY rank LIMIT ?2",
     )?;
     let rows = stmt.query_map(params![match_expr, limit], parse_decision_row)?;

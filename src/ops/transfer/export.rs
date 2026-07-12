@@ -12,6 +12,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     fs::create_dir_all(path.join("patterns"))?;
     fs::create_dir_all(path.join("custom_data"))?;
     fs::create_dir_all(path.join("links"))?;
+    fs::create_dir_all(path.join("anchors"))?;
 
     let mut counts = serde_json::Map::new();
 
@@ -48,7 +49,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     }
 
     // Export Decisions
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions")?;
     let rows = stmt.query_map([], |row| {
         let tags_str: Option<String> = row.get(5)?;
         let tags = match tags_str {
@@ -63,6 +64,8 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "implementation_details": row.get::<_, Option<String>>(4)?,
             "tags": if tags.is_null() { None } else { Some(tags) },
             "timestamp": row.get::<_, String>(6)?,
+            "status": row.get::<_, String>(7)?,
+            "commit_sha": row.get::<_, Option<String>>(8)?,
         }))
     })?;
     let mut decisions_count = 0;
@@ -81,8 +84,9 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     counts.insert("decisions".to_string(), serde_json::json!(decisions_count));
 
     // Export Progress
-    let mut stmt =
-        conn.prepare("SELECT id, timestamp, status, description, parent_id FROM progress_entries")?;
+    let mut stmt = conn.prepare(
+        "SELECT id, timestamp, status, description, parent_id, commit_sha FROM progress_entries",
+    )?;
     let rows = stmt.query_map([], |row| {
         Ok(serde_json::json!({
             "id": row.get::<_, i64>(0)?,
@@ -90,6 +94,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "status": row.get::<_, String>(2)?,
             "description": row.get::<_, String>(3)?,
             "parent_id": row.get::<_, Option<i64>>(4)?,
+            "commit_sha": row.get::<_, Option<String>>(5)?,
         }))
     })?;
     let mut progress_count = 0;
@@ -198,6 +203,32 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         links_count += 1;
     }
     counts.insert("links".to_string(), serde_json::json!(links_count));
+    // Export Anchors
+    let mut stmt =
+        conn.prepare("SELECT id, item_type, item_id, path, timestamp FROM item_anchors")?;
+    let rows = stmt.query_map([], |row| {
+        Ok(serde_json::json!({
+            "id": row.get::<_, i64>(0)?,
+            "item_type": row.get::<_, String>(1)?,
+            "item_id": row.get::<_, i64>(2)?,
+            "path": row.get::<_, String>(3)?,
+            "timestamp": row.get::<_, String>(4)?,
+        }))
+    })?;
+    let mut anchors_count = 0;
+    for r in rows {
+        let r = r?;
+        let id = r.get("id").unwrap().as_i64().unwrap();
+        let item_type = r.get("item_type").unwrap().as_str().unwrap();
+        let content = format!(
+            "# {}\n\n```json\n{}\n```\n",
+            item_type,
+            serde_json::to_string_pretty(&r)?
+        );
+        fs::write(path.join("anchors").join(format!("{}.md", id)), content)?;
+        anchors_count += 1;
+    }
+    counts.insert("anchors".to_string(), serde_json::json!(anchors_count));
 
     let manifest = serde_json::json!({
         "exported_at": Utc::now().to_rfc3339(),

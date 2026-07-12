@@ -5,18 +5,22 @@
 To maintain long-term context about the project so that valuable tokens aren't wasted between separate conversations with an LLM agent. It stored project patterns, architectural decisions, active context with progress, a linked knowledge graph, and any custom data the developer wants.
 
 ## Memory & Project Context (engrams)
-You have access to the `engrams` CLI tool, which maintains a local SQLite database of project decisions, conventions, and progress.
+This project uses the `engrams` CLI (a local SQLite knowledge base) to persist decisions, conventions, and progress between sessions. All output is JSON.
+
+1. **On startup:** run `engrams prime` (add `--budget <tokens>` to cap output) for a one-call briefing: product context, active context, recent decisions, patterns, and progress.
+2. **Before editing files:** run `engrams relevant <paths>` (or `engrams relevant --staged`) to fetch only the decisions and patterns anchored to the files you are about to touch.
+3. **Before implementing:** search prior art with `engrams query "<topic>"`.
+4. **When you make a design choice:** log it: `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> --pr <number-or-url>`.
+5. **When a decision is replaced:** `engrams decision supersede <old-id> --by <new-id>`.
+6. **On task progress:** `engrams progress log --status <status, e.g. InProgress or Done> --description "..."` (status is a free-form string).
+7. **Before ending the session:** update the hand-off document: `engrams active-context update --content '<json>'`.
+
+Use `--compact` on any command to minimize tokens. Run `engrams doctor` periodically to find stale or unanchored knowledge.
 
 ### Core Rules for Agent Memory
 - **CLI-First Querying:** ALWAYS use the `engrams` CLI tool (e.g., `engrams decision search`, `engrams pattern list`, etc.) to query project history and context.
 - **DO NOT read or grep exported files:** The files under `engrams_export/` are for human Git-tracking only. Reading/parsing them directly via `read` or `grep` is highly token-inefficient and prone to missing database-only state.
 - **Run local builds:** Prioritize executing the compiled local binary (e.g., `./target/debug/engrams`) to query/write context directly.
-
-1. **On Startup:** Run `engrams activity` to see what has changed recently. Get the `product-context` and `active-context` to orient yourself.
-2. **Before Implementing:** Search `engrams decision search "<topic>"` and `engrams pattern list` to make sure your approach aligns with established decisions and codebase conventions.
-3. **When making design choices:** Log them with `engrams decision log`. By default, this checks for similar existing decisions via FTS and returns them instead of inserting a duplicate. If similar decisions are returned, either update the existing decision with `engrams decision update <id>` or use `--force` only when you have verified the new decision is genuinely distinct. Use `engrams decision consolidate <source-id> <into-id>` to merge two decisions that cover the same topic.
-4. **On Task Progress:** Track your progress using `engrams progress log`. Use `--check-similar` to avoid logging duplicate entries for the same completed work.
-5. **On Exit:** Update the `active-context` to summarize where you left off for the next agent/developer.
 
 ---
 

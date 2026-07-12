@@ -36,7 +36,7 @@ pub fn open(
 
     let product_context = query_context_doc(conn, "product_context")?;
     let active_context = query_context_doc(conn, "active_context")?;
-    let decisions = query_decisions(conn, -1)?;
+    let decisions = query_decisions(conn, -1, false)?;
     let progress = query_progress(conn, -1)?;
     let patterns = query_patterns(conn, -1)?;
     let custom_data = query_custom_data(conn)?;
@@ -151,7 +151,7 @@ fn launch_browser(path: &Path) -> bool {
 pub fn handle(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Result<Value> {
     let active_context = query_context_doc(conn, "active_context")?;
     let progress = query_progress(conn, limit)?;
-    let decisions = query_decisions(conn, limit)?;
+    let decisions = query_decisions(conn, limit, false)?;
     let patterns = query_patterns(conn, limit)?;
     let links = query_links(conn, limit)?;
     match topic {
@@ -169,7 +169,7 @@ pub fn handle(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Resu
         Some(ReportTopic::Links) => Ok(serde_json::to_value(links)?),
     }
 }
-fn query_context_doc(conn: &Connection, table: &str) -> Result<Option<ContextDoc>> {
+pub(crate) fn query_context_doc(conn: &Connection, table: &str) -> Result<Option<ContextDoc>> {
     let sql = format!(
         "SELECT content, version, updated_at FROM {} WHERE id = 1",
         table
@@ -187,8 +187,8 @@ fn query_context_doc(conn: &Connection, table: &str) -> Result<Option<ContextDoc
     Ok(doc)
 }
 
-fn query_progress(conn: &Connection, limit: i64) -> Result<Vec<Progress>> {
-    let mut stmt = conn.prepare("SELECT id, timestamp, status, description, parent_id FROM progress_entries ORDER BY id DESC LIMIT ?")?;
+pub(crate) fn query_progress(conn: &Connection, limit: i64) -> Result<Vec<Progress>> {
+    let mut stmt = conn.prepare("SELECT id, timestamp, status, description, parent_id, commit_sha FROM progress_entries ORDER BY id DESC LIMIT ?")?;
     let rows = stmt.query_map(params![limit], |row| {
         Ok(Progress {
             id: row.get(0)?,
@@ -196,6 +196,7 @@ fn query_progress(conn: &Connection, limit: i64) -> Result<Vec<Progress>> {
             status: row.get(2)?,
             description: row.get(3)?,
             parent_id: row.get(4)?,
+            commit_sha: row.get(5)?,
         })
     })?;
     let mut progress = Vec::with_capacity(limit.max(0) as usize);
@@ -205,8 +206,17 @@ fn query_progress(conn: &Connection, limit: i64) -> Result<Vec<Progress>> {
     Ok(progress)
 }
 
-fn query_decisions(conn: &Connection, limit: i64) -> Result<Vec<Decision>> {
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp FROM decisions ORDER BY id DESC LIMIT ?")?;
+pub(crate) fn query_decisions(
+    conn: &Connection,
+    limit: i64,
+    active_only: bool,
+) -> Result<Vec<Decision>> {
+    let sql = if active_only {
+        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE status = 'active' ORDER BY id DESC LIMIT ?"
+    } else {
+        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions ORDER BY id DESC LIMIT ?"
+    };
+    let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params![limit], |row| {
         let tags_str: Option<String> = row.get(5)?;
         let tags = match tags_str {
@@ -221,6 +231,10 @@ fn query_decisions(conn: &Connection, limit: i64) -> Result<Vec<Decision>> {
             implementation_details: row.get(4)?,
             tags: if tags.is_null() { None } else { Some(tags) },
             timestamp: row.get(6)?,
+            status: row.get(7)?,
+            commit_sha: row.get(8)?,
+            pr_urls: Vec::new(),
+            anchors: Vec::new(),
         })
     })?;
     let mut decisions = Vec::with_capacity(limit.max(0) as usize);
@@ -230,7 +244,7 @@ fn query_decisions(conn: &Connection, limit: i64) -> Result<Vec<Decision>> {
     Ok(decisions)
 }
 
-fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
+pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
     let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns ORDER BY id DESC LIMIT ?")?;
     let rows = stmt.query_map(params![limit], |row| {
         let tags_str: Option<String> = row.get(4)?;
@@ -245,6 +259,8 @@ fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
             description: row.get(3)?,
             tags: if tags.is_null() { None } else { Some(tags) },
             timestamp: row.get(5)?,
+            pr_urls: Vec::new(),
+            anchors: Vec::new(),
         })
     })?;
     let mut patterns = Vec::with_capacity(limit.max(0) as usize);

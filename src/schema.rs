@@ -25,12 +25,15 @@ CREATE TABLE IF NOT EXISTS decisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT UNIQUE NOT NULL, timestamp TEXT NOT NULL,
   summary TEXT NOT NULL, rationale TEXT,
-  implementation_details TEXT, tags TEXT
+  implementation_details TEXT, tags TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  commit_sha TEXT
 );
 CREATE TABLE IF NOT EXISTS progress_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   timestamp TEXT NOT NULL, status TEXT NOT NULL, description TEXT NOT NULL,
-  parent_id INTEGER REFERENCES progress_entries(id) ON DELETE SET NULL
+  parent_id INTEGER REFERENCES progress_entries(id) ON DELETE SET NULL,
+  commit_sha TEXT
 );
 CREATE TABLE IF NOT EXISTS system_patterns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,5 +89,65 @@ CREATE TRIGGER IF NOT EXISTS custom_data_au AFTER UPDATE ON custom_data BEGIN
   VALUES ('delete', old.id, old.category, old.key, old.value);
   INSERT INTO custom_data_fts(rowid, category, key, value)
   VALUES (new.id, new.category, new.key, new.value);
+END;
+CREATE TABLE IF NOT EXISTS item_anchors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_type TEXT NOT NULL,
+  item_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  UNIQUE(item_type, item_id, path)
+);
+CREATE INDEX IF NOT EXISTS ix_anchors_path ON item_anchors(path);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS system_patterns_fts USING fts5(
+  name, description, tags, content='system_patterns', content_rowid='id'
+);
+CREATE TRIGGER IF NOT EXISTS system_patterns_ai AFTER INSERT ON system_patterns BEGIN
+  INSERT INTO system_patterns_fts(rowid, name, description, tags)
+  VALUES (new.id, new.name, new.description, new.tags);
+END;
+CREATE TRIGGER IF NOT EXISTS system_patterns_ad AFTER DELETE ON system_patterns BEGIN
+  INSERT INTO system_patterns_fts(system_patterns_fts, rowid, name, description, tags)
+  VALUES ('delete', old.id, old.name, old.description, old.tags);
+END;
+CREATE TRIGGER IF NOT EXISTS system_patterns_au AFTER UPDATE ON system_patterns BEGIN
+  INSERT INTO system_patterns_fts(system_patterns_fts, rowid, name, description, tags)
+  VALUES ('delete', old.id, old.name, old.description, old.tags);
+  INSERT INTO system_patterns_fts(rowid, name, description, tags)
+  VALUES (new.id, new.name, new.description, new.tags);
+END;
+"#;
+pub const MIGRATION_V2: &str = r#"
+ALTER TABLE decisions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE decisions ADD COLUMN commit_sha TEXT;
+ALTER TABLE progress_entries ADD COLUMN commit_sha TEXT;
+CREATE TABLE IF NOT EXISTS item_anchors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_type TEXT NOT NULL,
+  item_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  UNIQUE(item_type, item_id, path)
+);
+CREATE INDEX IF NOT EXISTS ix_anchors_path ON item_anchors(path);
+CREATE VIRTUAL TABLE IF NOT EXISTS system_patterns_fts USING fts5(
+  name, description, tags, content='system_patterns', content_rowid='id'
+);
+INSERT INTO system_patterns_fts(rowid, name, description, tags)
+  SELECT id, name, description, tags FROM system_patterns;
+CREATE TRIGGER IF NOT EXISTS system_patterns_ai AFTER INSERT ON system_patterns BEGIN
+  INSERT INTO system_patterns_fts(rowid, name, description, tags)
+  VALUES (new.id, new.name, new.description, new.tags);
+END;
+CREATE TRIGGER IF NOT EXISTS system_patterns_ad AFTER DELETE ON system_patterns BEGIN
+  INSERT INTO system_patterns_fts(system_patterns_fts, rowid, name, description, tags)
+  VALUES ('delete', old.id, old.name, old.description, old.tags);
+END;
+CREATE TRIGGER IF NOT EXISTS system_patterns_au AFTER UPDATE ON system_patterns BEGIN
+  INSERT INTO system_patterns_fts(system_patterns_fts, rowid, name, description, tags)
+  VALUES ('delete', old.id, old.name, old.description, old.tags);
+  INSERT INTO system_patterns_fts(rowid, name, description, tags)
+  VALUES (new.id, new.name, new.description, new.tags);
 END;
 "#;
