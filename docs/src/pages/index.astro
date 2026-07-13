@@ -122,20 +122,18 @@ Usage: engrams [OPTIONS] <COMMAND>
 
 Commands:
   init             Initialize the database schema
-  migrate          Migrate the database schema to the latest version
-  product-context  Manage the product context document
   active-context   Manage the active context document
-  history          View history of context documents
   decision         Log and search architectural decisions
   progress         Track task execution and progress
   pattern          Log recurring system patterns and conventions
   custom           Store arbitrary configuration or key-value data
   link             Create knowledge-graph relations between items
-  activity         Get a recent summary of all modifications
   report           Generate a structured report of project knowledge
-  batch            Perform multiple operations in a single transaction
-  export           Dump database to Markdown files for git sync
-  import           Import Markdown files back into the database
+  prime            Generate a context brief optimized for token budget
+  doctor           Analyze project database for orphaned records, drift, and missing context
+  query            Search across decisions, patterns, and custom data
+  anchor           Manage file path anchors for decisions and patterns
+  relevant         Find decisions and patterns relevant to path(s)
 
 $ engrams decision log \\
   --summary "Use PostgreSQL for primary database" \\
