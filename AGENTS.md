@@ -23,10 +23,11 @@ Use `--compact` on any command to minimize tokens. Run `engrams doctor` periodic
 - **Run local builds:** Prioritize executing the compiled local binary (e.g., `./target/debug/engrams`) to query/write context directly.
 - **Session End Protocol & Git Sync:** Before concluding the session or declaring a task/effort complete, the agent MUST run the full update sequence:
   1. Log all architectural/design decisions made during the session using `engrams decision log`.
-  2. Log final progress status as `Done` using `engrams progress log --status Done --description "..."`.
-  3. Update the active context document using `engrams active-context update --content '<json>'`.
-  4. Export the database state back to the workspace by running `engrams export`.
-  5. Stage, commit, and push the exported `engrams_export/` markdown files to keep remote Git tracking in sync.
+  2. Link newly logged decisions or patterns to any relevant existing database items (e.g., specifying if a new decision `extends`, `uses`, or `supersedes` an older one) using `engrams link add`.
+  3. Log final progress status as `Done` using `engrams progress log --status Done --description "..."`.
+  4. Update the active context document using `engrams active-context update --content '<json>'`.
+  5. Export the database state back to the workspace by running `engrams export`.
+  6. Stage, commit, and push the exported `engrams_export/` markdown files to keep remote Git tracking in sync.
 ---
 
 ## Project Overview & Tech Stack
