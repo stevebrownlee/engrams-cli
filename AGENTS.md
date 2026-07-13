@@ -58,3 +58,9 @@ You can override this discovery by passing global flags **before** the subcomman
 - **Format:** `cargo fmt`
 - **Lint:** `cargo clippy --all-targets`
 - **Test:** `cargo test`
+
+---
+
+## UI & Content Verification
+- **Verification Tool:** When self-verifying that UI changes or content changes (such as updates to the documentation site in `docs/`) are correct after initial implementation, LLM agents MUST use the `agent-browser` CLI tool to perform the verification.
+- **No IDE Tooling:** DO NOT use the IDE's built-in browser or built-in UI verification tools.
