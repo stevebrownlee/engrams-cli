@@ -2,13 +2,164 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::Value;
 
-pub fn handle(conn: &Connection, budget_opt: Option<usize>) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    budget_opt: Option<usize>,
+    paths: Vec<String>,
+    tags: Vec<String>,
+) -> Result<Value> {
     let product_context = crate::ops::report::query_context_doc(conn, "product_context")?;
     let active_context = crate::ops::report::query_context_doc(conn, "active_context")?;
 
-    let mut decisions = crate::ops::report::query_decisions(conn, 10, true)?;
-    let mut patterns = crate::ops::report::query_patterns(conn, 10)?;
-    let mut progress = crate::ops::report::query_progress(conn, 10)?;
+    let is_scoped = !paths.is_empty() || !tags.is_empty();
+    let limit = if is_scoped { 50 } else { 10 };
+    let limit_i64 = limit as i64;
+
+    let mut decision_ids = Vec::new();
+    let mut pattern_ids = Vec::new();
+    if !paths.is_empty() {
+        let cleaned_paths: Vec<String> = paths
+            .iter()
+            .map(|p| crate::ops::anchor::clean_path(p))
+            .collect();
+        let matched = crate::ops::anchor::query_relevant_ids(conn, &cleaned_paths)?;
+        for (itype, id) in matched {
+            if itype == "decision" {
+                decision_ids.push(id);
+            } else if itype == "system_pattern" {
+                pattern_ids.push(id);
+            }
+        }
+    }
+
+    let mut decisions = Vec::new();
+    let skip_decisions_query = !paths.is_empty() && decision_ids.is_empty();
+    if !skip_decisions_query {
+        let mut sql = "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE status = 'active'".to_string();
+        let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
+
+        if !paths.is_empty() {
+            let placeholders = decision_ids
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
+            sql.push_str(&format!(" AND id IN ({})", placeholders));
+        }
+
+        if !tags.is_empty() {
+            let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            sql.push_str(&format!(" AND EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({}))", placeholders));
+        }
+
+        sql.push_str(" ORDER BY id DESC LIMIT ?");
+
+        let mut stmt = conn.prepare(&sql)?;
+
+        if !paths.is_empty() {
+            for id in &decision_ids {
+                params_vec.push(id);
+            }
+        }
+        if !tags.is_empty() {
+            for tag in &tags {
+                params_vec.push(tag);
+            }
+        }
+        params_vec.push(&limit_i64);
+
+        let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |row| {
+            let tags_str: Option<String> = row.get(5)?;
+            let tags = match tags_str {
+                Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
+                None => Value::Null,
+            };
+            Ok(crate::models::Decision {
+                id: row.get(0)?,
+                uuid: row.get(1)?,
+                summary: row.get(2)?,
+                rationale: row.get(3)?,
+                implementation_details: row.get(4)?,
+                tags: if tags.is_null() { None } else { Some(tags) },
+                timestamp: row.get(6)?,
+                status: row.get(7)?,
+                commit_sha: row.get(8)?,
+                pr_urls: Vec::new(),
+                anchors: Vec::new(),
+            })
+        })?;
+
+        for r in rows {
+            decisions.push(r?);
+        }
+    }
+
+    let mut patterns = Vec::new();
+    let skip_patterns_query = !paths.is_empty() && pattern_ids.is_empty();
+    if !skip_patterns_query {
+        let mut sql =
+            "SELECT id, uuid, name, description, tags, timestamp FROM system_patterns WHERE 1=1"
+                .to_string();
+        let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
+
+        if !paths.is_empty() {
+            let placeholders = pattern_ids
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
+            sql.push_str(&format!(" AND id IN ({})", placeholders));
+        }
+
+        if !tags.is_empty() {
+            let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            sql.push_str(&format!(" AND EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({}))", placeholders));
+        }
+
+        sql.push_str(" ORDER BY id DESC LIMIT ?");
+
+        let mut stmt = conn.prepare(&sql)?;
+
+        if !paths.is_empty() {
+            for id in &pattern_ids {
+                params_vec.push(id);
+            }
+        }
+        if !tags.is_empty() {
+            for tag in &tags {
+                params_vec.push(tag);
+            }
+        }
+        params_vec.push(&limit_i64);
+
+        let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |row| {
+            let tags_str: Option<String> = row.get(4)?;
+            let tags = match tags_str {
+                Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
+                None => Value::Null,
+            };
+            Ok(crate::models::Pattern {
+                id: row.get(0)?,
+                uuid: row.get(1)?,
+                name: row.get(2)?,
+                description: row.get(3)?,
+                tags: if tags.is_null() { None } else { Some(tags) },
+                timestamp: row.get(5)?,
+                pr_urls: Vec::new(),
+                anchors: Vec::new(),
+            })
+        })?;
+
+        for r in rows {
+            patterns.push(r?);
+        }
+    }
+
+    let mut progress = if is_scoped {
+        Vec::new()
+    } else {
+        crate::ops::report::query_progress(conn, 10)?
+    };
 
     let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
     let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;

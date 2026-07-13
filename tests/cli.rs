@@ -1674,3 +1674,147 @@ fn test_query() {
     let results_all = j_all.as_array().unwrap();
     assert_eq!(results_all.len(), 3);
 }
+
+#[test]
+fn test_worktree_db_resolution() {
+    let temp = TempDir::new().unwrap();
+    let primary_dir = temp.path().join("primary_repo");
+    let worktree_dir = temp.path().join("worktree_repo");
+
+    std::fs::create_dir_all(&primary_dir).unwrap();
+    std::fs::create_dir_all(&worktree_dir).unwrap();
+
+    // Create .git directory in primary repo
+    let primary_git_dir = primary_dir.join(".git");
+    std::fs::create_dir_all(&primary_git_dir).unwrap();
+
+    // Create the mock worktree info inside primary's .git/worktrees/mock-worktree
+    let mock_worktree_meta_dir = primary_git_dir.join("worktrees").join("mock-worktree");
+    std::fs::create_dir_all(&mock_worktree_meta_dir).unwrap();
+
+    // Create .git file in worktree_repo pointing to primary's mock-worktree directory
+    let worktree_git_file = worktree_dir.join(".git");
+    let mock_worktree_meta_dir_abs = std::fs::canonicalize(&mock_worktree_meta_dir).unwrap();
+    std::fs::write(
+        &worktree_git_file,
+        format!("gitdir: {}", mock_worktree_meta_dir_abs.to_str().unwrap()),
+    )
+    .unwrap();
+
+    // Now, run init in the worktree directory
+    let mut cmd_init = Command::cargo_bin("engrams").unwrap();
+    cmd_init.current_dir(&worktree_dir);
+    cmd_init.arg("init");
+    cmd_init.env("ENGRAMS_NO_UPDATE_CHECK", "1");
+    cmd_init.assert().success();
+
+    // The database should have been created in the primary repo: primary_dir/engrams/context.db
+    let db_path = primary_dir.join("engrams").join("context.db");
+    assert!(db_path.exists(), "DB should be created in the primary repo");
+
+    // Let's log a decision using CWD as worktree_dir (so it should write to primary's db)
+    let mut cmd_log = Command::cargo_bin("engrams").unwrap();
+    cmd_log.current_dir(&worktree_dir);
+    cmd_log.args(["decision", "log", "--summary", "Worktree Decision"]);
+    cmd_log.env("ENGRAMS_NO_UPDATE_CHECK", "1");
+    cmd_log.assert().success();
+
+    // Verify it is in the database by querying it directly using engrams command with --db in primary
+    let mut cmd_list = Command::cargo_bin("engrams").unwrap();
+    cmd_list.current_dir(&worktree_dir);
+    cmd_list.args(["decision", "list"]);
+    cmd_list.env("ENGRAMS_NO_UPDATE_CHECK", "1");
+    cmd_list
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Worktree Decision"));
+}
+
+#[test]
+fn test_scoped_prime() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Init db
+    engrams(&db).arg("init").assert().success();
+
+    // Log decision 1
+    let out1 = engrams(&db)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Scoped Decision One",
+            "--tags",
+            "scoped-tag",
+            "--anchor",
+            "scoped/file.rs",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let dec1: Value = serde_json::from_slice(&out1.stdout).unwrap();
+    let dec1_id = dec1["id"].as_i64().unwrap();
+
+    // Log decision 2
+    let out2 = engrams(&db)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Other Decision Two",
+            "--tags",
+            "other-tag",
+            "--anchor",
+            "other/file.rs",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let dec2: Value = serde_json::from_slice(&out2.stdout).unwrap();
+    let _dec2_id = dec2["id"].as_i64().unwrap();
+    // Log a progress record so we can verify progress is excluded when scoped
+    engrams(&db)
+        .args([
+            "progress",
+            "log",
+            "--status",
+            "InProgress",
+            "--description",
+            "Some progress",
+        ])
+        .assert()
+        .success();
+
+    // Prime with no filters (unscoped) -> should contain both decisions and progress
+    let out_unscoped = engrams(&db).arg("prime").output().unwrap();
+    let prime_unscoped: Value = serde_json::from_slice(&out_unscoped.stdout).unwrap();
+    let decisions_unscoped = prime_unscoped["decisions"].as_array().unwrap();
+    let progress_unscoped = prime_unscoped["progress"].as_array().unwrap();
+    assert_eq!(decisions_unscoped.len(), 2);
+    assert!(!progress_unscoped.is_empty());
+
+    // Prime with --tags scoped-tag -> should contain only Decision 1, and progress should be empty
+    let out_tag = engrams(&db)
+        .args(["prime", "--tags", "scoped-tag"])
+        .output()
+        .unwrap();
+    let prime_tag: Value = serde_json::from_slice(&out_tag.stdout).unwrap();
+    let decisions_tag = prime_tag["decisions"].as_array().unwrap();
+    let progress_tag = prime_tag["progress"].as_array().unwrap();
+    assert_eq!(decisions_tag.len(), 1);
+    assert_eq!(decisions_tag[0]["id"].as_i64().unwrap(), dec1_id);
+    assert!(progress_tag.is_empty());
+
+    // Prime with --paths scoped/file.rs -> should contain only Decision 1, and progress should be empty
+    let out_path = engrams(&db)
+        .args(["prime", "--paths", "scoped/file.rs"])
+        .output()
+        .unwrap();
+    let prime_path: Value = serde_json::from_slice(&out_path.stdout).unwrap();
+    let decisions_path = prime_path["decisions"].as_array().unwrap();
+    let progress_path = prime_path["progress"].as_array().unwrap();
+    assert_eq!(decisions_path.len(), 1);
+    assert_eq!(decisions_path[0]["id"].as_i64().unwrap(), dec1_id);
+    assert!(progress_path.is_empty());
+}

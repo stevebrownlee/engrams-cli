@@ -66,6 +66,32 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     Ok(())
 }
 
+fn resolve_git_worktree(path: &Path) -> Option<PathBuf> {
+    if !path.is_file() || path.file_name()?.to_str()? != ".git" {
+        return None;
+    }
+    let content = std::fs::read_to_string(path).ok()?;
+    let content = content.trim();
+    if !content.starts_with("gitdir:") {
+        return None;
+    }
+    let gitdir_str = content.strip_prefix("gitdir:")?.trim();
+    let mut gitdir = PathBuf::from(gitdir_str);
+    if gitdir.is_relative() {
+        let git_file_parent = path.parent()?;
+        gitdir = git_file_parent.join(gitdir);
+    }
+    let gitdir = std::fs::canonicalize(gitdir).ok()?;
+    let parent = gitdir.parent()?;
+    if parent.file_name()?.to_str()? == "worktrees" {
+        let main_repo = parent.parent()?.parent()?;
+        if main_repo.exists() {
+            return Some(main_repo.to_path_buf());
+        }
+    }
+    None
+}
+
 pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Result<PathBuf> {
     if let Some(path) = db_arg {
         return Ok(PathBuf::from(path));
@@ -77,11 +103,12 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
 
     // Auto-detect workspace
     let cwd = env::current_dir().context("Failed to get current directory")?;
-    let mut current = cwd.as_path();
-    let mut check_path = current.to_path_buf();
+    let mut current = cwd.clone();
+    let mut check_path = current.clone();
 
     loop {
         let mut found = false;
+        let mut found_worktree = None;
         for marker in &[
             ".engrams",
             "engrams/context.db",
@@ -104,12 +131,23 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
             } else {
                 check_path.push(marker);
                 let exists = check_path.exists();
+                if exists && *marker == ".git" {
+                    if let Some(worktree_root) = resolve_git_worktree(&check_path) {
+                        found_worktree = Some(worktree_root);
+                    }
+                }
                 check_path.pop();
-                if exists {
+                if exists && found_worktree.is_none() {
                     found = true;
                     break;
                 }
             }
+        }
+
+        if let Some(worktree_root) = found_worktree {
+            current = worktree_root;
+            check_path = current.clone();
+            continue;
         }
 
         if found {
@@ -118,8 +156,8 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
 
         match current.parent() {
             Some(parent) => {
-                current = parent;
-                check_path = current.to_path_buf();
+                current = parent.to_path_buf();
+                check_path = current.clone();
             }
             None => return Ok(cwd.join("engrams").join("context.db")), // Default to cwd if none found
         }

@@ -73,7 +73,11 @@ pub fn dispatch(
         Command::Relevant { paths, staged, all } => {
             anchor::handle_relevant(conn, paths, staged, all)
         }
-        Command::Prime { budget } => prime::handle(conn, budget),
+        Command::Prime {
+            budget,
+            paths,
+            tags,
+        } => prime::handle(conn, budget, paths, tags),
         Command::Doctor => doctor::handle(conn),
         Command::Instructions => unreachable!("handled in main before dispatch"),
         Command::Query {

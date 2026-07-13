@@ -1,0 +1,198 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Releases" description="Engrams CLI release history, detailing what was changed, why, and the benefits for developers.">
+  <h1>Release History</h1>
+  <p class="lead">
+    Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
+  </p>
+
+  <h2>v0.6.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Git Worktree Workspace Resolution:</strong> Enhanced the database workspace auto-detection system to identify and resolve Git worktrees (where <code>.git</code> is a file referencing a parent <code>.git/worktrees/&lt;name&gt;</code> directory) back to their primary checkout root.
+      </li>
+      <li>
+        <strong>Filter Context Briefs by Path or Tag:</strong> Added optional <code>--paths</code> and <code>--tags</code> flags to the <code>prime</code> command. A context brief is the core package of decisions and rules that an AI agent reads when it starts working on your project. This change allows you to limit that package to only the files, folders, or topics (tags) you are currently working on. It also hides the project's daily progress logs to keep the package small. As a result, the AI agent gets a highly focused set of guidelines, which prevents it from getting distracted, speeds up its responses, and saves money on AI costs.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Seamless Worktree Support:</strong> Developers frequently checkout concurrent branches using Git worktrees. Previously, running engrams inside a worktree checkout directory would fail to automatically discover the primary workspace repository database, leading to disconnected context databases.
+      </li>
+      <li>
+        <strong>Token &amp; Cost Efficiency:</strong> Generative AI models operate with limited context windows and charge by token counts. Scoping the context brief to specific folders or tags prevents unnecessary decisions, patterns, and progress logs from bloating the prompt, drastically reducing LLM token consumption.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Unified Context Database:</strong> Engrams works natively out-of-the-box across all active Git worktrees without requiring manual overrides (like <code>--db</code> or <code>--workspace</code>).
+      </li>
+      <li>
+        <strong>Targeted Context Injection:</strong> Keep LLM agents focused strictly on the files they are editing, ensuring cleaner agent execution, less distraction, and faster agent completion times.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
+  <h2>v0.5.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Agent Onboarding:</strong> Added initial support for onboard instructions specifically formatted for consumption by LLM agents.
+      </li>
+      <li>
+        <strong>PR Linking &amp; Anchoring:</strong> Added features to associate pull request URLs with logged decisions and system patterns, and query relevance matching against specific codebase file paths.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Traceability:</strong> To establish a robust, queryable link between engineering decisions, pull requests, and the specific files they affect.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Deep Context Preservation:</strong> Developers and AI agents can query any file and immediately understand the architectural decisions and patterns that govern it.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
+  <h2>v0.4.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Interactive HTML Dashboard:</strong> Created the <code>report</code> command, compiling project memory into an interactive web interface complete with search and cytoscape-based knowledge graph visualization.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Better Visual Auditing:</strong> As project databases grow, console lists become harder to parse. A visual dashboard helps humans easily spot gaps, dependencies, and orphaned records.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Graphical Knowledge Mapping:</strong> An intuitive way to explore how codebase decisions, patterns, and files interrelate.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
+  <h2>v0.3.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Deduplication &amp; Consolidation:</strong> Introduced the <code>supersede</code> command to mark old decisions as obsolete and point directly to new, active decisions.
+      </li>
+      <li>
+        <strong>CLI Release Checking:</strong> Added automated checks to notify users when a newer CLI version is available.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Evolving Architectural Context:</strong> Code bases evolve and old decisions become outdated. Keeping outdated decisions active confuses agents; superseding them cleanly preserves history while pointing to current guidelines.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Single Source of Truth:</strong> Ensures agents only consume active, relevant context while maintaining a complete, historical audit trail of how decisions changed.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
+  <h2>v0.2.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Markdown Reports:</strong> Added the initial CLI reporting command to output workspace metrics and records as clean, readable Markdown tables in the terminal.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Console Readability:</strong> Provided developers with a structured, tabular summary of decisions, patterns, and progress from the shell without needing external tools.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Fast Inspections:</strong> Instant visibility into the repository's context database directly inside the developer's CLI flow.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
+  <h2>v0.0.1 &amp; v0.0.2</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Database Foundation:</strong> Configured the SQLite embedded database, designed the initial tables (decisions, system patterns, progress), and implemented schema migrations.
+      </li>
+      <li>
+        <strong>Full-Text Search (FTS5):</strong> Configured sqlite FTS5 indexing triggers to allow sub-millisecond keyword search across summary, description, and rationale fields.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Initial Architecture:</strong> Laid down the zero-dependency, local-first data store required for reliable context tracking.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Speed &amp; Reliability:</strong> Sub-millisecond queries backed by the robustness of an embedded SQLite database.
+      </li>
+    </ul>
+  </div>
+</DocsLayout>
+
+<style>
+  .release-block {
+    margin-bottom: 2.5rem;
+  }
+  .release-block h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+  }
+  hr {
+    margin: 3rem 0;
+    border: 0;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+  }
+</style>

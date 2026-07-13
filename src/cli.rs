@@ -95,6 +95,12 @@ pub enum Command {
         /// Approximate token budget for the briefing
         #[arg(long)]
         budget: Option<usize>,
+        /// Filter by specific anchor paths
+        #[arg(long, value_delimiter = ',')]
+        paths: Vec<String>,
+        /// Filter by tags
+        #[arg(long, value_delimiter = ',')]
+        tags: Vec<String>,
     },
 
     /// Analyze project database for orphaned records, drift, and missing context
