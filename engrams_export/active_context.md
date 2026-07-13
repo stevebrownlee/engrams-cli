@@ -3,10 +3,10 @@
 ```json
 {
   "content": {
-    "focus": "Released v0.6.0. Implemented Git worktree workspace resolution and scoped priming (--paths and --tags flags) to optimize token budgets. Verified all integration tests, formatting, and lints.",
+    "focus": "Updated AGENTS.md guidelines for TTS vocalization to differentiate plain-language summaries and technical topic explanations.",
     "status": "Complete"
   },
-  "updated_at": "2026-07-13T01:59:53Z",
-  "version": 8
+  "updated_at": "2026-07-13T03:31:47Z",
+  "version": 9
 }
 ```
