@@ -28,6 +28,11 @@ Use `--compact` on any command to minimize tokens. Run `engrams doctor` periodic
   4. Update the active context document using `engrams active-context update --content '<json>'`.
   5. Export the database state back to the workspace by running `engrams export`.
   6. Stage, commit, and push the exported `engrams_export/` markdown files to keep remote Git tracking in sync.
+- **TTS Active Context Vocalization:** When the user starts a prompt with "Talk to me", or asks questions such as "What should I work on today?", "Where did we leave off yesterday?", or "What did we get done yesterday?":
+  1. Query the project's active context and recent status using the `engrams` CLI.
+  2. Generate a concise status update summary.
+  3. Use the `tts` tool to synthesize this summary into an audio file (e.g., `status.wav` or `speech.wav`).
+  4. Play the audio file back if on a compatible system (e.g., using `afplay` on macOS) and confirm to the user that it has been vocalized.
 ---
 
 ## Project Overview & Tech Stack
