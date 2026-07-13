@@ -21,7 +21,12 @@ Use `--compact` on any command to minimize tokens. Run `engrams doctor` periodic
 - **CLI-First Querying:** ALWAYS use the `engrams` CLI tool (e.g., `engrams decision search`, `engrams pattern list`, etc.) to query project history and context.
 - **DO NOT read or grep exported files:** The files under `engrams_export/` are for human Git-tracking only. Reading/parsing them directly via `read` or `grep` is highly token-inefficient and prone to missing database-only state.
 - **Run local builds:** Prioritize executing the compiled local binary (e.g., `./target/debug/engrams`) to query/write context directly.
-
+- **Session End Protocol & Git Sync:** Before concluding the session or declaring a task/effort complete, the agent MUST run the full update sequence:
+  1. Log all architectural/design decisions made during the session using `engrams decision log`.
+  2. Log final progress status as `Done` using `engrams progress log --status Done --description "..."`.
+  3. Update the active context document using `engrams active-context update --content '<json>'`.
+  4. Export the database state back to the workspace by running `engrams export`.
+  5. Stage, commit, and push the exported `engrams_export/` markdown files to keep remote Git tracking in sync.
 ---
 
 ## Project Overview & Tech Stack
