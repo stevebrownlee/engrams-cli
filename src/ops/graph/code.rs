@@ -35,3 +35,45 @@ pub fn file_id(conn: &Connection, path: &str) -> Result<Option<i64>> {
         .optional()?;
     Ok(id)
 }
+
+/// True for vendored, generated, or engrams-internal paths that must never
+/// become code nodes via bulk git ingest (commit history is full of them:
+/// committed `node_modules`, build output, lockfiles). Deliberate user
+/// anchors bypass this — only `CoChangeSource` filters.
+pub fn is_generated(path: &str) -> bool {
+    // Any path component matching a well-known vendored/build dir.
+    const BLOCKED_DIRS: &[&str] = &[
+        "node_modules",
+        "bower_components",
+        "vendor",
+        "dist",
+        "target",
+        "build",
+        "coverage",
+        ".next",
+        ".nuxt",
+        ".turbo",
+        ".astro",
+        ".cache",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "site-packages",
+        ".gradle",
+        // engrams' own export tree is tool state, not codebase.
+        "engrams_export",
+    ];
+    if path.split('/').any(|part| BLOCKED_DIRS.contains(&part)) {
+        return true;
+    }
+    // engrams' own database file.
+    if path == "engrams/context.db" || path == ".engrams/context.db" {
+        return true;
+    }
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name.ends_with(".map")
+        || name.ends_with(".min.js")
+        || name.ends_with(".min.css")
+        || name.ends_with(".lock")
+        || matches!(name, "package-lock.json" | "yarn.lock" | "pnpm-lock.yaml")
+}

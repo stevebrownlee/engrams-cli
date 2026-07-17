@@ -2127,10 +2127,19 @@ fn test_graph_git_cochange() {
     git(&["config", "user.name", "Test"]);
     std::fs::write(repo.join("f1"), "one").unwrap();
     std::fs::write(repo.join("f2"), "one").unwrap();
+    // Vendored / generated files committed alongside real sources: these
+    // must never become code nodes.
+    std::fs::create_dir_all(repo.join("docs/node_modules/junk")).unwrap();
+    std::fs::create_dir_all(repo.join("docs/dist")).unwrap();
+    std::fs::write(repo.join("docs/node_modules/junk/index.js"), "junk").unwrap();
+    std::fs::write(repo.join("docs/dist/out.html"), "junk").unwrap();
+    std::fs::write(repo.join("package-lock.json"), "{}").unwrap();
+    std::fs::write(repo.join("app.min.js"), "junk").unwrap();
     git(&["add", "."]);
     git(&["commit", "-m", "c1"]);
     std::fs::write(repo.join("f1"), "two").unwrap();
     std::fs::write(repo.join("f2"), "two").unwrap();
+    std::fs::write(repo.join("docs/node_modules/junk/index.js"), "junk2").unwrap();
     git(&["add", "."]);
     git(&["commit", "-m", "c2"]);
 
@@ -2180,6 +2189,52 @@ fn test_graph_git_cochange() {
         )
         .unwrap();
     assert_eq!(edge_count_after, 1);
+    drop(conn);
+
+    // Rebuild prunes code nodes no edge references (junk ingested before
+    // filtering existed), while keeping the real co_changes structure.
+    let conn = rusqlite::Connection::open(repo.join("engrams/context.db")).unwrap();
+    conn.execute(
+        "INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen) \
+         VALUES ('file', 'docs/node_modules/legacy/x.js', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo)
+        .args(["graph", "rebuild"])
+        .output()
+        .unwrap();
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["rebuilt"].as_bool().unwrap());
+    assert!(v["code_nodes_pruned"].as_i64().unwrap() >= 1);
+
+    let conn = rusqlite::Connection::open(repo.join("engrams/context.db")).unwrap();
+    let node_count: i64 = conn
+        .query_row("SELECT count(*) FROM code_nodes", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(node_count, 2);
+    let vendored: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM code_nodes WHERE path LIKE '%node_modules%' OR path LIKE '%dist%'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(vendored, 0);
+    let edge_count_final: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM context_links \
+             WHERE relationship_type = 'co_changes' AND source_item_type = 'code' AND target_item_type = 'code'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(edge_count_final, 1);
 }
 
 #[test]

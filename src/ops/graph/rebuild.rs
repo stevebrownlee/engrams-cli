@@ -222,6 +222,11 @@ impl EdgeSource for CoChangeSource {
                 if !seen.insert(path.as_str()) {
                     continue;
                 }
+                // Vendored / generated / tool-internal files are not codebase
+                // topology (committed node_modules, dist output, lockfiles).
+                if code::is_generated(path) {
+                    continue;
+                }
                 // Only files that still exist on disk become nodes/edges.
                 if !toplevel.is_empty() && !std::path::Path::new(&toplevel).join(path).exists() {
                     continue;
@@ -292,6 +297,18 @@ pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts) -> Result<Value> {
         edges_by_source.insert(source.name().to_string(), json!(edges.len()));
     }
 
+    // Prune code nodes that no derived/manual edge references anymore
+    // (e.g. vendored files ingested before filtering existed). Rebuild is
+    // the source of truth; ingest stays cumulative and never prunes.
+    let pruned = tx.execute(
+        "DELETE FROM code_nodes WHERE id NOT IN ( \
+            SELECT CAST(source_item_id AS INTEGER) FROM context_links WHERE source_item_type = 'code' \
+            UNION \
+            SELECT CAST(target_item_id AS INTEGER) FROM context_links WHERE target_item_type = 'code' \
+        )",
+        [],
+    )?;
+
     tx.execute(
         "INSERT INTO graph_meta (id, last_rebuild_at) VALUES (1, ?1) \
          ON CONFLICT(id) DO UPDATE SET last_rebuild_at = excluded.last_rebuild_at",
@@ -302,6 +319,7 @@ pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts) -> Result<Value> {
     Ok(json!({
         "rebuilt": true,
         "edges_by_source": Value::Object(edges_by_source),
+        "code_nodes_pruned": pruned,
     }))
 }
 
