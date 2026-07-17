@@ -271,7 +271,7 @@ pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Patter
 }
 
 fn query_links(conn: &Connection, limit: i64) -> Result<Vec<Link>> {
-    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp FROM context_links ORDER BY id DESC LIMIT ?")?;
+    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, weight FROM context_links ORDER BY id DESC LIMIT ?")?;
     let rows = stmt.query_map(params![limit], |row| {
         Ok(Link {
             id: row.get(0)?,
@@ -282,6 +282,8 @@ fn query_links(conn: &Connection, limit: i64) -> Result<Vec<Link>> {
             relationship_type: row.get(5)?,
             description: row.get(6)?,
             timestamp: row.get(7)?,
+            origin: row.get(8)?,
+            weight: row.get(9)?,
             direction: None,
         })
     })?;

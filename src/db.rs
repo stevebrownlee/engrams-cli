@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::schema::SCHEMA;
 
-pub const LATEST_VERSION: i32 = 2;
+pub const LATEST_VERSION: i32 = 3;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -57,6 +57,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
         match v {
             2 => {
                 tx.execute_batch(crate::schema::MIGRATION_V2)?;
+            }
+            3 => {
+                tx.execute_batch(crate::schema::MIGRATION_V3)?;
             }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }

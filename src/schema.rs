@@ -49,10 +49,29 @@ CREATE TABLE IF NOT EXISTS context_links (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source_item_type TEXT NOT NULL, source_item_id TEXT NOT NULL,
   target_item_type TEXT NOT NULL, target_item_id TEXT NOT NULL,
-  relationship_type TEXT NOT NULL, description TEXT, timestamp TEXT NOT NULL
+  relationship_type TEXT NOT NULL, description TEXT, timestamp TEXT NOT NULL,
+  origin TEXT NOT NULL DEFAULT 'manual', source TEXT, weight REAL NOT NULL DEFAULT 1.0
 );
 CREATE INDEX IF NOT EXISTS ix_links_source ON context_links(source_item_type, source_item_id);
 CREATE INDEX IF NOT EXISTS ix_links_target ON context_links(target_item_type, target_item_id);
+CREATE TABLE IF NOT EXISTS code_nodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  path TEXT NOT NULL,
+  symbol TEXT NOT NULL DEFAULT '',
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  UNIQUE(kind, path, symbol)
+);
+CREATE INDEX IF NOT EXISTS ix_code_nodes_path ON code_nodes(path);
+CREATE TABLE IF NOT EXISTS graph_meta (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  last_rebuild_at TEXT,
+  last_ingest_sha TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_links_derived_uniq
+  ON context_links(source_item_type, source_item_id, target_item_type, target_item_id, relationship_type)
+  WHERE origin = 'derived';
 
 CREATE VIRTUAL TABLE IF NOT EXISTS decisions_fts USING fts5(
   summary, rationale, implementation_details, tags,
@@ -150,4 +169,27 @@ CREATE TRIGGER IF NOT EXISTS system_patterns_au AFTER UPDATE ON system_patterns 
   INSERT INTO system_patterns_fts(rowid, name, description, tags)
   VALUES (new.id, new.name, new.description, new.tags);
 END;
+"#;
+pub const MIGRATION_V3: &str = r#"
+ALTER TABLE context_links ADD COLUMN origin TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE context_links ADD COLUMN source TEXT;
+ALTER TABLE context_links ADD COLUMN weight REAL NOT NULL DEFAULT 1.0;
+CREATE TABLE IF NOT EXISTS code_nodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  path TEXT NOT NULL,
+  symbol TEXT NOT NULL DEFAULT '',
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  UNIQUE(kind, path, symbol)
+);
+CREATE INDEX IF NOT EXISTS ix_code_nodes_path ON code_nodes(path);
+CREATE TABLE IF NOT EXISTS graph_meta (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  last_rebuild_at TEXT,
+  last_ingest_sha TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_links_derived_uniq
+  ON context_links(source_item_type, source_item_id, target_item_type, target_item_id, relationship_type)
+  WHERE origin = 'derived';
 "#;

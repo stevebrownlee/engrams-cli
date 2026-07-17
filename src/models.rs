@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Serialize)]
@@ -54,7 +54,15 @@ pub struct CustomData {
     pub timestamp: String,
 }
 
-#[derive(Serialize)]
+fn default_link_origin() -> String {
+    "manual".to_string()
+}
+
+fn default_link_weight() -> f64 {
+    1.0
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Link {
     pub id: i64,
     pub source_item_type: String,
@@ -62,9 +70,14 @@ pub struct Link {
     pub target_item_type: String,
     pub target_item_id: String,
     pub relationship_type: String,
+    #[serde(default)]
     pub description: Option<String>,
     pub timestamp: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default = "default_link_origin")]
+    pub origin: String,
+    #[serde(default = "default_link_weight")]
+    pub weight: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direction: Option<String>,
 }
 

@@ -6,6 +6,7 @@ pub mod custom;
 pub mod decision;
 pub mod doctor;
 pub mod git;
+pub mod graph;
 pub mod link;
 pub mod pattern;
 pub mod pr;
@@ -79,6 +80,7 @@ pub fn dispatch(
             tags,
         } => prime::handle(conn, budget, paths, tags),
         Command::Doctor => doctor::handle(conn),
+        Command::Graph { cmd } => graph::handle(conn, cmd, db_path),
         Command::Instructions => unreachable!("handled in main before dispatch"),
         Command::Query {
             query,

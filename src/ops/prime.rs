@@ -186,6 +186,10 @@ pub fn handle(
     let mut product_context_val = serde_json::to_value(product_context)?;
     let active_context_val = serde_json::to_value(active_context)?;
 
+    // Compact graph summary; tiny, so include whenever the payload is built.
+    // Under an explicit --budget it is the first section dropped.
+    let mut graph_val = Some(crate::ops::graph::model::summary(conn)?);
+
     let est =
         |val: &Value| -> usize { serde_json::to_string(val).map(|s| s.len() / 4).unwrap_or(0) };
 
@@ -196,10 +200,13 @@ pub fn handle(
             &decisions,
             &patterns,
             &progress,
+            graph_val.as_ref(),
             None,
         )) > budget
         {
-            if !progress.is_empty() {
+            if graph_val.is_some() {
+                graph_val = None;
+            } else if !progress.is_empty() {
                 progress.pop();
             } else if !patterns.is_empty() {
                 patterns.pop();
@@ -220,6 +227,7 @@ pub fn handle(
             &decisions,
             &patterns,
             &progress,
+            graph_val.as_ref(),
             None,
         );
         let m = est(&temp_payload);
@@ -229,6 +237,7 @@ pub fn handle(
             &decisions,
             &patterns,
             &progress,
+            graph_val.as_ref(),
             Some(serde_json::json!({
                 "limit": n,
                 "estimated_tokens": m
@@ -241,6 +250,7 @@ pub fn handle(
             &decisions,
             &patterns,
             &progress,
+            graph_val.as_ref(),
             None,
         )
     };
@@ -254,6 +264,7 @@ fn build_payload(
     decisions: &[crate::models::Decision],
     patterns: &[crate::models::Pattern],
     progress: &[crate::models::Progress],
+    graph: Option<&Value>,
     budget_info: Option<Value>,
 ) -> Value {
     let mut map = serde_json::Map::new();
@@ -271,6 +282,9 @@ fn build_payload(
         "progress".to_string(),
         serde_json::to_value(progress).unwrap_or(Value::Null),
     );
+    if let Some(g) = graph {
+        map.insert("graph".to_string(), g.clone());
+    }
     if let Some(b) = budget_info {
         map.insert("budget".to_string(), b);
     }

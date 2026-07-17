@@ -106,6 +106,12 @@ pub enum Command {
     /// Analyze project database for orphaned records, drift, and missing context
     Doctor,
 
+    /// Compute and query the knowledge + code graph
+    Graph {
+        #[command(subcommand)]
+        cmd: GraphCmd,
+    },
+
     /// Print onboarding instructions for LLM agents
     Instructions,
 
@@ -169,6 +175,71 @@ pub enum Command {
         /// Include superseded decisions
         #[arg(long)]
         all: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum GraphCmd {
+    /// Recompute all derived edges (anchors, co-anchor/tag overlap, git co-change)
+    Rebuild {
+        /// Skip git co-change ingest
+        #[arg(long)]
+        no_git: bool,
+        /// Minimum co-change count for a co_changes edge
+        #[arg(long, default_value_t = 2)]
+        min_cochange: i64,
+        /// Maximum commits scanned during ingest
+        #[arg(long, default_value_t = 500)]
+        max_commits: i64,
+    },
+    /// Incrementally ingest git co-change edges (resumes from last ingested commit)
+    Ingest {
+        /// Commit SHA to start from (default: last ingested commit)
+        #[arg(long)]
+        since: Option<String>,
+        /// Maximum commits scanned
+        #[arg(long, default_value_t = 500)]
+        max_commits: i64,
+        /// Minimum co-change count for a co_changes edge
+        #[arg(long, default_value_t = 2)]
+        min_cochange: i64,
+    },
+    /// Node/edge counts, density, components, orphans, degree stats
+    Stats,
+    /// PageRank centrality ranking
+    Central {
+        #[arg(long, default_value_t = 10)]
+        limit: i64,
+        /// Restrict to one node type
+        #[arg(long = "type")]
+        node_type: Option<String>,
+    },
+    /// Connected components as clusters
+    Clusters {
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+    },
+    /// Nodes with degree <= 1
+    Orphans {
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// Shortest path between two nodes (type:id)
+    Path {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+    },
+    /// Nodes within N hops of a node (type:id)
+    Neighbors {
+        #[arg(long)]
+        node: String,
+        #[arg(long, default_value_t = 1)]
+        depth: i64,
+        /// Restrict traversal to one relationship type
+        #[arg(long)]
+        rel: Option<String>,
     },
 }
 

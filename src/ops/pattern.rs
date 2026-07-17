@@ -51,6 +51,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd) -> Result<Value> {
             if !anchors.is_empty() {
                 crate::ops::anchor::attach(conn, "system_pattern", id, &anchors)?;
             }
+            crate::ops::graph::rebuild::touch_item(conn, "system_pattern", id)?;
 
             get_pattern(conn, id)
         }

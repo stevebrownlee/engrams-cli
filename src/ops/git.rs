@@ -101,3 +101,58 @@ pub fn changed_since(sha: &str, paths: &[String]) -> Result<Vec<String>> {
         .collect();
     Ok(files)
 }
+
+/// Absolute path of the repository root; errors when not inside a repo.
+pub fn toplevel() -> Result<String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .context("git command failed")?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        anyhow::bail!("git rev-parse --show-toplevel failed: {}", stderr);
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Files touched per commit, one `Vec<String>` per commit (newest first).
+///
+/// Runs `git log --no-merges --name-only --format=%x1e%H`, bounded to
+/// `max_commits`, optionally restricted to `<since>..HEAD`. Returns an empty
+/// vec when git fails (not a repo / no commits / bad range) so ingest is a
+/// safe no-op off-repo.
+pub fn commit_file_groups(since: Option<&str>, max_commits: usize) -> Result<Vec<Vec<String>>> {
+    let mut args: Vec<String> = vec![
+        "log".to_string(),
+        "--no-merges".to_string(),
+        "--name-only".to_string(),
+        "--format=%x1e%H".to_string(),
+        "-n".to_string(),
+        max_commits.to_string(),
+    ];
+    if let Some(s) = since {
+        args.push(format!("{}..HEAD", s));
+    }
+    let output = Command::new("git")
+        .args(&args)
+        .output()
+        .context("git command failed")?;
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut groups = Vec::new();
+    for record in stdout.split('\x1e') {
+        let mut lines = record.lines();
+        let hash = lines.next().unwrap_or("").trim();
+        if hash.is_empty() {
+            continue;
+        }
+        let files: Vec<String> = lines
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
+        groups.push(files);
+    }
+    Ok(groups)
+}

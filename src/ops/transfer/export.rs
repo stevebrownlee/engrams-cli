@@ -175,8 +175,8 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     }
     counts.insert("custom_data".to_string(), serde_json::json!(custom_count));
 
-    // Export Links
-    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp FROM context_links")?;
+    // Export Links (manual edges only; derived edges are regenerable)
+    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin FROM context_links WHERE origin = 'manual'")?;
     let rows = stmt.query_map([], |row| {
         Ok(serde_json::json!({
             "id": row.get::<_, i64>(0)?,
@@ -187,6 +187,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "relationship_type": row.get::<_, String>(5)?,
             "description": row.get::<_, Option<String>>(6)?,
             "timestamp": row.get::<_, String>(7)?,
+            "origin": row.get::<_, String>(8)?,
         }))
     })?;
     let mut links_count = 0;
