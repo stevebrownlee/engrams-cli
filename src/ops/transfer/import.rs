@@ -247,10 +247,14 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .get("timestamp")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing timestamp"))?;
+        let origin = json
+            .get("origin")
+            .and_then(|v| v.as_str())
+            .unwrap_or("manual");
 
         tx.execute(
-            "INSERT OR REPLACE INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp],
+            "INSERT OR REPLACE INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin],
         )?;
         Ok(())
     })?;

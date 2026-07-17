@@ -442,13 +442,13 @@ fn test_version_validation() {
     // Run a command, it should succeed and auto-upgrade version to 2
     engrams(&db).arg("decision").arg("list").assert().success();
 
-    // Verify it was upgraded back to 2
+    // Verify it was upgraded back to 3
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 2);
+        assert_eq!(ver, 3);
     }
 }
 
@@ -563,13 +563,13 @@ fn test_migration_v1_to_v2() {
     // Now it should succeed
     engrams(&db).arg("decision").arg("list").assert().success();
 
-    // Verify columns exist by checking PRAGMA user_version is 2
+    // Verify columns exist by checking PRAGMA user_version is 3
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 2);
+        assert_eq!(ver, 3);
     }
 }
 
@@ -1817,4 +1817,499 @@ fn test_scoped_prime() {
     assert_eq!(decisions_path.len(), 1);
     assert_eq!(decisions_path[0]["id"].as_i64().unwrap(), dec1_id);
     assert!(progress_path.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Graph topology (schema v3)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_migration_v2_to_v3() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Construct a v2 database manually: v1 shape + v2 columns (status/commit_sha).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS product_context (
+              id INTEGER PRIMARY KEY CHECK (id = 1),
+              content TEXT NOT NULL,
+              version INTEGER NOT NULL DEFAULT 1,
+              updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS active_context (
+              id INTEGER PRIMARY KEY CHECK (id = 1),
+              content TEXT NOT NULL,
+              version INTEGER NOT NULL DEFAULT 1,
+              updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS product_context_history (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              version INTEGER NOT NULL, content TEXT NOT NULL,
+              timestamp TEXT NOT NULL, change_source TEXT
+            );
+            CREATE TABLE IF NOT EXISTS active_context_history (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              version INTEGER NOT NULL, content TEXT NOT NULL,
+              timestamp TEXT NOT NULL, change_source TEXT
+            );
+            CREATE TABLE IF NOT EXISTS decisions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              uuid TEXT UNIQUE NOT NULL, timestamp TEXT NOT NULL,
+              summary TEXT NOT NULL, rationale TEXT,
+              implementation_details TEXT, tags TEXT,
+              status TEXT NOT NULL DEFAULT 'active', commit_sha TEXT
+            );
+            CREATE TABLE IF NOT EXISTS progress_entries (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              timestamp TEXT NOT NULL, status TEXT NOT NULL, description TEXT NOT NULL,
+              parent_id INTEGER REFERENCES progress_entries(id) ON DELETE SET NULL,
+              commit_sha TEXT
+            );
+            CREATE TABLE IF NOT EXISTS system_patterns (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              uuid TEXT UNIQUE NOT NULL, timestamp TEXT NOT NULL,
+              name TEXT UNIQUE NOT NULL, description TEXT, tags TEXT
+            );
+            CREATE TABLE IF NOT EXISTS custom_data (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              timestamp TEXT NOT NULL, category TEXT NOT NULL, key TEXT NOT NULL,
+              value TEXT NOT NULL, UNIQUE(category, key)
+            );
+            CREATE TABLE IF NOT EXISTS context_links (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              source_item_type TEXT NOT NULL, source_item_id TEXT NOT NULL,
+              target_item_type TEXT NOT NULL, target_item_id TEXT NOT NULL,
+              relationship_type TEXT NOT NULL, description TEXT, timestamp TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_links_source ON context_links(source_item_type, source_item_id);
+            CREATE INDEX IF NOT EXISTS ix_links_target ON context_links(target_item_type, target_item_id);
+            CREATE TABLE IF NOT EXISTS item_anchors (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              item_type TEXT NOT NULL, item_id INTEGER NOT NULL,
+              path TEXT NOT NULL, timestamp TEXT NOT NULL,
+              UNIQUE(item_type, item_id, path)
+            );
+            INSERT INTO decisions (uuid, timestamp, summary) VALUES ('u1', '2026-01-01T00:00:00Z', 'v2 decision');
+            INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, timestamp)
+              VALUES ('decision', '1', 'decision', '1', 'related_to', '2026-01-01T00:00:00Z');
+            PRAGMA user_version = 2;",
+        )
+        .unwrap();
+    }
+
+    engrams(&db).arg("migrate").assert().success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, 3);
+
+    // context_links gained origin/source/weight.
+    let mut stmt = conn.prepare("PRAGMA table_info(context_links)").unwrap();
+    let cols: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    for c in ["origin", "source", "weight"] {
+        assert!(cols.iter().any(|x| x == c), "missing column {}", c);
+    }
+
+    // code_nodes + graph_meta exist.
+    let code_nodes: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='code_nodes'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(code_nodes, 1);
+
+    // Pre-existing link preserved and defaulted to manual origin.
+    let (rel, origin, weight): (String, String, f64) = conn
+        .query_row(
+            "SELECT relationship_type, origin, weight FROM context_links WHERE id = 1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(rel, "related_to");
+    assert_eq!(origin, "manual");
+    assert_eq!(weight, 1.0);
+}
+
+#[test]
+fn test_graph_densification_from_anchors() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "d1",
+            "--anchor",
+            "src/a.rs",
+            "--anchor",
+            "src/b.rs",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "d2",
+            "--anchor",
+            "src/b.rs",
+            "--anchor",
+            "src/c.rs",
+        ])
+        .assert()
+        .success();
+
+    engrams(&db)
+        .args(&["graph", "rebuild", "--no-git"])
+        .assert()
+        .success();
+
+    let out = engrams(&db).args(&["graph", "stats"]).output().unwrap();
+    let stats: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(stats["edges"]["total"].as_i64().unwrap() >= 3);
+    let relates = stats["edges"]["by_relationship"]["relates_to"]
+        .as_i64()
+        .unwrap_or(0);
+    assert!(relates >= 1, "expected relates_to edges, got {:?}", stats);
+
+    let out = engrams(&db)
+        .args(&[
+            "graph",
+            "path",
+            "--from",
+            "decision:1",
+            "--to",
+            "decision:2",
+        ])
+        .output()
+        .unwrap();
+    let path: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(!path["path"].as_array().unwrap().is_empty());
+
+    let out = engrams(&db).args(&["graph", "orphans"]).output().unwrap();
+    let orphans: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let list: Vec<&str> = orphans["orphans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["node"].as_str().unwrap())
+        .collect();
+    assert!(!list.contains(&"decision:1"));
+}
+
+#[test]
+fn test_graph_incremental_on_write() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "d1",
+            "--anchor",
+            "src/a.rs",
+            "--anchor",
+            "src/b.rs",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "d2",
+            "--anchor",
+            "src/b.rs",
+            "--anchor",
+            "src/c.rs",
+        ])
+        .assert()
+        .success();
+
+    // No rebuild yet: touch_item on the second log must already link d1 and d2.
+    let out = engrams(&db)
+        .args(&["link", "list", "--item-type", "decision", "--item-id", "1"])
+        .output()
+        .unwrap();
+    let links: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let found = links.as_array().unwrap().iter().any(|l| {
+        l["relationship_type"].as_str() == Some("relates_to")
+            && (l["target_item_id"].as_str() == Some("2")
+                || l["source_item_id"].as_str() == Some("2"))
+    });
+    assert!(found, "expected incremental relates_to edge: {:?}", links);
+}
+
+#[test]
+fn test_graph_centrality_stats_shape() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    engrams(&db)
+        .args(&["decision", "log", "--summary", "d1", "--anchor", "src/a.rs"])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&["decision", "log", "--summary", "d2", "--anchor", "src/a.rs"])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&["graph", "rebuild", "--no-git"])
+        .assert()
+        .success();
+
+    let out = engrams(&db)
+        .args(&["graph", "central", "--limit", "5"])
+        .output()
+        .unwrap();
+    let central: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let ranked = central["ranked"].as_array().unwrap();
+    assert!(!ranked.is_empty() && ranked.len() <= 5);
+    for r in ranked {
+        assert!(r["node"].is_string());
+        assert!(r["score"].is_number());
+    }
+    // Scores are ranked (non-increasing).
+    for w in ranked.windows(2) {
+        assert!(w[0]["score"].as_f64().unwrap() >= w[1]["score"].as_f64().unwrap());
+    }
+
+    let out = engrams(&db).args(&["graph", "stats"]).output().unwrap();
+    let stats: Value = serde_json::from_slice(&out.stdout).unwrap();
+    for key in [
+        "nodes",
+        "edges",
+        "density",
+        "components",
+        "orphans",
+        "degree",
+    ] {
+        assert!(stats.get(key).is_some(), "missing stats key {}", key);
+    }
+}
+
+#[test]
+fn test_graph_git_cochange() {
+    let temp = TempDir::new().unwrap();
+    let repo = temp.path();
+
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {:?} failed", args);
+    };
+
+    git(&["init"]);
+    git(&["config", "user.email", "test@example.com"]);
+    git(&["config", "user.name", "Test"]);
+    std::fs::write(repo.join("f1"), "one").unwrap();
+    std::fs::write(repo.join("f2"), "one").unwrap();
+    // Vendored / generated files committed alongside real sources: these
+    // must never become code nodes.
+    std::fs::create_dir_all(repo.join("docs/node_modules/junk")).unwrap();
+    std::fs::create_dir_all(repo.join("docs/dist")).unwrap();
+    std::fs::write(repo.join("docs/node_modules/junk/index.js"), "junk").unwrap();
+    std::fs::write(repo.join("docs/dist/out.html"), "junk").unwrap();
+    std::fs::write(repo.join("package-lock.json"), "{}").unwrap();
+    std::fs::write(repo.join("app.min.js"), "junk").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-m", "c1"]);
+    std::fs::write(repo.join("f1"), "two").unwrap();
+    std::fs::write(repo.join("f2"), "two").unwrap();
+    std::fs::write(repo.join("docs/node_modules/junk/index.js"), "junk2").unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-m", "c2"]);
+
+    let mut cmd = Command::cargo_bin("engrams").unwrap();
+    cmd.env("ENGRAMS_NO_UPDATE_CHECK", "1");
+    cmd.current_dir(repo)
+        .args(&["graph", "ingest"])
+        .assert()
+        .success();
+
+    let conn = rusqlite::Connection::open(repo.join("engrams/context.db")).unwrap();
+    let edge_count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM context_links \
+             WHERE relationship_type = 'co_changes' AND source_item_type = 'code' AND target_item_type = 'code'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(edge_count, 1);
+
+    let node_count: i64 = conn
+        .query_row("SELECT count(*) FROM code_nodes", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(node_count, 2);
+    drop(conn);
+
+    // Second ingest with no new commits must be a no-op that preserves
+    // the existing co_changes edges (guards the empty-window wipe).
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo)
+        .args(["graph", "ingest"])
+        .output()
+        .unwrap();
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(!v["ingested"].as_bool().unwrap());
+
+    let conn = rusqlite::Connection::open(repo.join("engrams/context.db")).unwrap();
+    let edge_count_after: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM context_links \
+             WHERE relationship_type = 'co_changes' AND source_item_type = 'code' AND target_item_type = 'code'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(edge_count_after, 1);
+    drop(conn);
+
+    // Rebuild prunes code nodes no edge references (junk ingested before
+    // filtering existed), while keeping the real co_changes structure.
+    let conn = rusqlite::Connection::open(repo.join("engrams/context.db")).unwrap();
+    conn.execute(
+        "INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen) \
+         VALUES ('file', 'docs/node_modules/legacy/x.js', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo)
+        .args(["graph", "rebuild"])
+        .output()
+        .unwrap();
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(v["rebuilt"].as_bool().unwrap());
+    assert!(v["code_nodes_pruned"].as_i64().unwrap() >= 1);
+
+    let conn = rusqlite::Connection::open(repo.join("engrams/context.db")).unwrap();
+    let node_count: i64 = conn
+        .query_row("SELECT count(*) FROM code_nodes", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(node_count, 2);
+    let vendored: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM code_nodes WHERE path LIKE '%node_modules%' OR path LIKE '%dist%'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(vendored, 0);
+    let edge_count_final: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM context_links \
+             WHERE relationship_type = 'co_changes' AND source_item_type = 'code' AND target_item_type = 'code'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(edge_count_final, 1);
+}
+
+#[test]
+fn test_graph_export_excludes_derived() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    let exp_dir = temp.path().join("exp");
+
+    engrams(&db).arg("init").assert().success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "d1",
+            "--anchor",
+            "src/a.rs",
+            "--anchor",
+            "src/b.rs",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "d2",
+            "--anchor",
+            "src/b.rs",
+            "--anchor",
+            "src/c.rs",
+        ])
+        .assert()
+        .success();
+    // One manual edge alongside the derived ones.
+    engrams(&db)
+        .args(&[
+            "link",
+            "add",
+            "--source-type",
+            "decision",
+            "--source-id",
+            "1",
+            "--target-type",
+            "decision",
+            "--target-id",
+            "2",
+            "--rel",
+            "extends",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&["graph", "rebuild", "--no-git"])
+        .assert()
+        .success();
+
+    engrams(&db)
+        .args(&["export", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let links_dir = exp_dir.join("links");
+    let mut files: Vec<_> = std::fs::read_dir(&links_dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().map(|x| x == "md").unwrap_or(false))
+        .collect();
+    files.sort();
+    assert_eq!(files.len(), 1, "only the manual edge should export");
+    for f in files {
+        let content = std::fs::read_to_string(&f).unwrap();
+        assert!(content.contains("\"origin\": \"manual\""), "{:?}", f);
+        assert!(!content.contains("co_changes"));
+        assert!(!content.contains("anchored_to"));
+    }
 }

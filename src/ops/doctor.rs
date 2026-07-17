@@ -27,7 +27,7 @@ pub fn handle(conn: &Connection) -> Result<Value> {
 
     // 2. Audit dangling links
     let mut dangling_links = Vec::new();
-    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id FROM context_links WHERE target_item_type != 'pr'")?;
+    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id FROM context_links WHERE target_item_type != 'pr' AND origin='manual'")?;
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, i64>(0)?,
@@ -131,6 +131,40 @@ pub fn handle(conn: &Connection) -> Result<Value> {
         }));
     }
 
+    // 5. Graph advisory: orphan nodes (weighted degree <= 1, capped 50)
+    let graph = crate::ops::graph::model::load(conn)?;
+    let orphan_nodes: Vec<String> = graph
+        .orphans()
+        .iter()
+        .take(50)
+        .map(crate::ops::graph::model::fmt_node)
+        .collect();
+
+    // 6. Graph advisory: rebuild recommended when never rebuilt or writes
+    //    postdate the last rebuild.
+    let last_rebuild: Option<String> = conn
+        .query_row(
+            "SELECT last_rebuild_at FROM graph_meta WHERE id = 1",
+            [],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten();
+    let max_write: Option<String> = conn.query_row(
+        "SELECT MAX(ts) FROM (\
+            SELECT MAX(timestamp) AS ts FROM decisions \
+            UNION ALL SELECT MAX(timestamp) FROM system_patterns \
+            UNION ALL SELECT MAX(timestamp) FROM item_anchors\
+        )",
+        [],
+        |row| row.get(0),
+    )?;
+    let graph_rebuild_recommended = match (last_rebuild, max_write) {
+        (None, _) => true,
+        (Some(_), None) => false,
+        (Some(rebuilt), Some(written)) => written > rebuilt,
+    };
+
     let ok = missing_anchor_paths.is_empty()
         && dangling_links.is_empty()
         && stale_decisions.is_empty()
@@ -141,6 +175,8 @@ pub fn handle(conn: &Connection) -> Result<Value> {
         "dangling_links": dangling_links,
         "stale_decisions": stale_decisions,
         "unlinked_decisions": unlinked_decisions,
+        "orphan_nodes": orphan_nodes,
+        "graph_rebuild_recommended": graph_rebuild_recommended,
         "git": git_status,
         "ok": ok,
     }))

@@ -29,6 +29,8 @@ pub fn attach(
             params![item_type, item_id, cleaned, timestamp],
         )?;
     }
+    // Anchors changed the graph: refresh this item's derived edges.
+    crate::ops::graph::rebuild::touch_item(conn, item_type, item_id)?;
     anchors_for(conn, item_type, item_id)
 }
 

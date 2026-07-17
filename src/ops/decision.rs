@@ -61,6 +61,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             if !anchors.is_empty() {
                 crate::ops::anchor::attach(conn, "decision", id, &anchors)?;
             }
+            crate::ops::graph::rebuild::touch_item(conn, "decision", id)?;
 
             let mut decision = get_decision(conn, id)?;
             if let Value::Object(map) = &mut decision {

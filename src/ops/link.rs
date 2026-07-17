@@ -53,14 +53,29 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
                 anyhow::bail!("{} {} does not exist", target_type.as_str(), t_id);
             }
 
+            // Normalize to the canonical relationship, swapping direction when
+            // the user supplied a known inverse. Unknown rels pass through.
+            let (canonical_rel, swap) = crate::ops::graph::rel::normalize(&rel);
+            let (source_type, source_id, target_type, target_id) = if swap {
+                (target_type, target_id, source_type, source_id)
+            } else {
+                (source_type, source_id, target_type, target_id)
+            };
+
             let timestamp = now();
             conn.execute(
                 "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![source_type.as_str(), source_id, target_type.as_str(), target_id, rel, description, timestamp],
+                params![source_type.as_str(), source_id, target_type.as_str(), target_id, canonical_rel, description, timestamp],
             )?;
 
             let id = conn.last_insert_rowid();
-            get_link(conn, id)
+            let mut result = get_link(conn, id)?;
+            if crate::ops::graph::rel::lookup(&canonical_rel).is_none() {
+                if let Value::Object(map) = &mut result {
+                    map.insert("unknown_rel".into(), Value::Bool(true));
+                }
+            }
+            Ok(result)
         }
         LinkCmd::List {
             item_type,
@@ -94,7 +109,7 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
             }
 
             let where_clause = format!("WHERE {}", conditions.join(" AND "));
-            let query = format!("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp FROM context_links {} ORDER BY id ASC", where_clause);
+            let query = format!("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, weight FROM context_links {} ORDER BY id ASC", where_clause);
 
             let mut stmt = conn.prepare(&query)?;
             let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
@@ -128,12 +143,14 @@ fn parse_link_row(row: &rusqlite::Row) -> rusqlite::Result<Link> {
         relationship_type: row.get(5)?,
         description: row.get(6)?,
         timestamp: row.get(7)?,
+        origin: row.get(8)?,
+        weight: row.get(9)?,
         direction: None,
     })
 }
 
 fn get_link(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp FROM context_links WHERE id = ?")?;
+    let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, weight FROM context_links WHERE id = ?")?;
     let link = stmt
         .query_row(params![id], parse_link_row)
         .optional()?
