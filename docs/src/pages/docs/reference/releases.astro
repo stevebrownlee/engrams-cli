@@ -54,6 +54,19 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
         <strong>Focused Agent Briefings:</strong> Graph summaries in <code>prime</code> give LLM agents structural awareness of the project at negligible token cost, and orphan/rebuild advisories in <code>doctor</code> keep the knowledge base healthy.
       </li>
     </ul>
+
+    <h3>Upgrading</h3>
+    <p>
+      Existing databases must be migrated to schema v3 before the new commands work, then the derived
+      links are built with a single rebuild:
+    </p>
+    <pre><code>engrams migrate
+engrams graph rebuild</code></pre>
+    <p>
+      After that, <code>engrams graph ingest</code> folds in new commits incrementally — run it any time,
+      e.g. after pulling or committing. All derived edges are rebuilt idempotently and hand-authored
+      links are never touched.
+    </p>
   </div>
 
   <hr />
