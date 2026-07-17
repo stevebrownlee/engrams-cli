@@ -8,6 +8,56 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.7.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Knowledge Graph → Codebase Topology:</strong> Files are now first-class graph nodes. A new <code>code_nodes</code> table represents every source file engrams knows about, and edges are derived automatically from three sources: file anchors on decisions/patterns (<code>anchored_to</code>), items sharing an anchor (<code>co_anchor</code>), and Git commit co-change history (<code>co_changes</code>, weighted by commit count).
+      </li>
+      <li>
+        <strong>Canonical Relationship Algebra:</strong> Relationship types (<code>extends</code>, <code>uses</code>, <code>supersedes</code>, <code>depends_on</code>, …) now have defined symmetry and inverses. <code>link add</code> normalizes them automatically (e.g. <code>depended_on_by</code> is stored as <code>depends_on</code> with source/target swapped); unknown relationship names still pass through untouched.
+      </li>
+      <li>
+        <strong>Manual vs. Derived Edges:</strong> Links carry an <code>origin</code> (<code>manual</code>/<code>derived</code>) and a <code>weight</code>. <code>graph rebuild</code> re-derives all automatic edges idempotently without ever touching hand-authored links, and <code>graph ingest</code> incrementally folds in new commits. Exports preserve manual links only.
+      </li>
+      <li>
+        <strong>Graph Analytics CLI:</strong> New <code>graph</code> command family: <code>rebuild</code>, <code>ingest</code>, <code>stats</code> (counts, density, degree, components, orphans), <code>central</code> (PageRank), <code>clusters</code>, <code>orphans</code>, <code>path</code>, and <code>neighbors</code> — all computed in memory over the whole knowledge base.
+      </li>
+      <li>
+        <strong>Graph-Aware Briefings &amp; Audits:</strong> <code>prime</code> now includes a compact graph summary (node/edge counts, density, top-central nodes) in its payload, and <code>doctor</code> reports orphan nodes and a <code>rebuild_recommended</code> advisory.
+      </li>
+      <li>
+        <strong>Noise-Free Ingest:</strong> Vendored and generated paths (<code>node_modules</code>, <code>dist</code>, lockfiles, minified assets, …) are excluded from co-change ingest, and <code>graph rebuild</code> prunes code nodes no edge references — keeping the topology limited to real source files.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Sparse, Hand-Maintained Graph:</strong> Previously the graph consisted of only four knowledge node types joined by free-form, hand-authored relationship strings. Files existed only as anchor text, never as nodes, and nothing derived edges — so the graph stayed a sparse scatter that never mirrored the codebase and required manual upkeep to be useful.
+      </li>
+      <li>
+        <strong>No Structural Insight:</strong> Without a real topology there was no way to answer "which files and decisions are central", "what clusters exist", or "how are these two items connected" — the questions a knowledge graph exists to answer.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Self-Maintaining Topology:</strong> The graph now grows automatically with every anchored decision and every commit — no manual linking required to keep it useful.
+      </li>
+      <li>
+        <strong>Actionable Centrality:</strong> PageRank over the combined knowledge + code graph surfaces the true hubs of a project (files and decisions everything routes through), guiding refactoring attention and agent context selection.
+      </li>
+      <li>
+        <strong>Focused Agent Briefings:</strong> Graph summaries in <code>prime</code> give LLM agents structural awareness of the project at negligible token cost, and orphan/rebuild advisories in <code>doctor</code> keep the knowledge base healthy.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
   <h2>v0.6.0</h2>
   <div class="release-block">
     <h3>What was done</h3>
