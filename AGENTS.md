@@ -10,39 +10,31 @@ Everything below assumes the `engrams` binary is already built (`./target/debug/
 
 ## Memory & Project Context — The Operating Loop
 
-Run this loop in every session. It is cheap (local SQLite), keeps you grounded, and leaves the knowledge base richer than you found it.
+Run in every session (local SQLite — cheap).
 
-1. **Start of session — get oriented:** run `engrams prime` (add `--budget <tokens>` to cap output). This one call returns the product context, the active-context **track** matching your scope (plus a one-line focus for every other track), recent decisions, patterns, progress, and a compact graph summary. Add `--paths <p1,p2>` or `--tags <a,b>` to scope it.
-2. **Before editing files — fetch what's anchored there:** run `engrams relevant <paths>` (or `engrams relevant --staged` to match your `git add`ed files). Returns only the decisions and patterns anchored to those paths.
-3. **Before implementing — search prior art:** `engrams query "<topic>"` searches across decisions, patterns, and custom data; `engrams decision search "<term>" --snippets` gives FTS-highlighted hits.
-4. **When you make a design choice — log it:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> --pr <number-or-url>`. Anchor every decision to the file(s) it governs so `relevant` and the graph can find it.
-5. **When a decision replaces another:** `engrams decision supersede <old-id> --by <new-id>` — marks the old one superseded and records its successor.
-6. **Relate items into the graph:** `engrams link add --source-type <t> --source-id <n> --target-type <t> --target-id <n> --rel <canonical> --description "..."`. See [Relationship Ontology](docs/memory/engrams.md#relationship-ontology). Pass `--force` to record an intentional override when a link violates a constraint (disjointness, functional-cardinality, domain/range).
-7. **On task progress:** `engrams progress log --status <Status> --description "..."` — status must be one of `Todo, InProgress, InReview, Blocked, Done, Dropped` (free-form strings are normalized; unrecognized values are preserved but flagged by `doctor`).
-8. **When creating a release or handing off:** update the hand-off document: `engrams active-context update --patch '<json>'` (merge) or `--content '<json>'` (replace), optionally `--name <track>` for a non-default workstream.
-9. **Keep it healthy:** run `engrams doctor` periodically to surface broken anchors, dangling links, stale drift, orphan graph nodes, transitive cycles, and non-canonical vocabulary.
-10. **On schema changes:** `engrams migrate` brings an old DB up to the latest version. The agent never edits schema files manually.
+| Goal | Command |
+|---|---|
+| Get oriented (session start) | `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` |
+| Context anchored to files you'll edit | `engrams relevant <paths>` · `--staged` for `git add`ed files |
+| Search prior art | `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` |
+| Log a design choice | `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> [--pr <n>]` |
+| Decision replaces another | `engrams decision supersede <old-id> --by <new-id>` |
+| Relate items in the graph | `engrams link add --source-type <t> --source-id <n> --target-type <t> --target-id <n> --rel <canonical> [--description "..."]` |
+| Log task progress | `engrams progress log --status <Status> --description "..."` |
+| Release / hand-off | `engrams active-context update --patch '<json>'` (merge) · `--content` (replace) |
+| Health check | `engrams doctor` |
+| Schema migration | `engrams migrate` |
 
-Add `--compact` to any command to minimize tokens. Add `--fields <comma-list>` to project only specific JSON keys.
+Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Valid `--rel` values: see [Relationship Ontology](docs/memory/engrams.md#relationship-ontology); pass `--force` to record an intentional constraint override (disjointness, cardinality, domain/range). Add `--compact` to any command, `--fields <list>` to project specific keys.
 
 ### Core Rules for Agent Memory
 
-- **CLI-First Querying:** ALWAYS use the `engrams` CLI to query project history and context (`engrams decision search`, `engrams pattern list`, `engrams prime`, `engrams relevant`, `engrams query`, `engrams graph ...`). Never improvise.
-- **DO NOT read or grep the exported files:** the files under `engrams_export/` exist for **human Git-tracking only**. Reading/parsing them via `read` or `grep` is token-inefficient and misses database-only state (links, graph edges, history). The CLI is the single source of truth.
-- **Accuracy discipline:** before describing any command, flag, check, or output shape in your own writing (docs, decisions, summaries), verify it against the live CLI (`--help`) or source. Do not synthesize behavior from memory of a decision log — decision logs describe intent, not necessarily implementation.
-- **Entity-type spelling:** type values use **hyphens**, not underscores — `decision`, `progress-entry`, `system-pattern`, `custom-data`. Underscores are rejected.
-- **Session End Protocol & Git Sync:** before concluding the session or declaring a task/effort complete, the agent MUST run the full update sequence:
-  1. Log all architectural/design decisions made during the session with `engrams decision log`.
-  2. Link newly logged decisions or patterns to any relevant existing items (e.g. a new decision `extends`, `uses`, or `supersedes` an older one) with `engrams link add`.
-  3. Log final progress status as `Done`: `engrams progress log --status Done --description "..."`.
-  4. Update the active context document: `engrams active-context update --patch '<json>'`.
-  5. Export the database back to the workspace: `engrams export`.
-  6. Stage, commit, and push the `engrams_export/` markdown files so remote Git tracking stays in sync.
-- **TTS Active-Context Vocalization:** when the user starts a prompt with "Talk to me", or asks "What should I work on today?", "Where did we leave off yesterday?", "What did we get done yesterday?", or asks about recent/yesterday's accomplishments:
-  1. Query active context and all progress items from the past 48 hours (filter by the `timestamp` field in `engrams` progress output) via the CLI.
-  2. Shape the summary to the phrasing — plain language for "Talk to me"; more verbose/technical for "Explain {x} to me".
-  3. Synthesize the summary to an audio file (e.g. `/tmp/status.wav`) with the `tts` tool.
-  4. Play it back on macOS with `afplay`, and confirm to the user that it has been vocalized.
+- **CLI-First:** query all history/context through the `engrams` CLI (`decision search`, `pattern list`, `prime`, `relevant`, `query`, `graph ...`). Never improvise.
+- **Don't read `engrams_export/`:** for human Git-tracking only — token-inefficient and misses database-only state (links, graph edges, history). The CLI is the source of truth.
+- **Accuracy discipline:** verify any command/flag/output you describe against the live CLI (`--help`) or source. Decision logs describe intent, not implementation.
+- **Entity types use hyphens:** `decision`, `progress-entry`, `system-pattern`, `custom-data` (underscores rejected).
+- **Session End Protocol:** before declaring done, run: (1) `decision log` each design choice → (2) `link add` new items to related ones (`extends`/`uses`/`supersedes`) → (3) `progress log --status Done` → (4) `active-context update --patch '<json>'` → (5) `engrams export` → (6) commit & push `engrams_export/`.
+- **TTS Vocalization:** on "Talk to me" / "What should I work on?" / "What did we get done yesterday?" (or similar recent-work prompts): query active context + progress from the past 48h (filter `timestamp`), shape it to the phrasing (plain for "Talk to me"; verbose/technical for "Explain {x}"), synthesize via `tts`, play with `afplay`, confirm.
 
 ---
 
