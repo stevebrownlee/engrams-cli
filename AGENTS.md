@@ -10,6 +10,8 @@ Everything below assumes the `engrams` binary is already built (`./target/debug/
 
 ## Memory & Project Context — The Operating Loop
 
+> **Mandatory rules — read [`.agents/rules/`](.agents/rules/) first.** These are session invariants applied before any other step. `001-memory.md`: run `engrams prime` before anything else.
+
 Run in every session (local SQLite — cheap).
 
 | Goal | Command |
