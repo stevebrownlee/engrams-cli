@@ -11,11 +11,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Engrams – Persistent project memory for AI coding assistants. Your AI remembers decisions, patterns, and progress across every session."
+      content="Engrams gives your AI coding assistant permanent project memory. Decisions, patterns, and progress persist across every session — stop re-explaining, start shipping."
     />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Engrams – Enhanced Memory & Knowledge Platform</title>
+    <title>Engrams – Permanent Memory for AI Coding Assistants</title>
   </head>
   <body class="home-body">
     <!-- ── Header ── -->
@@ -39,10 +39,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             target="_blank"
             rel="noopener">GitHub</a
           >
+        </nav>
       </div>
     </header>
 
-    <!-- ── Hero ── -->
+    <!-- ════════════════════════════════════════
+         HERO
+         ════════════════════════════════════════ -->
     <section class="hero">
       <div class="hero-bg" aria-hidden="true">
         <div class="blob blob-1"></div>
@@ -50,141 +53,516 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="blob blob-3"></div>
       </div>
       <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          Open Source · Local-first · Zero Daemons
+        </div>
         <h1 class="hero-title">
-          AI context memory that<br />
-          <span class="gradient-text">actually works</span>
+          Your AI starts every session<br />
+          with <span class="accent-word">amnesia</span>.
         </h1>
+        <p class="hero-subtitle">
+          Engrams gives it permanent project memory — every decision, pattern,
+          and architectural choice persists across conversations. Stop
+          re-explaining your codebase. Start shipping from session one.
+        </p>
+        <div class="hero-actions">
+          <a href="/docs/getting-started" class="btn-primary">
+            Get started
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="https://github.com/stevebrownlee/engrams" target="_blank" rel="noopener" class="btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.5 11.5 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            View on GitHub
+          </a>
+        </div>
       </div>
     </section>
 
-    <!-- ── Feature Cards ── -->
-    <section class="features">
-      <div class="features-inner">
-        <div class="feature-grid">
+    <!-- Terminal demo -->
+    <section class="hero-code-section">
+      <div class="hero-code">
+        <div class="code-bar">
+          <span class="dot red"></span><span class="dot yellow"></span><span
+            class="dot green"></span><span class="filename">terminal</span>
+        </div>
+        <pre><code>{`$ engrams prime --budget 1000
+
+┌─────────────────────────────────────────┐
+│  PROJECT CONTEXT BRIEF                  │
+├─────────────────────────────────────────┤
+│  Product:  E-commerce platform          │
+│  Stack:    Rust · PostgreSQL · Redis    │
+│  Active:   Migrating to event sourcing  │
+│                                           │
+│  Decisions (3):                          │
+│   #12 Use event sourcing for orders      │
+│   #8  PostgreSQL over MongoDB            │
+│   #5  Redis for session cache            │
+│                                           │
+│  Patterns (2):                           │
+│   Repository pattern for data access     │
+│   Result<T,E> for error handling         │
+└─────────────────────────────────────────┘
+
+3,847 tokens of context loaded in 0.02s.`}</code></pre>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         THE PROBLEM — Pain Agitation
+         ════════════════════════════════════════ -->
+    <section class="problem">
+      <div class="problem-inner">
+        <h2 class="section-eyebrow">The hidden tax</h2>
+        <h2 class="section-heading-lg">
+          Every conversation starts with a blank slate
+        </h2>
+        <p class="section-lead">
+          You've spent months building context — architectural decisions,
+          settled debates, hard-won patterns. Your AI knows none of it.
+          So you re-explain. Every. Single. Time.
+        </p>
+
+        <div class="problem-grid">
+          <div class="problem-card">
+            <div class="problem-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><line x1="12" y1="8" x2="12" y2="12" opacity="0"/><line x1="9" y1="11" x2="9" y2="11"/></svg>
+            </div>
+            <h3>Re-explain your architecture</h3>
+            <p>
+              You burn 10+ minutes every session re-establishing context that
+              should already exist. The same explanations, over and over.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="problem-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <h3>Burn tokens on repetition</h3>
+            <p>
+              Every session re-derives decisions your AI already made last
+              week. You're paying — in tokens and latency — for amnesia.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="problem-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            </div>
+            <h3>Lose the "why"</h3>
+            <p>
+              The rationale behind a decision evaporates. Six months later,
+              you re-litigate a debate that was already settled — and
+              sometimes, you arrive at a worse answer.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         BENEFITS — Outcome-focused
+         ════════════════════════════════════════ -->
+    <section class="benefits">
+      <div class="benefits-inner">
+        <h2 class="section-eyebrow">The payoff</h2>
+        <h2 class="section-heading-lg">What Engrams gives back to you</h2>
+        <p class="section-lead">
+          Not another tool to manage. Less to remember. Less to explain.
+          More momentum.
+        </p>
+
+        <div class="benefit-grid">
+          <div class="benefit-card">
+            <div class="benefit-number">01</div>
+            <div class="benefit-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <h3>Free your mental RAM</h3>
+            <p>
+              Stop carrying every architectural decision in your head. Engrams
+              remembers <em>why</em> you chose PostgreSQL, <em>why</em> you're
+              using event sourcing, <em>what</em> you decided last sprint.
+              Your brain gets to focus on the problem, not the history.
+            </p>
+          </div>
+
+          <div class="benefit-card">
+            <div class="benefit-number">02</div>
+            <div class="benefit-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <h3>Slash your token bill</h3>
+            <p>
+              One <code>prime</code> command loads exactly the context your AI
+              needs — within a budget <em>you</em> control. No more dumping
+              entire files or re-pasting READMEs. Relevant context, not
+              kitchen-sink context.
+            </p>
+          </div>
+
+          <div class="benefit-card">
+            <div class="benefit-number">03</div>
+            <div class="benefit-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <h3>Onboard in seconds</h3>
+            <p>
+              New session? Full context. New teammate's AI? Full context.
+              The moment your assistant runs <code>engrams prime</code>, it
+              knows your stack, your decisions, and what you're working on
+              right now. Zero ramp-up.
+            </p>
+          </div>
+
+          <div class="benefit-card">
+            <div class="benefit-number">04</div>
+            <div class="benefit-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </div>
+            <h3>Watch knowledge compound</h3>
+            <p>
+              Every decision links to patterns. Every pattern links to code.
+              Every progress entry links back to the decision that spawned it.
+              Your project's understanding doesn't reset — it
+              <strong>accumulates</strong>, building a graph that gets more
+              valuable with every commit.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         BEFORE / AFTER COMPARISON
+         ════════════════════════════════════════ -->
+    <section class="comparison">
+      <div class="comparison-inner">
+        <h2 class="section-eyebrow">The shift</h2>
+        <h2 class="section-heading-lg">From amnesia to momentum</h2>
+
+        <div class="comparison-grid">
+          <div class="comparison-col before">
+            <div class="comparison-label">Without Engrams</div>
+            <ul class="comparison-list">
+              <li>
+                <span class="x-icon">✕</span>
+                Re-explain your architecture every session
+              </li>
+              <li>
+                <span class="x-icon">✕</span>
+                Burn thousands of tokens on context the AI already had
+              </li>
+              <li>
+                <span class="x-icon">✕</span>
+                Re-litigate decisions whose rationale was lost
+              </li>
+              <li>
+                <span class="x-icon">✕</span>
+                Paste entire files hoping the AI picks up the right context
+              </li>
+              <li>
+                <span class="x-icon">✕</span>
+                Start every conversation from scratch
+              </li>
+            </ul>
+          </div>
+          <div class="comparison-col after">
+            <div class="comparison-label">With Engrams</div>
+            <ul class="comparison-list">
+              <li>
+                <span class="check-icon">✓</span>
+                One command loads everything your AI needs
+              </li>
+              <li>
+                <span class="check-icon">✓</span>
+                Pay for exactly the tokens you budget — nothing more
+              </li>
+              <li>
+                <span class="check-icon">✓</span>
+                Decisions carry their rationale, tagged and searchable
+              </li>
+              <li>
+                <span class="check-icon">✓</span>
+                FTS5 search pulls only the relevant context for the task
+              </li>
+              <li>
+                <span class="check-icon">✓</span>
+                Each session builds on the last — compounding, not resetting
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         HOW IT WORKS — 3 Steps
+         ════════════════════════════════════════ -->
+    <section class="howto">
+      <div class="howto-inner">
+        <h2 class="section-eyebrow">Dead simple</h2>
+        <h2 class="section-heading-lg">Three commands. That's it.</h2>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h3>Log as you work</h3>
+              <p>
+                When you make a decision, discover a pattern, or finish a
+                task, your AI logs it with one command. It's automatic —
+                your agent does it as part of its normal workflow.
+              </p>
+              <div class="step-code">
+                <span class="prompt">$</span> engrams decision log \
+                <br />&nbsp;&nbsp;--summary "Use event sourcing" \
+                <br />&nbsp;&nbsp;--rationale "Audit trail requirement" \
+                <br />&nbsp;&nbsp;--tags "arch,events"
+              </div>
+            </div>
+          </div>
+
+          <div class="step-connector" aria-hidden="true">
+            <svg width="24" height="48" viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 0v40M6 34l6 8 6-8"/></svg>
+          </div>
+
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h3>Prime the next session</h3>
+              <p>
+                At the start of any conversation, one command loads a brief:
+                product context, active work, relevant decisions, and patterns
+                — trimmed to your token budget.
+              </p>
+              <div class="step-code">
+                <span class="prompt">$</span> engrams prime --budget 2000
+              </div>
+            </div>
+          </div>
+
+          <div class="step-connector" aria-hidden="true">
+            <svg width="24" height="48" viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 0v40M6 34l6 8 6-8"/></svg>
+          </div>
+
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h3>Ship with full context</h3>
+              <p>
+                Your AI picks up exactly where you left off. It knows the
+                stack, the decisions, the patterns, and what's in progress.
+                No ramp-up. No re-explaining. Just momentum.
+              </p>
+              <div class="step-code step-code-result">
+                <span class="result-tag">✓ Context loaded</span>
+                Your AI is ready to work.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         TOKEN ECONOMICS
+         ════════════════════════════════════════ -->
+    <section class="economics">
+      <div class="economics-inner">
+        <h2 class="section-eyebrow">The economics</h2>
+        <h2 class="section-heading-lg">Relevant context, not kitchen-sink context</h2>
+        <p class="section-lead">
+          Most developers solve context loss by dumping entire files into the
+          prompt. That's expensive — and imprecise. Engrams loads only what
+          matters for the task at hand.
+        </p>
+
+        <div class="econ-compare">
+          <div class="econ-card econ-old">
+            <div class="econ-label">Without Engrams</div>
+            <div class="econ-big">~12,000</div>
+            <div class="econ-unit">tokens / session</div>
+            <div class="econ-detail">
+              Pasting architecture docs, READMEs, and full source files —
+              every session, from scratch.
+            </div>
+          </div>
+
+          <div class="econ-vs">vs</div>
+
+          <div class="econ-card econ-new">
+            <div class="econ-label">With Engrams</div>
+            <div class="econ-big">~1,000</div>
+            <div class="econ-unit">tokens / session</div>
+            <div class="econ-detail">
+              <code>prime --budget 1000</code> loads the decisions, patterns,
+              and active context relevant to the current work. Nothing more.
+            </div>
+          </div>
+        </div>
+
+        <div class="econ-stat-row">
+          <div class="econ-stat">
+            <div class="econ-stat-num">8×</div>
+            <div class="econ-stat-label">fewer tokens per session</div>
+          </div>
+          <div class="econ-stat">
+            <div class="econ-stat-num">0.02s</div>
+            <div class="econ-stat-label">local FTS5 query speed</div>
+          </div>
+          <div class="econ-stat">
+            <div class="econ-stat-num">0</div>
+            <div class="econ-stat-label">daemons, servers, or cloud calls</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         KNOWLEDGE GRAPH SPOTLIGHT
+         ════════════════════════════════════════ -->
+    <section class="graph-section">
+      <div class="graph-inner">
+        <div class="graph-text">
+          <h2 class="section-eyebrow">The knowledge graph</h2>
+          <h2 class="section-heading-lg">
+            Your project, as a living map
+          </h2>
+          <p class="section-lead">
+            Decisions link to patterns. Patterns link to code. Progress links
+            to decisions. Over time, this graph becomes your project's
+            institutional memory — searchable, traceable, and shared across
+            your whole team via Git.
+          </p>
+          <ul class="graph-points">
+            <li>
+              <span class="bullet-dot"></span>
+              <strong>Trace any decision</strong> back to its rationale, the
+              patterns it follows, and the code it touches
+            </li>
+            <li>
+              <span class="bullet-dot"></span>
+              <strong>Find relevant context</strong> by file path — Engrams
+              knows which decisions and patterns apply to the code you're
+              editing right now
+            </li>
+            <li>
+              <span class="bullet-dot"></span>
+              <strong>Share with your team</strong> — export to clean
+              Markdown, commit to Git, and every teammate's AI inherits the
+              same knowledge
+            </li>
+            <li>
+              <span class="bullet-dot"></span>
+              <strong>Detect drift</strong> — <code>engrams doctor</code>
+              finds orphaned records, stale patterns, and missing context
+              before it bites you
+            </li>
+          </ul>
+        </div>
+        <div class="graph-visual" aria-hidden="true">
+          <svg viewBox="0 0 400 400" class="graph-svg">
+            <!-- edges -->
+            <line x1="200" y1="200" x2="100" y2="80" class="edge"/>
+            <line x1="200" y1="200" x2="320" y2="100" class="edge"/>
+            <line x1="200" y1="200" x2="80" y2="280" class="edge"/>
+            <line x1="200" y1="200" x2="320" y2="300" class="edge"/>
+            <line x1="100" y1="80" x2="320" y2="100" class="edge edge-dim"/>
+            <line x1="80" y1="280" x2="320" y2="300" class="edge edge-dim"/>
+            <line x1="100" y1="80" x2="80" y2="280" class="edge edge-dim"/>
+            <line x1="320" y1="100" x2="320" y2="300" class="edge edge-dim"/>
+            <!-- nodes -->
+            <circle cx="200" cy="200" r="32" class="node node-center"/>
+            <text x="200" y="205" text-anchor="middle" class="node-label">Project</text>
+            <circle cx="100" cy="80" r="22" class="node node-decision"/>
+            <text x="100" y="85" text-anchor="middle" class="node-label-sm">ADR</text>
+            <circle cx="320" cy="100" r="22" class="node node-pattern"/>
+            <text x="320" y="105" text-anchor="middle" class="node-label-sm">Pattern</text>
+            <circle cx="80" cy="280" r="22" class="node node-progress"/>
+            <text x="80" y="285" text-anchor="middle" class="node-label-sm">Task</text>
+            <circle cx="320" cy="300" r="22" class="node node-custom"/>
+            <text x="320" y="305" text-anchor="middle" class="node-label-sm">Data</text>
+            <!-- pulse rings -->
+            <circle cx="200" cy="200" r="32" class="pulse-ring"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         ECOSYSTEM
+         ════════════════════════════════════════ -->
+    <section class="tools-section">
+      <div class="tools-inner">
+        <div class="hero-badge" style="margin: 0 auto;">
+          Open Source · Apache-2.0 · v{__APP_VERSION__}
+        </div>
+        <h2 class="section-eyebrow">Plays nice</h2>
+        <h2 class="section-heading-lg">Works with the tools you already use</h2>
+        <p class="section-lead">
+          Any AI coding assistant that can run shell commands can use Engrams.
+          No plugins. No extensions. No lock-in.
+        </p>
+        <div class="tool-chips">
           {
             [
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"></path></svg>',
-                title: "Structured Memory",
-                desc: "Save architectural decisions (ADRs), system patterns, task progress, and product context.",
-              },
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-                title: "FTS5 Search",
-                desc: "Blazing fast local full-text search in SQLite lets your AI retrieve relevant details instantly.",
-              },
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>',
-                title: "Git-Sync Friendly",
-                desc: "Export the database to clean markdown files for version control, and import them back on checkout.",
-              },
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
-                title: "Zero Overhead",
-                desc: "Written in Rust with no background daemons, servers, memory footprint, or external APIs.",
-              },
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
-                title: "Knowledge Graph",
-                desc: "Link decisions to patterns, progress to decisions, and features to custom configuration data.",
-              },
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>',
-                title: "Agent-Native",
-                desc: "Simple JSON inputs/outputs designed for direct terminal tool execution by AI coding assistants.",
-              },
-            ].map((f) => (
-              <div class="feature-card">
-                <div class="feature-card-header">
-                  <span class="feature-icon" set:html={f.icon}></span>
-                  <h3>{f.title}</h3>
-                </div>
-                <p>{f.desc}</p>
-              </div>
-            ))
+              "Cursor",
+              "Claude Code",
+              "Antigravity",
+              "Zed",
+              "Codex",
+              "Hermes",
+              "omp",
+              "Any shell-capable agent",
+            ].map((t) => <span class="chip">{t}</span>)
           }
         </div>
       </div>
     </section>
 
-    <section class="hero" style="display:block; padding: 3rem 1.5rem;">
-      <div class="hero-actions">
-        <a href="/docs/getting-started" class="btn-primary">Get started →</a>
-      </div>
-
-      <div class="hero-code" style="margin: 0 auto;">
-        <div class="code-bar">
-          <span class="dot red"></span><span class="dot yellow"></span><span
-            class="dot green"></span><span class="filename">terminal</span>
+    <!-- ════════════════════════════════════════
+         FINAL CTA
+         ════════════════════════════════════════ -->
+    <section class="cta-final">
+      <div class="cta-inner">
+        <h2>Stop starting over.</h2>
+        <p>
+          Give your AI the memory it deserves. Install in under a minute,
+          prime your first context brief, and never re-explain your
+          architecture again.
+        </p>
+        <div class="hero-actions" style="margin-bottom:0;">
+          <a href="/docs/getting-started" class="btn-primary">
+            Install Engrams
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
         </div>
-        <pre><code>{`$ engrams --help
-Usage: engrams [OPTIONS] <COMMAND>
-
-Commands:
-  init             Initialize the database schema
-  active-context   Manage the active context document
-  decision         Log and search architectural decisions
-  progress         Track task execution and progress
-  pattern          Log recurring system patterns and conventions
-  custom           Store arbitrary configuration or key-value data
-  link             Create knowledge-graph relations between items
-  report           Generate a structured report of project knowledge
-  prime            Generate a context brief optimized for token budget
-  doctor           Analyze project database for orphaned records, drift, and missing context
-  query            Search across decisions, patterns, and custom data
-  anchor           Manage file path anchors for decisions and patterns
-  relevant         Find decisions and patterns relevant to path(s)
-
-$ engrams decision log \\
-  --summary "Use PostgreSQL for primary database" \\
-  --rationale "Need ACID guarantees and complex queries" \\
-  --tags "db,arch"
-Decision logged as ID 1.
-
-$ engrams decision search "caching"
-# Search results retrieved instantly via FTS5 index...`}</code></pre>
+        <div class="cta-install">
+          <code>curl -fsSL https://engrams.sh/install | bash</code>
+        </div>
       </div>
     </section>
+
+    <footer class="home-footer">
+      <span>© {new Date().getFullYear()} Engrams · Apache-2.0 License</span>
+      <a
+        href="https://github.com/stevebrownlee/engrams"
+        target="_blank"
+        rel="noopener">GitHub</a
+      >
+    </footer>
   </body>
-
-  <!-- ── Supported Tools ── -->
-  <section class="tools-section">
-    <div class="tools-inner">
-      <div class="hero-badge" style="margin: 0 auto;">Open Source · v{__APP_VERSION__}</div>
-      <h2 class="section-heading">Works with your favourite AI tools</h2>
-      <div class="tool-chips">
-        {
-          [
-            "Cursor",
-            "Claude Code",
-            "Antigravity",
-            "Zed",
-            "Terminal agents (e.g. pi, omp, etc.)",
-          ].map((t) => <span class="chip">{t}</span>)
-        }
-      </div>
-    </div>
-  </section>
-
-  <footer class="home-footer">
-    <span>© {new Date().getFullYear()} Engrams · Apache-2.0 License</span>
-    <a
-      href="https://github.com/stevebrownlee/engrams"
-      target="_blank"
-      rel="noopener">GitHub</a
-    >
-  </footer>
 </html>
 
 <style>
-  /* ── Base ── */
+  /* ═══ Base ═══ */
   .home-body {
     background: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-sans);
     margin: 0;
   }
-
   .logo img {
     height: calc(var(--header-height) - 20px);
     width: auto;
@@ -192,7 +570,34 @@ $ engrams decision search "caching"
     object-fit: contain;
   }
 
-  /* ── Header ── */
+  /* ═══ Shared section typography ═══ */
+  .section-eyebrow {
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--sky-aqua);
+    margin-bottom: 0.75rem;
+  }
+  .section-heading-lg {
+    text-align: center;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--color-text);
+    margin-bottom: 1rem;
+  }
+  .section-lead {
+    text-align: center;
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--color-text-muted);
+    max-width: 620px;
+    margin: 0 auto 3rem;
+  }
+
+  /* ═══ Header ═══ */
   .home-header {
     position: fixed;
     top: 0;
@@ -238,16 +643,19 @@ $ engrams decision search "caching"
     font-weight: 500;
     color: var(--color-text-muted);
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
   }
   .hdr-nav a:hover {
     color: var(--color-link);
   }
 
-  /* ── Hero ── */
+  /* ═══ Hero ═══ */
   .hero {
     position: relative;
     overflow: hidden;
-    padding: calc(var(--header-height) + 2rem) 1.5rem 1rem;
+    padding: calc(var(--header-height) + 3rem) 1.5rem 1.5rem;
     display: flex;
     justify-content: center;
     background: linear-gradient(160deg, #f0f8ff 0%, #faf8fd 50%, #fff5f8 100%);
@@ -261,7 +669,7 @@ $ engrams decision search "caching"
     position: absolute;
     border-radius: 50%;
     filter: blur(80px);
-    opacity: 0.35;
+    opacity: 0.3;
   }
   .blob-1 {
     width: 500px;
@@ -288,7 +696,7 @@ $ engrams decision search "caching"
   .hero-content {
     position: relative;
     z-index: 1;
-    max-width: 780px;
+    max-width: 820px;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -298,38 +706,53 @@ $ engrams decision search "caching"
   .hero-badge {
     display: inline-flex;
     align-items: center;
-    background: rgba(86, 203, 249, 0.15);
-    color: #2070a0;
-    border: 1px solid rgba(86, 203, 249, 0.35);
+    gap: 0.5rem;
+    background: rgba(204, 164, 59, 0.1);
+    color: #8a6f1e;
+    border: 1px solid rgba(204, 164, 59, 0.3);
     border-radius: 999px;
     font-size: 0.8rem;
     font-weight: 600;
-    padding: 0.25rem 0.8rem;
+    padding: 0.3rem 0.9rem;
     margin-bottom: 1.5rem;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
+  }
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4caf50;
+    position: relative;
+  }
+  .pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: #4caf50;
+    opacity: 0.4;
+    animation: pulse-ring 2s ease-out infinite;
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(2.2); opacity: 0; }
   }
   .hero-title {
-    font-size: clamp(2rem, 5vw, 3rem);
+    font-size: clamp(2rem, 5.5vw, 3.2rem);
     font-weight: 800;
     line-height: 1.1;
     margin-bottom: 1.25rem;
     color: var(--color-text);
+    letter-spacing: -0.02em;
   }
-  .gradient-text {
-    background: linear-gradient(
-      135deg,
-      var(--sky-aqua),
-      var(--maya-blue) 40%,
-      var(--pastel-petal)
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .accent-word {
+    color: var(--sky-aqua);
+    font-style: italic;
   }
   .hero-subtitle {
-    font-size: 1.125rem;
+    font-size: 1.1875rem;
     color: var(--color-text-muted);
-    max-width: 580px;
+    max-width: 620px;
     margin-bottom: 2rem;
     line-height: 1.7;
   }
@@ -338,37 +761,41 @@ $ engrams decision search "caching"
     gap: 1rem;
     flex-wrap: wrap;
     justify-content: center;
-    margin-bottom: 2.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .btn-primary {
     display: inline-flex;
     align-items: center;
-    background: linear-gradient(135deg, var(--sky-aqua), var(--maya-blue));
+    gap: 0.4rem;
+    background: linear-gradient(135deg, var(--sky-aqua), #b8902f);
     color: #fff;
     font-weight: 600;
     font-size: 0.9375rem;
-    padding: 0.65rem 1.5rem;
+    padding: 0.7rem 1.6rem;
     border-radius: var(--radius-md);
     text-decoration: none;
-    box-shadow: 0 4px 15px rgba(86, 203, 249, 0.4);
+    box-shadow: 0 4px 20px rgba(204, 164, 59, 0.35);
     transition:
       opacity 0.15s,
-      transform 0.12s;
+      transform 0.12s,
+      box-shadow 0.15s;
   }
   .btn-primary:hover {
-    opacity: 0.9;
+    opacity: 0.95;
     transform: translateY(-2px);
+    box-shadow: 0 6px 28px rgba(204, 164, 59, 0.45);
     text-decoration: none;
   }
   .btn-secondary {
     display: inline-flex;
     align-items: center;
+    gap: 0.4rem;
     background: #fff;
     color: var(--color-text);
     font-weight: 600;
     font-size: 0.9375rem;
-    padding: 0.65rem 1.5rem;
+    padding: 0.7rem 1.6rem;
     border-radius: var(--radius-md);
     border: 1.5px solid var(--color-border);
     text-decoration: none;
@@ -377,19 +804,25 @@ $ engrams decision search "caching"
       transform 0.12s;
   }
   .btn-secondary:hover {
-    border-color: var(--maya-blue);
+    border-color: var(--sky-aqua);
     transform: translateY(-2px);
     text-decoration: none;
   }
 
-  /* Hero code block */
+  /* ═══ Hero Code ═══ */
+  .hero-code-section {
+    padding: 1rem 1.5rem 4rem;
+    background: linear-gradient(160deg, #faf8fd 0%, #fff5f8 100%);
+    display: flex;
+    justify-content: center;
+  }
   .hero-code {
     width: 100%;
-    max-width: 640px;
+    max-width: 680px;
     background: #1a2035;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
     border: 1px solid rgba(255, 255, 255, 0.06);
     text-align: left;
   }
@@ -405,15 +838,9 @@ $ engrams decision search "caching"
     height: 10px;
     border-radius: 50%;
   }
-  .dot.red {
-    background: #ff5f57;
-  }
-  .dot.yellow {
-    background: #ffbd2e;
-  }
-  .dot.green {
-    background: #28ca41;
-  }
+  .dot.red { background: #ff5f57; }
+  .dot.yellow { background: #ffbd2e; }
+  .dot.green { background: #28ca41; }
   .filename {
     font-size: 0.75rem;
     color: #6b7590;
@@ -424,82 +851,544 @@ $ engrams decision search "caching"
     background: transparent;
     margin: 0;
     padding: 1.25rem 1.5rem;
-    font-size: 0.825rem;
-    line-height: 1.65;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    overflow-x: auto;
   }
   .hero-code pre code {
     color: #c9d3e8;
+    font-family: var(--font-mono);
   }
 
-  /* ── Features ── */
-  .features {
-    padding: 0.5rem 1.5rem 3rem 1.5rem;
-    background: #fff;
+  /* ═══ Problem Section (dark) ═══ */
+  .problem {
+    background: var(--maya-blue);
+    padding: 5rem 1.5rem;
+    position: relative;
   }
-  .features-inner {
-    max-width: 1050px;
+  .problem-inner {
+    max-width: 980px;
     margin: 0 auto;
   }
-  .section-heading {
-    text-align: center;
-    font-size: 1.875rem;
-    font-weight: 700;
-    margin-bottom: 2.5rem;
-    color: var(--color-text);
+  .problem .section-eyebrow {
+    color: rgba(204, 164, 59, 0.8);
   }
-  .feature-grid {
+  .problem .section-heading-lg {
+    color: #fff;
+  }
+  .problem .section-lead {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .problem-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
   }
-  .feature-card {
+  .problem-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    transition:
+      background 0.2s,
+      border-color 0.2s;
+  }
+  .problem-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(204, 164, 59, 0.3);
+  }
+  .problem-icon {
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 1rem;
+  }
+  .problem-card h3 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+  .problem-card p {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ═══ Benefits ═══ */
+  .benefits {
+    background: #fff;
+    padding: 5rem 1.5rem;
+  }
+  .benefits-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .benefit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 1.5rem;
+  }
+  @media (max-width: 480px) {
+    .benefit-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .benefit-card {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    padding: 1.5rem;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
     transition:
       box-shadow 0.2s,
-      transform 0.2s;
+      transform 0.2s,
+      border-color 0.2s;
   }
-  .feature-card:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+  .benefit-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    transform: translateY(-3px);
+    border-color: rgba(204, 164, 59, 0.3);
   }
-  .feature-card-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.8rem;
+  .benefit-number {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: rgba(204, 164, 59, 0.08);
+    line-height: 1;
+    font-family: var(--font-mono);
   }
-  .feature-icon {
-    display: block;
-    margin-bottom: 0;
+  .benefit-icon {
+    color: var(--sky-aqua);
+    margin-bottom: 1rem;
   }
-  .feature-icon svg {
-    width: 24px;
-    height: 24px;
-    stroke: var(--color-link);
-    display: block;
-  }
-  .feature-card h3 {
-    font-size: 1rem;
+  .benefit-card h3 {
+    font-size: 1.1875rem;
     font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.6rem;
+  }
+  .benefit-card p {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    line-height: 1.7;
     margin: 0;
   }
-  .feature-card p {
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-    margin: 0;
-    line-height: 1.6;
+  .benefit-card code {
+    background: var(--color-bg-code);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-family: var(--font-mono);
+    color: var(--color-text);
   }
 
-  /* ── Tools ── */
+  /* ═══ Comparison ═══ */
+  .comparison {
+    background: var(--color-bg);
+    padding: 5rem 1.5rem;
+  }
+  .comparison-inner {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 700px) {
+    .comparison-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .comparison-col {
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+  }
+  .comparison-col.before {
+    background: #fff;
+    border: 1px solid var(--color-border);
+  }
+  .comparison-col.after {
+    background: linear-gradient(160deg, rgba(204, 164, 59, 0.06), rgba(204, 164, 59, 0.02));
+    border: 1.5px solid rgba(204, 164, 59, 0.25);
+  }
+  .comparison-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1.25rem;
+  }
+  .before .comparison-label { color: var(--color-text-muted); }
+  .after .comparison-label { color: var(--sky-aqua); }
+  .comparison-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .comparison-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+  }
+  .after .comparison-list li { color: var(--color-text); }
+  .x-icon {
+    color: #d93025;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+  }
+  .check-icon {
+    color: #1a7f37;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+  }
+
+  /* ═══ How It Works ═══ */
+  .howto {
+    background: #fff;
+    padding: 5rem 1.5rem;
+  }
+  .howto-inner {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .step {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--sky-aqua), #b8902f);
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(204, 164, 59, 0.25);
+  }
+  .step-body {
+    flex: 1;
+    text-align: left;
+  }
+  .step-body h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    color: var(--color-text);
+  }
+  .step-body p {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+  .step-code {
+    background: #1a2035;
+    color: #c9d3e8;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+  }
+  .step-code .prompt { color: var(--sky-aqua); font-weight: 700; }
+  .step-code-result {
+    background: rgba(26, 127, 55, 0.08);
+    color: #1a7f37;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .result-tag {
+    background: #1a7f37;
+    color: #fff;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+  .step-connector {
+    color: var(--color-border);
+    margin: 0.25rem 0;
+  }
+
+  /* ═══ Economics ═══ */
+  .economics {
+    background: var(--maya-blue);
+    padding: 5rem 1.5rem;
+  }
+  .economics-inner {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .economics .section-eyebrow {
+    color: rgba(204, 164, 59, 0.8);
+  }
+  .economics .section-heading-lg {
+    color: #fff;
+  }
+  .economics .section-lead {
+    color: rgba(255, 255, 255, 0.65);
+  }
+  .econ-compare {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  @media (max-width: 700px) {
+    .econ-compare {
+      flex-direction: column;
+    }
+  }
+  .econ-card {
+    flex: 1;
+    max-width: 320px;
+    border-radius: var(--radius-lg);
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+  .econ-old {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .econ-new {
+    background: rgba(204, 164, 59, 0.08);
+    border: 1.5px solid rgba(204, 164, 59, 0.25);
+  }
+  .econ-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+  }
+  .econ-old .econ-label { color: rgba(255, 255, 255, 0.4); }
+  .econ-new .econ-label { color: var(--sky-aqua); }
+  .econ-big {
+    font-size: 3rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+  .econ-old .econ-big { color: rgba(255, 255, 255, 0.35); text-decoration: line-through; }
+  .econ-new .econ-big { color: #fff; }
+  .econ-unit {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 0.75rem;
+  }
+  .econ-detail {
+    font-size: 0.825rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .econ-new .econ-detail {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .econ-detail code {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  .econ-vs {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.3);
+    font-style: italic;
+  }
+  .econ-stat-row {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 600px) {
+    .econ-stat-row {
+      gap: 1.5rem;
+    }
+  }
+  .econ-stat {
+    text-align: center;
+  }
+  .econ-stat-num {
+    font-size: 2.2rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    color: var(--sky-aqua);
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+  .econ-stat-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ═══ Knowledge Graph ═══ */
+  .graph-section {
+    background: #fff;
+    padding: 5rem 1.5rem;
+  }
+  .graph-inner {
+    max-width: 980px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+  }
+  @media (max-width: 800px) {
+    .graph-inner {
+      grid-template-columns: 1fr;
+    }
+    .graph-visual {
+      order: -1;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+  }
+  .graph-text .section-eyebrow,
+  .graph-text .section-heading-lg,
+  .graph-text .section-lead {
+    text-align: left;
+  }
+  .graph-text .section-lead {
+    margin-left: 0;
+  }
+  .graph-points {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .graph-points li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+  }
+  .bullet-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sky-aqua);
+    flex-shrink: 0;
+    margin-top: 0.45rem;
+  }
+  .graph-points code {
+    background: var(--color-bg-code);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-family: var(--font-mono);
+  }
+  .graph-visual {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .graph-svg {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+  }
+  .edge {
+    stroke: var(--color-border);
+    stroke-width: 2;
+  }
+  .edge-dim {
+    stroke-dasharray: 4 4;
+    opacity: 0.4;
+  }
+  .node {
+    stroke-width: 2;
+  }
+  .node-center {
+    fill: var(--sky-aqua);
+    stroke: #b8902f;
+  }
+  .node-decision {
+    fill: #56CBF9;
+    stroke: #3a9bc4;
+  }
+  .node-pattern {
+    fill: #DBD8F0;
+    stroke: #a8a5c8;
+  }
+  .node-progress {
+    fill: #EAC5D8;
+    stroke: #c49ab3;
+  }
+  .node-custom {
+    fill: #AFBED1;
+    stroke: #8a9aab;
+  }
+  .node-label {
+    fill: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+  }
+  .node-label-sm {
+    fill: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+  }
+  .pulse-ring {
+    fill: none;
+    stroke: var(--sky-aqua);
+    stroke-width: 2;
+    opacity: 0;
+    animation: graph-pulse 3s ease-out infinite;
+  }
+  @keyframes graph-pulse {
+    0% { r: 32; opacity: 0.6; }
+    100% { r: 55; opacity: 0; }
+  }
+
+  /* ═══ Tools / Ecosystem ═══ */
   .tools-section {
-    padding: 4rem 1.5rem;
-    background: var(--lavender);
+    padding: 5rem 1.5rem;
+    background: var(--color-bg);
   }
   .tools-inner {
-    max-width: 860px;
+    max-width: 700px;
     margin: 0 auto;
     text-align: center;
   }
@@ -508,72 +1397,83 @@ $ engrams decision search "caching"
     flex-wrap: wrap;
     gap: 0.6rem;
     justify-content: center;
-    margin-top: 1.5rem;
+    margin-top: 1rem;
   }
   .chip {
     background: #fff;
-    border: 1.5px solid var(--powder-blue);
+    border: 1.5px solid #d4d4d4;
     border-radius: 999px;
-    padding: 0.4rem 1rem;
+    padding: 0.45rem 1.1rem;
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--color-text-muted);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition:
       border-color 0.15s,
-      color 0.15s;
+      color 0.15s,
+      transform 0.12s,
+      box-shadow 0.15s;
   }
   .chip:hover {
     border-color: var(--sky-aqua);
     color: var(--color-text);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
-  /* ── CTA ── */
-  .cta-section {
+  /* ═══ Final CTA ═══ */
+  .cta-final {
     padding: 5rem 1.5rem;
-    background: linear-gradient(
-      135deg,
-      var(--sky-aqua) 0%,
-      var(--maya-blue) 60%,
-      var(--pastel-petal) 100%
-    );
+    background: linear-gradient(160deg, var(--maya-blue) 0%, #1a2035 100%);
+    text-align: center;
   }
   .cta-inner {
-    max-width: 600px;
+    max-width: 580px;
     margin: 0 auto;
-    text-align: center;
   }
   .cta-inner h2 {
     color: #fff;
-    font-size: 2rem;
-    margin-bottom: 0.75rem;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 800;
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
   }
   .cta-inner p {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 1.0625rem;
+    line-height: 1.7;
     margin-bottom: 2rem;
   }
-  .cta-section .btn-primary {
-    background: #fff;
-    color: var(--color-text);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  .cta-install {
+    margin-top: 1.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1.25rem;
+    display: inline-block;
+  }
+  .cta-install code {
+    color: #c9d3e8;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
   }
 
-  /* ── Footer ── */
+  /* ═══ Footer ═══ */
   .home-footer {
-    background: #fff;
-    border-top: 1px solid var(--color-border);
+    background: #1a2035;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     padding: 1.25rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 0.85rem;
-    color: var(--color-text-muted);
+    color: rgba(255, 255, 255, 0.4);
   }
   .home-footer a {
-    color: var(--color-text-muted);
+    color: rgba(255, 255, 255, 0.4);
     text-decoration: none;
   }
   .home-footer a:hover {
-    color: var(--color-link);
+    color: var(--sky-aqua);
   }
 </style>
