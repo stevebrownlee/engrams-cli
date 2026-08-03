@@ -274,11 +274,18 @@ pub fn handle(
     // Under an explicit --budget it is the first section dropped.
     let mut graph_val = Some(crate::ops::graph::model::summary(conn)?);
 
-    let est =
-        |val: &Value| -> usize { serde_json::to_string(val).map(|s| s.len() / 4).unwrap_or(0) };
+    // Token estimate: bytes/4 of the serialized JSON. Generic so any
+    // serializable section (Value or a slice of Serialize items) is measured
+    // in one pass, with no intermediate Value round-trip.
+    fn tok_cost<T: serde::Serialize>(v: &T) -> usize {
+        serde_json::to_string(v).map(|s| s.len() / 4).unwrap_or(0)
+    }
 
     if let Some(budget) = budget_opt {
-        while est(&build_payload(PayloadParts {
+        // Anchor the total with a single full serialization, then subtract
+        // each dropped section/item's marginal cost. Only the dropped item is
+        // re-serialized per iteration — never the whole nested payload.
+        let mut total = tok_cost(&build_payload(PayloadParts {
             product_context: &product_context_val,
             active_context: &active_context_val,
             decisions: &decisions,
@@ -287,17 +294,25 @@ pub fn handle(
             graph: graph_val.as_ref(),
             budget_info: None,
             superseded_by: &superseded_by,
-        })) > budget
-        {
+        }));
+        while total > budget {
             if graph_val.is_some() {
+                total = total.saturating_sub(tok_cost(graph_val.as_ref().unwrap()));
                 graph_val = None;
-            } else if !progress.is_empty() {
-                progress.pop();
-            } else if !patterns.is_empty() {
-                patterns.pop();
-            } else if !decisions.is_empty() {
-                decisions.pop();
+            } else if let Some(dropped) = progress.pop() {
+                total = total.saturating_sub(tok_cost(&dropped));
+            } else if let Some(dropped) = patterns.pop() {
+                total = total.saturating_sub(tok_cost(&dropped));
+            } else if let Some(dropped) = decisions.pop() {
+                // Match build_payload: a superseded decision carries an extra
+                // "superseded_by" field in the emitted JSON.
+                let mut dv = serde_json::to_value(&dropped).unwrap_or(Value::Null);
+                if let Some(by) = superseded_by.get(&dropped.id) {
+                    dv["superseded_by"] = serde_json::json!(by);
+                }
+                total = total.saturating_sub(tok_cost(&dv));
             } else if !product_context_val.is_null() {
+                total = total.saturating_sub(tok_cost(&product_context_val));
                 product_context_val = Value::Null;
             } else {
                 break;
@@ -316,7 +331,7 @@ pub fn handle(
             budget_info: None,
             superseded_by: &superseded_by,
         });
-        let m = est(&temp_payload);
+        let m = tok_cost(&temp_payload);
         build_payload(PayloadParts {
             product_context: &product_context_val,
             active_context: &active_context_val,

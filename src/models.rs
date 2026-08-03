@@ -62,6 +62,15 @@ fn default_link_weight() -> f64 {
     1.0
 }
 
+/// Direction of a link relative to a queried item, reported by `link list`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Direction {
+    #[serde(rename = "outgoing")]
+    Outgoing,
+    #[serde(rename = "incoming")]
+    Incoming,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Link {
     pub id: i64,
@@ -78,7 +87,7 @@ pub struct Link {
     #[serde(default = "default_link_weight")]
     pub weight: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub direction: Option<String>,
+    pub direction: Option<Direction>,
 }
 
 #[derive(Serialize)]

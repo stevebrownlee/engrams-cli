@@ -42,10 +42,10 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
         } => {
             let s_id: i64 = source_id
                 .parse()
-                .context(format!("invalid source id: {}", source_id))?;
+                .with_context(|| format!("invalid source id: {}", source_id))?;
             let t_id: i64 = target_id
                 .parse()
-                .context(format!("invalid target id: {}", target_id))?;
+                .with_context(|| format!("invalid target id: {}", target_id))?;
 
             if !item_exists(conn, source_type, s_id)? {
                 anyhow::bail!("{} {} does not exist", source_type.as_str(), s_id);
@@ -153,13 +153,15 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
             let mut stmt = conn.prepare(&query)?;
             let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
                 let mut link = parse_link_row(row)?;
-                let s_type: String = row.get(1)?;
-                let s_id: String = row.get(2)?;
-                if s_type == item_type_str && s_id == *item_id {
-                    link.direction = Some("outgoing".to_string());
+                // parse_link_row already read source_item_type/_id (cols 1,2);
+                // compare against those instead of re-reading owned Strings.
+                link.direction = if link.source_item_type == item_type_str
+                    && link.source_item_id == item_id.as_str()
+                {
+                    Some(crate::models::Direction::Outgoing)
                 } else {
-                    link.direction = Some("incoming".to_string());
-                }
+                    Some(crate::models::Direction::Incoming)
+                };
                 Ok(link)
             })?;
 
@@ -285,6 +287,6 @@ fn get_link(conn: &Connection, id: i64) -> Result<Value> {
     let link = stmt
         .query_row(params![id], parse_link_row)
         .optional()?
-        .context(format!("link {} not found", id))?;
+        .with_context(|| format!("link {} not found", id))?;
     Ok(serde_json::to_value(link)?)
 }
