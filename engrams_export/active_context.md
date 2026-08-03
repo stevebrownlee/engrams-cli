@@ -1,19 +1,19 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-03T22:01:13Z
+created: 2026-08-03T22:24:56Z
 ---
 # Active Context
 
 ```json
 {
   "content": {
-    "focus": "Homepage redesigned from docs-style to full marketing landing page (decision #36). 10-section PAS framework: amnesia hero, hidden tax, payoff benefits, before/after shift, dead-simple how-it-works, token economics, knowledge graph spotlight (animated SVG), ecosystem tools, final CTA. Production build passes. Next: polish pass or iterate on marketing copy if user wants changes.",
+    "focus": "v0.8.0 shipped. Homepage marketing redesign complete (decisions #36-37). Hero pivoted to decision-visibility risk framing. Problem section answers markdown objection. Comparison: markdown file vs knowledge graph. No active feature work.",
     "last_updated": "2026-08-03",
-    "status": "Review"
+    "status": "Maintenance"
   },
   "name": "default",
-  "updated_at": "2026-08-03T22:01:13Z",
-  "version": 21
+  "updated_at": "2026-08-03T22:24:56Z",
+  "version": 23
 }
 ```
