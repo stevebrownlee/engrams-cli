@@ -36,21 +36,25 @@ engrams product-context update --content '<JSON>'
 engrams product-context update --patch '<JSON>'`}</code></pre>
 
   <h3>4. <code>active-context</code></h3>
-  <p>Manage the active context document (current tasks, next steps, open questions).</p>
-  <pre><code>{`engrams active-context get
-engrams active-context update --content '<JSON>'
-engrams active-context update --patch '<JSON>'`}</code></pre>
+  <p>Manage named active-context tracks (current tasks, next steps, open questions). Each track is identified by a name — maintain separate tracks per workstream, branch, or focus area. The <code>default</code> track always exists.</p>
+  <pre><code>{`engrams active-context get [--name <TRACK>]
+engrams active-context update --name <TRACK> --content '<JSON>'
+engrams active-context update --name <TRACK> --patch '<JSON>'
+engrams active-context list`}</code></pre>
 
   <h3>5. <code>history</code></h3>
-  <p>View historical revisions of context documents.</p>
-  <pre><code>{`engrams history <product-context|active-context> [--version <N>] [--limit <LIMIT>]`}</code></pre>
+  <p>View historical revisions of context documents. For <code>active-context</code>, scope to a track with <code>--name</code> or list version counts across every track with <code>--all</code>.</p>
+  <pre><code>{`engrams history <product-context|active-context> [--version <N>] [--limit <LIMIT>] [--name <TRACK>] [--all]`}</code></pre>
 
   <h3>6. <code>decision</code></h3>
-  <p>Log, list, search, update, delete, or consolidate architectural decisions (ADRs). To prevent knowledge duplication, <code>decision log</code> checks for similar existing decisions by default. If near-matches are found, it outputs them and skips insertion unless <code>--force</code> is passed.</p>
-  <pre><code>{`# Log a new decision (fails if similar summary exists)
+  <p>Log, list, search, update, delete, or consolidate architectural decisions (ADRs). <code>decision log</code> checks for similar existing decisions by default and skips insertion on near-matches unless <code>--force</code> is passed. Status is validated against a closed vocabulary — <code>active</code>, <code>superseded</code>, <code>rejected</code>, <code>revisited</code>; <code>--force</code> bypasses validation on updates, and <code>decision supersede</code> automatically flips the retired decision to <code>superseded</code>.</p>
+  <pre><code>{`# Log a new decision (fails if a similar summary exists)
 engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql"
 
-# Log a new decision unconditionally
+# Log with an explicit initial status (default: active)
+engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql" --status active
+
+# Log a new decision unconditionally (also bypasses the similarity check)
 engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql" --force
 
 # List decisions
@@ -62,8 +66,8 @@ engrams decision search "Postgres" [--limit 10] [--snippets]
 # Retrieve a decision by ID
 engrams decision get <ID>
 
-# Update a decision
-engrams decision update <ID> [--summary "New summary"] [--rationale "New rationale"] [--details "details"] [--tags "new,tags"]
+# Update a decision (status must be active, superseded, rejected, or revisited; --force bypasses)
+engrams decision update <ID> [--status "superseded"] [--summary "New summary"] [--rationale "New rationale"] [--details "details"] [--tags "new,tags"] [--force]
 
 # Delete a decision
 engrams decision delete <ID>
@@ -71,14 +75,13 @@ engrams decision delete <ID>
 # Consolidate two decisions (merges fields, repoints links, and deletes source)
 engrams decision consolidate <SOURCE_ID> <INTO_ID>
 
-# Supersede a decision with another
-# Supersede a decision with another
+# Supersede a decision with another (auto-sets the retired decision's status to 'superseded')
 engrams decision supersede <ID> --by <REPLACEMENT_ID>`}</code></pre>
 
   <h3>7. <code>progress</code></h3>
-  <p>Log and track tasks and subtasks. Use <code>--check-similar</code> to prevent logging duplicate entries for the same status and description.</p>
-  <pre><code>{`# Log progress
-engrams progress log --status "InProgress" --description "Database schema setup" [--parent-id <ID>] [--check-similar]
+  <p>Log and track tasks and subtasks. Status is validated against a closed vocabulary — <code>Todo</code>, <code>InProgress</code>, <code>InReview</code>, <code>Blocked</code>, <code>Done</code>, <code>Dropped</code>; <code>--force</code> bypasses validation. Use <code>--check-similar</code> to prevent logging duplicate entries for the same status and description.</p>
+  <pre><code>{`# Log progress (status must be in the closed vocabulary)
+engrams progress log --status "InProgress" --description "Database schema setup" [--parent-id <ID>] [--check-similar] [--force]
 
 # List progress
 engrams progress list [--status "Done"] [--parent-id <ID>] [--limit 20]
@@ -86,8 +89,8 @@ engrams progress list [--status "Done"] [--parent-id <ID>] [--limit 20]
 # Retrieve a task by ID
 engrams progress get <ID>
 
-# Update a task
-engrams progress update <ID> [--status "Done"] [--description "New description"] [--parent-id <ID>]
+# Update a task (--force bypasses status validation)
+engrams progress update <ID> [--status "Done"] [--description "New description"] [--parent-id <ID>] [--force]
 
 # Delete a task
 engrams progress delete <ID>`}</code></pre>
@@ -122,22 +125,54 @@ engrams custom search "localhost" [--category "config"] [--limit 10] [--snippets
 engrams custom delete --category "config" --key "api_host"`}</code></pre>
 
   <h3>10. <code>link</code></h3>
-  <p>Create and list relationships (edges) in the workspace knowledge graph.</p>
-  <pre><code>{`# Link two entities
+  <p>Create and list relationships (edges) in the workspace knowledge graph. Canonical relationships (e.g. <code>supersedes</code>, <code>depends_on</code>, <code>refines</code>, <code>conflicts_with</code>, <code>implemented_in</code>) are validated against their declared domain/range and algebraic rules; <code>link add</code> rejects violations unless <code>--force</code> is passed. See the <a href="/docs/features/knowledge-graph">Knowledge Graph</a> page for the full relationship vocabulary.</p>
+  <pre><code>{`# Link two entities (canonical rels are validated; --force overrides violations)
 engrams link add \\
-  --source-type system-pattern --source-id 1 \
+  --source-type system_pattern --source-id 1 \
   --target-type decision --target-id 7 \
   --rel implements \\
-  --description "Verify JWT middleware implements decision 7"
+  --description "Verify JWT middleware implements decision 7" [--force]
 
 # List links
-engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-type system-pattern]`}</code></pre>
+engrams link list --item-type decision --item-id 7 [--rel implements] [--linked-type system_pattern]`}</code></pre>
 
-  <h3>11. <code>activity</code></h3>
+  <h3>11. <code>graph</code></h3>
+  <p>Compute and query the derived knowledge + code graph. Files are nodes; edges are derived automatically from file anchors, co-anchored/tag-overlapping entities, and git co-change history. Declared inverse relationships (e.g. <code>superseded_by</code>, <code>depended_on_by</code>) are materialized on rebuild.</p>
+  <pre><code>{`# Recompute all derived edges (run after structural changes or migrations)
+engrams graph rebuild
+
+# Incrementally ingest git co-change edges (resumes from the last commit seen)
+engrams graph ingest
+
+# Node/edge counts, density, connected components, orphans, degree stats
+engrams graph stats
+
+# PageRank centrality ranking of nodes
+engrams graph central
+
+# List connected components as clusters
+engrams graph clusters
+
+# Nodes with degree <= 1
+engrams graph orphans
+
+# Shortest path between two nodes (type:id)
+engrams graph path --from decision:7 --to system_pattern:2
+
+# Nodes within N hops of a node (type:id)
+engrams graph neighbors --node decision:7 --depth 2
+
+# Transitive closure over a canonical transitive relation
+# ('what transitively breaks if I revisit X?')
+# rel: supersedes | depends_on | part_of | refines
+engrams graph chain --node decision:7 --rel depends_on
+engrams graph chain --item-type decision --item-id 7 --rel supersedes`}</code></pre>
+
+  <h3>12. <code>activity</code></h3>
   <p>Get a summary digest of all modifications across the database.</p>
   <pre><code>{`engrams activity [--hours <N>] [--limit-per-type <LIMIT>]`}</code></pre>
 
-  <h3>12. <code>report</code></h3>
+  <h3>13. <code>report</code></h3>
   <p>Generate a structured project knowledge report of active context, progress, decisions, patterns, and links. Output is always JSON. Can be filtered by a specific topic. Or, open a browser-based HTML dashboard using the <code>open</code> subcommand.</p>
   <pre><code>{`# Generate full report in JSON format
 engrams report
@@ -151,7 +186,7 @@ engrams report open
 # Generate the dashboard HTML file at a custom path without opening a browser
 engrams report open --no-browser --out /path/to/report.html`}</code></pre>
 
-  <h3>13. <code>batch</code></h3>
+  <h3>14. <code>batch</code></h3>
   <p>Perform bulk operations in a single atomic transaction.</p>
   <pre><code>{`# From JSON string
 engrams batch --type decision --items '[{"summary": "A"}, {"summary": "B"}]'
@@ -159,15 +194,15 @@ engrams batch --type decision --items '[{"summary": "A"}, {"summary": "B"}]'
 # From stdin
 cat items.json | engrams batch --type custom_data --items -`}</code></pre>
 
-  <h3>14. <code>export</code></h3>
+  <h3>15. <code>export</code></h3>
   <p>Dump the SQLite tables to Markdown files for Git versioning.</p>
   <pre><code>{`engrams export [--path <DIR>]`}</code></pre>
 
-  <h3>15. <code>import</code></h3>
+  <h3>16. <code>import</code></h3>
   <p>Import/update the database using exported Markdown files.</p>
   <pre><code>{`engrams import [--path <DIR>]`}</code></pre>
 
-  <h3>16. <code>pr</code></h3>
+  <h3>17. <code>pr</code></h3>
   <p>Manage PR URLs and numbers associated with decisions and patterns. Supports automatic host mapping for PR numbers if a git repository is configured.</p>
   <pre><code>{`# Attach PR URLs/numbers
 engrams pr add --type decision --id <ID> --pr <PR_NUMBER_OR_URL>
@@ -178,7 +213,7 @@ engrams pr list --type decision --id <ID>
 # Remove a PR URL from an item
 engrams pr remove --type decision --id <ID> --url <PR_URL>`}</code></pre>
 
-  <h3>17. <code>anchor</code></h3>
+  <h3>18. <code>anchor</code></h3>
   <p>Manage file path anchors for decisions and patterns.</p>
   <pre><code>{`# Add file anchors
 engrams anchor add --type decision --id <ID> --path <FILE_PATH>
@@ -189,7 +224,7 @@ engrams anchor list --type decision --id <ID>
 # Remove an anchor
 engrams anchor remove --type decision --id <ID> --path <FILE_PATH>`}</code></pre>
 
-  <h3>18. <code>relevant</code></h3>
+  <h3>19. <code>relevant</code></h3>
   <p>Find decisions and patterns relevant to specified paths or staged git files.</p>
   <pre><code>{`# Query relevant items by path
 engrams relevant <PATH>
@@ -197,20 +232,20 @@ engrams relevant <PATH>
 # Query relevant items using staged files
 engrams relevant --staged [--all]`}</code></pre>
 
-  <h3>19. <code>prime</code></h3>
-  <p>Generate a briefing optimized for token budget. Progressively drops less critical sections to fit inside the budget.</p>
+  <h3>20. <code>prime</code></h3>
+  <p>Generate a briefing optimized for token budget. Lists every active-context track and expands the one matching your current scope, includes a compact graph summary (the first section dropped under a budget), and demotes superseded decisions into a compact annotated section. Progressively drops less critical sections to fit inside the budget.</p>
   <pre><code>{`# Generate briefing
 engrams prime [--budget <TOKENS>]`}</code></pre>
 
-  <h3>20. <code>doctor</code></h3>
-  <p>Perform database audits for orphaned links, missing file anchors, and drift detection.</p>
+  <h3>21. <code>doctor</code></h3>
+  <p>Run database health audits: missing file anchors, dangling links, stale-decision drift detection, unlinked decisions, orphan graph nodes, graph-rebuild recommendations, cycles in canonical transitive relations (<code>supersedes</code>/<code>depends_on</code>/<code>part_of</code>/<code>refines</code>), and non-canonical relationship vocabulary linting.</p>
   <pre><code>{`engrams doctor`}</code></pre>
 
-  <h3>21. <code>query</code></h3>
+  <h3>22. <code>query</code></h3>
   <p>Unified query search across decisions, patterns, and custom data, with FTS5 highlighting.</p>
   <pre><code>{`engrams query <QUERY> [--types decision,pattern,custom] [--tags <TAGS>] [--since <TIMESTAMP>] [--limit <LIMIT>] [--all]`}</code></pre>
 
-  <h3>22. <code>instructions</code></h3>
+  <h3>23. <code>instructions</code></h3>
   <p>Print agent onboarding instructions in raw markdown.</p>
   <pre><code>{`engrams instructions`}</code></pre>
   <h2>Automatic Update Checks</h2>

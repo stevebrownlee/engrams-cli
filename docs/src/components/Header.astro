@@ -13,16 +13,6 @@ const navItems = [
       <span class="logo-text">Engrams</span>
     </a>
 
-    <!-- Search placeholder -->
-    <div class="search-box" role="search" aria-label="Search docs">
-      <svg class="search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.75"/>
-        <path d="M14 14l3.5 3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-      </svg>
-      <span class="search-placeholder">Search docs…</span>
-      <kbd>⌘K</kbd>
-    </div>
-
     <!-- Nav -->
     <nav class="header-nav" aria-label="Main navigation">
       {navItems.map(item => (
@@ -103,24 +93,6 @@ const navItems = [
   }
   .logo:hover .logo-text { color: var(--color-link); }
 
-  /* Search */
-  .search-box {
-    flex: 1;
-    max-width: 360px;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    background: var(--color-bg-code);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: .4rem .75rem;
-    cursor: pointer;
-    transition: border-color .15s, box-shadow .15s;
-    margin-left: 1rem;
-  }
-  .search-box:hover { border-color: var(--maya-blue); box-shadow: 0 0 0 3px rgba(86,203,249,.12); }
-  .search-icon { width: 15px; height: 15px; color: var(--color-text-light); flex-shrink: 0; }
-  .search-placeholder { font-size: .875rem; color: var(--color-text-light); flex: 1; }
   kbd {
     font-family: var(--font-mono);
     font-size: .7rem;
@@ -188,7 +160,6 @@ const navItems = [
   }
 
   @media (max-width: 768px) {
-    .search-box { display: none; }
     .header-nav { display: none; }
     .mobile-menu-btn { display: flex; }
   }

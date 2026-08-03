@@ -42,16 +42,33 @@ AI:  Found relevant decisions:
       </tr>
       <tr>
         <td><strong>Active Context</strong></td>
-        <td>Current focus, open questions, recent changes, next steps</td>
+        <td>Current focus, open questions, recent changes, next steps — one named track per workstream</td>
         <td>Every session</td>
       </tr>
     </tbody>
   </table>
 
+  <h2>Named Workstream Tracks</h2>
+  <p>
+    As of v0.8.0, active context is no longer a single document. You can maintain multiple named tracks — one per workstream, branch, or focus area — so parallel efforts no longer overwrite each other's context. The existing singleton migrates transparently into a <code>default</code> track on <code>engrams migrate</code>.
+  </p>
+  <pre><code>{`# Read a specific track (defaults to 'default')
+engrams active-context get --name auth
+
+# Replace or patch a specific track
+engrams active-context update --name auth --content '<JSON>'
+engrams active-context update --name auth --patch '<JSON>'
+
+# List every track
+engrams active-context list`}</code></pre>
+  <p>
+    <code>engrams prime</code> lists every track with a one-line focus and expands the one matching your current scope, so each session picks up the right focus automatically.
+  </p>
+
   <h2>CLI Commands Reference</h2>
   <ul>
     <li><code>engrams product-context get</code> / <code>update</code> — Manage high-level project goals and tech stack.</li>
-    <li><code>engrams active-context get</code> / <code>update</code> — Track current sprint focus and session goals.</li>
+    <li><code>engrams active-context get</code> / <code>update</code> / <code>list</code> — Track current sprint focus and session goals. Maintain separate named tracks per workstream with <code>--name &lt;TRACK&gt;</code>; the <code>default</code> track always exists.</li>
     <li><code>engrams decision log</code> / <code>search</code> / <code>list</code> / <code>get</code> / <code>delete</code> / <code>consolidate</code> — Record and find architectural decisions (ADRs). Checks for similar decisions by default; merges duplicates via <code>consolidate</code>.</li>
     <li><code>engrams progress log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Log tasks and track hierarchical subtasks. Supports <code>--check-similar</code> to prevent duplicates.</li>
     <li><code>engrams pattern log</code> / <code>list</code> / <code>get</code> / <code>delete</code> — Standardize and retrieve codebase patterns and design conventions.</li>

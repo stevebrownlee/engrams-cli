@@ -17,6 +17,9 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   --target-type decision --target-id 7 \
   --rel implements \
   --description "JWT token verification middleware"</code></pre>
+  <p>
+    Canonical relationships (see the ontology below) are validated against shared algebraic rules. Pass <code>--force</code> to record an intentional override when a link violates one.
+  </p>
 
   <h2>Supported Entity Types</h2>
   <p>
@@ -31,23 +34,27 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <p>
     Additionally, you can link decisions and patterns to external **Pull Request (PR)** URLs. The interactive HTML dashboard renders PR links as distinct visual nodes (under the relationship type <code>implemented_in</code>), allowing you to trace design decisions directly back to the pull request discussion thread.
   </p>
-  <h2>Recommended Relationship Types</h2>
+  <h2>Relationship Ontology</h2>
   <p>
-    While the database allows any relationship string, the following standard values are recommended for best agent alignment:
+    v0.8.0 introduces a canonical relationship vocabulary with shared semantics. Each canonical relationship declares a direction, transitivity, an inverse (auto-materialized on <code>graph rebuild</code>), and disjointness rules. Asserting a canonical relationship validates it against these rules and rejects violations — a <code>supersedes</code> link across mismatched entity types, or a <code>depends_on</code> sitting alongside a <code>conflicts_with</code> on the same pair — unless you pass <code>--force</code>. Free-form relationship names still pass through untouched and are surfaced by <code>engrams doctor</code>.
   </p>
   <table>
-    <thead><tr><th>Relationship type</th><th>Meaning</th></tr></thead>
+    <thead><tr><th>Relationship</th><th>Direction</th><th>Transitive</th><th>Inverse</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td><code>implements</code></td><td>A pattern or task implements a decision</td></tr>
-      <tr><td><code>tracks</code></td><td>A task progress entry tracks a decision</td></tr>
-      <tr><td><code>blocks</code></td><td>One progress entry blocks another</td></tr>
-      <tr><td><code>depends_on</code></td><td>General dependency relationship</td></tr>
-      <tr><td><code>supersedes</code></td><td>A new decision replaces/deprecates an older decision</td></tr>
-      <tr><td><code>resolves</code></td><td>A task progress entry completes a decision requirement</td></tr>
-      <tr><td><code>clarifies</code></td><td>Custom data clarifies a decision or pattern</td></tr>
-      <tr><td><code>related_to</code></td><td>General association</td></tr>
+      <tr><td><code>relates_to</code></td><td>Symmetric</td><td>—</td><td>—</td><td>General association; any entity types</td></tr>
+      <tr><td><code>depends_on</code></td><td>Directed</td><td>Yes</td><td><code>depended_on_by</code></td><td>Disjoint with <code>conflicts_with</code></td></tr>
+      <tr><td><code>part_of</code></td><td>Directed</td><td>Yes</td><td><code>contains</code></td><td>Containment hierarchy</td></tr>
+      <tr><td><code>implements</code></td><td>Directed</td><td>—</td><td><code>implemented_by</code></td><td>A pattern or task realizes a decision</td></tr>
+      <tr><td><code>refines</code></td><td>Directed</td><td>Yes</td><td><code>refined_by</code></td><td>Same-type only; disjoint with <code>supersedes</code></td></tr>
+      <tr><td><code>supersedes</code></td><td>Directed</td><td>Yes</td><td><code>superseded_by</code></td><td>Replaces an older decision; one successor allowed</td></tr>
+      <tr><td><code>conflicts_with</code></td><td>Symmetric</td><td>—</td><td>—</td><td>Same-type only; disjoint with <code>depends_on</code></td></tr>
+      <tr><td><code>anchored_to</code></td><td>Directed</td><td>—</td><td><code>anchors</code></td><td>Links an entity to a file node</td></tr>
+      <tr><td><code>implemented_in</code></td><td>Directed</td><td>—</td><td>—</td><td>Links to a PR or commit node</td></tr>
     </tbody>
   </table>
+  <p>
+    The <code>co_changes</code> relationship is derived automatically from git history (via <code>graph ingest</code>) rather than asserted by hand.
+  </p>
 
   <h2>Listing and Querying Links</h2>
   <p>
@@ -59,6 +66,19 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   </p>
   <pre><code># Find all patterns that implement decision 7
 engrams link list --item-type decision --item-id 7 --rel implements --linked-type system_pattern</code></pre>
+
+  <h2>Transitive Traversal &amp; Inverse Edges</h2>
+  <p>
+    Because <code>depends_on</code>, <code>supersedes</code>, <code>part_of</code>, and <code>refines</code> are transitive, engrams can walk their closures to answer reachability questions — for example, "what transitively breaks if I revisit this decision?". Use <code>graph chain</code> from any node:
+  </p>
+  <pre><code># Everything that transitively depends on decision 7
+engrams graph chain --item-type decision --item-id 7 --rel depends_on
+
+# Full supersession chain starting at decision 3
+engrams graph chain --node decision:3 --rel supersedes</code></pre>
+  <p>
+    Inverse relationships (<code>superseded_by</code>, <code>depended_on_by</code>, <code>contains</code>, <code>implemented_by</code>, <code>refined_by</code>, <code>anchors</code>) are materialized automatically by <code>graph rebuild</code>, so consumers never need to know which direction a link was originally asserted in. <code>engrams doctor</code> warns if any transitive relation forms a cycle.
+  </p>
 
   <h2>Practical Benefit</h2>
   <p>

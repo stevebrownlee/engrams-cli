@@ -5,7 +5,7 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 <DocsLayout title="Database Audits (Doctor)" description="Keep your knowledge base healthy with automated audits and drift detection.">
   <h1>Database Auditing (Doctor)</h1>
   <p class="lead">
-    Keep your engrams database healthy and up-to-date. The <code>doctor</code> command automatically scans your knowledge base for broken links, missing files, stale decisions, and unlinked context.
+    Keep your engrams database healthy and up-to-date. The <code>doctor</code> command automatically scans your knowledge base for broken links, missing files, stale decisions, unlinked context, plus graph topology and vocabulary-health advisories.
   </p>
 
   <h2>Running the Doctor</h2>
@@ -16,7 +16,7 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 
   <h2>Audit Checks Performed</h2>
   <p>
-    The doctor performs four key checks on your engrams database:
+    The doctor performs these audits on your engrams database:
   </p>
 
   <h3>1. Missing File Anchors</h3>
@@ -37,6 +37,29 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <h3>4. Unlinked Decisions</h3>
   <p>
     Identifies active decisions that have a <code>commit_sha</code> associated with them but do not have a Pull Request (PR) link attached. This ensures all decisions made in the codebase are properly traced to their implementation PR.
+  </p>
+
+  <h3>5. Orphan Nodes</h3>
+  <p>
+    Surfaces knowledge-graph nodes with degree ≤ 1 — entities that are isolated or only weakly connected. These are candidates for either linking to related work or pruning if no longer relevant (capped at the top 50).
+  </p>
+
+  <h3>6. Graph Rebuild Recommendation</h3>
+  <p>
+    Tracks the timestamp of the last <code>graph rebuild</code> against the most recent write across decisions, patterns, and progress. If the graph is stale relative to your data, it recommends a rebuild so derived edges stay current.
+  </p>
+
+  <h3>7. Transitive-Relation Cycles</h3>
+  <p>
+    Walks the canonical transitive relations (<code>supersedes</code>, <code>depends_on</code>, <code>part_of</code>, <code>refines</code>) and flags any cycle, such as a decision that transitively supersedes itself. Cycles break reachability queries and should be resolved by breaking the loop.
+  </p>
+
+  <h3>8. Non-Canonical Relationship Vocabulary</h3>
+  <p>
+    Tallies every relationship name in use. Canonical names are summarized under <code>canonical_counts</code>; any free-form (non-canonical) name is listed under <code>non_canonical</code> with a usage count so you can review whether it should be normalized or left as an intentional custom label.
+  </p>
+  <p>
+    Checks 5–8 are <strong>advisories</strong>: they surface graph and vocabulary health but do not change the <code>ok</code> flag, which reflects only the four core checks above.
   </p>
 
   <h2>Example Output</h2>
@@ -74,6 +97,13 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
       "summary": "Switch to rustls for TLS connection"
     }
   ],
+  "orphan_nodes": [],
+  "graph_rebuild_recommended": false,
+  "cycles": [],
+  "rel_vocabulary": {
+    "canonical_counts": {},
+    "non_canonical": []
+  },
   "git": "ok",
   "ok": false
 }`}</code></pre>

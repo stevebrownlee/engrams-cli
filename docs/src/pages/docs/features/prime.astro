@@ -28,9 +28,10 @@ engrams prime --budget 1000</code></pre>
     When you pass the optional <code>--budget</code> parameter, Engrams estimates the token count of the output payload (calculated as JSON string length divided by 4). If the estimated size exceeds your budget, it automatically discards less critical context sections to fit the boundary in the following order:
   </p>
   <ol>
-    <li><strong>Progress logs</strong>: Discarded first (newest to oldest).</li>
+    <li><strong>Graph summary</strong>: Dropped first — derived analytics, cheap to recompute.</li>
+    <li><strong>Progress logs</strong>: Discarded next (newest to oldest).</li>
     <li><strong>System patterns</strong>: Discarded next.</li>
-    <li><strong>Decisions</strong>: Discarded after patterns.</li>
+    <li><strong>Decisions</strong>: Discarded after patterns (superseded ones first).</li>
     <li><strong>Product Context</strong>: Set to <code>null</code> as a last resort.</li>
   </ol>
   <p>
@@ -43,10 +44,11 @@ engrams prime --budget 1000</code></pre>
   </p>
   <ul>
     <li><strong>Product Context</strong>: High-level overview, target audience, and architecture.</li>
-    <li><strong>Active Context</strong>: Current session focus, open questions, and next steps.</li>
-    <li><strong>Decisions</strong>: Up to 10 active architectural decisions with their associated file anchors and pull request links.</li>
+    <li><strong>Active Context</strong>: Every active-context track (name plus one-line focus) with the scope-matching track fully expanded — never dropped under a budget.</li>
+    <li><strong>Decisions</strong>: Up to 10 active architectural decisions with anchors and PR links. Decisions reachable via a <code>supersedes</code> chain are demoted and annotated with <code>superseded_by</code> rather than hidden.</li>
     <li><strong>Patterns</strong>: Up to 10 codebase patterns/conventions with their associated anchors and pull requests.</li>
     <li><strong>Progress</strong>: Up to 10 latest progress entries.</li>
+    <li><strong>Graph</strong>: A compact node/edge summary; the first section dropped under a budget.</li>
   </ul>
 
   <h2>Example Output</h2>
@@ -56,8 +58,17 @@ engrams prime --budget 1000</code></pre>
     "timestamp": "2026-07-12T12:00:00Z"
   },
   "active_context": {
-    "content": "Focusing on documentation and developer setup.",
-    "timestamp": "2026-07-12T12:30:00Z"
+    "tracks": [
+      { "name": "default", "focus": "Focusing on documentation and developer setup.", "selected": true },
+      { "name": "auth", "focus": "JWT refresh-token rotation.", "selected": false }
+    ],
+    "selected": "default",
+    "expanded": {
+      "name": "default",
+      "content": "Focusing on documentation and developer setup.",
+      "version": 4,
+      "updated_at": "2026-07-12T12:30:00Z"
+    }
   },
   "decisions": [
     {
@@ -76,10 +87,17 @@ engrams prime --budget 1000</code></pre>
       "anchors": [
         "src/schema.rs"
       ]
+    },
+    {
+      "id": 2,
+      "summary": "Use Redis for caching",
+      "status": "superseded",
+      "superseded_by": 1
     }
   ],
   "patterns": [],
   "progress": [],
+  "graph": { "nodes": 42, "edges": 67 },
   "budget": {
     "limit": 1000,
     "estimated_tokens": 420

@@ -8,6 +8,81 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.8.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Relationship Ontology with Domain/Range Constraints:</strong> Canonical relationship types (<code>supersedes</code>, <code>depends_on</code>, <code>refines</code>, <code>conflicts_with</code>, <code>implemented_in</code>, <code>anchored_to</code>, …) now declare algebraic properties: allowed source/target item types (domain/range), same-type requirements, functional constraints, and disjointness rules. <code>link add</code> validates every canonical relationship against its spec and rejects violations by default; pass <code>--force</code> to record an intentional override. Free-form relationship names still pass through untouched.
+      </li>
+      <li>
+        <strong>Controlled Status Vocabularies:</strong> Decision and progress statuses are validated at write time against closed sets. Decisions: <code>active</code>, <code>superseded</code>, <code>rejected</code>, <code>revisited</code>. Progress: <code>Todo</code>, <code>InProgress</code>, <code>InReview</code>, <code>Blocked</code>, <code>Done</code>, <code>Dropped</code>. <code>--force</code> escapes the check on any write, and <code>decision supersede</code> now auto-flips the retired decision's status to <code>superseded</code>.
+      </li>
+      <li>
+        <strong>Named Workstream Contexts (Schema v4):</strong> Active context is no longer a single document. Maintain multiple named tracks — one per workstream, branch, or focus area — with the new <code>active-context get</code> / <code>update</code> / <code>list</code> subcommands and a <code>--name</code> flag. The existing singleton migrates transparently to the <code>default</code> track, and <code>prime</code> lists every track while expanding the one matching your current scope.
+      </li>
+      <li>
+        <strong>Transitive Graph Traversal:</strong> The new <code>graph chain</code> command walks transitive closures over <code>supersedes</code>, <code>depends_on</code>, <code>part_of</code>, and <code>refines</code> — answering "what transitively breaks if I revisit this decision?". <code>prime</code> demotes superseded decisions into a compact annotated section (visible, never hidden), and <code>doctor</code> warns on cycles in any transitive relation.
+      </li>
+      <li>
+        <strong>Materialized Inverse Edges:</strong> <code>graph rebuild</code> now materializes declared inverse relationships (e.g. <code>superseded_by</code>, <code>depended_on_by</code>) as derived edges, so consumers never need to know which direction a link was originally asserted in.
+      </li>
+      <li>
+        <strong>Smarter Doctor:</strong> New audits surface orphan graph nodes and stale-graph rebuild recommendations, detect cycles in canonical transitive relations (<code>supersedes</code>/<code>depends_on</code>/<code>part_of</code>/<code>refines</code>), and lint non-canonical relationship vocabulary (frequency counts for review).
+      </li>
+      <li>
+        <strong>Interoperable Exports:</strong> Exported markdown now carries YAML frontmatter with structured metadata fields (including schema.org <code>actionStatus</code> for progress entries), making engrams output directly parseable by Astro, static-site generators, and agent tooling alongside the existing JSON content blocks.
+      </li>
+      <li>
+        <strong>Release Hardening:</strong> A type-safe <code>Direction</code> enum replaces stringly-typed link direction (JSON output unchanged), error context is now evaluated lazily via <code>with_context</code> closures, and <code>prime --budget</code> token estimation serializes each section once without an intermediate Value round-trip.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Relationships Without Meaning:</strong> v0.7.0 added a real topology, but relationships were still free-form strings with no shared semantics — agents couldn't trust that <code>supersedes</code> meant the same thing across projects, and nothing prevented contradictory links (a decision both <code>depends_on</code> and <code>conflicts_with</code> the same target).
+      </li>
+      <li>
+        <strong>Status Free-For-All:</strong> Any string was accepted as a status, so <code>done</code>, <code>Done</code>, and <code>d</code> could all coexist, fragmenting progress tracking and breaking filters.
+      </li>
+      <li>
+        <strong>One Document, Many Workstreams:</strong> A single active-context document forced teams working on parallel workstreams to overwrite each other's focus. Named tracks give each workstream its own context without clobbering.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Trustworthy Relationships:</strong> Validation catches contradictory and ill-typed links at write time instead of letting them surface as silent graph corruption later. Every override is explicit.
+      </li>
+      <li>
+        <strong>Consistent Status:</strong> A shared, closed vocabulary means progress and decision status reads the same way for agents, humans, and dashboards.
+      </li>
+      <li>
+        <strong>Multi-Workstream Context:</strong> Carry separate active-context tracks per branch or focus area; <code>prime</code> auto-selects the relevant one from your working scope.
+      </li>
+      <li>
+        <strong>Reachability &amp; Health:</strong> <code>graph chain</code> answers transitive impact questions, while cycle detection and vocabulary linting keep the graph coherent as it grows.
+      </li>
+      <li>
+        <strong>Ecosystem-Ready Exports:</strong> Structured frontmatter lets you feed engrams knowledge into docs sites and agent pipelines without custom parsers.
+      </li>
+    </ul>
+
+    <h3>Upgrading</h3>
+    <p>
+      Existing databases migrate to schema v4 and rebuild derived edges in two steps:
+    </p>
+    <pre><code>engrams migrate
+engrams graph rebuild</code></pre>
+    <p>
+      The migration copies the current active-context singleton into a new <code>default</code> track (the old table is dropped), and normalizes legacy status values to the canonical vocabulary via a case-insensitive match. Any status that doesn't match a known value is preserved as-is and flagged by <code>engrams doctor</code> for review.
+    </p>
+  </div>
+
+  <hr />
+
   <h2>v0.7.0</h2>
   <div class="release-block">
     <h3>What was done</h3>

@@ -64,11 +64,11 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     Any AI agent or tool with the ability to run shell commands in the workspace can use Engrams. You don't need editor-specific MCP client integrations. It works seamlessly in:
   </p>
   <ul>
-    <li><strong>Zoo Code</strong> (via execution tools)</li>
-    <li><strong>Claude Code</strong> (running in the terminal)</li>
-    <li><strong>Cursor / Antigravity</strong> (via terminal commands)</li>
-    <li><strong>Zed</strong> (via terminal tasks)</li>
-    <li>Custom bash/python scripts</li>
+    <li><strong>Codex</strong></li>
+    <li><strong>Cursor</strong></li>
+    <li><strong>omp</strong></li>
+    <li><strong>Claude Code</strong></li>
+    <li><strong>Hermes</strong></li>
   </ul>
 
   <h4>3. Blazing Fast FTS5 Search</h4>
@@ -148,7 +148,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   <h3>Architecture Overview</h3>
   <p>
     Engrams runs as a standalone CLI tool in your project workspace. It integrates with any AI coding tool
-    supporting shell commands (like Zoo Code, Cursor, Antigravity, Zed, or Claude Code). The CLI maintains a local
+    supporting shell commands (like Codex, Claude Code, omp, Hermes, or Cursor). The CLI maintains a local
     SQLite database at <code>engrams/context.db</code> for high-performance FTS5 queries and updates. To share context
     with your team, developers export database state to version-controlled Markdown files in the workspace.
   </p>
