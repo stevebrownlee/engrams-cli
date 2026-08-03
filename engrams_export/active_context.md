@@ -3,10 +3,10 @@
 ```json
 {
   "content": {
-    "focus": "Knowledge graph → codebase topology shipped: schema v3 (code_nodes, graph_meta, context_links origin/weight), canonical rel algebra, derived edges (anchor/co-anchor/git co-change), in-memory PageRank analytics, graph CLI family (rebuild/ingest/stats/central/clusters/orphans/path/neighbors), prime/doctor graph surfacing, export preserves manual-only links. 34/34 tests pass.",
-    "status": "Complete"
+    "focus": "Ontology design series approved and logged (decisions #21-28): transitive closure w/ prime demotion + doctor cycle warnings; RelSpec domain/range reject+--force; supersedes functional to-side + named workstream contexts (schema v4); disjoint rel pairs; closed status vocabularies + supersede auto-flip; inference as derived edges (InverseEdgeSource first); export YAML frontmatter w/ Dublin Core + schema.org; doctor lint for non-canonical rel frequency. Next: implement in priority order — rec 1 (transitive/prime demotion), then rec 2 (domain/range).",
+    "status": "DesignComplete"
   },
-  "updated_at": "2026-07-17T03:30:32Z",
-  "version": 11
+  "updated_at": "2026-08-03T00:21:34Z",
+  "version": 13
 }
 ```
