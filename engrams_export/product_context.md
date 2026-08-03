@@ -1,3 +1,8 @@
+---
+identifier: product_context
+title: Product Context
+created: 2026-07-10T12:35:13Z
+---
 # Product Context
 
 ```json

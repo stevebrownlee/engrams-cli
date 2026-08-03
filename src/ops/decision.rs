@@ -16,6 +16,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
     match cmd {
         DecisionCmd::Log {
             summary,
+            status,
             rationale,
             details,
             tags,
@@ -23,6 +24,14 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             prs,
             anchors,
         } => {
+            let status = status.unwrap_or_else(|| "active".to_string());
+            let status_overridden = crate::ops::status::check(
+                &status,
+                crate::ops::status::DECISION_STATUSES,
+                force,
+                "decision",
+            )?;
+
             let mut resolved_prs = Vec::new();
             for pr in prs {
                 resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr)?);
@@ -49,8 +58,8 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             let commit_sha = crate::ops::git::head_sha();
 
             conn.execute(
-                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![uuid, timestamp, summary, rationale, details, tags_json, commit_sha],
+                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha],
             )?;
 
             let id = conn.last_insert_rowid();
@@ -66,6 +75,9 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             let mut decision = get_decision(conn, id)?;
             if let Value::Object(map) = &mut decision {
                 map.insert("inserted".into(), Value::Bool(true));
+                if status_overridden {
+                    map.insert("overrides".into(), serde_json::json!(["status_vocabulary"]));
+                }
             }
             Ok(decision)
         }
@@ -193,7 +205,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 Ok(serde_json::to_value(results)?)
             }
         }
-        DecisionCmd::Update(DecisionUpdateArgs { id, fields }) => {
+        DecisionCmd::Update(DecisionUpdateArgs { id, force, fields }) => {
             // First check if exists
             let _: i64 = conn
                 .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
@@ -227,9 +239,16 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 p.push(Box::new(tags_json));
             }
 
+            let mut status_overridden = false;
             if let Some(status) = fields.status {
+                status_overridden = crate::ops::status::check(
+                    &status,
+                    crate::ops::status::DECISION_STATUSES,
+                    force,
+                    "decision",
+                )?;
                 sets.push("status = ?");
-                p.push(Box::new(status.as_str().to_string()));
+                p.push(Box::new(status));
             }
 
             if sets.is_empty() {
@@ -241,7 +260,13 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             p_refs.push(&id);
 
             conn.execute(&query, rusqlite::params_from_iter(p_refs))?;
-            get_decision(conn, id)
+            let mut result = get_decision(conn, id)?;
+            if status_overridden {
+                if let Value::Object(map) = &mut result {
+                    map.insert("overrides".into(), serde_json::json!(["status_vocabulary"]));
+                }
+            }
+            Ok(result)
         }
         DecisionCmd::Supersede { id, by } => {
             let _: i64 = conn
@@ -294,8 +319,9 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             tx.commit()?;
 
             let mut result = get_decision(conn, id)?;
-            if let Some(by_id) = by {
-                if let Value::Object(map) = &mut result {
+            if let Value::Object(map) = &mut result {
+                map.insert("superseded_status".into(), serde_json::json!("superseded"));
+                if let Some(by_id) = by {
                     map.insert("superseded_by".into(), serde_json::json!(by_id));
                 }
             }

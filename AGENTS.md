@@ -20,7 +20,6 @@ Use `--compact` on any command to minimize tokens. Run `engrams doctor` periodic
 ### Core Rules for Agent Memory
 - **CLI-First Querying:** ALWAYS use the `engrams` CLI tool (e.g., `engrams decision search`, `engrams pattern list`, etc.) to query project history and context.
 - **DO NOT read or grep exported files:** The files under `engrams_export/` are for human Git-tracking only. Reading/parsing them directly via `read` or `grep` is highly token-inefficient and prone to missing database-only state.
-- **Run local builds:** Prioritize executing the compiled local binary (e.g., `./target/debug/engrams`) to query/write context directly.
 - **Session End Protocol & Git Sync:** Before concluding the session or declaring a task/effort complete, the agent MUST run the full update sequence:
   1. Log all architectural/design decisions made during the session using `engrams decision log`.
   2. Link newly logged decisions or patterns to any relevant existing database items (e.g., specifying if a new decision `extends`, `uses`, or `supersedes` an older one) using `engrams link add`.
@@ -33,7 +32,7 @@ Use `--compact` on any command to minimize tokens. Run `engrams doctor` periodic
   2. Generate a status update summary based on the phrasing:
      - When the human says "Talk to me", generate output that uses simpler, plain language about the query.
      - When the human says "Explain {x} to me" (where {x} is the topic or concept), generate output that is more verbose and technical.
-  3. Use the `tts` tool to synthesize this summary into an audio file (e.g., `status.wav` or `speech.wav`).
+  3. Use the `tts` tool to synthesize this summary into an audio file (e.g., `/tmp/status.wav` or `/tmp/speech.wav`).
   4. Play the audio file back if on a compatible system (e.g., using `afplay` on macOS) and confirm to the user that it has been vocalized.
 ---
 

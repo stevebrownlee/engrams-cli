@@ -5,6 +5,127 @@ use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
+/// One YAML frontmatter field: a scalar or a (possibly empty) list of scalars.
+enum FmValue {
+    Scalar(String),
+    List(Vec<String>),
+}
+
+/// Render a `---` delimited YAML frontmatter block from ordered fields.
+/// Empty lists are omitted entirely.
+fn yaml_frontmatter(fields: &[(&str, FmValue)]) -> String {
+    let mut out = String::from("---\n");
+    for (key, value) in fields {
+        match value {
+            FmValue::Scalar(s) => {
+                out.push_str(key);
+                out.push_str(": ");
+                out.push_str(&yaml_scalar(s));
+                out.push('\n');
+            }
+            FmValue::List(items) => {
+                if items.is_empty() {
+                    continue;
+                }
+                out.push_str(key);
+                out.push_str(":\n");
+                for item in items {
+                    out.push_str("  - ");
+                    out.push_str(&yaml_scalar(item));
+                    out.push('\n');
+                }
+            }
+        }
+    }
+    out.push_str("---\n");
+    out
+}
+
+/// Render a YAML scalar, quoting only when a bare value would be misparsed.
+fn yaml_scalar(s: &str) -> String {
+    if !yaml_needs_quoting(s) {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+fn yaml_needs_quoting(s: &str) -> bool {
+    if s.is_empty() || s != s.trim() {
+        return true;
+    }
+    if s.contains(": ")
+        || s.ends_with(':')
+        || s.contains('#')
+        || s.contains('\n')
+        || s.contains('\r')
+        || s.contains('\t')
+    {
+        return true;
+    }
+    // YAML indicator characters are unsafe in leading position.
+    const SPECIAL_LEADERS: &[char] = &[
+        '-', '?', ':', ',', '[', ']', '{', '}', '&', '*', '!', '|', '>', '\'', '"', '%', '@', '`',
+    ];
+    if SPECIAL_LEADERS.contains(&s.chars().next().unwrap()) {
+        return true;
+    }
+    // Bare words that a YAML parser would read as a non-string scalar.
+    let lower = s.to_ascii_lowercase();
+    if matches!(
+        lower.as_str(),
+        "true" | "false" | "yes" | "no" | "on" | "off" | "null" | "~" | ".nan" | ".inf"
+    ) || s.parse::<f64>().is_ok()
+    {
+        return true;
+    }
+    false
+}
+
+/// Pull the string list out of a JSON item's `tags` field.
+fn tags_list(v: &Value) -> Vec<String> {
+    v.get("tags")
+        .and_then(|t| t.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|t| t.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Non-empty string field from a JSON item, when present.
+fn opt_str(v: &Value, key: &str) -> Option<String> {
+    v.get(key)
+        .and_then(|x| x.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// Map a canonical progress status to its schema.org ActionStatus.
+/// Non-canonical (legacy/unmigrated) statuses export without actionStatus.
+fn action_status(status: &str) -> Option<&'static str> {
+    match status {
+        "Done" => Some("CompletedActionStatus"),
+        "InProgress" | "InReview" => Some("ActiveActionStatus"),
+        "Todo" | "Blocked" => Some("PotentialActionStatus"),
+        "Dropped" => Some("FailedActionStatus"),
+        _ => None,
+    }
+}
+
 pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     fs::create_dir_all(path)?;
     fs::create_dir_all(path.join("decisions"))?;
@@ -24,24 +145,40 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         .unwrap_or(0)
         > 0
     {
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar("product_context".to_string())),
+            ("title", FmValue::Scalar("Product Context".to_string())),
+        ];
+        if let Some(updated) = opt_str(&product_context, "updated_at") {
+            fields.push(("created", FmValue::Scalar(updated)));
+        }
         let content = format!(
-            "# Product Context\n\n```json\n{}\n```\n",
+            "{}# Product Context\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             serde_json::to_string_pretty(&product_context)?
         );
         fs::write(path.join("product_context.md"), content)?;
         counts.insert("product_context".to_string(), serde_json::json!(1));
     }
 
-    // Export Active Context
-    let active_context = crate::ops::context::get(conn, "active_context")?;
+    // Export Active Context (the 'default' track in the multi-track schema)
+    let active_context = crate::ops::context::get_track(conn, "default")?;
     if active_context
         .get("version")
         .and_then(|v| v.as_i64())
         .unwrap_or(0)
         > 0
     {
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar("active_context".to_string())),
+            ("title", FmValue::Scalar("Active Context".to_string())),
+        ];
+        if let Some(updated) = opt_str(&active_context, "updated_at") {
+            fields.push(("created", FmValue::Scalar(updated)));
+        }
         let content = format!(
-            "# Active Context\n\n```json\n{}\n```\n",
+            "{}# Active Context\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             serde_json::to_string_pretty(&active_context)?
         );
         fs::write(path.join("active_context.md"), content)?;
@@ -73,8 +210,24 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let summary = r.get("summary").unwrap().as_str().unwrap();
+        let mut fields = vec![
+            ("'@type'", FmValue::Scalar("CreativeWork".to_string())),
+            ("identifier", FmValue::Scalar(id.to_string())),
+            ("title", FmValue::Scalar(summary.to_string())),
+        ];
+        if let Some(ts) = opt_str(&r, "timestamp") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
+        let tags = tags_list(&r);
+        if !tags.is_empty() {
+            fields.push(("subject", FmValue::List(tags)));
+        }
+        if let Some(rationale) = opt_str(&r, "rationale") {
+            fields.push(("description", FmValue::Scalar(rationale)));
+        }
         let content = format!(
-            "# {}\n\n```json\n{}\n```\n",
+            "{}# {}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             summary,
             serde_json::to_string_pretty(&r)?
         );
@@ -102,8 +255,20 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let description = r.get("description").unwrap().as_str().unwrap();
+        let status = r.get("status").and_then(|s| s.as_str()).unwrap_or("");
+        let mut fields = vec![("'@type'", FmValue::Scalar("Action".to_string()))];
+        if let Some(action_status) = action_status(status) {
+            fields.push(("actionStatus", FmValue::Scalar(action_status.to_string())));
+        }
+        fields.push(("identifier", FmValue::Scalar(id.to_string())));
+        fields.push(("title", FmValue::Scalar(description.to_string())));
+        if let Some(ts) = opt_str(&r, "timestamp") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
+        fields.push(("description", FmValue::Scalar(description.to_string())));
         let content = format!(
-            "# {}\n\n```json\n{}\n```\n",
+            "{}# {}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             description,
             serde_json::to_string_pretty(&r)?
         );
@@ -135,8 +300,23 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let name = r.get("name").unwrap().as_str().unwrap();
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar(id.to_string())),
+            ("title", FmValue::Scalar(name.to_string())),
+        ];
+        if let Some(ts) = opt_str(&r, "timestamp") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
+        let tags = tags_list(&r);
+        if !tags.is_empty() {
+            fields.push(("subject", FmValue::List(tags)));
+        }
+        if let Some(desc) = opt_str(&r, "description") {
+            fields.push(("description", FmValue::Scalar(desc)));
+        }
         let content = format!(
-            "# {}\n\n```json\n{}\n```\n",
+            "{}# {}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             name,
             serde_json::to_string_pretty(&r)?
         );
@@ -164,8 +344,16 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let id = r.get("id").unwrap().as_i64().unwrap();
         let category = r.get("category").unwrap().as_str().unwrap();
         let key = r.get("key").unwrap().as_str().unwrap();
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar(id.to_string())),
+            ("title", FmValue::Scalar(format!("{}:{}", category, key))),
+        ];
+        if let Some(ts) = opt_str(&r, "timestamp") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
         let content = format!(
-            "# {}:{}\n\n```json\n{}\n```\n",
+            "{}# {}:{}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             category,
             key,
             serde_json::to_string_pretty(&r)?
@@ -195,8 +383,19 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let rel = r.get("relationship_type").unwrap().as_str().unwrap();
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar(id.to_string())),
+            ("title", FmValue::Scalar(rel.to_string())),
+        ];
+        if let Some(ts) = opt_str(&r, "timestamp") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
+        if let Some(desc) = opt_str(&r, "description") {
+            fields.push(("description", FmValue::Scalar(desc)));
+        }
         let content = format!(
-            "# {}\n\n```json\n{}\n```\n",
+            "{}# {}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             rel,
             serde_json::to_string_pretty(&r)?
         );
@@ -221,8 +420,16 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let r = r?;
         let id = r.get("id").unwrap().as_i64().unwrap();
         let item_type = r.get("item_type").unwrap().as_str().unwrap();
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar(id.to_string())),
+            ("title", FmValue::Scalar(item_type.to_string())),
+        ];
+        if let Some(ts) = opt_str(&r, "timestamp") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
         let content = format!(
-            "# {}\n\n```json\n{}\n```\n",
+            "{}# {}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
             item_type,
             serde_json::to_string_pretty(&r)?
         );

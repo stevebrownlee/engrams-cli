@@ -55,7 +55,28 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         Ok(())
     };
     import_context("product_context.md", "product_context")?;
-    import_context("active_context.md", "active_context")?;
+
+    // Active context lives in the name-keyed multi-track table (schema v4);
+    // the exported file always represents the 'default' track.
+    let active_path = path.join("active_context.md");
+    if active_path.exists() {
+        let content = fs::read_to_string(&active_path)?;
+        if let Some(json) = extract_json_block(&content) {
+            let content_obj = json.get("content").unwrap_or(&Value::Null);
+            let version = json.get("version").and_then(|v| v.as_i64()).unwrap_or(1);
+            let updated_at = json
+                .get("updated_at")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            tx.execute(
+                "INSERT INTO active_contexts(name, content, version, updated_at) VALUES ('default', ?1, ?2, ?3) ON CONFLICT(name) DO UPDATE SET content=excluded.content, version=excluded.version, updated_at=excluded.updated_at",
+                params![serde_json::to_string(content_obj)?, version, updated_at],
+            )?;
+            imported.insert("active_context".to_string(), serde_json::json!(1));
+        } else {
+            errors.push("No valid JSON in active_context.md".to_string());
+        }
+    }
 
     // helper to read a dir and process
     let mut process_dir = |dir_name: &str,

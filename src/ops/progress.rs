@@ -18,7 +18,15 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             description,
             parent_id,
             check_similar,
+            force,
         } => {
+            let status_overridden = crate::ops::status::check(
+                &status,
+                crate::ops::status::PROGRESS_STATUSES,
+                force,
+                "progress_entry",
+            )?;
+
             if let Some(pid) = parent_id {
                 let _: i64 = conn
                     .query_row(
@@ -60,6 +68,9 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             let mut result = get_progress(conn, id)?;
             if let Value::Object(map) = &mut result {
                 map.insert("inserted".into(), Value::Bool(true));
+                if status_overridden {
+                    map.insert("overrides".into(), serde_json::json!(["status_vocabulary"]));
+                }
             }
             Ok(result)
         }
@@ -101,7 +112,7 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             Ok(serde_json::to_value(results)?)
         }
         ProgressCmd::Get { id } => get_progress(conn, id),
-        ProgressCmd::Update(ProgressUpdateArgs { id, fields }) => {
+        ProgressCmd::Update(ProgressUpdateArgs { id, force, fields }) => {
             let _: i64 = conn
                 .query_row(
                     "SELECT id FROM progress_entries WHERE id = ?",
@@ -125,7 +136,14 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             let mut sets = Vec::new();
             let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
 
+            let mut status_overridden = false;
             if let Some(s) = fields.status {
+                status_overridden = crate::ops::status::check(
+                    &s,
+                    crate::ops::status::PROGRESS_STATUSES,
+                    force,
+                    "progress_entry",
+                )?;
                 sets.push("status = ?");
                 p.push(Box::new(s));
             }
@@ -150,7 +168,13 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             p_refs.push(&id);
 
             conn.execute(&query, rusqlite::params_from_iter(p_refs))?;
-            get_progress(conn, id)
+            let mut result = get_progress(conn, id)?;
+            if status_overridden {
+                if let Value::Object(map) = &mut result {
+                    map.insert("overrides".into(), serde_json::json!(["status_vocabulary"]));
+                }
+            }
+            Ok(result)
         }
         ProgressCmd::Delete { id } => {
             let tx = conn.unchecked_transaction()?;

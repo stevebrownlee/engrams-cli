@@ -9,7 +9,7 @@ pub fn handle(
     tags: Vec<String>,
 ) -> Result<Value> {
     let product_context = crate::ops::report::query_context_doc(conn, "product_context")?;
-    let active_context = crate::ops::report::query_context_doc(conn, "active_context")?;
+    let active_context_val = load_active_context(conn, &paths, &tags)?;
 
     let is_scoped = !paths.is_empty() || !tags.is_empty();
     let limit = if is_scoped { 50 } else { 10 };
@@ -91,6 +91,91 @@ pub fn handle(
 
         for r in rows {
             decisions.push(r?);
+        }
+    }
+
+    // Decisions reachable via a supersedes chain from an active decision are
+    // demoted: fetched even when no longer status='active', annotated with
+    // "superseded_by" (their direct superseder), and ordered after the active
+    // ones — never hidden.
+    let mut superseded_by: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT source_item_id, target_item_id FROM context_links \
+             WHERE source_item_type = 'decision' AND target_item_type = 'decision' \
+             AND relationship_type = 'supersedes'",
+        )?;
+        let edges: Vec<(String, String)> = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        if !edges.is_empty() && !decisions.is_empty() {
+            let graph = crate::ops::graph::model::load(conn)?;
+            let mut chain_targets: std::collections::HashSet<i64> =
+                std::collections::HashSet::new();
+            for d in &decisions {
+                if d.status == "active" {
+                    for ((_, tgt_id), _) in graph.transitive_reachable(
+                        &("decision".to_string(), d.id.to_string()),
+                        "supersedes",
+                    ) {
+                        if let Ok(id) = tgt_id.parse::<i64>() {
+                            chain_targets.insert(id);
+                        }
+                    }
+                }
+            }
+            for (src, tgt) in &edges {
+                if let (Ok(t), Ok(s)) = (tgt.parse::<i64>(), src.parse::<i64>()) {
+                    if chain_targets.contains(&t) {
+                        superseded_by.entry(t).or_insert(s);
+                    }
+                }
+            }
+            // Fetch demoted decisions not already listed (status filter above
+            // only returns active ones).
+            let have: std::collections::HashSet<i64> = decisions.iter().map(|d| d.id).collect();
+            let missing: Vec<i64> = chain_targets
+                .iter()
+                .filter(|id| !have.contains(id))
+                .cloned()
+                .collect();
+            if !missing.is_empty() {
+                let placeholders = missing.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let sql = format!(
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id IN ({}) ORDER BY id DESC",
+                    placeholders
+                );
+                let mut stmt = conn.prepare(&sql)?;
+                let rows = stmt.query_map(rusqlite::params_from_iter(missing.iter()), |row| {
+                    let tags_str: Option<String> = row.get(5)?;
+                    let tags = match tags_str {
+                        Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
+                        None => Value::Null,
+                    };
+                    Ok(crate::models::Decision {
+                        id: row.get(0)?,
+                        uuid: row.get(1)?,
+                        summary: row.get(2)?,
+                        rationale: row.get(3)?,
+                        implementation_details: row.get(4)?,
+                        tags: if tags.is_null() { None } else { Some(tags) },
+                        timestamp: row.get(6)?,
+                        status: row.get(7)?,
+                        commit_sha: row.get(8)?,
+                        pr_urls: Vec::new(),
+                        anchors: Vec::new(),
+                    })
+                })?;
+                for r in rows {
+                    decisions.push(r?);
+                }
+            }
+            // Order: non-demoted (active) first, demoted last.
+            let (mut active, demoted): (Vec<_>, Vec<_>) = decisions
+                .into_iter()
+                .partition(|d| !superseded_by.contains_key(&d.id));
+            active.extend(demoted);
+            decisions = active;
         }
     }
 
@@ -184,7 +269,6 @@ pub fn handle(
     }
 
     let mut product_context_val = serde_json::to_value(product_context)?;
-    let active_context_val = serde_json::to_value(active_context)?;
 
     // Compact graph summary; tiny, so include whenever the payload is built.
     // Under an explicit --budget it is the first section dropped.
@@ -194,15 +278,16 @@ pub fn handle(
         |val: &Value| -> usize { serde_json::to_string(val).map(|s| s.len() / 4).unwrap_or(0) };
 
     if let Some(budget) = budget_opt {
-        while est(&build_payload(
-            &product_context_val,
-            &active_context_val,
-            &decisions,
-            &patterns,
-            &progress,
-            graph_val.as_ref(),
-            None,
-        )) > budget
+        while est(&build_payload(PayloadParts {
+            product_context: &product_context_val,
+            active_context: &active_context_val,
+            decisions: &decisions,
+            patterns: &patterns,
+            progress: &progress,
+            graph: graph_val.as_ref(),
+            budget_info: None,
+            superseded_by: &superseded_by,
+        })) > budget
         {
             if graph_val.is_some() {
                 graph_val = None;
@@ -221,59 +306,171 @@ pub fn handle(
     }
 
     let payload = if let Some(n) = budget_opt {
-        let temp_payload = build_payload(
-            &product_context_val,
-            &active_context_val,
-            &decisions,
-            &patterns,
-            &progress,
-            graph_val.as_ref(),
-            None,
-        );
+        let temp_payload = build_payload(PayloadParts {
+            product_context: &product_context_val,
+            active_context: &active_context_val,
+            decisions: &decisions,
+            patterns: &patterns,
+            progress: &progress,
+            graph: graph_val.as_ref(),
+            budget_info: None,
+            superseded_by: &superseded_by,
+        });
         let m = est(&temp_payload);
-        build_payload(
-            &product_context_val,
-            &active_context_val,
-            &decisions,
-            &patterns,
-            &progress,
-            graph_val.as_ref(),
-            Some(serde_json::json!({
+        build_payload(PayloadParts {
+            product_context: &product_context_val,
+            active_context: &active_context_val,
+            decisions: &decisions,
+            patterns: &patterns,
+            progress: &progress,
+            graph: graph_val.as_ref(),
+            budget_info: Some(serde_json::json!({
                 "limit": n,
                 "estimated_tokens": m
             })),
-        )
+            superseded_by: &superseded_by,
+        })
     } else {
-        build_payload(
-            &product_context_val,
-            &active_context_val,
-            &decisions,
-            &patterns,
-            &progress,
-            graph_val.as_ref(),
-            None,
-        )
+        build_payload(PayloadParts {
+            product_context: &product_context_val,
+            active_context: &active_context_val,
+            decisions: &decisions,
+            patterns: &patterns,
+            progress: &progress,
+            graph: graph_val.as_ref(),
+            budget_info: None,
+            superseded_by: &superseded_by,
+        })
     };
 
     Ok(payload)
 }
 
-fn build_payload(
-    product_context: &Value,
-    active_context: &Value,
-    decisions: &[crate::models::Decision],
-    patterns: &[crate::models::Pattern],
-    progress: &[crate::models::Progress],
-    graph: Option<&Value>,
+/// Load all active-context tracks. The payload lists every track with a
+/// one-line focus; only the scope-matching track (or 'default') is expanded.
+fn load_active_context(conn: &Connection, paths: &[String], tags: &[String]) -> Result<Value> {
+    let mut stmt = conn
+        .prepare("SELECT name, content, version, updated_at FROM active_contexts ORDER BY name")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, String>(3)?,
+        ))
+    })?;
+
+    let mut tracks = Vec::new();
+    for r in rows {
+        let (name, content_str, version, updated_at) = r?;
+        let content: Value = serde_json::from_str(&content_str).unwrap_or(Value::Null);
+        tracks.push((name, content, version, updated_at));
+    }
+
+    // Pick the track to expand: a track named by a scope tag, else a track
+    // whose name appears in a scoped path, else 'default'.
+    let selected = tags
+        .iter()
+        .find_map(|t| {
+            tracks
+                .iter()
+                .find(|(n, ..)| n == t)
+                .map(|(n, ..)| n.clone())
+        })
+        .or_else(|| {
+            paths.iter().find_map(|p| {
+                tracks
+                    .iter()
+                    .find(|(n, ..)| n != "default" && p.contains(n.as_str()))
+                    .map(|(n, ..)| n.clone())
+            })
+        })
+        .unwrap_or_else(|| "default".to_string());
+
+    let mut track_list = Vec::with_capacity(tracks.len());
+    let mut expanded = Value::Null;
+    for (name, content, version, updated_at) in &tracks {
+        track_list.push(serde_json::json!({
+            "name": name,
+            "focus": one_line_focus(content),
+            "selected": *name == selected,
+        }));
+        if *name == selected {
+            expanded = serde_json::json!({
+                "name": name,
+                "content": content,
+                "version": version,
+                "updated_at": updated_at,
+            });
+        }
+    }
+
+    Ok(serde_json::json!({
+        "tracks": track_list,
+        "selected": selected,
+        "expanded": expanded,
+    }))
+}
+
+/// One-line focus for a track: its `focus`/`current_focus` field if present,
+/// else the first 120 chars of the serialized content.
+fn one_line_focus(content: &Value) -> String {
+    if let Some(f) = content
+        .get("focus")
+        .or_else(|| content.get("current_focus"))
+        .and_then(|v| v.as_str())
+    {
+        return f.lines().next().unwrap_or("").chars().take(120).collect();
+    }
+    match content {
+        Value::Null => String::new(),
+        other => other
+            .to_string()
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(120)
+            .collect(),
+    }
+}
+
+struct PayloadParts<'a> {
+    product_context: &'a Value,
+    active_context: &'a Value,
+    decisions: &'a [crate::models::Decision],
+    patterns: &'a [crate::models::Pattern],
+    progress: &'a [crate::models::Progress],
+    graph: Option<&'a Value>,
     budget_info: Option<Value>,
-) -> Value {
+    superseded_by: &'a std::collections::HashMap<i64, i64>,
+}
+
+fn build_payload(parts: PayloadParts) -> Value {
+    let PayloadParts {
+        product_context,
+        active_context,
+        decisions,
+        patterns,
+        progress,
+        graph,
+        budget_info,
+        superseded_by,
+    } = parts;
     let mut map = serde_json::Map::new();
     map.insert("product_context".to_string(), product_context.clone());
     map.insert("active_context".to_string(), active_context.clone());
-    map.insert(
-        "decisions".to_string(),
-        serde_json::to_value(decisions).unwrap_or(Value::Null),
-    );
+    let decisions_json: Vec<Value> = decisions
+        .iter()
+        .map(|d| {
+            let mut v = serde_json::to_value(d).unwrap_or(Value::Null);
+            if let Some(by) = superseded_by.get(&d.id) {
+                v["superseded_by"] = serde_json::json!(by);
+            }
+            v
+        })
+        .collect();
+    map.insert("decisions".to_string(), Value::Array(decisions_json));
     map.insert(
         "patterns".to_string(),
         serde_json::to_value(patterns).unwrap_or(Value::Null),

@@ -59,6 +59,7 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                         &tx,
                         crate::cli::DecisionCmd::Log {
                             summary,
+                            status: None,
                             rationale,
                             details,
                             tags: cmd_tags,
@@ -98,6 +99,7 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                             description,
                             parent_id,
                             check_similar: false,
+                            force: false,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {

@@ -41,6 +41,12 @@ pub fn handle(conn: &mut Connection, cmd: GraphCmd, _db_path: &Path) -> Result<V
         GraphCmd::Orphans { limit } => orphans(conn, limit),
         GraphCmd::Path { from, to } => path(conn, &from, &to),
         GraphCmd::Neighbors { node, depth, rel } => neighbors(conn, &node, depth, rel),
+        GraphCmd::Chain {
+            node,
+            item_type,
+            item_id,
+            rel,
+        } => chain(conn, node, item_type, item_id, &rel),
     }
 }
 
@@ -231,6 +237,41 @@ fn neighbors(conn: &Connection, node: &str, depth: i64, rel: Option<String>) -> 
         "neighbors": rows.iter().map(|(k, d)| {
             let mut n = node_json(k, &paths);
             n["distance"] = json!(d);
+            n
+        }).collect::<Vec<_>>(),
+    }))
+}
+
+fn chain(
+    conn: &Connection,
+    node: Option<String>,
+    item_type: Option<String>,
+    item_id: Option<String>,
+    rel: &str,
+) -> Result<Value> {
+    if !rel::lookup(rel).map(|s| s.transitive).unwrap_or(false) {
+        anyhow::bail!(
+            "rel '{}' is not a canonical transitive relationship (supersedes, depends_on, part_of, refines)",
+            rel
+        );
+    }
+    let key = match (node, item_type, item_id) {
+        (Some(n), None, None) => parse_node(&n)?,
+        (None, Some(t), Some(i)) => parse_node(&format!("{}:{}", t, i))?,
+        _ => anyhow::bail!("chain requires --node type:id or --item-type + --item-id"),
+    };
+    let g = model::load(conn)?;
+    if !g.contains(&key) {
+        anyhow::bail!("unknown node '{}:{}", key.0, key.1);
+    }
+    let paths = code_paths(conn)?;
+    let reachable = g.transitive_reachable(&key, rel);
+    Ok(json!({
+        "node": model::fmt_node(&key),
+        "rel": rel,
+        "reachable": reachable.iter().map(|(k, d)| {
+            let mut n = node_json(k, &paths);
+            n["depth"] = json!(d);
             n
         }).collect::<Vec<_>>(),
     }))

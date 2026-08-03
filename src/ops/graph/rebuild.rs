@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use crate::ops::git;
 
 use super::code;
+use super::rel;
 
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
@@ -266,6 +267,67 @@ impl EdgeSource for CoChangeSource {
 }
 
 // ---------------------------------------------------------------------------
+// InverseEdgeSource: manual canonical edges → derived inverse-direction edges
+// ---------------------------------------------------------------------------
+
+/// Build the derived inverse edge for a manual edge, if its relationship is
+/// canonical and declares an inverse. Unknown (free-form) rels and
+/// inverse-less canonical rels (e.g. symmetric `relates_to`) emit nothing.
+fn inverse_edge(
+    src_type: &str,
+    src_id: &str,
+    tgt_type: &str,
+    tgt_id: &str,
+    rel_name: &str,
+    weight: f64,
+) -> Option<DerivedEdge> {
+    let spec = rel::lookup(rel_name)?;
+    let inverse = spec.inverse?;
+    Some(DerivedEdge {
+        src_type: tgt_type.to_string(),
+        src_id: tgt_id.to_string(),
+        tgt_type: src_type.to_string(),
+        tgt_id: src_id.to_string(),
+        rel: inverse.to_string(),
+        weight,
+    })
+}
+
+pub struct InverseEdgeSource;
+
+impl EdgeSource for InverseEdgeSource {
+    fn name(&self) -> &'static str {
+        "inverse"
+    }
+
+    fn emit(&self, conn: &Connection) -> Result<Vec<DerivedEdge>> {
+        let mut stmt = conn.prepare(
+            "SELECT source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, weight \
+             FROM context_links WHERE origin = 'manual' ORDER BY id ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, f64>(5)?,
+            ))
+        })?;
+        let mut edges = Vec::new();
+        for r in rows {
+            let (src_type, src_id, tgt_type, tgt_id, rel_name, weight) = r?;
+            if let Some(e) = inverse_edge(&src_type, &src_id, &tgt_type, &tgt_id, &rel_name, weight)
+            {
+                edges.push(e);
+            }
+        }
+        Ok(edges)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // rebuild / ingest / touch_item
 // ---------------------------------------------------------------------------
 
@@ -279,8 +341,11 @@ pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts) -> Result<Value> {
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM context_links WHERE origin = 'derived'", [])?;
 
-    let mut sources: Vec<Box<dyn EdgeSource>> =
-        vec![Box::new(AnchorSource), Box::new(CoAnchorSource)];
+    let mut sources: Vec<Box<dyn EdgeSource>> = vec![
+        Box::new(AnchorSource),
+        Box::new(CoAnchorSource),
+        Box::new(InverseEdgeSource),
+    ];
     if !opts.no_git {
         sources.push(Box::new(CoChangeSource {
             since: None,
@@ -387,9 +452,10 @@ pub fn ingest(
 }
 
 /// Incremental refresh for a single item after a write: ensures code nodes
-/// plus `anchored_to` edges for its anchors, and recomputes its `relates_to`
-/// edges against all other knowledge items. Idempotent (`INSERT OR IGNORE`),
-/// never deletes — `rebuild` remains the source of truth for exact weights.
+/// plus `anchored_to` edges for its anchors, materializes inverse edges for
+/// manual links touching it, and recomputes its `relates_to` edges against
+/// all other knowledge items. Idempotent (`INSERT OR IGNORE`), never deletes
+/// — `rebuild` remains the source of truth for exact weights.
 pub fn touch_item(conn: &Connection, item_type: &str, id: i64) -> Result<()> {
     let ts = now();
     let anchors = crate::ops::anchor::anchors_for(conn, item_type, id)?;
@@ -408,6 +474,40 @@ pub fn touch_item(conn: &Connection, item_type: &str, id: i64) -> Result<()> {
                 1.0
             ],
         )?;
+    }
+
+    // Manual edges touching this item get their canonical inverses
+    // materialized, mirroring InverseEdgeSource at rebuild time. Applies to
+    // every item type, like the anchor pass above.
+    let id_str = id.to_string();
+    let mut stmt = conn.prepare(
+        "SELECT source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, weight \
+         FROM context_links \
+         WHERE origin = 'manual' \
+           AND ((source_item_type = ?1 AND source_item_id = ?2) \
+                OR (target_item_type = ?1 AND target_item_id = ?2)) \
+         ORDER BY id ASC",
+    )?;
+    let manual: Vec<(String, String, String, String, String, f64)> = stmt
+        .query_map(params![item_type, id_str], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, f64>(5)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    drop(stmt);
+    for (src_type, src_id, tgt_type, tgt_id, rel_name, weight) in &manual {
+        if let Some(e) = inverse_edge(src_type, src_id, tgt_type, tgt_id, rel_name, *weight) {
+            conn.execute(
+                INSERT_DERIVED,
+                params![e.src_type, e.src_id, e.tgt_type, e.tgt_id, e.rel, ts, "inverse", e.weight],
+            )?;
+        }
     }
 
     if item_type != "decision" && item_type != "system_pattern" {
@@ -462,4 +562,208 @@ pub fn touch_item(conn: &Connection, item_type: &str, id: i64) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch_db() -> (tempfile::TempDir, Connection) {
+        let dir = tempfile::TempDir::new().unwrap();
+        let conn = crate::db::open(&dir.path().join("context.db")).unwrap();
+        (dir, conn)
+    }
+
+    fn add_decision(conn: &Connection, summary: &str) -> i64 {
+        conn.execute(
+            "INSERT INTO decisions (uuid, timestamp, summary) VALUES (?1, ?2, ?3)",
+            params![format!("uuid-{}", summary), now(), summary],
+        )
+        .unwrap();
+        conn.last_insert_rowid()
+    }
+
+    fn add_manual_link(
+        conn: &Connection,
+        src_type: &str,
+        src_id: i64,
+        tgt_type: &str,
+        tgt_id: i64,
+        rel_name: &str,
+        weight: f64,
+    ) {
+        conn.execute(
+            "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, timestamp, weight) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                src_type,
+                src_id.to_string(),
+                tgt_type,
+                tgt_id.to_string(),
+                rel_name,
+                now(),
+                weight
+            ],
+        )
+        .unwrap();
+    }
+
+    fn derived_inverse_edges(
+        conn: &Connection,
+    ) -> Vec<(String, String, String, String, String, f64)> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, weight \
+                 FROM context_links WHERE origin = 'derived' AND source = 'inverse' ORDER BY id ASC",
+            )
+            .unwrap();
+        stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, f64>(5)?,
+            ))
+        })
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap()
+    }
+
+    fn rebuild_no_git(conn: &mut Connection) -> Value {
+        rebuild(
+            conn,
+            &RebuildOpts {
+                no_git: true,
+                min_cochange: 2,
+                max_commits: 500,
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn inverse_edges_emitted_with_reverse_direction_rel_and_weight() {
+        let (_dir, mut conn) = scratch_db();
+        let older = add_decision(&conn, "older");
+        let newer = add_decision(&conn, "newer");
+        add_manual_link(
+            &conn,
+            "decision",
+            newer,
+            "decision",
+            older,
+            "supersedes",
+            2.5,
+        );
+        add_manual_link(
+            &conn,
+            "decision",
+            newer,
+            "decision",
+            older,
+            "depends_on",
+            1.0,
+        );
+
+        let result = rebuild_no_git(&mut conn);
+        assert_eq!(result["edges_by_source"]["inverse"], json!(2));
+
+        let edges = derived_inverse_edges(&conn);
+        assert_eq!(edges.len(), 2);
+        assert!(edges.contains(&(
+            "decision".to_string(),
+            older.to_string(),
+            "decision".to_string(),
+            newer.to_string(),
+            "superseded_by".to_string(),
+            2.5,
+        )));
+        assert!(edges.contains(&(
+            "decision".to_string(),
+            older.to_string(),
+            "decision".to_string(),
+            newer.to_string(),
+            "depended_on_by".to_string(),
+            1.0,
+        )));
+    }
+
+    #[test]
+    fn inverse_edges_skip_symmetric_canonical_and_free_form_rels() {
+        let (_dir, mut conn) = scratch_db();
+        let a = add_decision(&conn, "a");
+        let b = add_decision(&conn, "b");
+        // relates_to / conflicts_with: canonical but symmetric, no inverse
+        add_manual_link(&conn, "decision", a, "decision", b, "relates_to", 1.0);
+        add_manual_link(&conn, "decision", a, "decision", b, "conflicts_with", 1.0);
+        // free-form passthrough rels are unknown to the canonical table
+        add_manual_link(&conn, "decision", a, "decision", b, "blocks", 1.0);
+
+        let result = rebuild_no_git(&mut conn);
+        assert_eq!(result["edges_by_source"]["inverse"], json!(0));
+        assert!(derived_inverse_edges(&conn).is_empty());
+    }
+
+    #[test]
+    fn inverse_edge_source_ignores_derived_edges() {
+        let (_dir, mut conn) = scratch_db();
+        let a = add_decision(&conn, "a");
+        let b = add_decision(&conn, "b");
+        add_manual_link(&conn, "decision", a, "decision", b, "supersedes", 1.0);
+        // A derived supersedes edge must not spawn a derived inverse.
+        conn.execute(
+            "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, timestamp, origin, source, weight) \
+             VALUES ('decision', ?1, 'decision', ?2, 'supersedes', ?3, 'derived', 'co_anchor', 1.0)",
+            params![b.to_string(), a.to_string(), now()],
+        )
+        .unwrap();
+
+        rebuild_no_git(&mut conn);
+        let edges = derived_inverse_edges(&conn);
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].4, "superseded_by");
+    }
+
+    #[test]
+    fn rebuild_is_idempotent_for_inverse_edges() {
+        let (_dir, mut conn) = scratch_db();
+        let a = add_decision(&conn, "a");
+        let b = add_decision(&conn, "b");
+        add_manual_link(&conn, "decision", a, "decision", b, "supersedes", 1.0);
+
+        rebuild_no_git(&mut conn);
+        rebuild_no_git(&mut conn);
+        assert_eq!(derived_inverse_edges(&conn).len(), 1);
+    }
+
+    #[test]
+    fn touch_item_materializes_inverse_edges_idempotently() {
+        let (_dir, conn) = scratch_db();
+        let a = add_decision(&conn, "a");
+        let b = add_decision(&conn, "b");
+        add_manual_link(&conn, "decision", a, "decision", b, "supersedes", 1.0);
+
+        touch_item(&conn, "decision", b).unwrap();
+        let edges = derived_inverse_edges(&conn);
+        assert_eq!(edges.len(), 1);
+        assert_eq!(
+            edges[0],
+            (
+                "decision".to_string(),
+                b.to_string(),
+                "decision".to_string(),
+                a.to_string(),
+                "superseded_by".to_string(),
+                1.0,
+            )
+        );
+
+        // Touching either endpoint again must not duplicate the edge.
+        touch_item(&conn, "decision", a).unwrap();
+        touch_item(&conn, "decision", b).unwrap();
+        assert_eq!(derived_inverse_edges(&conn).len(), 1);
+    }
 }

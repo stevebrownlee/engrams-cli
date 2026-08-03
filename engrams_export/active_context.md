@@ -1,12 +1,18 @@
+---
+identifier: active_context
+title: Active Context
+created: 2026-08-03T02:33:41Z
+---
 # Active Context
 
 ```json
 {
   "content": {
-    "focus": "Ontology design series approved and logged (decisions #21-28): transitive closure w/ prime demotion + doctor cycle warnings; RelSpec domain/range reject+--force; supersedes functional to-side + named workstream contexts (schema v4); disjoint rel pairs; closed status vocabularies + supersede auto-flip; inference as derived edges (InverseEdgeSource first); export YAML frontmatter w/ Dublin Core + schema.org; doctor lint for non-canonical rel frequency. Next: implement in priority order — rec 1 (transitive/prime demotion), then rec 2 (domain/range).",
-    "status": "DesignComplete"
+    "focus": "v0.8.0 implemented and verified: all 8 ontology recommendations (decisions #21-28) shipped as code. RelSpec ontology validation at link add (domain/range/functional/disjoint, reject+--force); closed status vocabularies with supersede auto-flip; schema v4 named workstream contexts; transitive closure (graph chain + prime demotion + doctor cycles); InverseEdgeSource derived inverses; doctor non-canonical rel lint; export YAML frontmatter (Dublin Core + schema.org). 35/35 tests pass, bin clippy-clean, all features smoke-tested. Committed as v0.8.0.",
+    "status": "ReleaseComplete"
   },
-  "updated_at": "2026-08-03T00:21:34Z",
+  "name": "default",
+  "updated_at": "2026-08-03T02:33:41Z",
   "version": 13
 }
 ```

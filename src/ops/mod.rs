@@ -14,6 +14,7 @@ pub mod prime;
 pub mod progress;
 pub mod query;
 pub mod report;
+pub mod status;
 pub mod transfer;
 use anyhow::Result;
 use rusqlite::Connection;
@@ -21,7 +22,7 @@ use serde_json::json;
 use serde_json::Value;
 use std::path::Path;
 
-use crate::cli::{Command, ContextCmd, HistoryDoc, ReportCmd};
+use crate::cli::{ActiveContextCmd, Command, ContextCmd, HistoryDoc, ReportCmd};
 
 pub fn dispatch(
     conn: &mut Connection,
@@ -37,23 +38,30 @@ pub fn dispatch(
         }
         Command::ProductContext { cmd } => match cmd {
             ContextCmd::Get => context::get(conn, "product_context"),
-            ContextCmd::Update(args) => context::update(conn, "product_context", args),
+            ContextCmd::Update(args) => context::update(conn, "product_context", &args),
         },
         Command::ActiveContext { cmd } => match cmd {
-            ContextCmd::Get => context::get(conn, "active_context"),
-            ContextCmd::Update(args) => context::update(conn, "active_context", args),
+            ActiveContextCmd::Get { name } => context::get_track(conn, &name),
+            ActiveContextCmd::Update { name, args } => context::update_track(conn, &name, &args),
+            ActiveContextCmd::List => context::list_tracks(conn),
         },
         Command::History {
             doc,
             version,
             limit,
-        } => {
-            let table = match doc {
-                HistoryDoc::ProductContext => "product_context",
-                HistoryDoc::ActiveContext => "active_context",
-            };
-            context::history(conn, table, version, limit)
-        }
+            name,
+            all,
+        } => match doc {
+            HistoryDoc::ProductContext => context::history(conn, "product_context", version, limit),
+            HistoryDoc::ActiveContext => {
+                if all {
+                    context::history_all_tracks(conn)
+                } else {
+                    let track = name.as_deref().unwrap_or("default");
+                    context::history_track(conn, track, version, limit)
+                }
+            }
+        },
         Command::Decision { cmd } => decision::handle(conn, cmd),
         Command::Progress { cmd } => progress::handle(conn, cmd),
         Command::Pattern { cmd } => pattern::handle(conn, cmd),

@@ -165,6 +165,33 @@ pub fn handle(conn: &Connection) -> Result<Value> {
         (Some(rebuilt), Some(written)) => written > rebuilt,
     };
 
+    // 7. Graph advisory: cycles in canonical transitive relations
+    //    (supersedes, depends_on, part_of, refines).
+    let mut cycles: Vec<Vec<String>> = graph
+        .cycles(&["supersedes", "depends_on", "part_of", "refines"])
+        .iter()
+        .map(|cyc| cyc.iter().map(crate::ops::graph::model::fmt_node).collect())
+        .collect();
+    cycles.sort();
+
+    // 8. Rel vocabulary audit: relationship_type usage counts; non-canonical
+    //    (free-form) rels are flagged but valid (passthrough).
+    let mut stmt = conn.prepare(
+        "SELECT relationship_type, COUNT(*) FROM context_links GROUP BY relationship_type ORDER BY relationship_type",
+    )?;
+    let rel_rows: Vec<(String, i64)> = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut rel_counts = serde_json::Map::new();
+    let mut non_canonical = Vec::new();
+    for (rel, n) in rel_rows {
+        if crate::ops::graph::rel::lookup(&rel).is_some() {
+            rel_counts.insert(rel, serde_json::json!(n));
+        } else {
+            non_canonical.push(serde_json::json!({"rel": rel, "count": n}));
+        }
+    }
+
     let ok = missing_anchor_paths.is_empty()
         && dangling_links.is_empty()
         && stale_decisions.is_empty()
@@ -177,6 +204,11 @@ pub fn handle(conn: &Connection) -> Result<Value> {
         "unlinked_decisions": unlinked_decisions,
         "orphan_nodes": orphan_nodes,
         "graph_rebuild_recommended": graph_rebuild_recommended,
+        "cycles": cycles,
+        "rel_vocabulary": {
+            "canonical_counts": rel_counts,
+            "non_canonical": non_canonical,
+        },
         "git": git_status,
         "ok": ok,
     }))

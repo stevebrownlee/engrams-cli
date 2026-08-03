@@ -38,6 +38,7 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
             target_id,
             rel,
             description,
+            force,
         } => {
             let s_id: i64 = source_id
                 .parse()
@@ -62,6 +63,31 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
                 (source_type, source_id, target_type, target_id)
             };
 
+            // Validate ontology constraints for canonical rels only; unknown
+            // rels skip all checks. With --force, violations are computed and
+            // reported as overrides instead of rejecting.
+            let violations = match crate::ops::graph::rel::lookup(&canonical_rel) {
+                Some(spec) => validate_constraints(
+                    conn,
+                    spec,
+                    source_type.as_str(),
+                    &source_id,
+                    target_type.as_str(),
+                    &target_id,
+                )?,
+                None => Vec::new(),
+            };
+            if !force && !violations.is_empty() {
+                anyhow::bail!(
+                    "{}",
+                    violations
+                        .iter()
+                        .map(|(_, msg)| msg.as_str())
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                );
+            }
+
             let timestamp = now();
             conn.execute(
                 "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -73,6 +99,19 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
             if crate::ops::graph::rel::lookup(&canonical_rel).is_none() {
                 if let Value::Object(map) = &mut result {
                     map.insert("unknown_rel".into(), Value::Bool(true));
+                }
+            }
+            if force && !violations.is_empty() {
+                if let Value::Object(map) = &mut result {
+                    map.insert(
+                        "overrides".into(),
+                        Value::Array(
+                            violations
+                                .iter()
+                                .map(|(name, _)| Value::String(name.to_string()))
+                                .collect(),
+                        ),
+                    );
                 }
             }
             Ok(result)
@@ -131,6 +170,98 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
             Ok(serde_json::to_value(results)?)
         }
     }
+}
+
+/// Compute ontology constraint violations for a canonical rel edge.
+///
+/// Returns `(constraint_name, message)` pairs for every constraint that
+/// would fire; the caller either bails (no --force) or reports the names
+/// as overrides (--force).
+fn validate_constraints(
+    conn: &Connection,
+    spec: &crate::ops::graph::rel::RelSpec,
+    source_type: &str,
+    source_id: &str,
+    target_type: &str,
+    target_id: &str,
+) -> Result<Vec<(&'static str, String)>> {
+    let rel = spec.canonical;
+    let mut violations = Vec::new();
+
+    if !spec.domain.is_empty() && !spec.domain.contains(&source_type) {
+        violations.push((
+            "domain",
+            format!(
+                "link violates domain constraint: {} sources must be one of [{}] (got {}); use --force to override",
+                rel,
+                spec.domain.join(", "),
+                source_type
+            ),
+        ));
+    }
+
+    if !spec.range.is_empty() && !spec.range.contains(&target_type) {
+        violations.push((
+            "range",
+            format!(
+                "link violates range constraint: {} targets must be one of [{}] (got {}); use --force to override",
+                rel,
+                spec.range.join(", "),
+                target_type
+            ),
+        ));
+    }
+
+    if spec.same_type && source_type != target_type {
+        violations.push((
+            "same_type",
+            format!(
+                "link violates same_type constraint: {} requires source and target item types to match (got {} -> {}); use --force to override",
+                rel, source_type, target_type
+            ),
+        ));
+    }
+
+    for partner in spec.disjoint_with {
+        // Links are stored in canonical direction. A disjoint partner edge is
+        // contradictory in either direction of the pair: for symmetric
+        // partners the stored direction is arbitrary, and for directed
+        // partners a reverse edge is still contradictory (a reverse
+        // depends_on plus a conflicts_with is still a contradiction).
+        let count: i64 = conn.query_row(
+            "SELECT count(*) FROM context_links WHERE relationship_type = ?1 AND ((source_item_type = ?2 AND source_item_id = ?3 AND target_item_type = ?4 AND target_item_id = ?5) OR (source_item_type = ?4 AND source_item_id = ?5 AND target_item_type = ?2 AND target_item_id = ?3))",
+            params![partner, source_type, source_id, target_type, target_id],
+            |row| row.get(0),
+        )?;
+        if count > 0 {
+            violations.push((
+                "disjoint",
+                format!(
+                    "link violates disjoint constraint: {} is disjoint with {} (an existing {} link connects these items); use --force to override",
+                    rel, partner, partner
+                ),
+            ));
+        }
+    }
+
+    if spec.functional_to {
+        let count: i64 = conn.query_row(
+            "SELECT count(*) FROM context_links WHERE relationship_type = ?1 AND target_item_type = ?2 AND target_item_id = ?3 AND NOT (source_item_type = ?4 AND source_item_id = ?5)",
+            params![rel, target_type, target_id, source_type, source_id],
+            |row| row.get(0),
+        )?;
+        if count > 0 {
+            violations.push((
+                "functional_to",
+                format!(
+                    "link violates functional_to constraint: {} allows at most one incoming edge per target ({} {} already has one from a different source); use --force to override",
+                    rel, target_type, target_id
+                ),
+            ));
+        }
+    }
+
+    Ok(violations)
 }
 
 fn parse_link_row(row: &rusqlite::Row) -> rusqlite::Result<Link> {

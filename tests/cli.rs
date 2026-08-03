@@ -117,7 +117,7 @@ fn test_progress_linkage() {
             "progress",
             "log",
             "--status",
-            "Open",
+            "InProgress",
             "--description",
             "Task 1",
         ])
@@ -341,6 +341,122 @@ fn test_links() {
 }
 
 #[test]
+fn test_link_rel_constraints() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    let mk_decision = |summary: &str| -> i64 {
+        let out = engrams(&db)
+            .args(&["decision", "log", "--summary", summary, "--force"])
+            .output()
+            .unwrap();
+        let v = serde_json::from_slice::<Value>(&out.stdout).unwrap();
+        assert!(out.status.success(), "decision log failed: {v}");
+        v["id"].as_i64().unwrap()
+    };
+    let d1 = mk_decision("rel d1");
+    let d2 = mk_decision("rel d2");
+    let d3 = mk_decision("rel d3");
+
+    let out = engrams(&db)
+        .args(&[
+            "progress",
+            "log",
+            "--status",
+            "Todo",
+            "--description",
+            "rel p1",
+        ])
+        .output()
+        .unwrap();
+    let p1 = serde_json::from_slice::<Value>(&out.stdout).unwrap()["id"]
+        .as_i64()
+        .unwrap();
+
+    let link = |st: &str, sid: i64, tt: &str, tid: i64, rel: &str, extra: &[&str]| {
+        let sid = sid.to_string();
+        let tid = tid.to_string();
+        let mut args = vec![
+            "link",
+            "add",
+            "--source-type",
+            st,
+            "--source-id",
+            sid.as_str(),
+            "--target-type",
+            tt,
+            "--target-id",
+            tid.as_str(),
+            "--rel",
+            rel,
+        ];
+        args.extend_from_slice(extra);
+        engrams(&db).args(&args).output().unwrap()
+    };
+
+    // same_type: supersedes across item types is rejected
+    let out = link("decision", d1, "progress-entry", p1, "supersedes", &[]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("same_type constraint"), "{}", err);
+
+    // --force overrides and reports which constraints fired
+    let out = link(
+        "decision",
+        d1,
+        "progress-entry",
+        p1,
+        "supersedes",
+        &["--force"],
+    );
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["overrides"], serde_json::json!(["same_type"]));
+
+    // range: implemented_in must target pr/commit
+    let out = link("decision", d1, "decision", d2, "implemented_in", &[]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("range constraint"), "{}", err);
+
+    // disjoint: depends_on then conflicts_with on the same pair is rejected
+    let out = link("decision", d1, "decision", d2, "depends_on", &[]);
+    assert!(out.status.success());
+    let out = link("decision", d1, "decision", d2, "conflicts_with", &[]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("disjoint constraint"), "{}", err);
+
+    // disjoint also fires via the reverse direction of a directed partner:
+    // depends_on d3->d1 then conflicts_with d1-d3
+    let out = link("decision", d3, "decision", d1, "depends_on", &[]);
+    assert!(out.status.success());
+    let out = link("decision", d1, "decision", d3, "conflicts_with", &[]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("disjoint constraint"), "{}", err);
+
+    // functional_to: a second supersedes into the same target is rejected
+    let out = link("decision", d1, "decision", d3, "supersedes", &[]);
+    assert!(out.status.success());
+    let out = link("decision", d2, "decision", d3, "supersedes", &[]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("functional_to constraint"), "{}", err);
+    let out = link("decision", d2, "decision", d3, "supersedes", &["--force"]);
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["overrides"], serde_json::json!(["functional_to"]));
+
+    // unknown rels pass through with no validation and no overrides
+    let out = link("decision", d1, "progress-entry", p1, "blocks", &["--force"]);
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["unknown_rel"], Value::Bool(true));
+    assert!(v.get("overrides").is_none());
+}
+
+#[test]
 fn test_activity() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");
@@ -354,7 +470,7 @@ fn test_activity() {
             "progress",
             "log",
             "--status",
-            "O",
+            "InProgress",
             "--description",
             "act p1",
         ])
@@ -448,7 +564,7 @@ fn test_version_validation() {
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 3);
+        assert_eq!(ver, 4);
     }
 }
 
@@ -569,7 +685,7 @@ fn test_migration_v1_to_v2() {
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 3);
+        assert_eq!(ver, 4);
     }
 }
 
@@ -591,7 +707,7 @@ fn test_report() {
             "progress",
             "log",
             "--status",
-            "D",
+            "Done",
             "--description",
             "Set up DB",
         ])
@@ -652,7 +768,7 @@ fn test_report_open() {
             "progress",
             "log",
             "--status",
-            "D",
+            "Done",
             "--description",
             "Set up DB",
         ])
@@ -940,7 +1056,7 @@ fn test_progress_check_similar() {
             "progress",
             "log",
             "--status",
-            "done",
+            "Done",
             "--description",
             "implemented auth module",
             "--check-similar",
@@ -1905,7 +2021,7 @@ fn test_migration_v2_to_v3() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
 
     // context_links gained origin/source/weight.
     let mut stmt = conn.prepare("PRAGMA table_info(context_links)").unwrap();

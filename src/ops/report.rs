@@ -170,10 +170,17 @@ pub fn handle(conn: &Connection, topic: Option<ReportTopic>, limit: i64) -> Resu
     }
 }
 pub(crate) fn query_context_doc(conn: &Connection, table: &str) -> Result<Option<ContextDoc>> {
-    let sql = format!(
-        "SELECT content, version, updated_at FROM {} WHERE id = 1",
-        table
-    );
+    // active_context now lives in the name-keyed active_contexts table;
+    // the singleton report view reads the 'default' track.
+    let sql = if table == "active_context" {
+        "SELECT content, version, updated_at FROM active_contexts WHERE name = 'default'"
+            .to_string()
+    } else {
+        format!(
+            "SELECT content, version, updated_at FROM {} WHERE id = 1",
+            table
+        )
+    };
     let row: Option<(String, i64, String)> = conn
         .query_row(&sql, [], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
         .optional()?;

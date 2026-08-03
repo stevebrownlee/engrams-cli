@@ -32,10 +32,10 @@ pub enum Command {
         cmd: ContextCmd,
     },
 
-    /// Manage the active context document
+    /// Manage named active-context tracks
     ActiveContext {
         #[command(subcommand)]
-        cmd: ContextCmd,
+        cmd: ActiveContextCmd,
     },
 
     /// View history of context documents
@@ -45,6 +45,12 @@ pub enum Command {
         version: Option<i64>,
         #[arg(long, default_value_t = 50)]
         limit: i64,
+        /// Active-context track name (only for active-context)
+        #[arg(long)]
+        name: Option<String>,
+        /// List version counts for every active-context track
+        #[arg(long)]
+        all: bool,
     },
 
     /// Log and search architectural decisions
@@ -241,6 +247,22 @@ pub enum GraphCmd {
         #[arg(long)]
         rel: Option<String>,
     },
+    /// Transitive closure over a canonical transitive rel from a node
+    /// ('what breaks if I revisit X')
+    Chain {
+        /// Start node (type:id); alternative to --item-type/--item-id
+        #[arg(long, conflicts_with_all = ["item_type", "item_id"])]
+        node: Option<String>,
+        /// Start node item type (requires --item-id)
+        #[arg(long, requires = "item_id")]
+        item_type: Option<String>,
+        /// Start node item id (requires --item-type)
+        #[arg(long, requires = "item_type")]
+        item_id: Option<String>,
+        /// Canonical transitive relationship (supersedes, depends_on, part_of, refines)
+        #[arg(long)]
+        rel: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -279,6 +301,26 @@ pub enum ContextCmd {
     Update(ContextUpdateArgs),
 }
 
+#[derive(Subcommand, Debug)]
+pub enum ActiveContextCmd {
+    /// Retrieve an active-context track
+    Get {
+        /// Track name
+        #[arg(long, default_value = "default")]
+        name: String,
+    },
+    /// Update or patch an active-context track
+    Update {
+        /// Track name
+        #[arg(long, default_value = "default")]
+        name: String,
+        #[command(flatten)]
+        args: ContextUpdateArgs,
+    },
+    /// List all active-context tracks
+    List,
+}
+
 #[derive(Args, Debug)]
 #[group(required = true, multiple = false)]
 pub struct ContextUpdateArgs {
@@ -297,6 +339,9 @@ pub enum DecisionCmd {
         /// Short summary of the decision
         #[arg(long)]
         summary: String,
+        /// Initial status (default: active; valid: active, superseded, rejected, revisited)
+        #[arg(long)]
+        status: Option<String>,
         /// Detailed reasoning behind the decision
         #[arg(long)]
         rationale: Option<String>,
@@ -363,6 +408,10 @@ pub enum DecisionCmd {
 pub struct DecisionUpdateArgs {
     pub id: i64,
 
+    /// Bypass status_vocabulary validation
+    #[arg(long)]
+    pub force: bool,
+
     #[command(flatten)]
     pub fields: DecisionUpdateFields,
 }
@@ -382,16 +431,16 @@ pub struct DecisionUpdateFields {
     /// New tags (replaces existing tags)
     #[arg(long, value_delimiter = ',')]
     pub tags: Option<Vec<String>>,
-    /// New status (active or superseded)
+    /// New status (active, superseded, rejected, revisited)
     #[arg(long)]
-    pub status: Option<DecisionStatus>,
+    pub status: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum ProgressCmd {
     /// Log task execution and progress
     Log {
-        /// Current status (e.g. InProgress, Done)
+        /// Current status (valid: Todo, InProgress, InReview, Blocked, Done, Dropped)
         #[arg(long)]
         status: String,
         /// What was done or is currently happening
@@ -403,6 +452,9 @@ pub enum ProgressCmd {
         /// Check for recent entries with similar descriptions before inserting
         #[arg(long)]
         check_similar: bool,
+        /// Bypass status_vocabulary validation
+        #[arg(long)]
+        force: bool,
     },
     /// List progress entries
     List {
@@ -427,6 +479,10 @@ pub enum ProgressCmd {
 pub struct ProgressUpdateArgs {
     pub id: i64,
 
+    /// Bypass status_vocabulary validation
+    #[arg(long)]
+    pub force: bool,
+
     #[command(flatten)]
     pub fields: ProgressUpdateFields,
 }
@@ -434,6 +490,7 @@ pub struct ProgressUpdateArgs {
 #[derive(Args, Debug)]
 #[group(required = true, multiple = true)]
 pub struct ProgressUpdateFields {
+    /// New status (valid: Todo, InProgress, InReview, Blocked, Done, Dropped)
     #[arg(long)]
     pub status: Option<String>,
     #[arg(long)]
@@ -537,6 +594,9 @@ pub enum LinkCmd {
         rel: String,
         #[arg(long)]
         description: Option<String>,
+        /// Bypass relationship constraint validation (violations reported as overrides)
+        #[arg(long)]
+        force: bool,
     },
     /// List progress entries
     List {
@@ -670,21 +730,6 @@ impl RefItemType {
         match self {
             RefItemType::Decision => "decision",
             RefItemType::SystemPattern => "system_pattern",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
-pub enum DecisionStatus {
-    Active,
-    Superseded,
-}
-
-impl DecisionStatus {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            DecisionStatus::Active => "active",
-            DecisionStatus::Superseded => "superseded",
         }
     }
 }

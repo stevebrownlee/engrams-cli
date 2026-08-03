@@ -17,6 +17,16 @@ pub struct RelSpec {
     #[allow(dead_code)]
     pub transitive: bool,
     pub inverse: Option<&'static str>,
+    /// Allowed source item types; empty = any.
+    pub domain: &'static [&'static str],
+    /// Allowed target item types; empty = any.
+    pub range: &'static [&'static str],
+    /// Source item type must equal target item type.
+    pub same_type: bool,
+    /// At most one incoming edge of this rel per target.
+    pub functional_to: bool,
+    /// Rels that must not coexist with this one on the same item pair.
+    pub disjoint_with: &'static [&'static str],
 }
 
 const RELS: &[RelSpec] = &[
@@ -25,60 +35,110 @@ const RELS: &[RelSpec] = &[
         symmetry: Symmetry::Symmetric,
         transitive: false,
         inverse: None,
+        domain: &[],
+        range: &[],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
     },
     RelSpec {
         canonical: "depends_on",
         symmetry: Symmetry::Directed,
         transitive: true,
         inverse: Some("depended_on_by"),
+        domain: &[],
+        range: &[],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &["conflicts_with"],
     },
     RelSpec {
         canonical: "part_of",
         symmetry: Symmetry::Directed,
         transitive: true,
         inverse: Some("contains"),
+        domain: &[],
+        range: &[],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
     },
     RelSpec {
         canonical: "implements",
         symmetry: Symmetry::Directed,
         transitive: false,
         inverse: Some("implemented_by"),
+        domain: &[],
+        range: &[],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
     },
     RelSpec {
         canonical: "refines",
         symmetry: Symmetry::Directed,
         transitive: true,
         inverse: Some("refined_by"),
+        domain: &[],
+        range: &[],
+        same_type: true,
+        functional_to: false,
+        disjoint_with: &["supersedes"],
     },
     RelSpec {
         canonical: "supersedes",
         symmetry: Symmetry::Directed,
         transitive: true,
         inverse: Some("superseded_by"),
+        domain: &[],
+        range: &[],
+        same_type: true,
+        functional_to: true,
+        disjoint_with: &["refines"],
     },
     RelSpec {
         canonical: "conflicts_with",
         symmetry: Symmetry::Symmetric,
         transitive: false,
         inverse: None,
+        domain: &[],
+        range: &[],
+        same_type: true,
+        functional_to: false,
+        disjoint_with: &["depends_on"],
     },
     RelSpec {
         canonical: "co_changes",
         symmetry: Symmetry::Symmetric,
         transitive: false,
         inverse: None,
+        domain: &[],
+        range: &[],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
     },
     RelSpec {
         canonical: "anchored_to",
         symmetry: Symmetry::Directed,
         transitive: false,
         inverse: Some("anchors"),
+        domain: &[],
+        range: &["code"],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
     },
     RelSpec {
         canonical: "implemented_in",
         symmetry: Symmetry::Directed,
         transitive: false,
         inverse: None,
+        domain: &[],
+        range: &["pr", "commit"],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
     },
 ];
 
@@ -136,5 +196,70 @@ mod tests {
         assert!(is_symmetric("relates_to"));
         assert!(!is_symmetric("depends_on"));
         assert!(is_symmetric("unknown_rel"));
+    }
+
+    #[test]
+    fn same_type_constraints() {
+        for name in ["supersedes", "refines", "conflicts_with"] {
+            assert!(
+                lookup(name).unwrap().same_type,
+                "{name} should be same_type"
+            );
+        }
+        assert!(!lookup("depends_on").unwrap().same_type);
+    }
+
+    #[test]
+    fn range_constraints() {
+        assert_eq!(lookup("implemented_in").unwrap().range, ["pr", "commit"]);
+        assert_eq!(lookup("anchored_to").unwrap().range, ["code"]);
+        assert!(lookup("depends_on").unwrap().range.is_empty());
+    }
+
+    #[test]
+    fn functional_to_constraints() {
+        assert!(lookup("supersedes").unwrap().functional_to);
+        assert!(!lookup("refines").unwrap().functional_to);
+    }
+
+    #[test]
+    fn disjoint_pairs_are_mutual() {
+        assert_eq!(
+            lookup("depends_on").unwrap().disjoint_with,
+            ["conflicts_with"]
+        );
+        assert_eq!(
+            lookup("conflicts_with").unwrap().disjoint_with,
+            ["depends_on"]
+        );
+        assert_eq!(lookup("supersedes").unwrap().disjoint_with, ["refines"]);
+        assert_eq!(lookup("refines").unwrap().disjoint_with, ["supersedes"]);
+        for spec in RELS {
+            for partner in spec.disjoint_with {
+                let partner_spec =
+                    lookup(partner).unwrap_or_else(|| panic!("{partner} not canonical"));
+                assert!(
+                    partner_spec.disjoint_with.contains(&spec.canonical),
+                    "{} disjoint with {} but not vice versa",
+                    spec.canonical,
+                    partner
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unrestricted_rels_have_empty_domain_range() {
+        for name in [
+            "relates_to",
+            "depends_on",
+            "part_of",
+            "implements",
+            "co_changes",
+        ] {
+            let spec = lookup(name).unwrap();
+            assert!(spec.domain.is_empty(), "{name} domain should be empty");
+            assert!(spec.range.is_empty(), "{name} range should be empty");
+        }
     }
 }

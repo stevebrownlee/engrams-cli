@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS product_context (
   version INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS active_context (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
+CREATE TABLE IF NOT EXISTS active_contexts (
+  name TEXT PRIMARY KEY,
   content TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS product_context_history (
 );
 CREATE TABLE IF NOT EXISTS active_context_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL DEFAULT 'default',
   version INTEGER NOT NULL, content TEXT NOT NULL,
   timestamp TEXT NOT NULL, change_source TEXT
 );
@@ -192,4 +193,28 @@ CREATE TABLE IF NOT EXISTS graph_meta (
 CREATE UNIQUE INDEX IF NOT EXISTS ix_links_derived_uniq
   ON context_links(source_item_type, source_item_id, target_item_type, target_item_id, relationship_type)
   WHERE origin = 'derived';
+"#;
+
+pub const MIGRATION_V4: &str = r#"
+CREATE TABLE IF NOT EXISTS active_contexts (
+  name TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL
+);
+INSERT OR IGNORE INTO active_contexts (name, content, version, updated_at)
+  SELECT 'default', content, version, updated_at FROM active_context WHERE id = 1;
+DROP TABLE IF EXISTS active_context;
+ALTER TABLE active_context_history ADD COLUMN name TEXT NOT NULL DEFAULT 'default';
+
+-- Normalize legacy statuses: trim + case-insensitive match to canonical
+-- vocabulary. Unmatched values are left (trimmed) for doctor to flag.
+UPDATE progress_entries SET status = CASE lower(trim(status))
+  WHEN 'todo' THEN 'Todo' WHEN 'inprogress' THEN 'InProgress' WHEN 'in_progress' THEN 'InProgress'
+  WHEN 'in progress' THEN 'InProgress' WHEN 'inreview' THEN 'InReview' WHEN 'in_review' THEN 'InReview'
+  WHEN 'in review' THEN 'InReview' WHEN 'blocked' THEN 'Blocked' WHEN 'done' THEN 'Done'
+  WHEN 'dropped' THEN 'Dropped' ELSE trim(status) END;
+UPDATE decisions SET status = CASE lower(trim(status))
+  WHEN 'active' THEN 'active' WHEN 'superseded' THEN 'superseded'
+  WHEN 'rejected' THEN 'rejected' WHEN 'revisited' THEN 'revisited' ELSE trim(status) END;
 "#;

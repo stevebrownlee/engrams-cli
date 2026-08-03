@@ -260,6 +260,68 @@ impl Graph {
         out
     }
 
+    /// Directed BFS over edges of a single rel, following edge direction.
+    /// Returns `(node, depth)` in BFS order, excluding the start node.
+    /// Cycle-safe: each node is visited at most once.
+    pub fn transitive_reachable(&self, start: &NodeKey, rel: &str) -> Vec<(NodeKey, u32)> {
+        let Some(&s) = self.index.get(start) else {
+            return Vec::new();
+        };
+        let n = self.nodes.len();
+        let mut out_adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for e in &self.edges {
+            if e.rel == rel {
+                out_adj[e.src].push(e.tgt);
+            }
+        }
+        let mut dist = vec![u32::MAX; n];
+        dist[s] = 0;
+        let mut queue = VecDeque::from([s]);
+        let mut out = Vec::new();
+        while let Some(u) = queue.pop_front() {
+            let d = dist[u];
+            for &v in &out_adj[u] {
+                if dist[v] == u32::MAX {
+                    dist[v] = d + 1;
+                    out.push((self.nodes[v].clone(), d + 1));
+                    queue.push_back(v);
+                }
+            }
+        }
+        out
+    }
+
+    /// Directed cycles over the subgraph restricted to `rels` (e.g. the
+    /// canonical transitive rels). Each cycle is reported once as a closed
+    /// node path (first node repeated at the end). Self-loops are reported
+    /// as `[n, n]`.
+    pub fn cycles(&self, rels: &[&str]) -> Vec<Vec<NodeKey>> {
+        let n = self.nodes.len();
+        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for e in &self.edges {
+            if rels.contains(&e.rel.as_str()) {
+                adj[e.src].push(e.tgt);
+            }
+        }
+        let mut color = vec![0u8; n]; // 0 = unvisited, 1 = on stack, 2 = done
+        let mut stack: Vec<usize> = Vec::new();
+        let mut seen: HashSet<Vec<usize>> = HashSet::new();
+        let mut found: Vec<Vec<usize>> = Vec::new();
+        for s in 0..n {
+            if color[s] == 0 {
+                cycle_dfs(s, &adj, &mut color, &mut stack, &mut seen, &mut found);
+            }
+        }
+        found
+            .iter()
+            .map(|cyc| {
+                let mut path: Vec<NodeKey> = cyc.iter().map(|&i| self.nodes[i].clone()).collect();
+                path.push(self.nodes[cyc[0]].clone());
+                path
+            })
+            .collect()
+    }
+
     /// Nodes with weighted degree ≤ 1.
     pub fn orphans(&self) -> Vec<NodeKey> {
         self.degree()
@@ -284,6 +346,44 @@ impl Graph {
         }
         pairs.len() as f64 / (n as f64 * (n as f64 - 1.0) / 2.0)
     }
+}
+
+/// Gray-stack DFS: a back edge to an on-stack node yields one cycle, the
+/// stack slice from that node to the top. Cycles are deduped by their
+/// rotation-normalized node sequence.
+fn cycle_dfs(
+    u: usize,
+    adj: &[Vec<usize>],
+    color: &mut [u8],
+    stack: &mut Vec<usize>,
+    seen: &mut HashSet<Vec<usize>>,
+    found: &mut Vec<Vec<usize>>,
+) {
+    color[u] = 1;
+    stack.push(u);
+    for &v in &adj[u] {
+        match color[v] {
+            0 => cycle_dfs(v, adj, color, stack, seen, found),
+            1 => {
+                let pos = stack.iter().position(|&x| x == v).unwrap();
+                let cyc = stack[pos..].to_vec();
+                let minpos = cyc
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|&(_, &x)| x)
+                    .map(|(i, _)| i)
+                    .unwrap();
+                let mut norm: Vec<usize> = cyc[minpos..].to_vec();
+                norm.extend_from_slice(&cyc[..minpos]);
+                if seen.insert(norm) {
+                    found.push(cyc);
+                }
+            }
+            _ => {}
+        }
+    }
+    stack.pop();
+    color[u] = 2;
 }
 
 fn find(parent: &mut [usize], x: usize) -> usize {
@@ -351,4 +451,109 @@ pub fn summary(conn: &Connection) -> Result<Value> {
         "orphans": g.orphans().len(),
         "top_central": top_central,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Hand-build a graph over decision nodes `n` with directed edges
+    /// `(src, tgt, rel)`.
+    fn chain_graph(n: usize, edges: &[(usize, usize, &str)]) -> Graph {
+        let nodes: Vec<NodeKey> = (1..=n)
+            .map(|i| ("decision".to_string(), i.to_string()))
+            .collect();
+        let index: HashMap<NodeKey, usize> = nodes
+            .iter()
+            .enumerate()
+            .map(|(i, k)| (k.clone(), i))
+            .collect();
+        let mut undirected = vec![Vec::new(); n];
+        let mut es = Vec::new();
+        for &(s, t, rel) in edges {
+            undirected[s].push((t, 1.0, rel.to_string()));
+            if s != t {
+                undirected[t].push((s, 1.0, rel.to_string()));
+            }
+            es.push(Edge {
+                src: s,
+                tgt: t,
+                rel: rel.to_string(),
+                weight: 1.0,
+                symmetric: false,
+                origin: "manual".to_string(),
+            });
+        }
+        Graph {
+            nodes,
+            index,
+            edges: es,
+            undirected,
+        }
+    }
+
+    #[test]
+    fn transitive_reachable_follows_direction_with_depth() {
+        // 1 -supersedes-> 2 -supersedes-> 3
+        let g = chain_graph(3, &[(0, 1, "supersedes"), (1, 2, "supersedes")]);
+        let r = g.transitive_reachable(&("decision".into(), "1".into()), "supersedes");
+        assert_eq!(
+            r,
+            vec![
+                (("decision".to_string(), "2".to_string()), 1),
+                (("decision".to_string(), "3".to_string()), 2),
+            ]
+        );
+        // Against direction: nothing reachable.
+        assert!(g
+            .transitive_reachable(&("decision".into(), "3".into()), "supersedes")
+            .is_empty());
+        // Other rels are ignored.
+        assert!(g
+            .transitive_reachable(&("decision".into(), "1".into()), "depends_on")
+            .is_empty());
+    }
+
+    #[test]
+    fn transitive_reachable_terminates_on_cycles() {
+        let g = chain_graph(
+            3,
+            &[
+                (0, 1, "depends_on"),
+                (1, 2, "depends_on"),
+                (2, 0, "depends_on"),
+            ],
+        );
+        let mut r = g.transitive_reachable(&("decision".into(), "1".into()), "depends_on");
+        r.sort();
+        assert_eq!(r.len(), 2); // nodes 2 and 3, each once
+    }
+
+    #[test]
+    fn cycles_finds_cycle_once_with_closed_path() {
+        let g = chain_graph(
+            3,
+            &[
+                (0, 1, "depends_on"),
+                (1, 2, "depends_on"),
+                (2, 0, "depends_on"),
+            ],
+        );
+        let cyc = g.cycles(&["depends_on", "supersedes"]);
+        assert_eq!(cyc.len(), 1);
+        let path: Vec<String> = cyc[0].iter().map(fmt_node).collect();
+        assert_eq!(path.first(), path.last());
+        assert_eq!(path.len(), 4);
+        // A DAG has no cycles.
+        let dag = chain_graph(3, &[(0, 1, "supersedes"), (1, 2, "supersedes")]);
+        assert!(dag.cycles(&["supersedes"]).is_empty());
+    }
+
+    #[test]
+    fn cycles_reports_self_loop() {
+        let g = chain_graph(1, &[(0, 0, "depends_on")]);
+        let cyc = g.cycles(&["depends_on"]);
+        assert_eq!(cyc.len(), 1);
+        assert_eq!(cyc[0].len(), 2);
+    }
 }
