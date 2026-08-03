@@ -53,20 +53,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="blob blob-3"></div>
       </div>
       <div class="hero-content">
-        <div class="hero-badge">
-          <span class="pulse-dot"></span>
-          Open Source · Local-first · Zero Daemons
-        </div>
         <h1 class="hero-title">
-          Your AI can see your code.<br />
-          It can't see your <span class="accent-word">decisions</span>.
+          Your AI can see your code. It can't see your <span class="accent-word">decisions</span>.
         </h1>
         <p class="hero-subtitle">
-          Every function exists because of a decision — a trade-off, a bug fix,
-          a production incident your team survived. None of it reaches your AI.
-          Engrams anchors that reasoning to your code as a knowledge graph, so
-          your AI knows what's there, why it's there, and what breaks if it
-          touches it.
+          Every function exists because of a decision — a trade-off, a bug fix, a production incident your team survived. None of it reaches your AI. Engrams anchors that reasoning to your code as a knowledge graph, so your AI knows what's there, why it's there, and what breaks if it touches it.
         </p>
         <div class="hero-actions">
           <a href="/docs/getting-started" class="btn-primary">
@@ -88,26 +79,39 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <span class="dot red"></span><span class="dot yellow"></span><span
             class="dot green"></span><span class="filename">terminal</span>
         </div>
-        <pre><code>{`$ engrams prime --budget 1000
+        <pre><code>
+{`$ engrams prime --budget 1500
 
-┌─────────────────────────────────────────┐
-│  PROJECT CONTEXT BRIEF                  │
-├─────────────────────────────────────────┤
-│  Product:  E-commerce platform          │
-│  Stack:    Rust · PostgreSQL · Redis    │
-│  Active:   Migrating to event sourcing  │
-│                                           │
-│  Decisions (3):                          │
-│   #12 Use event sourcing for orders      │
-│   #8  PostgreSQL over MongoDB            │
-│   #5  Redis for session cache            │
-│                                           │
-│  Patterns (2):                           │
-│   Repository pattern for data access     │
-│   Result<T,E> for error handling         │
-└─────────────────────────────────────────┘
-
-3,847 tokens of context loaded in 0.02s.`}</code></pre>
+{
+  "active_context": {
+    "status": "Maintenance",
+    "focus": "v0.8.0 shipped. Homepage redesign complete."
+  },
+  "product_context": {
+    "name": "engrams-cli",
+    "summary": "High-performance Rust CLI for persistent LLM project memory"
+  },
+  "decisions": [
+    {
+      "id": 37,
+      "summary": "Pivot hero framing from memory to decision-visibility risk"
+    },
+    {
+      "id": 36,
+      "summary": "Redesign homepage from docs-style to marketing landing page"
+    },
+    {
+      "id": 35,
+      "summary": "Introduce .agents/rules/ governance system"
+    }
+  ],
+  "patterns": [
+    { "id": 2, "name": "Atomic Batch Operations" },
+    { "id": 1, "name": "JSON Error Outputs on Failure" }
+  ],
+  "graph": { "nodes": 147, "edges": 760 }
+}`}
+</code></pre>
       </div>
     </section>
 
@@ -605,7 +609,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-size: 1.0625rem;
     line-height: 1.7;
     color: var(--color-text-muted);
-    max-width: 620px;
+    max-width: 90%;
     margin: 0 auto 3rem;
   }
 
@@ -708,7 +712,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .hero-content {
     position: relative;
     z-index: 1;
-    max-width: 820px;
+    max-width: 90%;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -750,7 +754,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     100% { transform: scale(2.2); opacity: 0; }
   }
   .hero-title {
-    font-size: clamp(2rem, 5.5vw, 3.2rem);
+    font-size: clamp(1.5rem, 5.5vw, 2.5rem);
     font-weight: 800;
     line-height: 1.1;
     margin-bottom: 1.25rem;
@@ -762,9 +766,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-style: italic;
   }
   .hero-subtitle {
-    font-size: 1.1875rem;
+    font-size: 1.1rem;
     color: var(--color-text-muted);
-    max-width: 620px;
+    max-width: 90%;
     margin-bottom: 2rem;
     line-height: 1.7;
   }
