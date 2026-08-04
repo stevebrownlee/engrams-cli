@@ -80,37 +80,22 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             class="dot green"></span><span class="filename">terminal</span>
         </div>
         <pre><code>
-{`$ engrams prime --budget 1500
+{`$ engrams prime
 
-{
-  "active_context": {
-    "status": "Maintenance",
-    "focus": "v0.8.0 shipped. Homepage redesign complete."
-  },
-  "product_context": {
-    "name": "engrams-cli",
-    "summary": "High-performance Rust CLI for persistent LLM project memory"
-  },
-  "decisions": [
-    {
-      "id": 37,
-      "summary": "Pivot hero framing from memory to decision-visibility risk"
-    },
-    {
-      "id": 36,
-      "summary": "Redesign homepage from docs-style to marketing landing page"
-    },
-    {
-      "id": 35,
-      "summary": "Introduce .agents/rules/ governance system"
-    }
-  ],
-  "patterns": [
-    { "id": 2, "name": "Atomic Batch Operations" },
-    { "id": 1, "name": "JSON Error Outputs on Failure" }
-  ],
-  "graph": { "nodes": 147, "edges": 760 }
-}`}
+  STATUS       Maintenance · v0.8.0 shipped · no active feature work
+
+  DECISIONS
+    #38  Replace fake terminal demo with real prime output            Aug 3
+    #37  Pivot hero framing: memory → decision-visibility risk       Aug 3
+    #36  Redesign homepage from docs-style to marketing landing      Aug 3
+    #35  Introduce .agents/rules/ governance system                  Aug 3
+
+  PATTERNS
+    ✓ Atomic Batch Operations — single transaction, rollback on failure
+    ✓ JSON Error Outputs — {"error":"..."} to stderr, exit code 1
+
+  GRAPH     149 nodes · 764 edges · 62 orphans
+            central: code:93 (0.027) · code:89 (0.025) · code:91 (0.024)`}
 </code></pre>
       </div>
     </section>
