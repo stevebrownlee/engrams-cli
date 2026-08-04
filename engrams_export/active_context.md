@@ -1,19 +1,19 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-04T03:37:06Z
+created: 2026-08-04T04:04:19Z
 ---
 # Active Context
 
 ```json
 {
   "content": {
-    "focus": "Updated `engrams instructions` output (src/assets/instructions.md) and AGENTS.md line 38 to use canonical relationship rels (implements/depends_on/supersedes) instead of non-canonical extends/uses. Both tracked docs and the instructions output now agree and match the relationship ontology in src/ops/graph/rel.rs. Decision #40 (refines #14), progress #50-51.",
+    "focus": "v0.8.1 released: version bump + green build/tests + v0.8.1 tag + GitHub Release (4 artifacts) + Homebrew Formula checksums. Docs site GitHub links canonicalized to stevebrownlee/engrams-cli (verified via agent-browser).",
     "last_updated": "2026-08-04",
     "status": "Maintenance"
   },
   "name": "default",
-  "updated_at": "2026-08-04T03:37:06Z",
-  "version": 27
+  "updated_at": "2026-08-04T04:04:19Z",
+  "version": 29
 }
 ```
