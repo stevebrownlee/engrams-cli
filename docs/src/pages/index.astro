@@ -26,7 +26,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             ><img
               src="/engram.png"
               alt=""
-              class="logo-img"
+              class="graph-img"
               aria-hidden="true"
             /></span
           >
@@ -85,10 +85,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   STATUS       Maintenance · v0.8.0 shipped · no active feature work
 
   DECISIONS
-    #38  Replace fake terminal demo with real prime output            Aug 3
-    #37  Pivot hero framing: memory → decision-visibility risk       Aug 3
-    #36  Redesign homepage from docs-style to marketing landing      Aug 3
-    #35  Introduce .agents/rules/ governance system                  Aug 3
+    #38  rel vocabulary growth: surface non-canonical rel frequency   Aug 3
+    #37  Rewrote AGENTS.md with Store/Link/Retrieve references        Aug 3
+    #36  Bottom-up non-canonical relationship growth analysis         Aug 3
+    #35  Introduce .agents/rules/ governance system                   Aug 3
 
   PATTERNS
     ✓ Atomic Batch Operations — single transaction, rollback on failure
@@ -97,65 +97,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   GRAPH     149 nodes · 764 edges · 62 orphans
             central: code:93 (0.027) · code:89 (0.025) · code:91 (0.024)`}
 </code></pre>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         THE PROBLEM — Pain Agitation
-         ════════════════════════════════════════ -->
-    <section class="problem">
-      <div class="problem-inner">
-        <h2 class="section-eyebrow">The obvious question</h2>
-        <h2 class="section-heading-lg">
-          A markdown file records. Engrams delivers.
-        </h2>
-        <p class="section-lead">
-          Writing decisions down is step one. But a 500-line
-          ARCHITECTURE.md doesn't know which 3 decisions are relevant to the
-          function you're about to change. It can't filter by file path.
-          It can't tell you when a decision was superseded. And it certainly
-          can't connect the dots. Recording is easy. <em>Retrieval</em> is
-          the hard part — and that's where markdown breaks down.
-        </p>
-
-        <div class="problem-grid">
-          <div class="problem-card">
-            <div class="problem-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><line x1="12" y1="8" x2="12" y2="12" opacity="0"/><line x1="9" y1="11" x2="9" y2="11"/></svg>
-            </div>
-            <h3>The retrieval gap</h3>
-            <p>
-              You documented 80 decisions. Which 3 matter for the function
-              you're editing right now? With a markdown file, you hunt
-              manually and paste blindly. Engrams anchors every decision to
-              the files it affects — and serves only what's relevant.
-            </p>
-          </div>
-          <div class="problem-card">
-            <div class="problem-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </div>
-            <h3>Silent staleness</h3>
-            <p>
-              Your docs say "we use Redis for caching." That was superseded
-              last month. The file still says Redis — and your AI trusts it,
-              building on a decision that's no longer true. Engrams tracks
-              supersession so the graph always reflects current truth.
-            </p>
-          </div>
-          <div class="problem-card">
-            <div class="problem-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            </div>
-            <h3>Flat vs connected</h3>
-            <p>
-              A markdown file is a list. But decisions don't live in
-              isolation — one was made because of another, one was
-              implemented by a pattern, one conflicts with a third. Engrams
-              models these as typed edges your AI can traverse.
-            </p>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -232,6 +173,15 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       </div>
     </section>
 
+     <section class="hero-code-section">
+      <p><img
+              src="/engrams-knowledge-graph.gif"
+              alt=""
+              class="graph-img"
+              aria-hidden="true"
+            /></p>
+    </section>
+
     <!-- ════════════════════════════════════════
          BEFORE / AFTER COMPARISON
          ════════════════════════════════════════ -->
@@ -298,28 +248,34 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     </section>
 
     <!-- ════════════════════════════════════════
-         HOW IT WORKS — 3 Steps
+         HOW IT WORKS — The workflow loop
          ════════════════════════════════════════ -->
     <section class="howto">
       <div class="howto-inner">
-        <h2 class="section-eyebrow">Dead simple</h2>
-        <h2 class="section-heading-lg">Three commands. That's it.</h2>
+        <h2 class="section-eyebrow">The workflow</h2>
+        <h2 class="section-heading-lg">How your AI uses Engrams</h2>
+        <p class="section-lead">
+          Your AI agent doesn't just read your code — it builds and queries a
+          knowledge graph. Every conversation follows the same loop. Each pass
+          makes the graph richer.
+        </p>
 
         <div class="steps">
           <div class="step">
             <div class="step-num">1</div>
             <div class="step-body">
-              <h3>Log as you work</h3>
+              <h3>Log decisions as they're made</h3>
               <p>
-                When you make a decision, discover a pattern, or finish a
-                task, your AI logs it with one command. It's automatic —
-                your agent does it as part of its normal workflow.
+                Every time your AI makes a trade-off — choose a library, pick an
+                architecture, settle a debate — it records the reasoning and
+                anchors it to the code. Next session, it knows <em>why</em>, not
+                just <em>what</em>.
               </p>
               <div class="step-code">
                 <span class="prompt">$</span> engrams decision log \
                 <br />&nbsp;&nbsp;--summary "Use event sourcing" \
                 <br />&nbsp;&nbsp;--rationale "Audit trail requirement" \
-                <br />&nbsp;&nbsp;--tags "arch,events"
+                <br />&nbsp;&nbsp;--anchor src/orders/ --tags "arch"
               </div>
             </div>
           </div>
@@ -331,11 +287,31 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <div class="step">
             <div class="step-num">2</div>
             <div class="step-body">
-              <h3>Prime the next session</h3>
+              <h3>Retrieve what's relevant</h3>
               <p>
-                At the start of any conversation, one command loads a brief:
-                product context, active work, relevant decisions, and patterns
-                — trimmed to your token budget.
+                Before editing a file, your AI pulls only the decisions and
+                patterns anchored to those paths. No 500-line docs dump — just
+                the context that matters for this change.
+              </p>
+              <div class="step-code">
+                <span class="prompt">$</span> engrams relevant src/auth/<br />
+                <span class="prompt">$</span> engrams query "error handling"
+              </div>
+            </div>
+          </div>
+
+          <div class="step-connector" aria-hidden="true">
+            <svg width="24" height="48" viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 0v40M6 34l6 8 6-8"/></svg>
+          </div>
+
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h3>Prime a new session</h3>
+              <p>
+                One command at conversation start loads a complete briefing:
+                product context, active work, recent decisions, and patterns —
+                trimmed to your token budget.
               </p>
               <div class="step-code">
                 <span class="prompt">$</span> engrams prime --budget 2000
@@ -348,17 +324,19 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           </div>
 
           <div class="step">
-            <div class="step-num">3</div>
+            <div class="step-num">4</div>
             <div class="step-body">
-              <h3>Ship with full context</h3>
+              <h3>Track progress and hand off</h3>
               <p>
-                Your AI picks up exactly where you left off. It knows the
-                stack, the decisions, the patterns, and what's in progress.
-                No ramp-up. No re-explaining. Just momentum.
+                As work happens, your AI logs status and keeps a hand-off
+                document updated. The next session opens with "here's where we
+                left off" — zero ramp-up.
               </p>
-              <div class="step-code step-code-result">
-                <span class="result-tag">✓ Context loaded</span>
-                Your AI is ready to work.
+              <div class="step-code">
+                <span class="prompt">$</span> engrams progress log --status Done \
+                <br />&nbsp;&nbsp;--description "Auth refactor complete"<br />
+                <span class="prompt">$</span> engrams active-context update \
+                <br />&nbsp;&nbsp;--content &#123;"status":"InProgress","focus":"Auth"&#125;
               </div>
             </div>
           </div>
@@ -763,6 +741,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     flex-wrap: wrap;
     justify-content: center;
     margin-bottom: 0.5rem;
+  }
+  .graph-img {
+    max-width: 50rem;
   }
 
   .btn-primary {
