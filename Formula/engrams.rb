@@ -1,23 +1,23 @@
 class Engrams < Formula
   desc "Standalone, high-performance Rust CLI for managing contextual memory"
   homepage "https://github.com/stevebrownlee/engrams-cli"
-  version "0.8.0"
+  version "0.8.1"
 
   if OS.mac?
     if Hardware::CPU.intel?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-x86_64-apple-darwin.tar.gz"
-      sha256 "a664a6407e6a2978b9a721e54ec3dc78a0c7d32da0dc108d366b26900a6d3ba7"
+      sha256 "737a229c17a264d7b2c2db9333f6cd0359f6e40f91c6f34efcc9f84065000f84"
     elsif Hardware::CPU.arm?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-aarch64-apple-darwin.tar.gz"
-      sha256 "71d6959910395da973185aaa7d37504dd8f8a788cfd159e44ce1c63f83354432"
+      sha256 "607ba01c33b5d73ddc833cfd99bbafd8d52564573c75724207d2486b9039b241"
     end
   elsif OS.linux?
     if Hardware::CPU.intel?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "1ab38ee54e3da84281b8fde6f5d40b0617d4f622a6852ffe28824d54f6806737"
+      sha256 "236151795159996ec0e8348e67aa78ab99a44da7a4e5842272155e69b3a3db9a"
     elsif Hardware::CPU.arm?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "e21a8bde73b13c6823ba2b7971b60ded13a9734274adbf3e662fa4f4983ce543"
+      sha256 "5bd895561770248d41c9a298e0823d0dcaa5384de7f4cad33ce8c2e6e4fbb14a"
     end
   end
 
