@@ -8,6 +8,41 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.8.1</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Onboarding Instructions Synced to the Installed CLI:</strong> The output of <code>engrams instructions</code> was rewritten to track the current operating loop: a command quick-reference table, the closed status vocabularies, the Store/Link/Retrieve model, the six-step session-end protocol, <code>doctor</code>/<code>migrate</code>/<code>export</code>, and the global <code>--compact</code> and <code>--fields</code> flags. It had drifted from <code>AGENTS.md</code> and still mirrored the legacy seven-step text loop.
+      </li>
+      <li>
+        <strong>Canonical Relationship Examples:</strong> The session-end protocol's example relationship names were corrected from the non-canonical <code>extends</code>/<code>uses</code> to <code>implements</code>/<code>depends_on</code>/<code>supersedes</code>, both in the <code>instructions</code> output and in <code>AGENTS.md</code>. Non-canonical names would be flagged by <code>engrams doctor</code> for anyone who followed them.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Drifted Onboarding:</strong> Newly onboarded agents received stale operating guidance that no longer matched the installed CLI's commands or vocabularies, referencing pre-<code>v0.8.0</code> behavior and wasting tokens.
+      </li>
+      <li>
+        <strong>Eroding Ontology Trust:</strong> Example relationships that aren't canonical would produce <code>doctor</code> warnings, undercutting the shared-semantics guarantees the <code>v0.8.0</code> relationship ontology introduced.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Accurate Self-Service Onboarding:</strong> <code>engrams instructions</code> now matches the installed CLI surface and the current <code>AGENTS.md</code>, so copy-paste onboarding guidance is correct out of the box.
+      </li>
+      <li>
+        <strong>Doctor-Clean Defaults:</strong> The documented session-end protocol uses canonical relationships by default, so agents following it won't seed the graph with non-canonical edges.
+      </li>
+    </ul>
+  </div>
+
+  <hr />
+
   <h2>v0.8.0</h2>
   <div class="release-block">
     <h3>What was done</h3>
