@@ -1,7 +1,6 @@
 ---
 import "../styles/global.css";
 import Hero3D from "../components/Hero3D.astro";
-import ScrollStory from "../components/ScrollStory.astro";
 import ForceGraph from "../components/ForceGraph.astro";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
@@ -43,7 +42,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <div class="hero-content">
         <div class="hero-badge">Open Source · Apache-2.0 · v{__APP_VERSION__}</div>
         <h1 class="hero-title">
-          An AI advisor that<br /><span class="accent-word">compounds</span>.
+          An advisor with a memory<br />that <span class="accent-word">compounds</span>.
         </h1>
         <p class="hero-subtitle">
           Engrams anchors every decision, pattern, and trade-off to your code as a living
@@ -53,20 +52,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </p>
         <div class="hero-actions">
           <a href="/docs/getting-started" class="btn btn-primary btn-lg">Start compounding</a>
-          <a href="#maturity" class="btn btn-ghost btn-lg">Watch a month of memory ↓</a>
+          <a href="#graph" class="btn btn-ghost btn-lg">Explore the knowledge graph ↓</a>
         </div>
       </div>
       <div class="hero-scroll-hint" aria-hidden="true">scroll</div>
     </section>
 
-    <!-- ══ MATURATION SCROLL STORY ══ -->
-    <div id="maturity">
-      <ScrollStory />
-    </div>
-    <p class="data-note reveal">
-      This is <strong>engrams' own memory</strong> — {33} decisions, {6} patterns, {32} work entries and
-      {29} reasoning links captured while building the tool itself. No mock data.
-    </p>
+
 
     <!-- ══ WHAT AN ADVISOR DOES ══ -->
     <section class="section">
@@ -158,7 +150,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     </section>
 
     <!-- ══ INTERACTIVE GRAPH ══ -->
-    <section class="section dark graph-section">
+    <section id="graph" class="section dark graph-section">
       <div class="section-head reveal">
         <div class="section-eyebrow">Proof, not promises</div>
         <h2 class="section-title">Drag engrams' own memory around</h2>
