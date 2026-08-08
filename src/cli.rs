@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -69,6 +70,29 @@ pub enum Command {
     Pattern {
         #[command(subcommand)]
         cmd: PatternCmd,
+    },
+
+    /// Export checkable patterns as harness rule files (omp rulebook)
+    Rules {
+        #[command(subcommand)]
+        cmd: RulesCmd,
+    },
+
+    /// Run stored checks against files (CI / session-end review)
+    Check {
+        /// Scan git-staged files only
+        #[arg(long)]
+        staged: bool,
+        /// Comma-separated list of files/dirs to scan
+        #[arg(long, value_delimiter = ',')]
+        paths: Vec<String>,
+    },
+
+    /// Install harness rule files into the workspace for in-session enforcement
+    Install {
+        /// Target harness (only 'omp' supported)
+        #[arg(long)]
+        harness: String,
     },
 
     /// Store arbitrary configuration or key-value data
@@ -517,6 +541,15 @@ pub enum PatternCmd {
         /// Associated file path anchor (repeatable)
         #[arg(long = "anchor")]
         anchors: Vec<String>,
+        /// Machine-checkable expression kind: regex or ast
+        #[arg(long)]
+        check_kind: Option<String>,
+        /// Check expression source (regex pattern or ast-grep pattern); pairs with --check-kind
+        #[arg(long = "check")]
+        check_expr: Option<String>,
+        /// Enforcement severity when a check matches: info, warn, or error (default: warn)
+        #[arg(long)]
+        severity: Option<String>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -531,6 +564,19 @@ pub enum PatternCmd {
     },
     Delete {
         id: i64,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RulesCmd {
+    /// Export checkable patterns as harness rule files
+    Export {
+        /// Harness target (only "omp" supported)
+        #[arg(long)]
+        harness: String,
+        /// Output directory (defaults to <workspace>/.omp/rules)
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
 }
 

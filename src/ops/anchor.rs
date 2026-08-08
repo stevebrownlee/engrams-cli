@@ -259,7 +259,7 @@ pub fn handle_relevant(
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
-        let sql = format!("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns WHERE id IN ({}) ORDER BY id DESC", placeholders);
+        let sql = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE id IN ({}) ORDER BY id DESC", placeholders);
         let mut stmt = conn.prepare(&sql)?;
         let mut p = Vec::<&dyn rusqlite::ToSql>::new();
         for id in &pattern_ids {
@@ -278,6 +278,9 @@ pub fn handle_relevant(
                 description: row.get(3)?,
                 tags: if tags.is_null() { None } else { Some(tags) },
                 timestamp: row.get(5)?,
+                check_kind: row.get(6)?,
+                check_expr: row.get(7)?,
+                severity: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
             })

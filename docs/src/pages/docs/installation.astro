@@ -4,11 +4,12 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 
 <DocsLayout
   title="Installation"
-  description="Install Engrams and connect it to your AI coding tool."
+  description="Install Engrams and give your AI coding tool a memory that compounds into advice."
 >
   <h1>Installation</h1>
   <p class="lead">
     Engrams is a standalone Rust binary. It runs entirely locally in your workspace with zero daemon or server overhead.
+    Install it once and every session your AI runs starts compounding into advice.
   </p>
 
   <h2>Step 1 — Install the CLI</h2>
@@ -33,6 +34,13 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
   <p>
     This command initializes the local SQLite database at <code>engrams/context.db</code> and outputs the resolved path.
   </p>
+  <div class="callout tip">
+    <strong>The loop starts here</strong>
+    From the first session, your agent logs decisions and patterns as it works and recalls them on
+    the next one. On day one your advisor mostly fetches what you ask for; within weeks the graph is
+    dense enough that it starts anticipating — surfacing the decision that contradicts the approach
+    it was about to take. That compounding is the product.
+  </div>
 
   <h2>Step 3 — Configure your AI Tool</h2>
   <p>

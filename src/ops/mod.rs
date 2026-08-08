@@ -1,12 +1,14 @@
 pub mod activity;
 pub mod anchor;
 pub mod batch;
+pub mod check;
 pub mod context;
 pub mod custom;
 pub mod decision;
 pub mod doctor;
 pub mod git;
 pub mod graph;
+pub mod install;
 pub mod link;
 pub mod pattern;
 pub mod pr;
@@ -14,6 +16,7 @@ pub mod prime;
 pub mod progress;
 pub mod query;
 pub mod report;
+pub mod rules;
 pub mod status;
 pub mod transfer;
 use anyhow::Result;
@@ -64,11 +67,14 @@ pub fn dispatch(
         },
         Command::Decision { cmd } => decision::handle(conn, cmd),
         Command::Progress { cmd } => progress::handle(conn, cmd),
-        Command::Pattern { cmd } => pattern::handle(conn, cmd),
+        Command::Pattern { cmd } => pattern::handle(conn, cmd, db_path),
+        Command::Rules { cmd } => rules::handle(conn, cmd, db_path),
+        Command::Install { harness } => install::handle(conn, &harness, db_path),
+        Command::Check { staged, paths } => check::handle(conn, staged, &paths, db_path),
         Command::Custom { cmd } => custom::handle(conn, cmd),
         Command::Link { cmd } => link::handle(conn, cmd),
         Command::Activity(args) => activity::handle(conn, args),
-        Command::Batch { r#type, items } => batch::handle(conn, r#type, items),
+        Command::Batch { r#type, items } => batch::handle(conn, r#type, items, db_path),
         Command::Export { path } => transfer::export::handle(conn, &path),
         Command::Import { path } => transfer::import::handle(conn, &path),
         Command::Report { cmd, topic, limit } => match cmd {
@@ -87,7 +93,7 @@ pub fn dispatch(
             paths,
             tags,
         } => prime::handle(conn, budget, paths, tags),
-        Command::Doctor => doctor::handle(conn),
+        Command::Doctor => doctor::handle(conn, db_path),
         Command::Graph { cmd } => graph::handle(conn, cmd, db_path),
         Command::Instructions => unreachable!("handled in main before dispatch"),
         Command::Query {

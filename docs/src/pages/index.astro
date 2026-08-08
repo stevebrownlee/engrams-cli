@@ -1,5 +1,8 @@
 ---
 import "../styles/global.css";
+import Hero3D from "../components/Hero3D.astro";
+import ScrollStory from "../components/ScrollStory.astro";
+import ForceGraph from "../components/ForceGraph.astro";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -11,1451 +14,397 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Your AI can see your code but not the decisions behind it. Engrams anchors every trade-off, pattern, and architectural choice to your code as a knowledge graph — so your AI knows what's there, why it's there, and what breaks if it touches it."
+      content="Engrams turns your AI coding assistant into an active advisor. It anchors every decision, pattern, and trade-off to your code as a knowledge graph that compounds — so the longer you use it, the sharper its guidance gets."
     />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Engrams – Permanent Memory for AI Coding Assistants</title>
+    <title>Engrams – Your AI's Active Advisor</title>
   </head>
   <body class="home-body">
     <!-- ── Header ── -->
     <header class="home-header">
       <div class="hdr-inner">
         <a href="/" class="logo">
-          <span class="logo-mark"
-            ><img
-              src="/engram.png"
-              alt=""
-              class="graph-img"
-              aria-hidden="true"
-            /></span
-          >
+          <span class="logo-mark"><img src="/engram.png" alt="" class="graph-img" aria-hidden="true" /></span>
           <span class="logo-text">Engrams</span>
         </a>
         <nav class="hdr-nav">
-          <a href="/docs/getting-started">Docs</a>
-          <a
-            href="https://github.com/stevebrownlee/engrams-cli"
-            target="_blank"
-            rel="noopener">GitHub</a
-          >
+          <a href="/docs/advisor/overview">The Advisor</a>
+          <a href="/docs/for-you/overview">For You</a>
+          <a href="/docs/for-agent/overview">For Your Agent</a>
+          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
         </nav>
       </div>
     </header>
 
-    <!-- ════════════════════════════════════════
-         HERO
-         ════════════════════════════════════════ -->
-    <section class="hero">
-      <div class="hero-bg" aria-hidden="true">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-      </div>
+    <!-- ══ HERO ══ -->
+    <section class="hero dark">
+      <Hero3D height="100%" />
       <div class="hero-content">
+        <div class="hero-badge">Open Source · Apache-2.0 · v{__APP_VERSION__}</div>
         <h1 class="hero-title">
-          Your AI can see your code. It can't see your <span class="accent-word">decisions</span>.
+          An AI advisor that<br /><span class="accent-word">compounds</span>.
         </h1>
         <p class="hero-subtitle">
-          Every function exists because of a decision — a trade-off, a bug fix, a production incident your team survived. None of it reaches your AI. Engrams anchors that reasoning to your code as a knowledge graph, so your AI knows what's there, why it's there, and what breaks if it touches it.
+          Engrams anchors every decision, pattern, and trade-off to your code as a living
+          knowledge graph. On day one it fetches. By week four it <em>advises</em> — warning you
+          before you repeat a mistake, surfacing the rationale behind any line, and telling your
+          agent what breaks if it touches this.
         </p>
         <div class="hero-actions">
-          <a href="/docs/getting-started" class="btn-primary">
-            Get started
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
-          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.5 11.5 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.014 2.898-.014 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-            View on GitHub
-          </a>
+          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Start compounding</a>
+          <a href="#maturity" class="btn btn-ghost btn-lg">Watch a month of memory ↓</a>
         </div>
       </div>
+      <div class="hero-scroll-hint" aria-hidden="true">scroll</div>
     </section>
 
-    <!-- Terminal demo -->
-    <section class="hero-code-section">
-      <div class="hero-code">
-        <div class="code-bar">
-          <span class="dot red"></span><span class="dot yellow"></span><span
-            class="dot green"></span><span class="filename">terminal</span>
-        </div>
-        <pre><code>
-{`$ engrams prime
+    <!-- ══ MATURATION SCROLL STORY ══ -->
+    <div id="maturity">
+      <ScrollStory />
+    </div>
+    <p class="data-note reveal">
+      This is <strong>engrams' own memory</strong> — {33} decisions, {6} patterns, {32} work entries and
+      {29} reasoning links captured while building the tool itself. No mock data.
+    </p>
 
-  STATUS       Maintenance · v0.8.1 shipped · no active feature work
-
-  DECISIONS
-    #38  rel vocabulary growth: surface non-canonical rel frequency   Aug 3
-    #37  Rewrote AGENTS.md with Store/Link/Retrieve references        Aug 3
-    #36  Bottom-up non-canonical relationship growth analysis         Aug 3
-    #35  Introduce .agents/rules/ governance system                   Aug 3
-
-  PATTERNS
-    ✓ Atomic Batch Operations — single transaction, rollback on failure
-    ✓ JSON Error Outputs — {"error":"..."} to stderr, exit code 1
-
-  GRAPH     149 nodes · 764 edges · 62 orphans
-            central: code:93 (0.027) · code:89 (0.025) · code:91 (0.024)`}
-</code></pre>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         BENEFITS — Outcome-focused
-         ════════════════════════════════════════ -->
-    <section class="benefits">
-      <div class="benefits-inner">
-        <h2 class="section-eyebrow">The payoff</h2>
-        <h2 class="section-heading-lg">What Engrams gives back to you</h2>
-        <p class="section-lead">
-          Not another tool to manage. Less to remember. Less to explain.
-          More momentum.
+    <!-- ══ WHAT AN ADVISOR DOES ══ -->
+    <section class="section">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">The difference</div>
+        <h2 class="section-title">A database answers. An advisor <span class="accent-word">anticipates</span>.</h2>
+        <p class="section-sub">
+          Query tools wait for you to ask the right question. Engrams builds enough context to
+          raise its hand first.
         </p>
-
-        <div class="benefit-grid">
-          <div class="benefit-card">
-            <div class="benefit-number">01</div>
-            <div class="benefit-icon">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </div>
-            <h3>Free your mental RAM</h3>
-            <p>
-              Stop carrying every architectural decision in your head. Engrams
-              remembers <em>why</em> you chose PostgreSQL, <em>why</em> you're
-              using event sourcing, <em>what</em> you decided last sprint.
-              Your brain gets to focus on the problem, not the history.
-            </p>
-          </div>
-
-          <div class="benefit-card">
-            <div class="benefit-number">02</div>
-            <div class="benefit-icon">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </div>
-            <h3>Slash your token bill</h3>
-            <p>
-              One <code>prime</code> command loads exactly the context your AI
-              needs — within a budget <em>you</em> control. No more dumping
-              entire files or re-pasting READMEs. Relevant context, not
-              kitchen-sink context.
-            </p>
-          </div>
-
-          <div class="benefit-card">
-            <div class="benefit-number">03</div>
-            <div class="benefit-icon">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            </div>
-            <h3>Onboard in seconds</h3>
-            <p>
-              New session? Full context. New teammate's AI? Full context.
-              The moment your assistant runs <code>engrams prime</code>, it
-              knows your stack, your decisions, and what you're working on
-              right now. Zero ramp-up.
-            </p>
-          </div>
-
-          <div class="benefit-card">
-            <div class="benefit-number">04</div>
-            <div class="benefit-icon">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            </div>
-            <h3>Watch knowledge compound</h3>
-            <p>
-              Every decision links to patterns. Every pattern links to code.
-              Every progress entry links back to the decision that spawned it.
-              Your project's understanding doesn't reset — it
-              <strong>accumulates</strong>, building a graph that gets more
-              valuable with every commit.
-            </p>
-          </div>
-        </div>
       </div>
-    </section>
-
-     <section class="hero-code-section">
-      <p><img
-              src="/engrams-knowledge-graph.gif"
-              alt=""
-              class="graph-img"
-              aria-hidden="true"
-            /></p>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         BEFORE / AFTER COMPARISON
-         ════════════════════════════════════════ -->
-    <section class="comparison">
-      <div class="comparison-inner">
-        <h2 class="section-eyebrow">The real comparison</h2>
-        <h2 class="section-heading-lg">
-          A markdown file vs. a knowledge graph
-        </h2>
-
-        <div class="comparison-grid">
-          <div class="comparison-col before">
-            <div class="comparison-label">Just a markdown file</div>
-            <ul class="comparison-list">
-              <li>
-                <span class="x-icon">✕</span>
-                Manually hunt through docs for what's relevant
-              </li>
-              <li>
-                <span class="x-icon">✕</span>
-                Paste entire files, hoping the AI finds the context
-              </li>
-              <li>
-                <span class="x-icon">✕</span>
-                Stale decisions go unnoticed until they cause bugs
-              </li>
-              <li>
-                <span class="x-icon">✕</span>
-                Flat text — no connections between decisions
-              </li>
-              <li>
-                <span class="x-icon">✕</span>
-                New sessions still start with "let me catch you up"
-              </li>
-            </ul>
-          </div>
-          <div class="comparison-col after">
-            <div class="comparison-label">With Engrams</div>
-            <ul class="comparison-list">
-              <li>
-                <span class="check-icon">✓</span>
-                Path-anchored: only decisions tied to your current files
-              </li>
-              <li>
-                <span class="check-icon">✓</span>
-                Budget-aware: one command loads exactly enough context
-              </li>
-              <li>
-                <span class="check-icon">✓</span>
-                Supersession tracking: the graph reflects current truth
-              </li>
-              <li>
-                <span class="check-icon">✓</span>
-                Typed edges: see how every decision, pattern, and PR connects
-              </li>
-              <li>
-                <span class="check-icon">✓</span>
-                Each session compounds — the graph grows smarter over time
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         HOW IT WORKS — The workflow loop
-         ════════════════════════════════════════ -->
-    <section class="howto">
-      <div class="howto-inner">
-        <h2 class="section-eyebrow">The workflow</h2>
-        <h2 class="section-heading-lg">How your AI uses Engrams</h2>
-        <p class="section-lead">
-          Your AI agent doesn't just read your code — it builds and queries a
-          knowledge graph. Every conversation follows the same loop. Each pass
-          makes the graph richer.
-        </p>
-
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div class="step-body">
-              <h3>Log decisions as they're made</h3>
-              <p>
-                Every time your AI makes a trade-off — choose a library, pick an
-                architecture, settle a debate — it records the reasoning and
-                anchors it to the code. Next session, it knows <em>why</em>, not
-                just <em>what</em>.
-              </p>
-              <div class="step-code">
-                <span class="prompt">$</span> engrams decision log \
-                <br />&nbsp;&nbsp;--summary "Use event sourcing" \
-                <br />&nbsp;&nbsp;--rationale "Audit trail requirement" \
-                <br />&nbsp;&nbsp;--anchor src/orders/ --tags "arch"
-              </div>
-            </div>
-          </div>
-
-          <div class="step-connector" aria-hidden="true">
-            <svg width="24" height="48" viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 0v40M6 34l6 8 6-8"/></svg>
-          </div>
-
-          <div class="step">
-            <div class="step-num">2</div>
-            <div class="step-body">
-              <h3>Retrieve what's relevant</h3>
-              <p>
-                Before editing a file, your AI pulls only the decisions and
-                patterns anchored to those paths. No 500-line docs dump — just
-                the context that matters for this change.
-              </p>
-              <div class="step-code">
-                <span class="prompt">$</span> engrams relevant src/auth/<br />
-                <span class="prompt">$</span> engrams query "error handling"
-              </div>
-            </div>
-          </div>
-
-          <div class="step-connector" aria-hidden="true">
-            <svg width="24" height="48" viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 0v40M6 34l6 8 6-8"/></svg>
-          </div>
-
-          <div class="step">
-            <div class="step-num">3</div>
-            <div class="step-body">
-              <h3>Prime a new session</h3>
-              <p>
-                One command at conversation start loads a complete briefing:
-                product context, active work, recent decisions, and patterns —
-                trimmed to your token budget.
-              </p>
-              <div class="step-code">
-                <span class="prompt">$</span> engrams prime --budget 2000
-              </div>
-            </div>
-          </div>
-
-          <div class="step-connector" aria-hidden="true">
-            <svg width="24" height="48" viewBox="0 0 24 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 0v40M6 34l6 8 6-8"/></svg>
-          </div>
-
-          <div class="step">
-            <div class="step-num">4</div>
-            <div class="step-body">
-              <h3>Track progress and hand off</h3>
-              <p>
-                As work happens, your AI logs status and keeps a hand-off
-                document updated. The next session opens with "here's where we
-                left off" — zero ramp-up.
-              </p>
-              <div class="step-code">
-                <span class="prompt">$</span> engrams progress log --status Done \
-                <br />&nbsp;&nbsp;--description "Auth refactor complete"<br />
-                <span class="prompt">$</span> engrams active-context update \
-                <br />&nbsp;&nbsp;--content &#123;"status":"InProgress","focus":"Auth"&#125;
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         TOKEN ECONOMICS
-         ════════════════════════════════════════ -->
-    <section class="economics">
-      <div class="economics-inner">
-        <h2 class="section-eyebrow">The economics</h2>
-        <h2 class="section-heading-lg">Relevant context, not kitchen-sink context</h2>
-        <p class="section-lead">
-          Most developers solve context loss by dumping entire files into the
-          prompt. That's expensive — and imprecise. Engrams loads only what
-          matters for the task at hand.
-        </p>
-
-        <div class="econ-compare">
-          <div class="econ-card econ-old">
-            <div class="econ-label">Without Engrams</div>
-            <div class="econ-big">~12,000</div>
-            <div class="econ-unit">tokens / session</div>
-            <div class="econ-detail">
-              Pasting architecture docs, READMEs, and full source files —
-              every session, from scratch.
-            </div>
-          </div>
-
-          <div class="econ-vs">vs</div>
-
-          <div class="econ-card econ-new">
-            <div class="econ-label">With Engrams</div>
-            <div class="econ-big">~1,000</div>
-            <div class="econ-unit">tokens / session</div>
-            <div class="econ-detail">
-              <code>prime --budget 1000</code> loads the decisions, patterns,
-              and active context relevant to the current work. Nothing more.
-            </div>
-          </div>
-        </div>
-
-        <div class="econ-stat-row">
-          <div class="econ-stat">
-            <div class="econ-stat-num">8×</div>
-            <div class="econ-stat-label">fewer tokens per session</div>
-          </div>
-          <div class="econ-stat">
-            <div class="econ-stat-num">0.02s</div>
-            <div class="econ-stat-label">local FTS5 query speed</div>
-          </div>
-          <div class="econ-stat">
-            <div class="econ-stat-num">0</div>
-            <div class="econ-stat-label">daemons, servers, or cloud calls</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         KNOWLEDGE GRAPH SPOTLIGHT
-         ════════════════════════════════════════ -->
-    <section class="graph-section">
-      <div class="graph-inner">
-        <div class="graph-text">
-          <h2 class="section-eyebrow">The knowledge graph</h2>
-          <h2 class="section-heading-lg">
-            Your project, as a living map
-          </h2>
-          <p class="section-lead">
-            Decisions link to patterns. Patterns link to code. Progress links
-            to decisions. Over time, this graph becomes your project's
-            institutional memory — searchable, traceable, and shared across
-            your whole team via Git.
+      <div class="card-grid">
+        <article class="glass-card reveal">
+          <div class="card-icon" aria-hidden="true">◆</div>
+          <h3>It warns you first</h3>
+          <p>
+            You're about to hand-rollback a migration. Engrams surfaces decision #6 —
+            <em>"use the <code>migrate</code> command, never manual SQL"</em> — before you repeat a
+            mistake it already watched you make.
           </p>
-          <ul class="graph-points">
-            <li>
-              <span class="bullet-dot"></span>
-              <strong>Trace any decision</strong> back to its rationale, the
-              patterns it follows, and the code it touches
-            </li>
-            <li>
-              <span class="bullet-dot"></span>
-              <strong>Find relevant context</strong> by file path — Engrams
-              knows which decisions and patterns apply to the code you're
-              editing right now
-            </li>
-            <li>
-              <span class="bullet-dot"></span>
-              <strong>Share with your team</strong> — export to clean
-              Markdown, commit to Git, and every teammate's AI inherits the
-              same knowledge
-            </li>
-            <li>
-              <span class="bullet-dot"></span>
-              <strong>Detect drift</strong> — <code>engrams doctor</code>
-              finds orphaned records, stale patterns, and missing context
-              before it bites you
-            </li>
-          </ul>
+        </article>
+        <article class="glass-card reveal">
+          <div class="card-icon" aria-hidden="true">◈</div>
+          <h3>It explains the why</h3>
+          <p>
+            Any line of code traces back to the trade-off that created it. Ask why the graph uses
+            PageRank and get the rationale, the rejected alternatives, and the incident that forced it.
+          </p>
+        </article>
+        <article class="glass-card reveal">
+          <div class="card-icon" aria-hidden="true">◇</div>
+          <h3>It protects the boundaries</h3>
+          <p>
+            Every <code>refines</code> and <code>depends_on</code> link is a tripwire. Touch a
+            load-bearing decision and engrams tells your agent exactly what else moves.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ══ FOR YOU — the human commands ══ -->
+    <section class="section section-alt">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">For you</div>
+        <h2 class="section-title">Three commands you'll actually run</h2>
+        <p class="section-sub">
+          Your agent does the remembering. You get the briefing.
+        </p>
+      </div>
+      <div class="cmd-list">
+        <div class="cmd-row reveal">
+          <div class="cmd-term">
+            <div class="term-bar"><span></span><span></span><span></span></div>
+            <pre><code>$ engrams prime
+&#123;"briefing": "3 active threads, 1 blocked…",
+ "relevant_decisions": [ … ]&#125;</code></pre>
+          </div>
+          <div class="cmd-copy">
+            <h3><code>prime</code> — the morning briefing</h3>
+            <p>One command rehydrates everything relevant to what you're about to touch. Start every session informed, not cold.</p>
+            <a href="/docs/for-you/briefing" class="text-link">Briefing commands →</a>
+          </div>
         </div>
-        <div class="graph-visual" aria-hidden="true">
-          <svg viewBox="0 0 400 400" class="graph-svg">
-            <!-- edges -->
-            <line x1="200" y1="200" x2="100" y2="80" class="edge"/>
-            <line x1="200" y1="200" x2="320" y2="100" class="edge"/>
-            <line x1="200" y1="200" x2="80" y2="280" class="edge"/>
-            <line x1="200" y1="200" x2="320" y2="300" class="edge"/>
-            <line x1="100" y1="80" x2="320" y2="100" class="edge edge-dim"/>
-            <line x1="80" y1="280" x2="320" y2="300" class="edge edge-dim"/>
-            <line x1="100" y1="80" x2="80" y2="280" class="edge edge-dim"/>
-            <line x1="320" y1="100" x2="320" y2="300" class="edge edge-dim"/>
-            <!-- nodes -->
-            <circle cx="200" cy="200" r="32" class="node node-center"/>
-            <text x="200" y="205" text-anchor="middle" class="node-label">Project</text>
-            <circle cx="100" cy="80" r="22" class="node node-decision"/>
-            <text x="100" y="85" text-anchor="middle" class="node-label-sm">ADR</text>
-            <circle cx="320" cy="100" r="22" class="node node-pattern"/>
-            <text x="320" y="105" text-anchor="middle" class="node-label-sm">Pattern</text>
-            <circle cx="80" cy="280" r="22" class="node node-progress"/>
-            <text x="80" y="285" text-anchor="middle" class="node-label-sm">Task</text>
-            <circle cx="320" cy="300" r="22" class="node node-custom"/>
-            <text x="320" y="305" text-anchor="middle" class="node-label-sm">Data</text>
-            <!-- pulse rings -->
-            <circle cx="200" cy="200" r="32" class="pulse-ring"/>
-          </svg>
+        <div class="cmd-row reveal">
+          <div class="cmd-term">
+            <div class="term-bar"><span></span><span></span><span></span></div>
+            <pre><code>$ engrams report
+→ dashboard.html  (open in browser)</code></pre>
+          </div>
+          <div class="cmd-copy">
+            <h3><code>report</code> — see the whole project</h3>
+            <p>A static HTML dashboard of decisions, open threads, and graph health. The state of the work at a glance.</p>
+            <a href="/docs/for-you/briefing" class="text-link">See a report →</a>
+          </div>
+        </div>
+        <div class="cmd-row reveal">
+          <div class="cmd-term">
+            <div class="term-bar"><span></span><span></span><span></span></div>
+            <pre><code>$ engrams check
+✗ src/ops: pattern "no-throwaway-collect" violated</code></pre>
+          </div>
+          <div class="cmd-copy">
+            <h3><code>check</code> — enforce what you decided</h3>
+            <p>Turn logged patterns into checks that run in CI. The standards you agreed on actually hold.</p>
+            <a href="/docs/for-you/enforcement" class="text-link">Enforcement →</a>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ════════════════════════════════════════
-         ECOSYSTEM
-         ════════════════════════════════════════ -->
-    <section class="tools-section">
-      <div class="tools-inner">
-        <div class="hero-badge" style="margin: 0 auto;">
-          Open Source · Apache-2.0 · v{__APP_VERSION__}
-        </div>
-        <h2 class="section-eyebrow">Plays nice</h2>
-        <h2 class="section-heading-lg">Works with the tools you already use</h2>
-        <p class="section-lead">
-          Any AI coding assistant that can run shell commands can use Engrams.
-          No plugins. No extensions. No lock-in.
+    <!-- ══ INTERACTIVE GRAPH ══ -->
+    <section class="section dark graph-section">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">Proof, not promises</div>
+        <h2 class="section-title">Drag engrams' own memory around</h2>
+        <p class="section-sub">
+          Every node is a real decision or task from building this tool. Gold nodes are decisions;
+          the bright ones are the load-bearing few everything else depends on.
         </p>
-        <div class="tool-chips">
-          {
-            [
-              "Cursor",
-              "Claude Code",
-              "Antigravity",
-              "Zed",
-              "Codex",
-              "Hermes",
-              "omp",
-              "Any shell-capable agent",
-            ].map((t) => <span class="chip">{t}</span>)
-          }
-        </div>
+      </div>
+      <ForceGraph height="620px" />
+      <p class="graph-foot reveal">And this is just the knowledge layer — the full graph, with code topology and git-derived links, spans <strong>802 edges</strong>.</p>
+    </section>
+
+    <!-- ══ ADVISOR LOOP ══ -->
+    <section class="section">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">How it compounds</div>
+        <h2 class="section-title">The advisor loop</h2>
+      </div>
+      <ol class="loop reveal">
+        <li class="loop-step">
+          <span class="loop-num">1</span>
+          <h3>Store</h3>
+          <p>Your agent logs each decision and pattern as it works — no extra effort from you.</p>
+        </li>
+        <li class="loop-arrow" aria-hidden="true">→</li>
+        <li class="loop-step">
+          <span class="loop-num">2</span>
+          <h3>Link</h3>
+          <p>It connects new knowledge to old: <code>refines</code>, <code>supersedes</code>, <code>depends_on</code>.</p>
+        </li>
+        <li class="loop-arrow" aria-hidden="true">→</li>
+        <li class="loop-step">
+          <span class="loop-num">3</span>
+          <h3>Surface</h3>
+          <p><code>prime</code> and <code>relevant</code> push the right context to the front at the right moment.</p>
+        </li>
+        <li class="loop-arrow" aria-hidden="true">→</li>
+        <li class="loop-step">
+          <span class="loop-num">4</span>
+          <h3>Act</h3>
+          <p>You and your agent decide with full memory. The graph gets denser. Repeat.</p>
+        </li>
+      </ol>
+      <div class="loop-cta reveal">
+        <a href="/docs/advisor/overview" class="btn btn-outline">How the advisor works →</a>
       </div>
     </section>
 
-    <!-- ════════════════════════════════════════
-         FINAL CTA
-         ════════════════════════════════════════ -->
-    <section class="cta-final">
-      <div class="cta-inner">
-        <h2>Stop starting over.</h2>
-        <p>
-          Give your AI the memory it deserves. Install in under a minute,
-          prime your first context brief, and never re-explain your
-          architecture again.
-        </p>
-        <div class="hero-actions" style="margin-bottom:0;">
-          <a href="/docs/getting-started" class="btn-primary">
-            Install Engrams
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
-        </div>
+    <!-- ══ FINAL CTA ══ -->
+    <section class="section dark cta-final">
+      <div class="cta-inner reveal">
+        <h2 class="cta-title">Start your graph tonight.<br />Feel the difference in a week.</h2>
         <div class="cta-install">
-          <code>curl -fsSL https://engrams.sh/install | bash</code>
+          <pre><code>cargo install engrams-cli</code></pre>
+          <p class="cta-alt">or <code>brew install stevebrownlee/tap/engrams</code></p>
+        </div>
+        <div class="hero-actions">
+          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started</a>
+          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">Star on GitHub</a>
         </div>
       </div>
     </section>
 
     <footer class="home-footer">
-      <span>© {new Date().getFullYear()} Engrams · Apache-2.0 License</span>
-      <a
-        href="https://github.com/stevebrownlee/engrams-cli"
-        target="_blank"
-        rel="noopener">GitHub</a
-      >
+      <div class="footer-inner">
+        <span>Engrams · Apache-2.0 · v{__APP_VERSION__}</span>
+        <div class="footer-links">
+          <a href="/docs/getting-started">Docs</a>
+          <a href="/docs/reference/cli">CLI Reference</a>
+          <a href="/docs/reference/releases">Releases</a>
+          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
     </footer>
+
+    <script>
+      // Scroll-reveal for elements not handled by the pinned story.
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const els = document.querySelectorAll('.reveal');
+      if (reduced) {
+        els.forEach((el) => el.classList.add('is-visible'));
+      } else {
+        const io = new IntersectionObserver(
+          (entries) => entries.forEach((e) => {
+            if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
+          }),
+          { threshold: 0.15, rootMargin: '0px 0px -8% 0px' }
+        );
+        els.forEach((el) => io.observe(el));
+      }
+    </script>
   </body>
 </html>
 
 <style>
-  /* ═══ Base ═══ */
-  .home-body {
-    background: var(--color-bg);
-    color: var(--color-text);
-    font-family: var(--font-sans);
-    margin: 0;
-  }
-  .logo img {
-    height: calc(var(--header-height) - 20px);
-    width: auto;
-    display: block;
-    object-fit: contain;
-  }
+  .home-body { background: var(--color-bg); }
 
-  /* ═══ Shared section typography ═══ */
-  .section-eyebrow {
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: var(--sky-aqua);
-    margin-bottom: 0.75rem;
-  }
-  .section-heading-lg {
-    text-align: center;
-    font-size: clamp(1.6rem, 4vw, 2.4rem);
-    font-weight: 800;
-    line-height: 1.15;
-    color: var(--color-text);
-    margin-bottom: 1rem;
-  }
-  .section-lead {
-    text-align: center;
-    font-size: 1.0625rem;
-    line-height: 1.7;
-    color: var(--color-text-muted);
-    max-width: 90%;
-    margin: 0 auto 3rem;
-  }
-
-  /* ═══ Header ═══ */
+  /* Header */
   .home-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background: rgba(255, 255, 255, 0.9);
+    position: fixed; inset: 0 0 auto 0; z-index: 50;
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--color-border);
-    height: var(--header-height);
+    background: rgba(15,19,32,.72);
+    border-bottom: 1px solid rgba(255,255,255,.06);
   }
   .hdr-inner {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    height: 100%;
-    padding: 0 1.5rem;
-    gap: 2rem;
+    max-width: 76rem; margin: 0 auto; padding: .85rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
   }
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    text-decoration: none;
-  }
-  .logo-mark {
-    font-size: 1.4rem;
-    color: var(--sky-aqua);
-  }
-  .logo-text {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--color-text);
-  }
-  .hdr-nav {
-    display: flex;
-    gap: 1.5rem;
-    margin-left: auto;
-  }
-  .hdr-nav a {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text-muted);
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-  .hdr-nav a:hover {
-    color: var(--color-link);
-  }
+  .logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
+  .logo-mark img { width: 26px; height: 26px; display: block; }
+  .logo-text { font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: -.01em; }
+  .hdr-nav { display: flex; gap: 1.6rem; }
+  .hdr-nav a { color: #c3cbdd; text-decoration: none; font-size: .95rem; font-weight: 500; transition: color .15s; }
+  .hdr-nav a:hover { color: var(--color-accent); }
+  @media (max-width: 720px) { .hdr-nav a:not(:last-child) { display: none; } }
 
-  /* ═══ Hero ═══ */
+  /* Hero */
   .hero {
-    position: relative;
-    overflow: hidden;
-    padding: calc(var(--header-height) + 3rem) 1.5rem 1.5rem;
-    display: flex;
-    justify-content: center;
-    background: linear-gradient(160deg, #f0f8ff 0%, #faf8fd 50%, #fff5f8 100%);
+    position: relative; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 7rem 1.5rem 4rem; overflow: hidden;
   }
-  .hero-bg {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.3;
-  }
-  .blob-1 {
-    width: 500px;
-    height: 500px;
-    background: var(--sky-aqua);
-    top: -100px;
-    left: -80px;
-  }
-  .blob-2 {
-    width: 400px;
-    height: 400px;
-    background: var(--pastel-petal);
-    top: 60px;
-    right: -60px;
-  }
-  .blob-3 {
-    width: 300px;
-    height: 300px;
-    background: var(--lavender);
-    bottom: 0;
-    left: 40%;
-  }
-
-  .hero-content {
-    position: relative;
-    z-index: 1;
-    max-width: 90%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
+  .hero-content { position: relative; z-index: 2; max-width: 56rem; }
   .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(204, 164, 59, 0.1);
-    color: #8a6f1e;
-    border: 1px solid rgba(204, 164, 59, 0.3);
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 0.3rem 0.9rem;
-    margin-bottom: 1.5rem;
-    letter-spacing: 0.02em;
-  }
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #4caf50;
-    position: relative;
-  }
-  .pulse-dot::after {
-    content: "";
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    background: #4caf50;
-    opacity: 0.4;
-    animation: pulse-ring 2s ease-out infinite;
-  }
-  @keyframes pulse-ring {
-    0% { transform: scale(0.8); opacity: 0.5; }
-    100% { transform: scale(2.2); opacity: 0; }
+    display: inline-block; font-family: var(--font-mono); font-size: .78rem;
+    letter-spacing: .12em; color: var(--dark-text-muted);
+    border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
+    padding: .4rem 1rem; margin-bottom: 1.6rem;
   }
   .hero-title {
-    font-size: clamp(1.5rem, 5.5vw, 2.5rem);
-    font-weight: 800;
-    line-height: 1.1;
-    margin-bottom: 1.25rem;
-    color: var(--color-text);
-    letter-spacing: -0.02em;
+    font-size: clamp(2.6rem, 7vw, 4.8rem); font-weight: 800; line-height: 1.04;
+    letter-spacing: -.03em; color: #fff; margin-bottom: 1.4rem;
   }
-  .accent-word {
-    color: var(--sky-aqua);
-    font-style: italic;
-  }
+  .accent-word { color: var(--color-accent); }
   .hero-subtitle {
-    font-size: 1.1rem;
-    color: var(--color-text-muted);
-    max-width: 90%;
-    margin-bottom: 2rem;
-    line-height: 1.7;
+    font-size: clamp(1.05rem, 2vw, 1.28rem); color: var(--dark-text-muted);
+    line-height: 1.65; max-width: 44rem; margin: 0 auto 2.2rem;
   }
-  .hero-actions {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-bottom: 0.5rem;
+  .hero-subtitle em { color: var(--dark-text); font-style: normal; font-weight: 600; }
+  .hero-actions { display: flex; gap: .9rem; justify-content: center; flex-wrap: wrap; }
+  .hero-scroll-hint {
+    position: absolute; bottom: 1.6rem; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: .72rem; letter-spacing: .3em;
+    text-transform: uppercase; color: rgba(255,255,255,.35); z-index: 2;
+    animation: hint-float 2.2s ease-in-out infinite;
   }
-  .graph-img {
-    max-width: 50rem;
-  }
+  @keyframes hint-float { 0%,100% { transform: translate(-50%,0); } 50% { transform: translate(-50%,8px); } }
 
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: linear-gradient(135deg, var(--sky-aqua), #b8902f);
-    color: #fff;
-    font-weight: 600;
-    font-size: 0.9375rem;
-    padding: 0.7rem 1.6rem;
-    border-radius: var(--radius-md);
-    text-decoration: none;
-    box-shadow: 0 4px 20px rgba(204, 164, 59, 0.35);
-    transition:
-      opacity 0.15s,
-      transform 0.12s,
-      box-shadow 0.15s;
+  /* Data note */
+  .data-note {
+    max-width: 44rem; margin: 0 auto; padding: 2rem 1.5rem 0; text-align: center;
+    color: var(--dark-text-muted); font-size: .98rem;
   }
-  .btn-primary:hover {
-    opacity: 0.95;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 28px rgba(204, 164, 59, 0.45);
-    text-decoration: none;
-  }
-  .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: #fff;
-    color: var(--color-text);
-    font-weight: 600;
-    font-size: 0.9375rem;
-    padding: 0.7rem 1.6rem;
-    border-radius: var(--radius-md);
-    border: 1.5px solid var(--color-border);
-    text-decoration: none;
-    transition:
-      border-color 0.15s,
-      transform 0.12s;
-  }
-  .btn-secondary:hover {
-    border-color: var(--sky-aqua);
-    transform: translateY(-2px);
-    text-decoration: none;
-  }
+  .data-note strong { color: var(--color-accent); }
 
-  /* ═══ Hero Code ═══ */
-  .hero-code-section {
-    padding: 1rem 1.5rem 4rem;
-    background: linear-gradient(160deg, #faf8fd 0%, #fff5f8 100%);
-    display: flex;
-    justify-content: center;
+  /* Generic sections */
+  .section { max-width: 76rem; margin: 0 auto; padding: 6rem 1.5rem; }
+  .section-alt { background: var(--color-bg-soft); max-width: none; }
+  .section-alt > * { max-width: 76rem; margin-left: auto; margin-right: auto; }
+  .section-head { text-align: center; max-width: 46rem; margin: 0 auto 3.2rem; }
+  .section-eyebrow {
+    font-family: var(--font-mono); font-size: .78rem; font-weight: 700;
+    letter-spacing: .28em; text-transform: uppercase; color: var(--color-accent); margin-bottom: .9rem;
   }
-  .hero-code {
-    width: 100%;
-    max-width: 680px;
-    background: #1a2035;
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    text-align: left;
-  }
-  .code-bar {
-    background: #141929;
-    padding: 0.55rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-  }
-  .dot.red { background: #ff5f57; }
-  .dot.yellow { background: #ffbd2e; }
-  .dot.green { background: #28ca41; }
-  .filename {
-    font-size: 0.75rem;
-    color: #6b7590;
-    margin-left: 0.4rem;
-    font-family: var(--font-mono);
-  }
-  .hero-code pre {
-    background: transparent;
-    margin: 0;
-    padding: 1.25rem 1.5rem;
-    font-size: 0.8rem;
-    line-height: 1.55;
-    overflow-x: auto;
-  }
-  .hero-code pre code {
-    color: #c9d3e8;
-    font-family: var(--font-mono);
-  }
+  .section-title { font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .section-sub { font-size: 1.1rem; color: var(--color-text-muted); margin-top: 1rem; line-height: 1.6; }
+  .dark .section-sub { color: var(--dark-text-muted); }
+  .dark .section-title { color: var(--dark-text); }
 
-  /* ═══ Problem Section (dark) ═══ */
-  .problem {
-    background: var(--maya-blue);
-    padding: 5rem 1.5rem;
-    position: relative;
-  }
-  .problem-inner {
-    max-width: 980px;
-    margin: 0 auto;
-  }
-  .problem .section-eyebrow {
-    color: rgba(204, 164, 59, 0.8);
-  }
-  .problem .section-heading-lg {
-    color: #fff;
-  }
-  .problem .section-lead {
-    color: rgba(255, 255, 255, 0.7);
-  }
-  .problem-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1rem;
-  }
-  .problem-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-lg);
-    padding: 1.75rem;
-    transition:
-      background 0.2s,
-      border-color 0.2s;
-  }
-  .problem-card:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(204, 164, 59, 0.3);
-  }
-  .problem-icon {
-    color: rgba(255, 255, 255, 0.4);
-    margin-bottom: 1rem;
-  }
-  .problem-card h3 {
-    font-size: 1.0625rem;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 0.5rem;
-  }
-  .problem-card p {
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
-    line-height: 1.6;
-    margin: 0;
-  }
+  /* Advisor capability cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.4rem; }
+  .glass-card { padding: 2rem 1.8rem; }
+  .card-icon { font-size: 1.6rem; color: var(--color-accent); margin-bottom: 1rem; }
+  .glass-card h3 { font-size: 1.28rem; font-weight: 700; margin-bottom: .7rem; }
+  .glass-card p { color: var(--color-text-muted); line-height: 1.65; font-size: .98rem; }
+  .glass-card code { font-size: .88em; }
 
-  /* ═══ Benefits ═══ */
-  .benefits {
-    background: #fff;
-    padding: 5rem 1.5rem;
+  /* For-you command rows */
+  .cmd-list { display: flex; flex-direction: column; gap: 2.6rem; }
+  .cmd-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 2.4rem; align-items: center;
   }
-  .benefits-inner {
-    max-width: 1000px;
-    margin: 0 auto;
+  .cmd-row:nth-child(even) .cmd-term { order: 2; }
+  @media (max-width: 820px) { .cmd-row { grid-template-columns: 1fr; } .cmd-row:nth-child(even) .cmd-term { order: 0; } }
+  .cmd-term {
+    background: var(--gunmetal); border-radius: var(--radius-lg); overflow: hidden;
+    border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow-md);
   }
-  .benefit-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-    gap: 1.5rem;
-  }
-  @media (max-width: 480px) {
-    .benefit-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  .benefit-card {
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-    position: relative;
-    overflow: hidden;
-    transition:
-      box-shadow 0.2s,
-      transform 0.2s,
-      border-color 0.2s;
-  }
-  .benefit-card:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-    transform: translateY(-3px);
-    border-color: rgba(204, 164, 59, 0.3);
-  }
-  .benefit-number {
-    position: absolute;
-    top: 1rem;
-    right: 1.5rem;
-    font-size: 3.5rem;
-    font-weight: 800;
-    color: rgba(204, 164, 59, 0.08);
-    line-height: 1;
-    font-family: var(--font-mono);
-  }
-  .benefit-icon {
-    color: var(--sky-aqua);
-    margin-bottom: 1rem;
-  }
-  .benefit-card h3 {
-    font-size: 1.1875rem;
-    font-weight: 700;
-    color: var(--color-text);
-    margin-bottom: 0.6rem;
-  }
-  .benefit-card p {
-    font-size: 0.9375rem;
-    color: var(--color-text-muted);
-    line-height: 1.7;
-    margin: 0;
-  }
-  .benefit-card code {
-    background: var(--color-bg-code);
-    padding: 0.1rem 0.35rem;
-    border-radius: 4px;
-    font-size: 0.85em;
-    font-family: var(--font-mono);
-    color: var(--color-text);
-  }
+  .term-bar { display: flex; gap: .45rem; padding: .7rem .9rem; background: rgba(255,255,255,.04); }
+  .term-bar span { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.18); }
+  .term-bar span:first-child { background: #e0655f; }
+  .term-bar span:nth-child(2) { background: #e3b84e; }
+  .term-bar span:nth-child(3) { background: #5fb87a; }
+  .cmd-term pre { padding: 1.1rem 1.2rem; overflow-x: auto; }
+  .cmd-term code { font-family: var(--font-mono); font-size: .86rem; color: #dbe2ef; line-height: 1.6; }
+  .cmd-copy h3 { font-size: 1.35rem; font-weight: 700; margin-bottom: .6rem; }
+  .cmd-copy p { color: var(--color-text-muted); line-height: 1.65; margin-bottom: .8rem; }
+  .text-link { color: var(--color-accent); font-weight: 600; text-decoration: none; }
+  .text-link:hover { text-decoration: underline; }
 
-  /* ═══ Comparison ═══ */
-  .comparison {
-    background: var(--color-bg);
-    padding: 5rem 1.5rem;
-  }
-  .comparison-inner {
-    max-width: 860px;
-    margin: 0 auto;
-  }
-  .comparison-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-  }
-  @media (max-width: 700px) {
-    .comparison-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  .comparison-col {
-    border-radius: var(--radius-lg);
-    padding: 2rem;
-  }
-  .comparison-col.before {
-    background: #fff;
-    border: 1px solid var(--color-border);
-  }
-  .comparison-col.after {
-    background: linear-gradient(160deg, rgba(204, 164, 59, 0.06), rgba(204, 164, 59, 0.02));
-    border: 1.5px solid rgba(204, 164, 59, 0.25);
-  }
-  .comparison-label {
-    font-size: 0.85rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 1.25rem;
-  }
-  .before .comparison-label { color: var(--color-text-muted); }
-  .after .comparison-label { color: var(--sky-aqua); }
-  .comparison-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-  .comparison-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    font-size: 0.9375rem;
-    line-height: 1.55;
-    color: var(--color-text-muted);
-  }
-  .after .comparison-list li { color: var(--color-text); }
-  .x-icon {
-    color: #d93025;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-top: 0.05rem;
-  }
-  .check-icon {
-    color: #1a7f37;
-    font-weight: 700;
-    flex-shrink: 0;
-    margin-top: 0.05rem;
-  }
+  /* Graph section */
+  .graph-section { max-width: none; }
+  .graph-section > * { max-width: 76rem; margin-left: auto; margin-right: auto; }
+  .graph-foot { text-align: center; color: var(--dark-text-muted); margin-top: 1.4rem; font-size: .95rem; }
+  .graph-foot strong { color: var(--color-accent); }
 
-  /* ═══ How It Works ═══ */
-  .howto {
-    background: #fff;
-    padding: 5rem 1.5rem;
+  /* Advisor loop */
+  .loop {
+    display: flex; align-items: stretch; justify-content: center; gap: 1rem;
+    list-style: none; flex-wrap: wrap; margin-bottom: 2.6rem;
   }
-  .howto-inner {
-    max-width: 680px;
-    margin: 0 auto;
+  .loop-step {
+    flex: 1 1 180px; max-width: 240px; background: var(--color-surface);
+    border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+    padding: 1.6rem 1.3rem; text-align: center;
   }
-  .steps {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  .loop-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--color-accent); color: #1a1405; font-weight: 800; margin-bottom: .8rem;
   }
-  .step {
-    width: 100%;
-    max-width: 560px;
-    display: flex;
-    gap: 1.5rem;
-    align-items: flex-start;
-  }
-  .step-num {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--sky-aqua), #b8902f);
-    color: #fff;
-    font-size: 1.25rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 4px 15px rgba(204, 164, 59, 0.25);
-  }
-  .step-body {
-    flex: 1;
-    text-align: left;
-  }
-  .step-body h3 {
-    font-size: 1.125rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-    color: var(--color-text);
-  }
-  .step-body p {
-    font-size: 0.9375rem;
-    color: var(--color-text-muted);
-    line-height: 1.6;
-    margin-bottom: 0.75rem;
-  }
-  .step-code {
-    background: #1a2035;
-    color: #c9d3e8;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    line-height: 1.6;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-md);
-    overflow-x: auto;
-  }
-  .step-code .prompt { color: var(--sky-aqua); font-weight: 700; }
-  .step-code-result {
-    background: rgba(26, 127, 55, 0.08);
-    color: #1a7f37;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .result-tag {
-    background: #1a7f37;
-    color: #fff;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    flex-shrink: 0;
-  }
-  .step-connector {
-    color: var(--color-border);
-    margin: 0.25rem 0;
-  }
+  .loop-step h3 { font-size: 1.15rem; margin-bottom: .5rem; }
+  .loop-step p { font-size: .92rem; color: var(--color-text-muted); line-height: 1.55; }
+  .loop-arrow { align-self: center; color: var(--color-accent); font-size: 1.5rem; font-weight: 700; }
+  @media (max-width: 820px) { .loop-arrow { transform: rotate(90deg); } }
+  .loop-cta { text-align: center; }
 
-  /* ═══ Economics ═══ */
-  .economics {
-    background: var(--maya-blue);
-    padding: 5rem 1.5rem;
+  /* Final CTA */
+  .cta-final { text-align: center; }
+  .cta-title { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -.02em; color: #fff; margin-bottom: 2rem; }
+  .cta-install pre {
+    display: inline-block; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.1);
+    border-radius: var(--radius-md); padding: .9rem 1.4rem; margin-bottom: .5rem;
   }
-  .economics-inner {
-    max-width: 860px;
-    margin: 0 auto;
-  }
-  .economics .section-eyebrow {
-    color: rgba(204, 164, 59, 0.8);
-  }
-  .economics .section-heading-lg {
-    color: #fff;
-  }
-  .economics .section-lead {
-    color: rgba(255, 255, 255, 0.65);
-  }
-  .econ-compare {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.5rem;
-    margin-bottom: 3rem;
-  }
-  @media (max-width: 700px) {
-    .econ-compare {
-      flex-direction: column;
-    }
-  }
-  .econ-card {
-    flex: 1;
-    max-width: 320px;
-    border-radius: var(--radius-lg);
-    padding: 2rem 1.5rem;
-    text-align: center;
-  }
-  .econ-old {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
-  .econ-new {
-    background: rgba(204, 164, 59, 0.08);
-    border: 1.5px solid rgba(204, 164, 59, 0.25);
-  }
-  .econ-label {
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.75rem;
-  }
-  .econ-old .econ-label { color: rgba(255, 255, 255, 0.4); }
-  .econ-new .econ-label { color: var(--sky-aqua); }
-  .econ-big {
-    font-size: 3rem;
-    font-weight: 800;
-    font-family: var(--font-mono);
-    line-height: 1;
-    margin-bottom: 0.3rem;
-  }
-  .econ-old .econ-big { color: rgba(255, 255, 255, 0.35); text-decoration: line-through; }
-  .econ-new .econ-big { color: #fff; }
-  .econ-unit {
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.4);
-    margin-bottom: 0.75rem;
-  }
-  .econ-detail {
-    font-size: 0.825rem;
-    line-height: 1.55;
-    color: rgba(255, 255, 255, 0.5);
-  }
-  .econ-new .econ-detail {
-    color: rgba(255, 255, 255, 0.7);
-  }
-  .econ-detail code {
-    background: rgba(255, 255, 255, 0.08);
-    padding: 0.1rem 0.35rem;
-    border-radius: 4px;
-    font-size: 0.85em;
-  }
-  .econ-vs {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.3);
-    font-style: italic;
-  }
-  .econ-stat-row {
-    display: flex;
-    justify-content: center;
-    gap: 3rem;
-    flex-wrap: wrap;
-  }
-  @media (max-width: 600px) {
-    .econ-stat-row {
-      gap: 1.5rem;
-    }
-  }
-  .econ-stat {
-    text-align: center;
-  }
-  .econ-stat-num {
-    font-size: 2.2rem;
-    font-weight: 800;
-    font-family: var(--font-mono);
-    color: var(--sky-aqua);
-    line-height: 1;
-    margin-bottom: 0.3rem;
-  }
-  .econ-stat-label {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.5);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  .cta-install code { font-family: var(--font-mono); color: var(--color-accent); font-size: 1.05rem; }
+  .cta-alt { color: var(--dark-text-muted); font-size: .9rem; margin-bottom: 2rem; }
+  .cta-alt code { font-family: var(--font-mono); }
 
-  /* ═══ Knowledge Graph ═══ */
-  .graph-section {
-    background: #fff;
-    padding: 5rem 1.5rem;
+  /* Footer */
+  .home-footer { border-top: 1px solid var(--color-border); background: var(--color-bg); }
+  .footer-inner {
+    max-width: 76rem; margin: 0 auto; padding: 2rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    color: var(--color-text-muted); font-size: .9rem;
   }
-  .graph-inner {
-    max-width: 980px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3rem;
-    align-items: center;
-  }
-  @media (max-width: 800px) {
-    .graph-inner {
-      grid-template-columns: 1fr;
-    }
-    .graph-visual {
-      order: -1;
-      max-width: 320px;
-      margin: 0 auto;
-    }
-  }
-  .graph-text .section-eyebrow,
-  .graph-text .section-heading-lg,
-  .graph-text .section-lead {
-    text-align: left;
-  }
-  .graph-text .section-lead {
-    margin-left: 0;
-  }
-  .graph-points {
-    list-style: none;
-    padding: 0;
-    margin: 1.5rem 0 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  .graph-points li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.7rem;
-    font-size: 0.9375rem;
-    line-height: 1.6;
-    color: var(--color-text-muted);
-  }
-  .bullet-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--sky-aqua);
-    flex-shrink: 0;
-    margin-top: 0.45rem;
-  }
-  .graph-points code {
-    background: var(--color-bg-code);
-    padding: 0.1rem 0.35rem;
-    border-radius: 4px;
-    font-size: 0.85em;
-    font-family: var(--font-mono);
-  }
-  .graph-visual {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .graph-svg {
-    width: 100%;
-    max-width: 400px;
-    height: auto;
-  }
-  .edge {
-    stroke: var(--color-border);
-    stroke-width: 2;
-  }
-  .edge-dim {
-    stroke-dasharray: 4 4;
-    opacity: 0.4;
-  }
-  .node {
-    stroke-width: 2;
-  }
-  .node-center {
-    fill: var(--sky-aqua);
-    stroke: #b8902f;
-  }
-  .node-decision {
-    fill: #56CBF9;
-    stroke: #3a9bc4;
-  }
-  .node-pattern {
-    fill: #DBD8F0;
-    stroke: #a8a5c8;
-  }
-  .node-progress {
-    fill: #EAC5D8;
-    stroke: #c49ab3;
-  }
-  .node-custom {
-    fill: #AFBED1;
-    stroke: #8a9aab;
-  }
-  .node-label {
-    fill: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: var(--font-sans);
-  }
-  .node-label-sm {
-    fill: #fff;
-    font-size: 9px;
-    font-weight: 600;
-    font-family: var(--font-sans);
-  }
-  .pulse-ring {
-    fill: none;
-    stroke: var(--sky-aqua);
-    stroke-width: 2;
-    opacity: 0;
-    animation: graph-pulse 3s ease-out infinite;
-  }
-  @keyframes graph-pulse {
-    0% { r: 32; opacity: 0.6; }
-    100% { r: 55; opacity: 0; }
-  }
-
-  /* ═══ Tools / Ecosystem ═══ */
-  .tools-section {
-    padding: 5rem 1.5rem;
-    background: var(--color-bg);
-  }
-  .tools-inner {
-    max-width: 700px;
-    margin: 0 auto;
-    text-align: center;
-  }
-  .tool-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    justify-content: center;
-    margin-top: 1rem;
-  }
-  .chip {
-    background: #fff;
-    border: 1.5px solid #d4d4d4;
-    border-radius: 999px;
-    padding: 0.45rem 1.1rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition:
-      border-color 0.15s,
-      color 0.15s,
-      transform 0.12s,
-      box-shadow 0.15s;
-  }
-  .chip:hover {
-    border-color: var(--sky-aqua);
-    color: var(--color-text);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  /* ═══ Final CTA ═══ */
-  .cta-final {
-    padding: 5rem 1.5rem;
-    background: linear-gradient(160deg, var(--maya-blue) 0%, #1a2035 100%);
-    text-align: center;
-  }
-  .cta-inner {
-    max-width: 580px;
-    margin: 0 auto;
-  }
-  .cta-inner h2 {
-    color: #fff;
-    font-size: clamp(1.8rem, 4vw, 2.5rem);
-    font-weight: 800;
-    margin-bottom: 1rem;
-    letter-spacing: -0.02em;
-  }
-  .cta-inner p {
-    color: rgba(255, 255, 255, 0.65);
-    font-size: 1.0625rem;
-    line-height: 1.7;
-    margin-bottom: 2rem;
-  }
-  .cta-install {
-    margin-top: 1.5rem;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-md);
-    padding: 0.75rem 1.25rem;
-    display: inline-block;
-  }
-  .cta-install code {
-    color: #c9d3e8;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-  }
-
-  /* ═══ Footer ═══ */
-  .home-footer {
-    background: #1a2035;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 1.25rem 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.4);
-  }
-  .home-footer a {
-    color: rgba(255, 255, 255, 0.4);
-    text-decoration: none;
-  }
-  .home-footer a:hover {
-    color: var(--sky-aqua);
-  }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--color-text-muted); text-decoration: none; }
+  .footer-links a:hover { color: var(--color-accent); }
 </style>

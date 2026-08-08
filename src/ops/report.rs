@@ -252,7 +252,7 @@ pub(crate) fn query_decisions(
 }
 
 pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
-    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns ORDER BY id DESC LIMIT ?")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns ORDER BY id DESC LIMIT ?")?;
     let rows = stmt.query_map(params![limit], |row| {
         let tags_str: Option<String> = row.get(4)?;
         let tags = match tags_str {
@@ -266,6 +266,9 @@ pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Patter
             description: row.get(3)?,
             tags: if tags.is_null() { None } else { Some(tags) },
             timestamp: row.get(5)?,
+            check_kind: row.get(6)?,
+            check_expr: row.get(7)?,
+            severity: row.get(8)?,
             pr_urls: Vec::new(),
             anchors: Vec::new(),
         })

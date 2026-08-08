@@ -1,0 +1,138 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="How Memory Matures" description="The densification story: from 23 nodes and 1 link on day 1 to a 71-node reasoning web in 26 days — and why graph density is what turns retrieval into advice.">
+  <h1>How Memory Matures</h1>
+  <p class="lead">
+    Engrams does not ship smart — it <em>becomes</em> smart, on your project, at the speed you
+    log to it. The data below is not illustrative. It is this repository's own knowledge graph,
+    measured at three points over its first 26 days of real feature work.
+  </p>
+
+  <div class="grid grid-3 stat-row reveal-stagger">
+    <div class="card stat">
+      <div class="stat-num">23<span class="stat-sub">/1</span></div>
+      <div class="stat-label">Day 1 · nodes/links</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-num">43<span class="stat-sub">/11</span></div>
+      <div class="stat-label">Week 1 · nodes/links</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-num">71<span class="stat-sub">/29</span></div>
+      <div class="stat-label">Month 1 · nodes/links</div>
+    </div>
+  </div>
+
+  <div class="reveal">
+    <h2>The three stages</h2>
+    <table>
+      <thead>
+        <tr><th>Stage</th><th>Graph</th><th>What engrams can do</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Day 1</strong><br><small>2026-07-10</small></td>
+          <td>23 nodes, 1 link</td>
+          <td>
+            <strong>Capture only.</strong> Decisions are on record — <em>“Use SQLite context
+            database”</em> is the very first node — but with a single link there is no reasoning
+            to traverse. Engrams can fetch what you logged. It cannot yet advise.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Week 1</strong></td>
+          <td>43 nodes, 11 links</td>
+          <td>
+            <strong>Patterns emerge.</strong> The first reasoning links appear: a CLI-output
+            reversal linked <code>supersedes</code>, worktree-aware resolution linked
+            <code>extends</code> to workspace auto-detection. <code>engrams relevant</code> now
+            returns provenance, not just records.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Month 1</strong><br><small>2026-08-05</small></td>
+          <td>71 nodes, 29 links</td>
+          <td>
+            <strong>A reasoning web.</strong> Eight ontology decisions (#21–28) all
+            <code>refines</code> the schema-v3 node; the policy-engine cluster (#44, #45) hangs
+            off the omp-integration decision by <code>refines</code> / <code>implements</code> /
+            <code>part_of</code>. Chains of <code>depends_on</code> and <code>supersedes</code>
+            let engrams answer <em>why</em>, not just <em>what</em>.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="reveal">
+    <h2>Why density is what makes it advice</h2>
+    <p>
+      Retrieval quality scales with records. <em>Advice</em> quality scales with connections:
+    </p>
+    <ul>
+      <li>
+        <strong>More anchors for priming.</strong> Every linked decision and pattern is surface
+        area for <code>engrams prime</code> and <code>engrams relevant</code> to catch on. A file
+        you're about to edit is no longer isolated — it inherits the reasoning of everything
+        anchored to it and everything those nodes link to.
+      </li>
+      <li>
+        <strong>More contradictions to catch.</strong> A <code>supersedes</code> link is only
+        possible when both decisions exist. Density is what lets <code>engrams check</code> and
+        the ontology's disjointness rules detect that your new direction conflicts with a settled
+        one — while it is still a staged diff, not a regression.
+      </li>
+      <li>
+        <strong>Longer chains of why.</strong> Month 1's web means a question like “why does the
+        policy engine write through to the workspace DB?” resolves through
+        <code>part_of</code> → #44 → <code>refines</code> → the omp-integration decision. Sparse
+        graphs answer questions; dense graphs answer <em>follow-up</em> questions.
+      </li>
+    </ul>
+    <div class="callout tip">
+      <strong>The multiplier</strong>
+      The 29 manual reasoning links are only the seed. Engrams materializes derived edges from
+      them — inverses, transitive closures, git co-change topology. The full graph behind these
+      71 knowledge nodes carries <strong>802 edges</strong>: 45 manual, 757 derived, across 67
+      code nodes. Every link you add is amplified.
+    </div>
+  </div>
+
+  <div class="reveal">
+    <h2>The arc is the point</h2>
+    <p>
+      None of this required curation sessions or documentation sprints. The agent logged
+      decisions as they were made and linked them as relationships became clear — and 26 days
+      later the graph had crossed from storage into advice. The cycle that produces this density
+      is short enough to run on every task:
+      <a href="/docs/advisor/loop">The Advisor Loop</a>. To see the graph itself, go back to
+      <a href="/docs/advisor/overview">What is an Advisor?</a>
+    </p>
+  </div>
+</DocsLayout>
+
+<style>
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  .stat-row {
+    margin: 2rem 0 2.5rem;
+  }
+  .stat-row .card {
+    padding: 1.6rem 1rem;
+  }
+  .stat-sub {
+    font-size: .45em;
+    color: var(--color-text-light);
+    font-weight: 700;
+  }
+  table small {
+    color: var(--color-text-light);
+  }
+</style>

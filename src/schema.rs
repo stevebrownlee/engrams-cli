@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS progress_entries (
 CREATE TABLE IF NOT EXISTS system_patterns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT UNIQUE NOT NULL, timestamp TEXT NOT NULL,
-  name TEXT UNIQUE NOT NULL, description TEXT, tags TEXT
+  name TEXT UNIQUE NOT NULL, description TEXT, tags TEXT,
+  check_kind TEXT, check_expr TEXT,
+  severity TEXT NOT NULL DEFAULT 'warn'
 );
 CREATE TABLE IF NOT EXISTS custom_data (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -217,4 +219,12 @@ UPDATE progress_entries SET status = CASE lower(trim(status))
 UPDATE decisions SET status = CASE lower(trim(status))
   WHEN 'active' THEN 'active' WHEN 'superseded' THEN 'superseded'
   WHEN 'rejected' THEN 'rejected' WHEN 'revisited' THEN 'revisited' ELSE trim(status) END;
+"#;
+
+pub const MIGRATION_V5: &str = r#"
+-- Policy engine (decision #44): machine-checkable pattern expressions.
+-- Additive columns only; existing rows default to severity 'warn' / NULL checks.
+ALTER TABLE system_patterns ADD COLUMN check_kind TEXT;
+ALTER TABLE system_patterns ADD COLUMN check_expr TEXT;
+ALTER TABLE system_patterns ADD COLUMN severity TEXT NOT NULL DEFAULT 'warn';
 "#;

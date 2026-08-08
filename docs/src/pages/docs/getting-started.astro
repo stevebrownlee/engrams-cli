@@ -2,16 +2,17 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Introduction" description="What is Engrams and why should you use it?">
+<DocsLayout title="Introduction" description="Engrams is an advisor that compounds: persistent project memory that grows from fetching into anticipating.">
   <div class="intro-logo">
     <img src="/engram.png" alt="Engrams logo" />
   </div>
   <h1>Introduction</h1>
   <p class="lead">
-    Engrams gives your AI coding assistant a <strong>persistent memory</strong>. Instead of forgetting
-    everything between sessions, your AI remembers the decisions you've made, the patterns
-    you follow, and the progress you've tracked — and brings up the right information
-    exactly when it's needed.
+    Engrams turns your AI coding assistant into an <strong>advisor that compounds</strong>. Instead of
+    forgetting everything between sessions, your AI accumulates the decisions you've made, the patterns
+    you follow, and the progress you've tracked — and surfaces the right information exactly when it's
+    needed. On day one it can only fetch what you ask for; as the graph densifies, it starts telling
+    you what you need before you ask.
   </p>
 
   <div class="callout tip">
@@ -134,6 +135,8 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     Every time you start a new chat with your AI assistant, it has no memory of your previous conversations.
     Engrams changes that. It quietly sits alongside your AI tool, remembering your project decisions,
     design patterns, and progress — and automatically provides the right information when it's needed.
+    Linked together, those records form a knowledge graph your AI traverses to answer with the specifics
+    of your project instead of generic advice. The more you store and link, the sharper the advisor gets.
   </p>
 
   <h3>How a typical interaction works</h3>
@@ -144,6 +147,13 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <li><strong>Your AI writes code aligned with project context</strong>, respecting prior decisions.</li>
     <li><strong>New choices get recorded.</strong> If a new architectural choice is made, the AI runs <code>engrams decision log</code>.</li>
   </ol>
+  <p>
+    That loop is day one: your advisor fetches what you ask for. Every decision, pattern, and link you
+    record densifies the graph — and as it densifies, the balance shifts from fetching to anticipating.
+    Engrams' own documentation is maintained by an agent working this way on the Engrams repository
+    itself: 26 days in, the project graph had grown from 23 nodes and a single link on day one to
+    71 nodes and 29 reasoning links, and the briefings it generates grew sharper with every session.
+  </p>
 
   <h3>Architecture Overview</h3>
   <p>

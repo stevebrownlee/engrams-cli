@@ -10,20 +10,33 @@ Everything below assumes the `engrams` binary is already built (`./target/debug/
 
 ## Memory & Project Context — The Operating Loop
 
-> **Mandatory rules — read [`.agents/rules/`](.agents/rules/) first.** These are session invariants applied before any other step. `001-memory.md`: run `engrams prime` before anything else.
+> **Mandatory rules — read [`.agents/rules/`](.agents/rules/) first.** `001-memory.md` is a session invariant applied before any other step: run `engrams prime` before anything else. Rules `002`+ are on-demand — read a rule only when its scope matches the work at hand (e.g. `002`–`006` govern Rust edits under `src/`); do **not** read the whole directory up front.
 
-Run in every session (local SQLite — cheap).
+Treat engrams as an **active advisor**: consult it before acting, log decisions as you make them, and check code against registered patterns before committing.
+
+### When to Consult Engrams
+
+- **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context.
+- **Before editing files:** `engrams relevant <paths>` — get decisions, patterns, and anchors tied to those files (`--staged` for `git add`ed).
+- **Before designing or fixing:** `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` — find prior decisions and patterns so you don't re-litigate settled choices.
+- **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> [--pr <n>]` — log immediately, not at session end. To supersede: `engrams decision supersede <old-id> --by <new-id>`, then `engrams link add --rel supersedes` to connect them in the graph.
+- **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor src/ops` — make it machine-enforceable, not just prose.
+- **Before committing:** `engrams check --staged` — scan staged files for violations against registered patterns (exits 1 on violations). Use `--paths src/ops` for specific paths.
+- **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`).
+
+### Other Commands
 
 | Goal | Command |
 |---|---|
-| Get oriented (session start) | `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` |
-| Context anchored to files you'll edit | `engrams relevant <paths>` · `--staged` for `git add`ed files |
-| Search prior art | `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` |
-| Log a design choice | `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> [--pr <n>]` |
-| Decision replaces another | `engrams decision supersede <old-id> --by <new-id>` |
-| Relate items in the graph | `engrams link add --source-type <t> --source-id <n> --target-type <t> --target-id <n> --rel <canonical> [--description "..."]` |
+| Relate items (graph) | `engrams link add --source-type <t> --source-id <n> --target-type <t> --target-id <n> --rel <canonical> [--description "..."]` |
 | Log task progress | `engrams progress log --status <Status> --description "..."` |
-| Release / hand-off | `engrams active-context update --patch '<json>'` (merge) · `--content` (replace) |
+| Hand off context | `engrams active-context update --patch '<json>'` (merge) · `--content` (replace) |
+| List patterns | `engrams pattern list [--tags a,b]` |
+| Attach file anchors | `engrams anchor add --type <decision|system-pattern> --id <n> --path <path>` |
+| Attach PR reference | `engrams pr add --type <decision|system-pattern> --id <n> --pr <n_or_url>` |
+| Bulk operations | `engrams batch --type <decision|progress|pattern|custom-data> --items <json_or_->` |
+| Export to Markdown | `engrams export [--path <dir>]` |
+| Export rules (no install) | `engrams rules export --harness omp [--out <DIR>]` |
 | Health check | `engrams doctor` |
 | Schema migration | `engrams migrate` |
 
@@ -55,14 +68,17 @@ Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Vali
 - `src/schema.rs`: SQLite schema definitions and FTS5 triggers
 - `src/models.rs`: Shared data models (e.g. link `Direction` enum)
 - `src/ops/`: Subcommand handlers, split by feature
+- `src/ops/rules/`: Policy engine — checkable pattern export to omp rule files + manifest
+- `src/ops/check.rs`: Policy engine — local check runner (regex + ast-grep shell-out)
+- `src/ops/install.rs`: Policy engine — `install --harness omp` orchestration
 - `src/ops/graph/`: Knowledge + code graph (model, rebuild, relationship ontology)
-- `tests/cli.rs`: End-to-end integration tests for CLI commands
+- `tests/cli.rs`: End-to-end integration tests for CLI commands · `tests/policy.rs`: Policy engine acceptance tests (S1–S10)
 - `docs/`: Website documentation source
 
 ---
 
 ## Database Discovery & Workspace Resolution
-`engrams` searches upwards from the current working directory for the closest workspace root (containing `.engrams`, `engrams/context.db`, `.git`, `Cargo.toml`, etc.) and stores its database in `<workspace-root>/engrams/context.db`.
+`engrams` searches upwards from the current working directory for the closest workspace root that contains an `engrams` sub-directory, and stores its database in `<workspace-root>/engrams/context.db`.
 
 Override discovery by passing global flags **before** the subcommand:
 - `--workspace <PATH>`: Force workspace directory
@@ -76,12 +92,6 @@ Override discovery by passing global flags **before** the subcommand:
 - **Format:** `cargo fmt`
 - **Lint:** `cargo clippy --all-targets`
 - **Test:** `cargo test`
-
----
-
-## UI & Content Verification
-- **Verification Tool:** When self-verifying UI or content changes (e.g. updates to the `/docs` site) after implementation, LLM agents MUST use the `agent-browser` CLI tool.
-- **No IDE Tooling:** DO NOT use the IDE's built-in browser or built-in UI verification tools.
 
 ---
 

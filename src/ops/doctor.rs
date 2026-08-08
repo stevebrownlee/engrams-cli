@@ -2,7 +2,7 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::Value;
 
-pub fn handle(conn: &Connection) -> Result<Value> {
+pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
     // 1. Audit missing anchor paths
     let mut missing_anchor_paths = Vec::new();
     let mut stmt = conn.prepare("SELECT item_type, item_id, path FROM item_anchors")?;
@@ -210,6 +210,7 @@ pub fn handle(conn: &Connection) -> Result<Value> {
             "non_canonical": non_canonical,
         },
         "git": git_status,
+        "rules": crate::ops::rules::staleness(conn, db_path),
         "ok": ok,
     }))
 }

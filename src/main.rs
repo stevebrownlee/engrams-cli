@@ -35,6 +35,7 @@ fn run() -> Result<()> {
     let checker = release::UpdateChecker::new(&db_path);
 
     let is_migrate_or_init = matches!(cli.command, cli::Command::Migrate | cli::Command::Init);
+    let is_check = matches!(cli.command, cli::Command::Check { .. });
     db::validate_version(&conn, is_migrate_or_init)?;
 
     let mut result = ops::dispatch(&mut conn, cli.command, &db_path, !db_existed)?;
@@ -51,6 +52,16 @@ fn run() -> Result<()> {
         serde_json::to_writer_pretty(&mut out, &result)?;
     }
     out.write_all(b"\n")?;
+    if is_check {
+        if let Some(arr) = result.get("violations").and_then(|v| v.as_array()) {
+            if !arr.is_empty() {
+                // Exit 1 *after* printing the violations JSON so CI catches it
+                // without an error-shape output obscuring the findings.
+                checker.print_notification();
+                std::process::exit(1);
+            }
+        }
+    }
     // Print notification if a new version is available
     checker.print_notification();
 

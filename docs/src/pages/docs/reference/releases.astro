@@ -8,6 +8,57 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.9.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>The Policy Engine — Checkable Patterns:</strong> Patterns graduated from prose to policy. <code>engrams pattern log</code> now accepts a machine-checkable expression (<code>--check-kind regex|ast</code> with <code>--check</code>) and an enforcement <code>--severity</code> of <code>info</code>, <code>warn</code>, or <code>error</code>. The new <code>engrams check</code> command runs every stored check against your files — scoped with <code>--staged</code> or <code>--paths</code> — so conventions are verified in CI and at session end, not just recalled.
+      </li>
+      <li>
+        <strong>In-Session Enforcement:</strong> <code>engrams install --harness omp</code> writes harness rule files into the workspace so checkable patterns are enforced while the agent works, not only after the fact.
+      </li>
+      <li>
+        <strong>Workspace Isolation Hardening:</strong> Workspace-root and database-path resolution was hardened for git worktrees and nested agent sessions, so concurrent agents stay pinned to the intended project database instead of leaking writes across workspace boundaries.
+      </li>
+      <li>
+        <strong>Docs Site Revamp — "The Active Advisor":</strong> The documentation site was restructured and redesigned around the advisor narrative — Engrams as an advisor that compounds — with the real knowledge graph from this repository rendered interactively on the landing page.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Memory that can't act is trivia:</strong> A recalled pattern only helps if the agent honors it. The policy engine closes the loop between <em>remembering</em> a convention and <em>enforcing</em> it — the step that turns storage into advice.
+      </li>
+      <li>
+        <strong>Isolated agents became the default:</strong> With worktree- and harness-based isolation now the standard way of running parallel agents, database resolution had to be airtight before it could be load-bearing.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Conventions with teeth:</strong> A regex or AST check turns "we don't do that here" from a hope into a gate — <code>engrams check --staged</code> drops into any pre-commit hook or CI pipeline.
+      </li>
+      <li>
+        <strong>Enforcement inside the session:</strong> Installed harness rules catch violations as the code is being written, when fixing them is cheapest.
+      </li>
+      <li>
+        <strong>Safe parallelism:</strong> Run multiple isolated agent sessions against the same repository without cross-contaminating project memory.
+      </li>
+      <li>
+        <strong>Zero-friction upgrade:</strong> Schema v5 is additive — one <code>engrams migrate</code> and existing patterns default to <code>warn</code> severity with no check attached.
+      </li>
+    </ul>
+
+    <h3>Upgrading from v0.8.x</h3>
+    <pre><code>engrams migrate</code></pre>
+    <p>
+      The migration is additive: it adds check-expression columns to the patterns table. Existing patterns are untouched — they default to <code>warn</code> severity with no check and behave exactly as before until you attach one.
+    </p>
+  </div>
+
   <h2>v0.8.1</h2>
   <div class="release-block">
     <h3>What was done</h3>

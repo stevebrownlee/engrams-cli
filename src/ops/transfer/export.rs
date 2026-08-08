@@ -279,7 +279,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
 
     // Export Patterns
     let mut stmt =
-        conn.prepare("SELECT id, uuid, name, description, tags, timestamp FROM system_patterns")?;
+        conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns")?;
     let rows = stmt.query_map([], |row| {
         let tags_str: Option<String> = row.get(4)?;
         let tags = match tags_str {
@@ -293,6 +293,9 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "description": row.get::<_, Option<String>>(3)?,
             "tags": if tags.is_null() { None } else { Some(tags) },
             "timestamp": row.get::<_, String>(5)?,
+            "check_kind": row.get::<_, Option<String>>(6)?,
+            "check_expr": row.get::<_, Option<String>>(7)?,
+            "severity": row.get::<_, String>(8)?,
         }))
     })?;
     let mut patterns_count = 0;

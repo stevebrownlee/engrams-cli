@@ -1,0 +1,126 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Storing" description="How the agent stores decisions, patterns, progress, and custom data in engrams.">
+  <h1>Storing</h1>
+  <p class="lead">
+    Put facts in. Four item types cover everything the agent learns: architectural decisions,
+    recurring patterns, task progress, and arbitrary custom data. Everything stored here is what
+    the advisor later reasons over.
+  </p>
+
+  <h2 class="reveal">Decisions — <code>engrams decision log</code></h2>
+  <p>
+    A decision is an ADR: what was chosen, why, and how it's implemented. Log it the moment the
+    choice is made. By default the CLI checks for similar existing decisions first; pass
+    <code>--force</code> to skip the similarity check and insert unconditionally.
+  </p>
+  <pre><code>engrams decision log \
+  --summary "Use SQLite for context database" \
+  --rationale "Embedded, zero-config, FTS5 built in" \
+  --details "rusqlite with the bundled feature" \
+  --tags database,sqlite,storage \
+  --anchor src/db.rs \
+  --pr 42</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>--summary</code></td><td>Required. Short statement of the decision.</td></tr>
+      <tr><td><code>--rationale</code></td><td>The reasoning — the part future sessions actually need.</td></tr>
+      <tr><td><code>--details</code></td><td>Implementation specifics.</td></tr>
+      <tr><td><code>--tags</code></td><td>Comma-separated tags for filtering.</td></tr>
+      <tr><td><code>--status</code></td><td>Initial status; defaults to <code>active</code>.</td></tr>
+      <tr><td><code>--anchor</code></td><td>File path anchor; repeatable.</td></tr>
+      <tr><td><code>--pr</code></td><td>PR number or URL; repeatable.</td></tr>
+      <tr><td><code>--force</code></td><td>Skip the similar-decision check.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="reveal">Patterns — <code>engrams pattern log</code></h2>
+  <p>
+    A pattern is a recurring convention the codebase must keep following. Patterns can carry a
+    machine-checkable expression — that turns engrams into a policy engine: the pattern becomes an
+    exportable harness rule and a local <code>engrams check</code> gate.
+  </p>
+  <pre><code>engrams pattern log \
+  --name "No throwaway collections" \
+  --description "Never materialize a collection only to consume it immediately" \
+  --tags rust,perf \
+  --anchor src/ops \
+  --check-kind regex \
+  --check '\.collect::&lt;Vec&lt;_&gt;&gt;\(\)\.join\(' \
+  --severity error</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>--name</code></td><td>Required. Unique pattern name.</td></tr>
+      <tr><td><code>--description</code></td><td>What the convention is and why it exists.</td></tr>
+      <tr><td><code>--tags</code> / <code>--anchor</code> / <code>--pr</code></td><td>Same as <code>decision log</code>.</td></tr>
+      <tr><td><code>--check-kind</code></td><td><code>regex</code> or <code>ast</code> (ast-grep). Omit for a prose-only pattern.</td></tr>
+      <tr><td><code>--check</code></td><td>The check expression source; pairs with <code>--check-kind</code>.</td></tr>
+      <tr><td><code>--severity</code></td><td><code>info</code>, <code>warn</code>, or <code>error</code> (default <code>warn</code>).</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Regexes are compiled at write time — an invalid regex is rejected before any row is inserted.
+    Prose-only patterns (no <code>--check-kind</code>) never produce violations.
+  </p>
+
+  <h2 class="reveal">Progress — <code>engrams progress log</code></h2>
+  <p>
+    Progress entries track task state so any future session can reconstruct where the work stands.
+    Entries form hierarchies via <code>--parent-id</code>.
+  </p>
+  <pre><code>engrams progress log --status InProgress \
+  --description "Implementing link constraint validation" \
+  --parent-id 12 --check-similar</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>--status</code></td><td>Required. One of the progress status values below.</td></tr>
+      <tr><td><code>--description</code></td><td>Required. What was done or is happening now.</td></tr>
+      <tr><td><code>--parent-id</code></td><td>ID of the parent progress entry, for subtasks.</td></tr>
+      <tr><td><code>--check-similar</code></td><td>Check for recent similar entries before inserting.</td></tr>
+      <tr><td><code>--force</code></td><td>Bypass status-vocabulary validation.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="reveal">Custom data — <code>engrams custom set</code></h2>
+  <p>
+    Arbitrary key-value pairs grouped by category — configuration, environment facts, anything
+    that doesn't fit the three typed stores.
+  </p>
+  <pre><code>engrams custom set --category api --key endpoint \
+  --value '&lt;string-or-json&gt;' --json</code></pre>
+  <p>
+    <code>--category</code>, <code>--key</code>, and <code>--value</code> are required;
+    <code>--json</code> marks the value as JSON.
+  </p>
+
+  <h2 class="reveal">Status vocabularies</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Valid status</th></tr></thead>
+    <tbody>
+      <tr><td>Decision</td><td><code>active</code>, <code>superseded</code>, <code>rejected</code>, <code>revisited</code></td></tr>
+      <tr><td>Progress</td><td><code>Todo</code>, <code>InProgress</code>, <code>InReview</code>, <code>Blocked</code>, <code>Done</code>, <code>Dropped</code></td></tr>
+    </tbody>
+  </table>
+  <p>
+    Legacy or misspelled values are normalized case-insensitively during
+    <code>engrams migrate</code>; unrecognized values are preserved as-is and flagged by
+    <code>engrams doctor</code>. See <a href="/docs/for-agent/maintaining">Maintaining</a>.
+  </p>
+
+  <div class="callout tip reveal">
+    <strong>Next</strong>
+    Stored facts are isolated until you wire them together. Continue to
+    <a href="/docs/for-agent/connecting">Connecting</a> — links are what turn a list into a
+    reasoning web.
+  </div>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2.25rem; margin-bottom: 1rem; }
+</style>

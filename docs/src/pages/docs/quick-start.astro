@@ -5,7 +5,9 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 <DocsLayout title="Quick Start" description="Get Engrams running in your project in under five minutes.">
   <h1>Quick Start</h1>
   <p class="lead">
-    From zero to a fully-loaded project memory in five minutes.
+    From zero to a working advisory memory in five minutes — initialize, log, recall, link.
+    By the end your AI assistant has a persistent memory for your project: thin on day one,
+    compounding from the first session onward.
     Make sure you have completed the <a href="/docs/installation">installation</a> first.
   </p>
 
@@ -93,25 +95,25 @@ AI:  Let me search Engrams for search-related decisions first.
 
   <h2>What to try next</h2>
   <div class="next-cards">
-    <a href="/docs/features/team-sync" class="next-card">
+    <a href="/docs/for-agent/maintaining" class="next-card">
       <span class="nc-icon">🔄</span>
-      <strong>Team Sync</strong>
+      <strong>Export &amp; Team Sync</strong>
       <span>Share decisions via Markdown export and Git</span>
     </a>
-    <a href="/docs/features/search" class="next-card">
+    <a href="/docs/for-agent/retrieving" class="next-card">
       <span class="nc-icon">⚡</span>
-      <strong>FTS5 Search</strong>
-      <span>How fast local full-text search works</span>
+      <strong>Retrieval &amp; Search</strong>
+      <span>How prime, relevant, and FTS5 query surface context</span>
     </a>
-    <a href="/docs/features/knowledge-graph" class="next-card">
+    <a href="/docs/for-agent/connecting" class="next-card">
       <span class="nc-icon">🕸️</span>
       <strong>Knowledge Graph</strong>
-      <span>Link decisions, patterns, and tasks together</span>
+      <span>Link decisions, patterns, and tasks into a reasoning web</span>
     </a>
-    <a href="/docs/features/html-report" class="next-card">
+    <a href="/docs/for-you/exploration" class="next-card">
       <span class="nc-icon">📊</span>
       <strong>HTML Report</strong>
-      <span>Open a browser-based dashboard with a knowledge graph</span>
+      <span>Open a browser dashboard with an interactive graph</span>
     </a>
     <a href="/docs/reference/cli" class="next-card">
       <span class="nc-icon">💻</span>
@@ -119,6 +121,20 @@ AI:  Let me search Engrams for search-related decisions first.
       <span>Check all commands and format options</span>
     </a>
   </div>
+
+  <h2>What happens next</h2>
+  <p>
+    What you just built is the seed. From here the loop runs itself: your agent primes at session
+    start, recalls relevant context before acting, and logs decisions, patterns, and progress as it
+    works. Each record you link makes the next briefing sharper — on day one your advisor fetches;
+    within weeks it anticipates, warning you when new work contradicts a settled decision or violates
+    a pattern you care about.
+  </p>
+  <p>
+    Since <a href="/docs/reference/releases">v0.9.0</a>, patterns can even be made machine-checkable,
+    so the conventions you log are verified by <code>engrams check</code> — enforced, not just
+    remembered. See the <a href="/docs/reference/cli">CLI reference</a> for the full command surface.
+  </p>
 
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }

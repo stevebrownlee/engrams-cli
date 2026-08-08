@@ -1,0 +1,151 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import ForceGraph from '../../../components/ForceGraph.astro';
+---
+
+<DocsLayout title="What is an Advisor?" description="Engrams is not a database you query — it is an advisor that compounds. Retrieval waits for the right question; an advisor builds enough context to raise its hand first.">
+  <h1>What is an Advisor?</h1>
+  <p class="lead">
+    A database waits for you to ask the right question. An advisor builds enough context to
+    raise its hand first — to tell you <em>why</em> a choice was made before you re-litigate it,
+    to enforce a standard before the violation lands, to flag a contradiction while it is still
+    cheap to fix. Engrams is the second kind of tool.
+  </p>
+
+  <div class="reveal">
+    <h2>Retrieval vs. advice</h2>
+    <table>
+      <thead>
+        <tr><th>Retrieval (a database)</th><th>Advice (engrams)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sits idle until queried.</td>
+          <td>Surfaces context at session start, unprompted (<code>engrams prime</code>).</td>
+        </tr>
+        <tr>
+          <td>Answers exactly what you asked — nothing more.</td>
+          <td>Answers what you <em>should</em> have asked: the decision behind the file you're about to edit (<code>engrams relevant</code>).</td>
+        </tr>
+        <tr>
+          <td>Stores records; meaning is your problem.</td>
+          <td>Stores reasoning: decisions linked by <code>refines</code>, <code>extends</code>, <code>supersedes</code>, <code>depends_on</code>.</td>
+        </tr>
+        <tr>
+          <td>Lets you repeat a settled debate.</td>
+          <td>Enforces registered patterns against your staged code (<code>engrams check --staged</code>).</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      The difference is not a better query engine. It is that engrams accumulates a model of
+      <strong>why your project looks the way it does</strong> — and puts that model in front of
+      you and your agent at the moment it matters.
+    </p>
+  </div>
+
+  <div class="reveal">
+    <h2>What engrams advises on</h2>
+    <div class="grid grid-3">
+      <div class="card">
+        <h3>Recalled decisions</h3>
+        <p>
+          On 2026-08-05 this repo logged decision&nbsp;#44: <em>“Path A ratified: TTSR-export-led
+          policy engine.”</em> The same day, the implementation progress entry was
+          linked <code>implements</code> → #44, and the workspace-isolation bug fix (#45) was
+          linked <code>part_of</code> it. Anyone touching the policy engine now inherits the
+          reasoning, not just the code.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Enforced patterns</h3>
+        <p>
+          <em>“Borrowed SQL Parameters Only”</em> is a registered system pattern born of the
+          v0.8.0 zero-allocation hardening — machine-checkable, not prose in a wiki.
+          <code>engrams check</code> scans staged files against patterns like it and exits 1 on
+          violation. The standard is enforced before the commit, not after the review.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Caught contradictions</h3>
+        <p>
+          Two days after <em>“Support both JSON and human-readable plain text outputs”</em>
+          (2026-07-10), the project reversed course: <em>“JSON-only CLI output”</em> was logged
+          and linked <code>supersedes</code> to the original. The old decision stops advising but
+          stays auditable — settled questions stay settled.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark graph-showcase reveal">
+    <div class="graph-head">
+      <h2>This is engrams' own memory of building itself — explore it.</h2>
+      <p class="muted">
+        26 days of real feature work on this repository: 33 decisions, 6 patterns, 32 progress
+        entries, connected by 29 reasoning links. Orbit it, zoom in, click a node to read what
+        was decided and why. This is the raw material an advisor reasons over.
+      </p>
+      <div class="graph-legend">
+        <span class="key"><span class="dot dot-decision"></span> decision — a choice and its rationale</span>
+        <span class="key"><span class="dot dot-pattern"></span> pattern — an enforceable standard</span>
+        <span class="key"><span class="dot dot-progress"></span> progress — work that happened</span>
+      </div>
+    </div>
+    <ForceGraph />
+    <p class="muted graph-foot">
+      Node size reflects link degree. The sparse early cluster on the left and the dense
+      ontology/policy-engine web on the right are the same project, 26 days apart — see
+      <a href="/docs/advisor/maturity">How Memory Matures</a>.
+    </p>
+  </div>
+
+  <div class="reveal">
+    <h2>Advice compounds</h2>
+    <p>
+      On day 1 engrams can only fetch — the graph is nearly empty, so there is little to advise
+      with. Every decision logged, every pattern registered, every link added makes the next
+      piece of advice sharper. That is the compounding: the tool you run in month two is
+      strictly smarter than the one you installed, because you taught it.
+    </p>
+    <div class="callout note">
+      <strong>Next</strong>
+      See the densification arc with real numbers in
+      <a href="/docs/advisor/maturity">How Memory Matures</a>, then the cycle that drives it in
+      <a href="/docs/advisor/loop">The Advisor Loop</a>. For the commands a human runs, go to
+      <a href="/docs/for-you/overview">For You</a>; for what your agent stores and retrieves, see
+      <a href="/docs/for-agent/overview">For Your Agent</a>.
+    </div>
+  </div>
+</DocsLayout>
+
+<style>
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  .graph-showcase {
+    border-radius: var(--radius-lg);
+    padding: 2rem 1.75rem;
+    margin: 2.5rem 0;
+  }
+  .graph-head h2 {
+    border-bottom: none;
+    margin-top: 0;
+    padding-bottom: 0;
+  }
+  .graph-head .muted {
+    max-width: 62ch;
+    line-height: 1.65;
+  }
+  .graph-legend {
+    margin: 1.1rem 0 1.4rem;
+  }
+  .graph-foot {
+    margin: 1rem 0 0;
+    font-size: .9rem;
+  }
+</style>

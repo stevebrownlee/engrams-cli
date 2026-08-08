@@ -1,0 +1,100 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Exploration" description="Interrogate the knowledge graph directly: engrams graph, engrams decision search, and engrams export.">
+  <h1>Exploration</h1>
+  <p class="lead">
+    The graph is not a black box that only briefs your agent. You can interrogate it directly:
+    <em>why is this here? what breaks if I touch that? what did we decide about X?</em>
+  </p>
+
+  <p>
+    Beneath the decisions, patterns, and progress entries sits a combined knowledge + code
+    graph — in this repository, 802 edges: 45 hand-made reasoning links plus 757 derived from
+    anchors, tag overlap, and git co-change, spanning 67 code nodes. The commands below are how
+    you walk it.
+  </p>
+
+  <h2>"Why is this here?" — <code>engrams decision search</code></h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams decision search "ontology"
+engrams decision search "policy engine" --snippets --limit 5
+engrams decision search "workspace isolation" --all</code></pre>
+  <p>
+    <strong>What you get:</strong> full-text search across every decision the project has ever
+    logged, in milliseconds. <code>--snippets</code> adds highlighted match context,
+    <code>--limit</code> (default 10) controls how many results come back, and
+    <code>--all</code> includes superseded decisions — the ones that were later replaced, with
+    the lineage intact.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> "what did we decide about X?" is the question that
+    usually spawns a thirty-minute archaeology dig through chat history and commit messages.
+    Here it's one query, and the answer carries its rationale and status — including
+    <em>whether it's still true</em>.
+  </p>
+
+  <h2>"What breaks if I touch this?" — <code>engrams graph</code></h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams graph stats                                   # the shape of the graph
+engrams graph central --limit 10                      # what everything depends on (PageRank)
+engrams graph clusters                                # connected components
+engrams graph neighbors --node decision:44 --depth 2  # local blast radius
+engrams graph chain --node decision:22 --rel depends_on   # what revisiting X cascades into
+engrams graph path --from decision:44 --to decision:45    # how two things connect</code></pre>
+  <p>
+    <strong>What you get:</strong>
+  </p>
+  <ul>
+    <li><code>stats</code> — node/edge counts, density, components, orphans, and degree stats. The one-glance answer to "how mature is this graph?"</li>
+    <li><code>central</code> — PageRank centrality ranking (<code>--type</code> restricts to one node type). The nodes everything else leans on; touch them carefully.</li>
+    <li><code>clusters</code> — the connected components, so you can see which subsystems of reasoning hang together and which are islands.</li>
+    <li><code>neighbors</code> — every node within <code>--depth</code> hops of a node, optionally restricted to one <code>--rel</code> type. The immediate blast radius of a change.</li>
+    <li><code>chain</code> — transitive closure over a canonical transitive relationship (<code>supersedes</code>, <code>depends_on</code>, <code>part_of</code>, <code>refines</code>). Literally the "what breaks if I revisit X" query: follow the chain and see everything downstream.</li>
+    <li><code>path</code> — the shortest path between any two nodes. When two pieces of the project seem unrelated, this shows the reasoning that connects them.</li>
+  </ul>
+  <p>
+    <strong>Why it's valuable:</strong> code tells you what depends on a module. The graph
+    tells you what depends on a <em>decision</em> — which patterns were built on it, which
+    later decisions refined it, which work assumed it. Before you reverse a three-week-old
+    call, <code>graph chain</code> shows you exactly what you're implicitly reversing with it.
+  </p>
+
+  <h2>"Give me the record" — <code>engrams export</code></h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams export                       # dumps to ./engrams_export
+engrams export --path ./docs/adr     # somewhere reviewable</code></pre>
+  <p>
+    <strong>What you get:</strong> the entire database serialized to clean, structured Markdown
+    files — decisions, patterns, progress, context — ready to commit to git.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> the record becomes reviewable, diffable, and
+    collaborative. Architectural decisions show up as Markdown in PRs; teammates pull and
+    <code>engrams import</code> to sync their local database. The graph stops being a file on
+    your machine and becomes part of the repository's history.
+  </p>
+
+  <div class="callout note">
+    <strong>Derived edges do the legwork</strong>
+    Most of the graph isn't hand-linked. <code>engrams graph rebuild</code> recomputes derived
+    edges from anchors, tag overlap, and git co-change, and <code>engrams graph ingest</code>
+    incrementally adds co-change edges as you commit — so exploration gets richer the longer
+    the project runs, without anyone maintaining links by hand.
+  </div>
+
+  <h2>Keep exploring</h2>
+  <ul>
+    <li><a href="/docs/for-you/overview">For You</a> — the human's relationship with the advisor</li>
+    <li><a href="/docs/for-you/briefing">Briefing</a> — start every session oriented</li>
+    <li><a href="/docs/for-you/enforcement">Enforcement</a> — standards enforced before violations land</li>
+    <li><a href="/docs/advisor/overview">The Advisor</a> — how the graph you're exploring came to be</li>
+  </ul>
+</DocsLayout>

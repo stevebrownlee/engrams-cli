@@ -1,0 +1,176 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="The Advisor Loop" description="Store, link, surface, act — the compounding cycle that turns a knowledge graph into an advisor. Each turn makes the next turn smarter.">
+  <h1>The Advisor Loop</h1>
+  <p class="lead">
+    Maturity is not something you wait for — it is produced by a four-step cycle run on every
+    task. Store what was decided, link it to what it relates to, let engrams surface it at the
+    right moment, and act on better information. The outcome of step four is the input to step
+    one. The loop compounds.
+  </p>
+
+  <div class="loop-diagram reveal" aria-label="The advisor loop: store, link, surface, act">
+    <div class="loop-grid">
+      <div class="loop-step">
+        <span class="loop-num">1</span>
+        <strong>Store</strong>
+        <small>the agent logs decisions, patterns, progress as work happens</small>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <span class="loop-num">2</span>
+        <strong>Link</strong>
+        <small>connect them with <code>refines</code>, <code>extends</code>, <code>depends_on</code></small>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <span class="loop-num">3</span>
+        <strong>Surface</strong>
+        <small><code>prime</code>, <code>relevant</code> and <code>graph</code> bring it back at the right moment</small>
+      </div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step">
+        <span class="loop-num">4</span>
+        <strong>Act</strong>
+        <small>you make a better-informed choice — which gets stored</small>
+      </div>
+    </div>
+    <p class="loop-cycle muted">…and step 4 feeds straight back into step 1.</p>
+  </div>
+
+  <div class="reveal">
+    <h2>1 · Store — capture reasoning at the moment it exists</h2>
+    <p>
+      The agent logs while the context is hot, not at session end:
+      <code>engrams decision log --summary "…" --rationale "…"</code> for choices,
+      <code>engrams pattern log</code> for conventions worth enforcing,
+      <code>engrams progress log</code> for the work itself. Rationale is the payload — a
+      decision without its <em>why</em> is just a fact; with it, it is advice waiting to happen.
+    </p>
+  </div>
+
+  <div class="reveal">
+    <h2>2 · Link — turn records into reasoning</h2>
+    <p>
+      <code>engrams link add --rel …</code> connects what was just stored to what it builds on.
+      The nine relationship types — <code>depends_on</code>, <code>extends</code>,
+      <code>implements</code>, <code>part_of</code>, <code>refines</code>, <code>relates_to</code>,
+      <code>supersedes</code>, <code>supports</code>, <code>uses</code> — are a validated
+      ontology, not free text: disjoint pairs, domain/range constraints, and cardinality are
+      rejected at link time unless you pass <code>--force</code>. Links are where the graph stops
+      being a pile of notes and starts being an argument.
+    </p>
+  </div>
+
+  <div class="reveal">
+    <h2>3 · Surface — the right context, unprompted</h2>
+    <p>
+      This is the step that makes engrams an advisor rather than an archive.
+      <code>engrams prime</code> loads the decisions, patterns, and active work relevant to the
+      session before anything else runs. <code>engrams relevant &lt;paths&gt;</code> pulls the
+      reasoning anchored to the exact files about to be edited. <code>engrams graph</code> and
+      <code>engrams decision search</code> answer the exploratory questions. Nothing here waits
+      for you to remember that the context exists.
+    </p>
+  </div>
+
+  <div class="reveal">
+    <h2>4 · Act — decide with the full picture, then feed the loop</h2>
+    <p>
+      You and the agent act on advice instead of guesses: a settled debate stays settled, a
+      registered pattern passes <code>engrams check --staged</code> before it can be violated,
+      a contradiction gets caught while it is still a diff. And whatever you decide next is a
+      new decision — stored, linked, and ready to advise the next session. The output of the
+      loop is a smarter loop.
+    </p>
+    <div class="callout tip">
+      <strong>Compounding, measured</strong>
+      This repo ran the loop for 26 days: one link on day 1 became a 29-link reasoning web —
+      amplified by engrams into 802 total edges. Nothing about the tool changed in that time.
+      The graph did. That is the entire thesis.
+    </div>
+  </div>
+
+  <div class="reveal">
+    <h2>Run the loop</h2>
+    <p>
+      The loop has two operators. You run the surfacing and enforcement side — see
+      <a href="/docs/for-you/overview">For You</a>. Your agent runs the storage and linking
+      side — see <a href="/docs/for-agent/overview">For Your Agent</a>. For why density makes
+      each turn smarter, read <a href="/docs/advisor/maturity">How Memory Matures</a>.
+    </p>
+  </div>
+</DocsLayout>
+
+<style>
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+
+  .loop-diagram {
+    margin: 2.25rem 0 2.75rem;
+    overflow-x: auto;
+  }
+  .loop-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    align-items: stretch;
+    gap: .6rem;
+    min-width: 780px;
+  }
+  .loop-cycle {
+    margin: .9rem 0 0;
+    font-size: .9rem;
+    text-align: center;
+  }
+  .loop-step {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .loop-step strong {
+    font-size: 1.05rem;
+  }
+  .loop-step small {
+    color: var(--color-text-light);
+    line-height: 1.5;
+    font-size: .82rem;
+  }
+  .loop-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: #1a2230;
+    font-weight: 800;
+    font-size: .85rem;
+  }
+  .loop-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent);
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  @media (max-width: 820px) {
+    .loop-grid {
+      grid-template-columns: 1fr;
+      min-width: 0;
+    }
+    .loop-arrow { transform: rotate(90deg); }
+  }
+</style>

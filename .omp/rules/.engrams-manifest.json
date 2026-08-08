@@ -1,0 +1,50 @@
+{
+  "harness": "omp",
+  "rules": [
+    {
+      "check_expr": "Box<dyn rusqlite::ToSql>",
+      "check_kind": "regex",
+      "file": "engrams-borrowed-sql-parameters-only.md",
+      "name": "Borrowed SQL Parameters Only",
+      "pattern_id": 7,
+      "severity": "error",
+      "sha256": "7287f5df86b45df5ba5b0ab42b2503b728d0b2e6adcaddf8f9d46809c1520761",
+      "slug": "borrowed-sql-parameters-only",
+      "timestamp": "2026-08-05T13:01:31Z"
+    },
+    {
+      "check_expr": "from_utf8_lossy.*\\.to_string\\(\\)",
+      "check_kind": "regex",
+      "file": "engrams-one-allocation-per-string-chain.md",
+      "name": "One Allocation Per String Chain",
+      "pattern_id": 8,
+      "severity": "warn",
+      "sha256": "a9cbed0c0cc0e70cac19cc98a1800a902610813bdd503f5386ba659ace3a7dc1",
+      "slug": "one-allocation-per-string-chain",
+      "timestamp": "2026-08-05T13:01:31Z"
+    },
+    {
+      "check_expr": "\\.get\\([^)]*\\)\\.clone\\(\\)",
+      "check_kind": "regex",
+      "file": "engrams-enrich-by-move-not-get-clone.md",
+      "name": "Enrich By Move Not get().clone()",
+      "pattern_id": 9,
+      "severity": "warn",
+      "sha256": "93ba708f77d90ac49d97c04ba5a0151e657d2250c5d0e033ea818831586265a8",
+      "slug": "enrich-by-move-not-get-clone",
+      "timestamp": "2026-08-05T13:01:31Z"
+    },
+    {
+      "check_expr": "\\.collect::<Vec<_>>\\(\\)\\.join\\(",
+      "check_kind": "regex",
+      "file": "engrams-no-throwaway-intermediate-collections.md",
+      "name": "No Throwaway Intermediate Collections",
+      "pattern_id": 10,
+      "severity": "info",
+      "sha256": "00132cce7a1c72534a67242d0ebd299116c08b0c7352a48d8dea212759c1a232",
+      "slug": "no-throwaway-intermediate-collections",
+      "timestamp": "2026-08-05T13:01:31Z"
+    }
+  ],
+  "version": 1
+}

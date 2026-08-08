@@ -1,0 +1,147 @@
+---
+// Hero3D.astro — decorative three.js particle-network backdrop.
+// A random geometric graph of gold particles that drifts gently and
+// parallaxes with the pointer. Slotted content sits above the canvas.
+---
+<div class="hero3d" data-hero3d>
+  <canvas class="hero3d-canvas" aria-hidden="true"></canvas>
+  <div class="hero3d-veil" aria-hidden="true"></div>
+  <div class="hero3d-content"><slot /></div>
+</div>
+
+<script>
+import * as THREE from 'three';
+
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+document.querySelectorAll('[data-hero3d]').forEach((root) => {
+  const canvas = root.querySelector('.hero3d-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+  camera.position.set(0, 0, 16);
+
+  const N = 120;
+  const RANGE = 11;
+  const LINK_DIST = 3.1;
+
+  // Base positions + per-particle drift params
+  const base = new Float32Array(N * 3);
+  const phase = new Float32Array(N * 3);
+  const speed = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    base[i * 3]     = (Math.random() * 2 - 1) * RANGE;
+    base[i * 3 + 1] = (Math.random() * 2 - 1) * RANGE * 0.6;
+    base[i * 3 + 2] = (Math.random() * 2 - 1) * RANGE * 0.7;
+    phase[i * 3]     = Math.random() * Math.PI * 2;
+    phase[i * 3 + 1] = Math.random() * Math.PI * 2;
+    phase[i * 3 + 2] = Math.random() * Math.PI * 2;
+    speed[i] = 0.25 + Math.random() * 0.5;
+  }
+
+  // Fixed random-geometric topology: link near neighbours once.
+  const edges = [];
+  for (let a = 0; a < N; a++) {
+    for (let b = a + 1; b < N; b++) {
+      const dx = base[a*3]-base[b*3], dy = base[a*3+1]-base[b*3+1], dz = base[a*3+2]-base[b*3+2];
+      if (dx*dx + dy*dy + dz*dz < LINK_DIST * LINK_DIST) edges.push([a, b]);
+    }
+  }
+
+  const pos = new Float32Array(N * 3);
+  const pointGeo = new THREE.BufferGeometry();
+  pointGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const points = new THREE.Points(pointGeo, new THREE.PointsMaterial({
+    color: 0xe3b84e, size: 0.14, sizeAttenuation: true,
+    transparent: true, opacity: 0.95, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+
+  const linePos = new Float32Array(edges.length * 6);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+  const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
+    color: 0xcca43b, transparent: true, opacity: 0.16,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+
+  const group = new THREE.Group();
+  group.add(points); group.add(lines);
+  scene.add(group);
+
+  let mx = 0, my = 0;
+  root.addEventListener('pointermove', (e) => {
+    const r = root.getBoundingClientRect();
+    mx = ((e.clientX - r.left) / r.width) * 2 - 1;
+    my = ((e.clientY - r.top) / r.height) * 2 - 1;
+  });
+
+  function resize() {
+    const w = root.clientWidth, h = root.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    if (reduced) still();
+  }
+  resize();
+  new ResizeObserver(resize).observe(root);
+
+  let raf = 0, visible = true, t = 0;
+  function frame() {
+    t += 0.0035;
+    for (let i = 0; i < N; i++) {
+      const s = speed[i];
+      pos[i*3]     = base[i*3]     + Math.sin(t * s + phase[i*3])     * 0.7;
+      pos[i*3 + 1] = base[i*3 + 1] + Math.sin(t * s * 1.2 + phase[i*3+1]) * 0.55;
+      pos[i*3 + 2] = base[i*3 + 2] + Math.cos(t * s * 0.8 + phase[i*3+2]) * 0.6;
+    }
+    pointGeo.attributes.position.needsUpdate = true;
+    for (let e = 0; e < edges.length; e++) {
+      const a = edges[e][0] * 3, b = edges[e][1] * 3, o = e * 6;
+      linePos[o]   = pos[a];   linePos[o+1] = pos[a+1]; linePos[o+2] = pos[a+2];
+      linePos[o+3] = pos[b];   linePos[o+4] = pos[b+1]; linePos[o+5] = pos[b+2];
+    }
+    lineGeo.attributes.position.needsUpdate = true;
+
+    group.rotation.y += ((mx * 0.28) - group.rotation.y) * 0.04;
+    group.rotation.x += ((-my * 0.18) - group.rotation.x) * 0.04;
+    renderer.render(scene, camera);
+    raf = requestAnimationFrame(frame);
+  }
+
+  function still() { // single static frame (reduced motion / offscreen)
+    for (let i = 0; i < N * 3; i++) pos[i] = base[i];
+    pointGeo.attributes.position.needsUpdate = true;
+    for (let e = 0; e < edges.length; e++) {
+      const a = edges[e][0] * 3, b = edges[e][1] * 3, o = e * 6;
+      linePos[o]=pos[a]; linePos[o+1]=pos[a+1]; linePos[o+2]=pos[a+2];
+      linePos[o+3]=pos[b]; linePos[o+4]=pos[b+1]; linePos[o+5]=pos[b+2];
+    }
+    lineGeo.attributes.position.needsUpdate = true;
+    renderer.render(scene, camera);
+  }
+
+  if (reduced) { still(); return; }
+
+  const io = new IntersectionObserver((entries) => {
+    visible = entries[0].isIntersecting;
+    if (visible) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+    else cancelAnimationFrame(raf);
+  }, { threshold: 0.02 });
+  io.observe(root);
+  raf = requestAnimationFrame(frame);
+});
+</script>
+
+<style>
+.hero3d { position: absolute; inset: 0; overflow: hidden; }
+.hero3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hero3d-veil {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, transparent 30%, rgba(18,24,31,.55) 100%);
+}
+.hero3d-content { position: relative; z-index: 1; }
+</style>

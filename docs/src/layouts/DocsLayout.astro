@@ -48,6 +48,21 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </nav>
       </div>
     </footer>
+    <script>
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const els = document.querySelectorAll('.reveal, .reveal-stagger');
+      if (reduced) {
+        els.forEach((el) => el.classList.add('is-visible'));
+      } else {
+        const io = new IntersectionObserver(
+          (entries) => entries.forEach((e) => {
+            if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
+          }),
+          { threshold: 0.12, rootMargin: '0px 0px -8% 0px' }
+        );
+        els.forEach((el) => io.observe(el));
+      }
+    </script>
   </body>
 </html>
 

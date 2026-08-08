@@ -1,0 +1,109 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="For Your Agent" description="The commands your AI agent runs to feed and maintain the engrams knowledge graph.">
+  <h1>For Your Agent</h1>
+  <p class="lead">
+    Engrams only becomes an advisor if the agent keeps the graph fed. This section documents the
+    agent's side of the partnership: the commands it runs to store what it learns, connect what it
+    knows, retrieve context before acting, and keep the graph healthy over time.
+  </p>
+
+  <p>
+    Day 1, engrams can only fetch — the graph is nearly empty. Every decision logged, every link
+    asserted, every progress entry compounds. As the graph densifies, <code>prime</code>,
+    <code>relevant</code>, and <code>doctor</code> shift from retrieval to advice. That maturation
+    story is told in <a href="/docs/advisor/loop">The Advisor Loop</a>; this pillar is the
+    machinery that drives it.
+  </p>
+
+  <h2 class="reveal">The operating loop</h2>
+  <p>
+    The agent runs the same loop every session. Consult first, log as you work, hand off at the end.
+  </p>
+
+  <ol class="loop">
+    <li>
+      <strong>Orient.</strong> <code>engrams prime</code> loads a token-budgeted briefing at session
+      start. Before editing files, <code>engrams relevant &lt;paths&gt;</code> surfaces every
+      decision and pattern anchored to them.
+    </li>
+    <li>
+      <strong>Log decisions as they happen.</strong> <code>engrams decision log</code> the moment a
+      design choice is made — not at session end, when the rationale is already gone.
+    </li>
+    <li>
+      <strong>Wire it in.</strong> <code>engrams link add</code> connects the new item to what it
+      implements, depends on, or supersedes. Links are what turn a list into a reasoning web.
+    </li>
+    <li>
+      <strong>Track the work.</strong> <code>engrams progress log</code> records task state so the
+      next session knows exactly where things stand.
+    </li>
+    <li>
+      <strong>Hand off.</strong> <code>engrams active-context update --patch</code> merges the
+      session's outcome into the named workstream track, then <code>engrams export</code> dumps
+      Markdown for git. Commit <code>engrams_export/</code> with the code.
+    </li>
+  </ol>
+
+  <h2 class="reveal">Four jobs</h2>
+  <div class="grid grid-2 reveal-stagger">
+    <a class="card" href="/docs/for-agent/storing">
+      <h3>Storing</h3>
+      <p class="cmd">decision log · pattern log · progress log · custom set</p>
+      <p>Put facts in. Decisions with rationale, machine-checkable patterns, task progress, and arbitrary key-value data.</p>
+    </a>
+    <a class="card" href="/docs/for-agent/connecting">
+      <h3>Connecting</h3>
+      <p class="cmd">link add · anchor add · pr add</p>
+      <p>Wire facts together. A validated relationship ontology, file anchors, and PR links turn entries into a graph.</p>
+    </a>
+    <a class="card" href="/docs/for-agent/retrieving">
+      <h3>Retrieving</h3>
+      <p class="cmd">prime · relevant · query · decision search</p>
+      <p>Pull context back out — briefings at session start, anchor-matched context before every edit, FTS5 search any time.</p>
+    </a>
+    <a class="card" href="/docs/for-agent/maintaining">
+      <h3>Maintaining</h3>
+      <p class="cmd">decision supersede · export · migrate · doctor</p>
+      <p>Keep the graph current. Supersede stale decisions, audit health, migrate schema, and sync to git.</p>
+    </a>
+  </div>
+
+  <h2 class="reveal">It compounds — real numbers</h2>
+  <p>
+    This repository dogfoods engrams. Its own knowledge graph — the one rendered on the
+    <a href="/">landing page</a> — grew from a fetches-only database into a reasoning web in
+    under a month:
+  </p>
+  <div class="grid grid-3 stats reveal-stagger">
+    <div class="stat"><div class="stat-num">23</div><div class="stat-label">nodes · day 1</div></div>
+    <div class="stat"><div class="stat-num">43</div><div class="stat-label">nodes · week 1</div></div>
+    <div class="stat"><div class="stat-num">71</div><div class="stat-label">nodes · month 1</div></div>
+  </div>
+  <p>
+    29 reasoning links across 26 days of real feature work — policy engine, ontology, schema,
+    search. Day 1 the agent could fetch one fact. By week 4 it could traverse
+    <code>depends_on</code> chains and answer "what breaks if I revisit this?"
+  </p>
+
+  <div class="callout note reveal">
+    <strong>Conventions</strong>
+    Every command returns JSON. Global flags <code>--db &lt;path&gt;</code> and
+    <code>--workspace &lt;path&gt;</code> go before the subcommand; <code>--compact</code> and
+    <code>--fields &lt;a,b&gt;</code> work on most subcommands to trim output tokens. Entity types
+    use hyphens: <code>decision</code>, <code>progress-entry</code>, <code>system-pattern</code>,
+    <code>custom-data</code>.
+  </div>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2.25rem; margin-bottom: 1rem; }
+  .loop { padding-left: 1.25rem; margin-bottom: 1.5rem; }
+  .loop li { margin-bottom: .75rem; line-height: 1.65; }
+  a.card { text-decoration: none; color: inherit; display: block; }
+  .stats { margin: 1.5rem 0; }
+</style>

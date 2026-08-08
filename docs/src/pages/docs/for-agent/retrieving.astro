@@ -1,0 +1,107 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Retrieving" description="How the agent pulls context back out of engrams: prime, relevant, query, and decision search.">
+  <h1>Retrieving</h1>
+  <p class="lead">
+    Pull context back out — before acting, not after. The agent consults engrams at three
+    moments: session start (<code>prime</code>), before editing files (<code>relevant</code>),
+    and before designing or fixing (<code>query</code>, <code>decision search</code>). All output
+    is JSON, ranked and token-lean.
+  </p>
+
+  <h2 class="reveal">Session start — <code>engrams prime</code></h2>
+  <p>
+    One call replaces half a dozen. <code>prime</code> fans out queries across product context,
+    active-context tracks, decisions, progress, and patterns, joins PRs and anchors, and returns
+    a single consolidated briefing. It is the first command of every session.
+  </p>
+  <pre><code>engrams prime
+engrams prime --budget 1000 --paths src/ops,src/db.rs --tags database</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>--budget</code></td><td>Approximate token budget; lower-priority sections are shed to fit.</td></tr>
+      <tr><td><code>--paths</code></td><td>Filter the briefing to items anchored to these paths.</td></tr>
+      <tr><td><code>--tags</code></td><td>Filter by tags.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Token estimation is payload length ÷ 4. When the estimate exceeds the budget, less critical
+    sections are discarded in a fixed order — but <code>active-context</code> is never shed,
+    because it carries the session's immediate goals, open questions, and next steps.
+  </p>
+
+  <h2 class="reveal">Before editing — <code>engrams relevant</code></h2>
+  <p>
+    The anchor graph in reverse: give it paths, get back every decision and pattern anchored to
+    them. This is how context stays anchored to the files being edited instead of the whole
+    database. Run it before touching any file.
+  </p>
+  <pre><code>engrams relevant src/db.rs src/ops
+engrams relevant --staged</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>[PATHS]...</code></td><td>Files or directories to match against stored anchors; directory anchors match recursively.</td></tr>
+      <tr><td><code>--staged</code></td><td>Use <code>git diff --cached --name-only</code> as the path list — context for exactly what you're about to commit.</td></tr>
+      <tr><td><code>--all</code></td><td>Include superseded decisions (default: active only) to see how an area evolved.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="reveal">Before designing — <code>engrams query</code></h2>
+  <p>
+    Cross-type full-text search over decisions, patterns, and custom data, backed by SQLite FTS5
+    and ranked by BM25. Results come back as highlighted snippets — matching terms wrapped in
+    <code>&gt;&gt;</code>/<code>&lt;&lt;</code> markers — so the agent scans hits without pulling
+    full rows.
+  </p>
+  <pre><code>engrams query "authentication"
+engrams query "redis" --types decision,pattern --tags database,cache --limit 5
+engrams query "JWT" --since "2026-07-01T00:00:00Z" --all</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>--types</code></td><td>Restrict to <code>decision</code>, <code>pattern</code>, <code>custom</code> (comma-separated; default all three).</td></tr>
+      <tr><td><code>--tags</code></td><td>Only items carrying these tags.</td></tr>
+      <tr><td><code>--since</code></td><td>RFC3339 lower bound on timestamp.</td></tr>
+      <tr><td><code>--limit</code></td><td>Max results (default 10).</td></tr>
+      <tr><td><code>--all</code></td><td>Include superseded decisions.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="reveal">Decisions only — <code>engrams decision search</code></h2>
+  <p>
+    FTS over decisions alone, for when the question is specifically "have we already decided
+    this?" Settled choices stay settled instead of being re-litigated every session.
+  </p>
+  <pre><code>engrams decision search "database" --snippets --limit 10
+engrams decision search "sqlite" --all</code></pre>
+  <table>
+    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>--snippets</code></td><td>Return highlighted FTS snippets instead of full rows — the token-lean default for agents.</td></tr>
+      <tr><td><code>--limit</code></td><td>Max results (default 10).</td></tr>
+      <tr><td><code>--all</code></td><td>Include superseded decisions.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout note reveal">
+    <strong>Why retrieval gets better over time</strong>
+    These four commands are the same on day 1 and day 90 — what changes is what they find. Every
+    stored item and asserted link makes the next retrieval sharper. That compounding is the
+    subject of <a href="/docs/advisor/loop">The Advisor Loop</a>.
+  </div>
+
+  <div class="callout tip reveal">
+    <strong>Next</strong>
+    Retrieval assumes the graph is current. Continue to
+    <a href="/docs/for-agent/maintaining">Maintaining</a> for superseding, auditing, and export.
+  </div>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2.25rem; margin-bottom: 1rem; }
+</style>

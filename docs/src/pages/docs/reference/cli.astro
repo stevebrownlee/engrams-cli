@@ -125,7 +125,7 @@ engrams custom search "localhost" [--category "config"] [--limit 10] [--snippets
 engrams custom delete --category "config" --key "api_host"`}</code></pre>
 
   <h3>10. <code>link</code></h3>
-  <p>Create and list relationships (edges) in the workspace knowledge graph. Canonical relationships (e.g. <code>supersedes</code>, <code>depends_on</code>, <code>refines</code>, <code>conflicts_with</code>, <code>implemented_in</code>) are validated against their declared domain/range and algebraic rules; <code>link add</code> rejects violations unless <code>--force</code> is passed. See the <a href="/docs/features/knowledge-graph">Knowledge Graph</a> page for the full relationship vocabulary.</p>
+  <p>Create and list relationships (edges) in the workspace knowledge graph. Canonical relationships (e.g. <code>supersedes</code>, <code>depends_on</code>, <code>refines</code>, <code>conflicts_with</code>, <code>implemented_in</code>) are validated against their declared domain/range and algebraic rules; <code>link add</code> rejects violations unless <code>--force</code> is passed. See the <a href="/docs/for-agent/connecting">Knowledge Graph</a> page for the full relationship vocabulary.</p>
   <pre><code>{`# Link two entities (canonical rels are validated; --force overrides violations)
 engrams link add \\
   --source-type system_pattern --source-id 1 \

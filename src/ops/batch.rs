@@ -5,7 +5,12 @@ use std::io::Read;
 
 use crate::cli::BatchType;
 
-pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    batch_type: BatchType,
+    items_arg: String,
+    db_path: &std::path::Path,
+) -> Result<Value> {
     let items_json = if items_arg == "-" {
         let mut buffer = String::new();
         std::io::stdin().read_to_string(&mut buffer)?;
@@ -125,6 +130,18 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                         Value::Array(arr) => Some(arr),
                         _ => None,
                     });
+                    let check_kind = map.remove("check_kind").and_then(|v| match v {
+                        Value::String(s) => Some(s),
+                        _ => None,
+                    });
+                    let check_expr = map.remove("check_expr").and_then(|v| match v {
+                        Value::String(s) => Some(s),
+                        _ => None,
+                    });
+                    let severity = map.remove("severity").and_then(|v| match v {
+                        Value::String(s) => Some(s),
+                        _ => None,
+                    });
 
                     let mut cmd_tags = Vec::new();
                     if let Some(t_arr) = tags {
@@ -143,7 +160,11 @@ pub fn handle(conn: &Connection, batch_type: BatchType, items_arg: String) -> Re
                             tags: cmd_tags,
                             prs: Vec::new(),
                             anchors: Vec::new(),
+                            check_kind,
+                            check_expr,
+                            severity,
                         },
+                        db_path,
                     )?;
                     if let Value::Object(mut res_map) = res {
                         if let Some(id_val) = res_map.remove("id") {

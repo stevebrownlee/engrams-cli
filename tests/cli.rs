@@ -558,13 +558,13 @@ fn test_version_validation() {
     // Run a command, it should succeed and auto-upgrade version to 2
     engrams(&db).arg("decision").arg("list").assert().success();
 
-    // Verify it was upgraded back to 3
+    // Verify it was upgraded to the latest schema version
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 4);
+        assert_eq!(ver, 5);
     }
 }
 
@@ -679,13 +679,13 @@ fn test_migration_v1_to_v2() {
     // Now it should succeed
     engrams(&db).arg("decision").arg("list").assert().success();
 
-    // Verify columns exist by checking PRAGMA user_version is 3
+    // Verify columns exist by checking PRAGMA user_version is the latest
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
-        let ver: i32 = conn
+        let ver: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 4);
+        assert_eq!(ver, 5);
     }
 }
 
@@ -2021,7 +2021,7 @@ fn test_migration_v2_to_v3() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
 
     // context_links gained origin/source/weight.
     let mut stmt = conn.prepare("PRAGMA table_info(context_links)").unwrap();

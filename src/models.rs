@@ -39,6 +39,14 @@ pub struct Pattern {
     pub description: Option<String>,
     pub tags: Option<Value>,
     pub timestamp: String,
+    /// Machine-checkable expression kind: "regex" | "ast" (NULL = prose-only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub check_kind: Option<String>,
+    /// The check expression (regex source or ast-grep pattern); NULL when prose-only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub check_expr: Option<String>,
+    /// Enforcement severity: "info" | "warn" | "error".
+    pub severity: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub pr_urls: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]

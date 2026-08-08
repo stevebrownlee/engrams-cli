@@ -183,7 +183,7 @@ pub fn handle(
     let skip_patterns_query = !paths.is_empty() && pattern_ids.is_empty();
     if !skip_patterns_query {
         let mut sql =
-            "SELECT id, uuid, name, description, tags, timestamp FROM system_patterns WHERE 1=1"
+            "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE 1=1"
                 .to_string();
         let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
 
@@ -230,6 +230,9 @@ pub fn handle(
                 description: row.get(3)?,
                 tags: if tags.is_null() { None } else { Some(tags) },
                 timestamp: row.get(5)?,
+                check_kind: row.get(6)?,
+                check_expr: row.get(7)?,
+                severity: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
             })

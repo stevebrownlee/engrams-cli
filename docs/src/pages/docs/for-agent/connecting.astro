@@ -1,0 +1,111 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Connecting" description="How the agent wires the engrams knowledge graph: relationships, file anchors, and PR links.">
+  <h1>Connecting</h1>
+  <p class="lead">
+    A list of facts is a notebook. Links are what turn it into a reasoning web the advisor can
+    traverse — why a choice was made, what depends on it, what it replaced. This repo's own graph
+    carries 802 edges: 45 asserted by hand, 757 derived from anchors and git history.
+  </p>
+
+  <h2 class="reveal">Relationships — <code>engrams link add</code></h2>
+  <pre><code>engrams link add \
+  --source-type system-pattern --source-id 2 \
+  --target-type decision --target-id 7 \
+  --rel implements \
+  --description "JWT middleware implements the auth decision"</code></pre>
+  <p>
+    Entity types are hyphenated: <code>decision</code>, <code>progress-entry</code>,
+    <code>system-pattern</code>, <code>custom-data</code>. Every canonical link is validated
+    against the ontology below — symmetry, direction, transitivity, domain/range,
+    <code>same_type</code>, <code>functional_to</code> cardinality, and
+    <code>disjoint_with</code>. A violation is rejected unless you pass <code>--force</code>,
+    which records it as an intentional override rather than dropping it silently.
+  </p>
+  <p>
+    Inspect an item's neighborhood with <code>engrams link list</code>:
+  </p>
+  <pre><code>engrams link list --item-type decision --item-id 7
+# only patterns that implement decision 7
+engrams link list --item-type decision --item-id 7 --rel implements --linked-type system-pattern</code></pre>
+
+  <h2 class="reveal">The relationship ontology</h2>
+  <table>
+    <thead><tr><th>Relationship</th><th>Symmetry</th><th>Transitive</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>relates_to</code></td><td>symmetric</td><td>—</td><td>generic link; any→any</td></tr>
+      <tr><td><code>depends_on</code></td><td>directed</td><td>✓</td><td>has <code>conflicts_with</code> disjoint sibling</td></tr>
+      <tr><td><code>part_of</code></td><td>—</td><td>✓</td><td>hierarchical composition</td></tr>
+      <tr><td><code>refines</code></td><td>—</td><td>✓</td><td>one item sharpens another</td></tr>
+      <tr><td><code>supersedes</code></td><td>directed</td><td>✓</td><td>functional: a decision has at most one successor</td></tr>
+      <tr><td><code>implements</code></td><td>directed</td><td>—</td><td>e.g. pattern implements decision</td></tr>
+      <tr><td><code>implemented_in</code></td><td>directed</td><td>—</td><td>range: <code>pr</code>/<code>commit</code></td></tr>
+      <tr><td><code>conflicts_with</code></td><td>symmetric</td><td>—</td><td>mutually exclusive</td></tr>
+      <tr><td><code>co_changes</code></td><td>symmetric</td><td>—</td><td>derived from git co-change history</td></tr>
+      <tr><td><code>anchored_to</code></td><td>directed</td><td>—</td><td>derived from file anchors</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Inverse edges (<code>superseded_by</code>, <code>depended_on_by</code>, …) are materialized
+    automatically by <code>engrams graph rebuild</code>, so consumers never need to know which
+    direction a link was asserted in. The four transitive rels — <code>supersedes</code>,
+    <code>depends_on</code>, <code>part_of</code>, <code>refines</code> — are the ones
+    <code>engrams graph chain</code> can walk to answer reachability questions like "what
+    transitively breaks if I revisit this decision?"
+  </p>
+  <p>
+    <code>--rel</code> also accepts custom labels. They pass through untouched, are treated as
+    symmetric for analytics, and are surfaced by <code>engrams doctor</code> for vocabulary
+    review. This repo's own graph mixes canonical rels (<code>refines</code>,
+    <code>depends_on</code>) with custom ones (<code>uses</code>, <code>extends</code>,
+    <code>supports</code>) — allowed, but the canonical vocabulary is what gets validated.
+  </p>
+
+  <h2 class="reveal">File anchors — <code>engrams anchor add</code></h2>
+  <p>
+    Anchors bind a decision or pattern to the code it governs. They power
+    <code>engrams relevant</code> — the "what do I need to know before editing this file?" query —
+    and the doctor's drift detection.
+  </p>
+  <pre><code>engrams anchor add --type decision --id 7 --path src/db.rs --path src/models.rs
+engrams anchor add --type system-pattern --id 2 --path src/ops
+
+engrams anchor list   --type decision --id 7
+engrams anchor remove --type decision --id 7 --path src/models.rs</code></pre>
+  <p>
+    Anchors can also be attached inline at log time with <code>--anchor</code>. Paths are
+    normalized (<code>./</code> prefixes stripped), and a directory anchor matches every file
+    under it recursively — anchoring <code>src/ops</code> covers
+    <code>src/ops/graph/rel.rs</code>.
+  </p>
+
+  <h2 class="reveal">PR links — <code>engrams pr add</code></h2>
+  <p>
+    PR links tie a decision or pattern to the pull request where it was implemented, so the agent
+    can jump from a stored rationale straight to the diff and discussion. A bare number is
+    resolved against your git remote into a full URL automatically.
+  </p>
+  <pre><code>engrams pr add --type decision --id 7 --pr 42 --pr 43
+engrams pr add --type system-pattern --id 2 --pr "https://github.com/org/repo/pull/101"
+
+engrams pr list   --type decision --id 7
+engrams pr remove --type decision --id 7 --url "https://github.com/org/repo/pull/42"</code></pre>
+  <p>
+    PRs can also be attached inline with <code>--pr</code> at log time. The doctor flags active
+    decisions that carry a commit but no PR link, so traceability gaps surface on their own.
+  </p>
+
+  <div class="callout tip reveal">
+    <strong>Next</strong>
+    Once the graph is wired, retrieval gets smart. Continue to
+    <a href="/docs/for-agent/retrieving">Retrieving</a>, or see the conceptual frame in
+    <a href="/docs/advisor/loop">The Advisor Loop</a>.
+  </div>
+</DocsLayout>
+
+<style>
+  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
+  h2 { margin-top: 2.25rem; margin-bottom: 1rem; }
+</style>

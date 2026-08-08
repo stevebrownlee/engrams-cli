@@ -1,0 +1,138 @@
+---
+// ForceGraph.astro — interactive 3D force-directed graph over the real
+// baked engrams knowledge graph (docs/public/graph-data.json).
+interface Props {
+  src?: string;
+  height?: string;
+  autoRotate?: boolean;
+}
+const { src = '/graph-data.json', height = '620px', autoRotate = true } = Astro.props;
+---
+<div
+  class="fg-wrap dark"
+  data-forcegraph
+  data-src={src}
+  data-autorotate={autoRotate ? '1' : '0'}
+  style={`--fg-h:${height}`}
+>
+  <div class="fg-canvas" data-fg-canvas></div>
+  <div class="fg-top">
+    <div class="graph-legend">
+      <span class="key"><span class="dot dot-decision"></span>Decision</span>
+      <span class="key"><span class="dot dot-pattern"></span>Pattern</span>
+      <span class="key"><span class="dot dot-progress"></span>Progress</span>
+    </div>
+    <div class="fg-meta" data-fg-meta>Loading graph…</div>
+  </div>
+  <div class="fg-inspect" data-fg-inspect>
+    <span class="fg-inspect-hint">Drag to orbit · scroll to zoom · click a node to inspect it</span>
+  </div>
+</div>
+
+<script>
+import ForceGraph3D from '3d-force-graph';
+
+const GROUP_COLOR = {
+  decision: '#e3b84e',
+  system_pattern: '#e8ecf3',
+  progress_entry: '#7d8aa5',
+};
+const GROUP_NAME = {
+  decision: 'Decision',
+  system_pattern: 'Pattern',
+  progress_entry: 'Progress',
+};
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+document.querySelectorAll('[data-forcegraph]').forEach(async (root) => {
+  const canvasEl = root.querySelector('[data-fg-canvas]');
+  const metaEl = root.querySelector('[data-fg-meta]');
+  const inspectEl = root.querySelector('[data-fg-inspect]');
+  const src = root.getAttribute('data-src') || '/graph-data.json';
+  const autoRotate = root.getAttribute('data-autorotate') === '1' && !reduced;
+
+  let data;
+  try {
+    const res = await fetch(src);
+    data = await res.json();
+  } catch (e) {
+    metaEl.textContent = 'Could not load graph data.';
+    return;
+  }
+  const { nodes, links, meta } = data;
+  metaEl.textContent = `${meta.nodeCount} memories · ${meta.linkCount} reasoning links · ${meta.timeRange[0].slice(0,10)} → ${meta.timeRange[1].slice(0,10)}`;
+
+  const Graph = ForceGraph3D()(canvasEl)
+    .backgroundColor('rgba(0,0,0,0)')
+    .graphData({ nodes, links })
+    .nodeLabel((n) => `<div class="fg-tip"><b>${GROUP_NAME[n.group] || n.group}</b><br/>${n.label}</div>`)
+    .nodeColor((n) => GROUP_COLOR[n.group] || '#cccccc')
+    .nodeVal((n) => 1 + (n.degree || 0) * 0.9)
+    .nodeOpacity(0.92)
+    .linkColor(() => 'rgba(227,184,78,0.28)')
+    .linkWidth(0.6)
+    .linkDirectionalArrowLength(3.2)
+    .linkDirectionalArrowRelPos(0.85)
+    .linkDirectionalArrowColor(() => 'rgba(227,184,78,0.55)')
+    .onNodeHover((n) => { canvasEl.style.cursor = n ? 'pointer' : 'default'; })
+    .onNodeClick((n) => {
+      inspectEl.innerHTML =
+        `<div class="fg-inspect-body">` +
+        `<span class="fg-inspect-tag" style="background:${GROUP_COLOR[n.group]}22;color:${GROUP_COLOR[n.group]}">${GROUP_NAME[n.group] || n.group}</span>` +
+        `<p class="fg-inspect-label">${n.label}</p>` +
+        `<p class="fg-inspect-sub">${(n.degree || 0)} link${(n.degree||0)===1?'':'s'} · ${n.ts ? n.ts.slice(0,10) : ''}${n.status ? ' · ' + n.status : ''}</p>` +
+        (n.tags && n.tags !== 'null' && n.tags !== '[]' ? `<p class="fg-inspect-tags">${n.tags}</p>` : '') +
+        `</div>`;
+      // gently aim camera at the node
+      const dist = 40;
+      const ratio = 1 + dist / Math.hypot(n.x, n.y, n.z);
+      Graph.cameraPosition({ x: n.x * ratio, y: n.y * ratio, z: n.z * ratio }, n, 1200);
+    });
+
+  // sizing
+  function size() {
+    Graph.width(canvasEl.clientWidth).height(canvasEl.clientHeight);
+  }
+  size();
+  window.addEventListener('resize', size);
+
+  // framing + autorotate
+  Graph.cameraPosition({ x: 0, y: 0, z: 90 });
+  const controls = Graph.controls();
+  controls.autoRotate = autoRotate;
+  controls.autoRotateSpeed = 0.7;
+  controls.enableDamping = true;
+  canvasEl.addEventListener('pointerdown', () => { controls.autoRotate = false; }, { once: true });
+});
+</script>
+
+<style>
+.fg-wrap {
+  position: relative;
+  height: var(--fg-h, 620px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--dark-border);
+}
+.fg-canvas { position: absolute; inset: 0; }
+.fg-top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+  padding: 1rem 1.1rem; pointer-events: none;
+}
+.fg-meta { font-size: .78rem; color: var(--dark-text-muted); text-align: right; }
+.fg-inspect {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  padding: .9rem 1.1rem; pointer-events: none;
+  background: linear-gradient(0deg, rgba(18,24,31,.85), transparent);
+}
+.fg-inspect-hint { font-size: .82rem; color: var(--dark-text-muted); }
+.fg-inspect-body { pointer-events: auto; }
+.fg-inspect-tag {
+  display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; padding: .18rem .55rem; border-radius: 999px; margin-bottom: .4rem;
+}
+.fg-inspect-label { font-size: 1rem; font-weight: 600; color: var(--dark-text); max-width: 46ch; }
+.fg-inspect-sub { font-size: .8rem; color: var(--dark-text-muted); margin-top: .2rem; }
+.fg-inspect-tags { font-size: .75rem; color: var(--dark-text-muted); margin-top: .25rem; font-family: var(--font-mono); }
+</style>

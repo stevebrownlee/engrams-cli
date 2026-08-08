@@ -200,10 +200,16 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         } else {
             None
         };
+        let check_kind = json.get("check_kind").and_then(|v| v.as_str());
+        let check_expr = json.get("check_expr").and_then(|v| v.as_str());
+        let severity = json
+            .get("severity")
+            .and_then(|v| v.as_str())
+            .unwrap_or("warn");
 
         tx.execute(
-            "INSERT INTO system_patterns (id, uuid, name, description, tags, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp",
-            params![id, uuid, name, description, tags_json, timestamp],
+            "INSERT INTO system_patterns (id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity",
+            params![id, uuid, name, description, tags_json, timestamp, check_kind, check_expr, severity],
         )?;
         Ok(())
     })?;

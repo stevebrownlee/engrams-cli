@@ -1,0 +1,89 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Briefing" description="The morning-briefing commands: engrams prime, engrams report, and engrams doctor — start every session oriented.">
+  <h1>Briefing</h1>
+  <p class="lead">
+    Before you direct the work, know the state of the work. Three commands — a token-budgeted
+    brief, a full dashboard, and a health audit — mean you never start a session cold.
+  </p>
+
+  <h2><code>engrams prime</code> — the session brief</h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams prime
+engrams prime --budget 4000
+engrams prime --paths src/graph,src/ontology --tags policy-engine</code></pre>
+  <p>
+    <strong>What you get:</strong> a single context brief sized to a token budget — the active
+    context, the decisions and patterns that matter right now, and recent progress — ranked and
+    packed until the budget runs out. <code>--budget</code> sets the approximate token ceiling,
+    <code>--paths</code> narrows the brief to entries anchored to specific files, and
+    <code>--tags</code> filters by topic.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> this is the command that turns a blank-slate agent into
+    one that starts the session already oriented. On a young graph <code>prime</code> returns a
+    short reading list. On a mature one it returns the reasoning behind the code you're about to
+    touch — which decisions are still active, which were superseded, and which standards apply to
+    those paths. Your agent runs this first; you skim the same output to see exactly what it was
+    told.
+  </p>
+
+  <h2><code>engrams report</code> — the project at a glance</h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams report                 # full structured report
+engrams report decisions       # one topic: context | progress | decisions | patterns | links
+engrams report open            # HTML dashboard in your browser
+engrams report open --no-browser --out ./report.html</code></pre>
+  <p>
+    <strong>What you get:</strong> a structured report of everything the project knows about
+    itself, with <code>--limit</code> capping each section (default 50). The
+    <code>report open</code> variant generates a browser-based HTML dashboard — including an
+    interactive view of the knowledge graph — and opens it for you, or writes it to
+    <code>--out</code> with <code>--no-browser</code> for sharing.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> the CLI output is for the agent; the dashboard is for
+    you. One command renders the entire state of the project — what was decided, what's in
+    flight, how the pieces connect — as a page you can scan in a minute over coffee. It's the
+    fastest way to answer "where is this project, actually?" without reading a single commit.
+  </p>
+
+  <h2><code>engrams doctor</code> — the health audit</h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams doctor</code></pre>
+  <p>
+    <strong>What you get:</strong> an audit of the database itself: orphaned records, drift
+    between what's stored and what's true, missing context, and non-canonical relationship
+    vocabulary that should be folded into the ontology.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> an advisor is only as good as its record. A stale
+    decision that was never marked superseded, or a pattern with no anchors, silently degrades
+    every brief and every check built on top of it. <code>doctor</code> catches those problems
+    early — while they're a lint warning, not after they've poisoned a session's advice. Run it
+    like you'd run a test suite: regularly, and definitely before you trust a surprising answer.
+  </p>
+
+  <div class="callout note">
+    <strong>A morning routine</strong>
+    <code>engrams doctor</code> to confirm the record is healthy, <code>engrams report open</code>
+    to see the week at a glance, then let your agent run <code>engrams prime</code> as it starts
+    work. Three commands, one oriented team.
+  </div>
+
+  <h2>Keep exploring</h2>
+  <ul>
+    <li><a href="/docs/for-you/overview">For You</a> — the human's relationship with the advisor</li>
+    <li><a href="/docs/for-you/enforcement">Enforcement</a> — turn standards into checks that run before violations land</li>
+    <li><a href="/docs/for-you/exploration">Exploration</a> — interrogate the graph directly</li>
+    <li><a href="/docs/advisor/overview">The Advisor</a> — why briefing gets better the longer engrams runs</li>
+  </ul>
+</DocsLayout>

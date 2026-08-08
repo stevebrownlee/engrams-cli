@@ -1,0 +1,149 @@
+---
+// ScrollStory.astro — GSAP ScrollTrigger pinned, scrubbed maturation story.
+// Reveals the real engrams knowledge graph in true chronological order as you
+// scroll: Day 1 (capture) → Week 1 (connect) → Month 1 (reason).
+interface Props {
+  src?: string;
+}
+const { src = '/graph-data.json' } = Astro.props;
+---
+<section class="ss dark" data-ss data-src={src}>
+  <div class="ss-stage">
+    <div class="ss-caption">
+      <div class="ss-stage-eyebrow" data-ss-eyebrow>Day 1</div>
+      <h3 class="ss-stage-title" data-ss-title>Capture</h3>
+      <p class="ss-stage-sub" data-ss-sub>Every decision and task is recorded the moment it happens.</p>
+    </div>
+    <svg class="ss-svg" data-ss-svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" role="img" aria-label="The engrams knowledge graph densifying over one month"></svg>
+    <div class="ss-counter" data-ss-counter>
+      <span class="ss-num" data-ss-nodes>0</span> memories · <span class="ss-num" data-ss-links>0</span> reasoning links
+    </div>
+  </div>
+</section>
+
+<script>
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+gsap.registerPlugin(ScrollTrigger);
+
+const GROUP_COLOR = { decision: '#e3b84e', system_pattern: '#e8ecf3', progress_entry: '#7d8aa5' };
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+document.querySelectorAll('[data-ss]').forEach(async (root) => {
+  const svg = root.querySelector('[data-ss-svg]');
+  const eyebrow = root.querySelector('[data-ss-eyebrow]');
+  const title = root.querySelector('[data-ss-title]');
+  const sub = root.querySelector('[data-ss-sub]');
+  const nodesEl = root.querySelector('[data-ss-nodes]');
+  const linksEl = root.querySelector('[data-ss-links]');
+  const stage = root.querySelector('.ss-stage');
+
+  let data;
+  try { data = await (await fetch(root.getAttribute('data-src'))).json(); }
+  catch { return; }
+  const { nodes, links } = data;
+
+  const t0 = Date.parse(nodes[0].ts), t1 = Date.parse(nodes[nodes.length - 1].ts);
+  const span = Math.max(t1 - t0, 1);
+  const frac = (ts) => (Date.parse(ts) - t0) / span;
+
+  const nodeFrac = {};
+  const nodeEls = nodes.map((n) => {
+    const f = frac(n.ts);
+    nodeFrac[n.id] = f;
+    const c = document.createElementNS(SVGNS, 'circle');
+    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y);
+    c.setAttribute('r', Math.min(4 + (n.degree || 0) * 1.1, 12));
+    c.setAttribute('fill', GROUP_COLOR[n.group] || '#ccc');
+    c.style.opacity = '0';
+    svg.appendChild(c);
+    return { el: c, f };
+  });
+  const linkEls = links.map((l) => {
+    const s = nodes.find((n) => n.id === l.source);
+    const t = nodes.find((n) => n.id === l.target);
+    if (!s || !t) return null;
+    const f = Math.max(nodeFrac[l.source], nodeFrac[l.target], l.ts ? frac(l.ts) : 0);
+    const line = document.createElementNS(SVGNS, 'line');
+    line.setAttribute('x1', s.x); line.setAttribute('y1', s.y);
+    line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+    line.setAttribute('stroke', 'rgba(227,184,78,0.45)');
+    line.setAttribute('stroke-width', '1');
+    line.style.opacity = '0';
+    svg.appendChild(line); // lines first would hide under nodes; re-append nodes after
+    return { el: line, f };
+  }).filter(Boolean);
+  // draw nodes above links
+  nodeEls.forEach(({ el }) => svg.appendChild(el));
+
+  const DAY = 24 * 3600 * 1000;
+  const STAGES = [
+    { until: t0 + 1 * DAY, eyebrow: 'Day 1', title: 'Capture', sub: 'Every decision and task is recorded the moment it happens.' },
+    { until: t0 + 7 * DAY, eyebrow: 'Week 1', title: 'Connect', sub: 'You link decisions to patterns. The graph stops being a list.' },
+    { until: Infinity, eyebrow: 'Month 1', title: 'Reason', sub: 'refines · extends · supersedes — a web that answers questions for you.' },
+  ];
+  let curStage = -1;
+
+  function render(p) {
+    const now = t0 + p * span;
+    let nc = 0, lc = 0;
+    const FADE = 0.04;
+    for (const { el, f } of nodeEls) {
+      const o = Math.min(Math.max((p - f) / FADE, 0), 1);
+      el.style.opacity = o;
+      el.setAttribute('r', el.getAttribute('data-r') || el.getAttribute('r'));
+      if (o > 0) nc++;
+    }
+    for (const { el, f } of linkEls) {
+      const o = Math.min(Math.max((p - f) / FADE, 0), 1);
+      el.style.opacity = o * 0.9;
+      if (o > 0.5) lc++;
+    }
+    nodesEl.textContent = nc;
+    linksEl.textContent = lc;
+    const si = now <= STAGES[0].until ? 0 : now <= STAGES[1].until ? 1 : 2;
+    if (si !== curStage) {
+      curStage = si;
+      const s = STAGES[si];
+      eyebrow.textContent = s.eyebrow; title.textContent = s.title; sub.textContent = s.sub;
+      gsap.fromTo([eyebrow, title, sub], { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .45, stagger: .06, ease: 'power2.out', overwrite: 'auto' });
+    }
+  }
+
+  // capture base radii for pop effect
+  nodeEls.forEach(({ el }) => el.setAttribute('data-r', el.getAttribute('r')));
+
+  if (reduced) { render(1); return; }
+
+  const proxy = { p: 0 };
+  gsap.to(proxy, {
+    p: 1, ease: 'none',
+    scrollTrigger: {
+      trigger: root, start: 'top top', end: '+=260%',
+      pin: stage, scrub: 0.6, anticipatePin: 1,
+    },
+    onUpdate: () => render(proxy.p),
+  });
+  render(0);
+});
+</script>
+
+<style>
+.ss { position: relative; }
+.ss-stage {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.2rem; padding: 4rem 1.5rem 3rem;
+}
+.ss-caption { text-align: center; max-width: 40rem; }
+.ss-stage-eyebrow {
+  font-family: var(--font-mono); font-size: .8rem; font-weight: 700;
+  letter-spacing: .28em; text-transform: uppercase; color: var(--color-accent);
+}
+.ss-stage-title { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -.02em; color: var(--dark-text); }
+.ss-stage-sub { font-size: 1.08rem; color: var(--dark-text-muted); margin-top: .4rem; }
+.ss-svg { width: min(980px, 100%); height: auto; filter: drop-shadow(0 0 18px rgba(227,184,78,.12)); }
+.ss-counter { font-size: .95rem; color: var(--dark-text-muted); font-variant-numeric: tabular-nums; }
+.ss-num { color: var(--color-accent); font-weight: 700; font-family: var(--font-mono); }
+</style>

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::schema::SCHEMA;
 
-pub const LATEST_VERSION: i32 = 4;
+pub const LATEST_VERSION: i32 = 5;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -63,6 +63,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             }
             4 => {
                 tx.execute_batch(crate::schema::MIGRATION_V4)?;
+            }
+            5 => {
+                tx.execute_batch(crate::schema::MIGRATION_V5)?;
             }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }
@@ -166,6 +169,44 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
                 check_path = current.clone();
             }
             None => return Ok(cwd.join("engrams").join("context.db")), // Default to cwd if none found
+        }
+    }
+}
+
+/// Derive the workspace root from a resolved db path of the form `<root>/engrams/context.db`.
+/// Returns `None` for `--db` paths that don't follow this convention.
+pub fn workspace_root_from_db(db_path: &Path) -> Option<PathBuf> {
+    let engrams_dir = db_path.parent()?;
+    if engrams_dir.file_name()?.to_str()? != "engrams" {
+        return None;
+    }
+    engrams_dir.parent().map(PathBuf::from)
+}
+
+/// Discover the workspace root by walking up from the cwd looking for known markers.
+/// Best-effort: does not resolve git worktrees (unlike `resolve_db_path`).
+pub fn workspace_root() -> Result<PathBuf> {
+    let cwd = env::current_dir().context("Failed to get current directory")?;
+    let mut current = cwd.clone();
+    loop {
+        for marker in &[
+            ".engrams",
+            ".git",
+            "pyproject.toml",
+            "package.json",
+            "Cargo.toml",
+            "go.mod",
+        ] {
+            if current.join(marker).exists() {
+                return Ok(current);
+            }
+        }
+        if current.join("engrams").join("context.db").exists() {
+            return Ok(current);
+        }
+        match current.parent() {
+            Some(parent) => current = parent.to_path_buf(),
+            None => return Ok(cwd),
         }
     }
 }

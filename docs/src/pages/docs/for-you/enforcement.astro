@@ -1,0 +1,113 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Enforcement" description="The policy engine: engrams pattern log, engrams check, and engrams install — standards enforced before a violation lands, not after.">
+  <h1>Enforcement</h1>
+  <p class="lead">
+    Code review catches violations after they land. The policy engine catches them
+    <strong>before</strong> — in the session, on staged files, and in CI. This is the headline
+    feature of v0.9.0.
+  </p>
+
+  <p>
+    Every project accumulates standards: "never throw away intermediate collections here",
+    "dynamic SQL parameters borrow, they don't box", "this module's vocabulary is canonical —
+    return <code>&amp;'static str</code>". Until now those lived in a wiki page nobody rereads.
+    Engrams turns them into stored, machine-checkable patterns that are enforced automatically,
+    at the moment a violation is about to happen.
+  </p>
+
+  <h2>The loop: record, install, enforce</h2>
+
+  <h3>1. Record a standard — <code>engrams pattern log</code></h3>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams pattern log \
+  --name "no-throwaway-collections" \
+  --description "Never materialize a collection only to consume it immediately; fuse iterators instead" \
+  --check-kind regex \
+  --check 'collect::&lt;Vec&lt;_&gt;&gt;\(\)\.join\(' \
+  --severity error \
+  --tags "rust,performance" \
+  --anchor src</code></pre>
+  <p>
+    <strong>What you get:</strong> a pattern that is simultaneously documentation and a check.
+    <code>--check-kind regex|ast</code> declares how the rule is matched —
+    <code>regex</code> for textual patterns, <code>ast</code> for structural
+    <a href="https://ast-grep.github.io/" target="_blank" rel="noopener">ast-grep</a> patterns
+    that match code shape rather than spelling. <code>--severity info|warn|error</code>
+    (default <code>warn</code>) sets what happens when the check fires. Anchors and tags bind
+    the rule to the files and topics it governs.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> the standard now lives where the work happens — in the
+    same graph as the decisions that produced it — instead of in a document that rots. And
+    because it's a pattern node, it participates in briefing: your agent sees it via
+    <code>engrams prime</code> even when no check is running.
+  </p>
+
+  <h3>2. Write it into the workspace — <code>engrams install</code></h3>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams install --harness omp</code></pre>
+  <p>
+    <strong>What you get:</strong> every checkable pattern written out as harness rule files in
+    the workspace itself, so the agent's own harness enforces them in-session — the agent is
+    told the rule <em>at the moment it's writing code</em>, not after it commits. (For the raw
+    export without installation, <code>engrams rules export</code> writes the same omp rulebook
+    files to a directory of your choosing.)
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> this is the difference between a linter and a policy.
+    A linter complains after the fact; an installed rule shapes the code as it's being written.
+    The agent can't forget the standard because the standard is sitting in its context.
+  </p>
+
+  <h3>3. Enforce everywhere else — <code>engrams check</code></h3>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams check                          # scan the workspace
+engrams check --staged                 # git-staged files only — pre-commit
+engrams check --paths src/db,src/cli   # explicit files/dirs — CI</code></pre>
+  <p>
+    <strong>What you get:</strong> every stored check run against the target files, with
+    violations reported at the severity each pattern declared. Run it as a session-end review,
+    wire <code>--staged</code> into a pre-commit hook, or gate CI on it.
+  </p>
+  <p>
+    <strong>Why it's valuable:</strong> the same rules now guard all three boundaries — the
+    session, the commit, and the pipeline. A violation has to survive three enforcement points
+    to reach your main branch.
+  </p>
+
+  <h2>Enforced, not remembered</h2>
+  <p>
+    This repository dogfoods the policy engine on itself: the architecture decisions that
+    shaped it (<a href="/docs/for-you/exploration">decisions #44 and #45</a> — the
+    TTSR-export-led engine and its workspace-isolation semantics) are logged in the graph
+    alongside the patterns they produced, so the rules carry their own rationale with them.
+    When a check fires, the pattern links back to <em>why</em> the rule exists — enforcement
+    with a citation, not just a red X.
+  </p>
+
+  <div class="callout tip">
+    <strong>Standards compound too</strong>
+    Each pattern you log is a node in the graph. As the graph matures, patterns link to the
+    decisions that motivated them and the progress entries that implemented them — so
+    <code>doctor</code> can tell you when a rule has lost its anchors and
+    <code>prime</code> can surface the right rule for the file you're touching. See
+    <a href="/docs/advisor/overview">The Advisor</a>.
+  </div>
+
+  <h2>Keep exploring</h2>
+  <ul>
+    <li><a href="/docs/for-you/overview">For You</a> — the human's relationship with the advisor</li>
+    <li><a href="/docs/for-you/briefing">Briefing</a> — start every session oriented</li>
+    <li><a href="/docs/for-you/exploration">Exploration</a> — interrogate the graph directly</li>
+    <li><a href="/docs/advisor/overview">The Advisor</a> — how the graph turns rules into advice</li>
+  </ul>
+</DocsLayout>

@@ -1,0 +1,132 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="For You" description="The human's relationship with the engrams advisor: you set direction, the agent does the work, nothing is forgotten or contradicted.">
+  <h1>For You</h1>
+  <p class="lead">
+    You set direction. The agent does the work. Engrams makes sure nothing is
+    <strong>forgotten</strong> and nothing is <strong>contradicted</strong> — and it tells you
+    when either is about to happen.
+  </p>
+
+  <p>
+    Every session your agent runs, it logs decisions, patterns, and progress into a knowledge
+    graph. That graph is yours. The commands in this section are how you, the human, stay in
+    control of a project whose day-to-day typing is increasingly done by an agent: get briefed
+    before a session, enforce the standards you care about, and interrogate the record when
+    something looks off.
+  </p>
+
+  <div class="stat-row reveal">
+    <div class="stat">
+      <div class="stat-num">71</div>
+      <div class="stat-label">knowledge nodes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">802</div>
+      <div class="stat-label">graph edges</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">26</div>
+      <div class="stat-label">days to build</div>
+    </div>
+  </div>
+  <p class="stat-note">
+    Real numbers from this repository dogfooding engrams on itself: 71 decision, pattern, and
+    progress nodes linked into a graph of 802 edges (45 hand-made reasoning links, 757 derived
+    from anchors, tags, and git co-change) over 26 days. See how that graph matures in
+    <a href="/docs/advisor/overview">The Advisor</a>.
+  </p>
+
+  <h2>Three ways to work with your advisor</h2>
+
+  <div class="grid grid-3 reveal-stagger">
+    <a class="card cap-card" href="/docs/for-you/briefing">
+      <span class="cmd">engrams prime · report · doctor</span>
+      <h3>Briefing</h3>
+      <p>
+        Start every session oriented. A token-budgeted brief of what matters now, an HTML
+        dashboard of the project's whole state, and a health audit that catches database and
+        graph problems before they poison advice.
+      </p>
+    </a>
+    <a class="card cap-card" href="/docs/for-you/enforcement">
+      <span class="cmd">engrams check · install · pattern log</span>
+      <h3>Enforcement</h3>
+      <p>
+        Turn conventions into machine-checkable rules. Standards are enforced before a
+        violation lands — in-session, on staged files, and in CI — not discovered in review
+        after the fact.
+      </p>
+    </a>
+    <a class="card cap-card" href="/docs/for-you/exploration">
+      <span class="cmd">engrams graph · decision search · export</span>
+      <h3>Exploration</h3>
+      <p>
+        Interrogate the graph directly. Why is this here? What breaks if I touch that?
+        What did we decide about X? The record answers, with citations.
+      </p>
+    </a>
+  </div>
+
+  <h2>The division of labor</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Who</th>
+        <th>Does what</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>You</strong></td>
+        <td>Set direction, ratify or reject decisions, define the standards worth enforcing, read the briefs.</td>
+      </tr>
+      <tr>
+        <td><strong>Your agent</strong></td>
+        <td>Does the implementation work and logs what it decided, what pattern it followed, and how far it got. See <a href="/docs/for-agent/overview">For Your Agent</a>.</td>
+      </tr>
+      <tr>
+        <td><strong>Engrams</strong></td>
+        <td>Links every entry into the graph, surfaces what is relevant when it's relevant, and flags drift, orphans, and contradictions.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout tip">
+    <strong>The compounding effect</strong>
+    On day 1 these commands can only fetch what was just logged. By week 4 the same commands
+    are reading from a graph dense enough to anticipate — that's when briefing stops being a
+    summary and starts being advice. The mechanism is described in
+    <a href="/docs/advisor/maturity">How the graph matures</a>.
+  </div>
+</DocsLayout>
+
+<style>
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.4rem;
+    margin: 2rem 0 0.75rem;
+  }
+  .stat-note {
+    font-size: 0.9rem;
+    color: var(--color-text-light);
+    margin-bottom: 2rem;
+  }
+  .cap-card {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+  .cap-card:hover {
+    text-decoration: none;
+  }
+  .cap-card h3 {
+    margin-top: 0.6rem;
+  }
+  @media (max-width: 620px) {
+    .stat-row { grid-template-columns: 1fr; }
+  }
+</style>

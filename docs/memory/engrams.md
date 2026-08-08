@@ -70,6 +70,46 @@ Repeatable flags (`--anchor`, `--pr`, `--path`) take the same option many times.
 
 `graph chain` only accepts the four transitive canonical rels: `supersedes`, `depends_on`, `part_of`, `refines`. Nodes are addressed as `type:id` (e.g. `decision:7`).
 
+
+## Policy Engine — Checkable Patterns & Rule Export
+
+Patterns can carry a machine-checkable expression that turns engrams into a policy engine for LLM-agent guidance. A pattern with a check is exportable as a harness rule file (omp TTSR) and runnable as a local CI check.
+
+### Making a pattern checkable
+
+| Goal | Command |
+|---|---|
+| Regex-checked pattern | `engrams pattern log --name "..." --description "..." --check-kind regex --check '<regex>' --severity error` |
+| AST-checked pattern | `engrams pattern log --name "..." --description "..." --check-kind ast --check '<ast-grep pattern>' --severity warn` |
+
+`--check-kind` is `regex` or `ast`; `--check` is the expression source; `--severity` is `info`, `warn`, or `error` (default `warn`). Regexes are compiled at write time — invalid regex is rejected before any row is inserted. Prose-only patterns (no `--check-kind`) are unaffected and never produce violations.
+
+### Exporting rules to a harness
+
+| Goal | Command |
+|---|---|
+| Export to workspace `.omp/rules/` | `engrams install --harness omp` (writes rule files + manifest + guidance) |
+| Export to a specific dir | `engrams rules export --harness omp --out <DIR>` |
+
+Each checkable pattern becomes `engrams-<slug>.md` with omp frontmatter: `name`, `description`, `condition` (regex array) or `astCondition` (ast-grep), `scope` (derived from anchors: `tool:edit(glob), tool:write(glob)`), `interruptMode` (severity→interrupt: `error`→`always`, `warn`→`never`, `info`→rulebook-only), `alwaysApply`. Prose-only patterns are skipped. A deterministic `.engrams-manifest.json` records every rule's `pattern_id`, `timestamp`, `check_kind`, `check_expr`, `severity`, and `sha256`, so `doctor` can detect drift. Re-exporting is byte-identical.
+
+### Running checks locally (CI / session-end)
+
+| Goal | Command |
+|---|---|
+| Check full workspace | `engrams check` |
+| Check staged files only | `engrams check --staged` |
+| Check specific paths | `engrams check --paths src/ops,src/main.rs` |
+
+Scans files against all checkable patterns. Regex checks run in-process; AST checks shell out to `sg` (ast-grep) if present, otherwise skipped with a note. Output is JSON `{checks, files_checked, violations: [{pattern, pattern_id, file, line, severity, message}]}`. Exits 1 when violations are found, 0 otherwise. Patterns only fire within their anchor scope (no anchor = all files).
+
+### Doctor: rule staleness
+
+`engrams doctor` includes a `rules` key that compares the on-disk manifest against the current DB. If a pattern was modified after export, `stale` is `true` with `drifted` listing the affected patterns. New checkable patterns not yet exported appear under `unexported`. This is advisory — never affects the DB-integrity `ok` flag.
+
+### Write-through
+
+After `pattern log` or `pattern delete`, if `.omp/rules/.engrams-manifest.json` already exists (i.e. rules were previously installed), the rulebook is regenerated automatically so generated files never lag the database. No manifest = no write (opt-in by prior `install`/`export`).
 ---
 
 ## Relationship Ontology
