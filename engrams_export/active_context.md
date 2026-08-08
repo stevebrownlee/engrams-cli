@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-08T17:18:34Z
+created: 2026-08-08T17:32:41Z
 ---
 # Active Context
 
@@ -12,11 +12,7 @@ created: 2026-08-08T17:18:34Z
     "focus": "Guidance architecture: Path A ratified (decision 44), spec at specs/policy-engine.md. Phase 1 next: schema v5 (check_kind/check_expr/severity on system_patterns). Pending: implement phases 1-5; engrams export + git commit of rules/AGENTS.md/spec (awaiting user review).",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
-    "next_steps": [
-      "Update Formula/engrams.rb sha256 after binaries built",
-      "Git commit docs revamp",
-      "Run engrams export + push"
-    ],
+    "next_steps": "v0.9.0 release complete. Consider merging harness branch to main and opening a PR.",
     "notes": {
       "decisions_latest": "#50 hero title, #51 ScrollStory removal",
       "landing": "ScrollStory maturation scroll removed (not useful). Hero title: An advisor with a memory that compounds. Interactive 3D ForceGraph is the sole real-data viz. gsap dep dropped."
@@ -34,10 +30,11 @@ created: 2026-08-08T17:18:34Z
       "status": "implemented",
       "tests": "50 green"
     },
+    "recent_work": "Released v0.9.0 — Policy Engine + Docs Revamp. Tag pushed, CI built 4 targets, GitHub release live with full notes, Formula bumped with verified sha256.",
     "status": "Spec complete, implementation not started"
   },
   "name": "default",
-  "updated_at": "2026-08-08T17:18:34Z",
-  "version": 34
+  "updated_at": "2026-08-08T17:32:41Z",
+  "version": 35
 }
 ```
