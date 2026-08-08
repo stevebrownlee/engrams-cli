@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-08T15:44:28Z
+created: 2026-08-08T17:18:34Z
 ---
 # Active Context
 
@@ -17,6 +17,10 @@ created: 2026-08-08T15:44:28Z
       "Git commit docs revamp",
       "Run engrams export + push"
     ],
+    "notes": {
+      "decisions_latest": "#50 hero title, #51 ScrollStory removal",
+      "landing": "ScrollStory maturation scroll removed (not useful). Hero title: An advisor with a memory that compounds. Interactive 3D ForceGraph is the sole real-data viz. gsap dep dropped."
+    },
     "policy_engine": {
       "commands": [
         "pattern log --check-kind/--check/--severity",
@@ -33,7 +37,7 @@ created: 2026-08-08T15:44:28Z
     "status": "Spec complete, implementation not started"
   },
   "name": "default",
-  "updated_at": "2026-08-08T15:44:28Z",
-  "version": 33
+  "updated_at": "2026-08-08T17:18:34Z",
+  "version": 34
 }
 ```
