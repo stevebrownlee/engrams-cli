@@ -18,7 +18,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
 
     let mut decisions = Vec::new();
     {
-        let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?")?;
+        let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE timestamp >= ? AND archived = 0 ORDER BY timestamp DESC LIMIT ?")?;
         let rows = stmt.query_map(params![cutoff, limit], |row| {
             let tags_str: Option<String> = row.get(5)?;
             let tags = match tags_str {
@@ -37,6 +37,11 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 commit_sha: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
+                importance: row.get(9)?,
+                access_count: row.get(10)?,
+                last_accessed_at: row.get(11)?,
+                archived: row.get(12)?,
+                score: None,
             })
         })?;
         for r in rows {
@@ -64,7 +69,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
 
     let mut patterns = Vec::new();
     {
-        let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?")?;
+        let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE timestamp >= ? AND archived = 0 ORDER BY timestamp DESC LIMIT ?")?;
         let rows = stmt.query_map(params![cutoff, limit], |row| {
             let tags_str: Option<String> = row.get(4)?;
             let tags = match tags_str {
@@ -83,6 +88,11 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 severity: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
+                importance: row.get(9)?,
+                access_count: row.get(10)?,
+                last_accessed_at: row.get(11)?,
+                archived: row.get(12)?,
+                score: None,
             })
         })?;
         for r in rows {

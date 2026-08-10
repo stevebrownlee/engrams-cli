@@ -58,6 +58,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
             check_kind,
             check_expr,
             severity,
+            importance,
         } => {
             let mut resolved_prs = Vec::new();
             for pr in prs {
@@ -76,8 +77,8 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
             };
 
             conn.execute(
-                "INSERT INTO system_patterns (uuid, timestamp, name, description, tags, check_kind, check_expr, severity) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity",
-                params![uuid, timestamp, name, description, tags_json, check_kind, check_expr, severity],
+                "INSERT INTO system_patterns (uuid, timestamp, name, description, tags, check_kind, check_expr, severity, importance) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity, importance=excluded.importance",
+                params![uuid, timestamp, name, description, tags_json, check_kind, check_expr, severity, importance.unwrap_or(5)],
             )?;
 
             let id: i64 = conn.query_row(
@@ -101,7 +102,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
         }
         PatternCmd::List { tags, limit } => {
             if tags.is_empty() {
-                let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns ORDER BY id DESC LIMIT ?")?;
+                let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns ORDER BY id DESC LIMIT ?")?;
                 let rows = stmt.query_map(params![limit], parse_pattern_row)?;
                 let mut results = Vec::new();
                 for r in rows {
@@ -116,7 +117,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
                 Ok(serde_json::to_value(results)?)
             } else {
                 let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let query = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({})) ORDER BY id DESC LIMIT ?", placeholders);
+                let query = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({})) ORDER BY id DESC LIMIT ?", placeholders);
                 let mut stmt = conn.prepare(&query)?;
                 let mut p = Vec::<&dyn rusqlite::ToSql>::new();
                 for tag in &tags {
@@ -194,12 +195,17 @@ pub(crate) fn parse_pattern_row(row: &rusqlite::Row) -> rusqlite::Result<Pattern
         severity: row.get(8)?,
         pr_urls: Vec::new(),
         anchors: Vec::new(),
+        importance: row.get(9)?,
+        access_count: row.get(10)?,
+        last_accessed_at: row.get(11)?,
+        archived: row.get(12)?,
+        score: None,
     })
 }
 
 fn get_pattern(conn: &Connection, id: i64) -> Result<Value> {
     let mut stmt = conn.prepare(
-        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE id = ?",
+        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE id = ?",
     )?;
     let mut pattern = stmt
         .query_row(params![id], parse_pattern_row)

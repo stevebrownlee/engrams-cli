@@ -1,15 +1,15 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-08T17:32:41Z
+created: 2026-08-10T01:12:42Z
 ---
 # Active Context
 
 ```json
 {
   "content": {
-    "current_task": "v0.9.0 release: docs revamp complete, Formula/engrams.rb sha256 + git commit remaining",
-    "focus": "Guidance architecture: Path A ratified (decision 44), spec at specs/policy-engine.md. Phase 1 next: schema v5 (check_kind/check_expr/severity on system_patterns). Pending: implement phases 1-5; engrams export + git commit of rules/AGENTS.md/spec (awaiting user review).",
+    "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
+    "focus": "All tier-1 concepts implemented. Ready to commit.",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next_steps": "v0.9.0 release complete. Consider merging harness branch to main and opening a PR.",
@@ -31,10 +31,14 @@ created: 2026-08-08T17:32:41Z
       "tests": "50 green"
     },
     "recent_work": "Released v0.9.0 — Policy Engine + Docs Revamp. Tag pushed, CI built 4 targets, GitHub release live with full notes, Formula bumped with verified sha256.",
-    "status": "Spec complete, implementation not started"
+    "status": "Spec complete, implementation not started",
+    "v0.10.0": {
+      "status": "Done",
+      "summary": "Retrieval scoring, prune-decay, read-observability implemented. 85 tests pass."
+    }
   },
   "name": "default",
-  "updated_at": "2026-08-08T17:32:41Z",
-  "version": 35
+  "updated_at": "2026-08-10T01:12:42Z",
+  "version": 38
 }
 ```

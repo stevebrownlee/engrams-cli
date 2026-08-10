@@ -5,12 +5,12 @@ This project uses the `engrams` CLI (local SQLite) to persist decisions, pattern
 ### When to Consult Engrams
 
 - **Session start:** `engrams prime` — load context (mandatory before any other step).
-- **Before editing files:** `engrams relevant <paths>` — get decisions, patterns, and anchors tied to those files (`--staged` for `git add`ed).
+- **Before editing files:** `engrams advise <paths>` — get only actionable constraints and violations for those files (compact; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
 - **Before designing or fixing:** `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` — find prior decisions and patterns so you don't re-litigate settled choices.
-- **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path>` — log immediately, not at session end. To supersede: `engrams decision supersede <old-id> --by <new-id>`, then `engrams link add --rel supersedes` to connect them in the graph.
+- **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> --importance 8` — log immediately. Set importance (0–10) to influence retrieval ranking. To supersede: `engrams decision supersede <old-id> --by <new-id>`, then `engrams link add --rel supersedes` to connect them in the graph.
 - **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor <path>` — make it machine-enforceable, not just prose.
 - **Before committing:** `engrams check --staged` — scan staged files for violations against registered patterns (exits 1 on violations).
-- **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`).
+- **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`). Add `--hooks` to also install a git pre-commit hook running `engrams check --staged`.
 
 ### Other Commands
 
@@ -26,6 +26,7 @@ This project uses the `engrams` CLI (local SQLite) to persist decisions, pattern
 | Export to Markdown | `engrams export [--path <dir>]` |
 | Export rules (no install) | `engrams rules export --harness omp [--out <DIR>]` |
 | Health check | `engrams doctor` |
+| Prune decayed records | `engrams prune [--dry-run] [--threshold 0.1]` |
 | Schema migration | `engrams migrate` |
 
 Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Valid `--rel`: `relates_to`, `depends_on`, `part_of`, `implements`, `refines`, `supersedes`, `conflicts_with` (custom labels allowed; ontology at `https://engrams.sh`). Add `--compact` to any command; `--fields <list>` to project specific keys.

@@ -214,10 +214,11 @@ pub fn handle_relevant(
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
+        let score = crate::ops::scoring::score_expr("timestamp", "importance");
         let sql = if all {
-            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id IN ({}) ORDER BY id DESC", placeholders)
+            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, {score} AS score FROM decisions WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders)
         } else {
-            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id IN ({}) AND status = 'active' ORDER BY id DESC", placeholders)
+            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, {score} AS score FROM decisions WHERE id IN ({}) AND status = 'active' AND archived = 0 ORDER BY score DESC", placeholders)
         };
         let mut stmt = conn.prepare(&sql)?;
         let mut p = Vec::<&dyn rusqlite::ToSql>::new();
@@ -242,6 +243,11 @@ pub fn handle_relevant(
                 commit_sha: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
+                importance: row.get(9)?,
+                access_count: row.get(10)?,
+                last_accessed_at: row.get(11)?,
+                archived: row.get(12)?,
+                score: Some(row.get(13)?),
             })
         })?;
         for r in rows {
@@ -259,7 +265,8 @@ pub fn handle_relevant(
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
-        let sql = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE id IN ({}) ORDER BY id DESC", placeholders);
+        let pat_score = crate::ops::scoring::score_expr("timestamp", "importance");
+        let sql = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, {pat_score} AS score FROM system_patterns WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders);
         let mut stmt = conn.prepare(&sql)?;
         let mut p = Vec::<&dyn rusqlite::ToSql>::new();
         for id in &pattern_ids {
@@ -283,6 +290,11 @@ pub fn handle_relevant(
                 severity: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
+                importance: row.get(9)?,
+                access_count: row.get(10)?,
+                last_accessed_at: row.get(11)?,
+                archived: row.get(12)?,
+                score: Some(row.get(13)?),
             })
         })?;
         for r in rows {
@@ -292,6 +304,17 @@ pub fn handle_relevant(
             patterns.push(pat);
         }
     }
+    // Reinforce-on-read (v0.10.0).
+    crate::ops::scoring::reinforce(
+        conn,
+        "decisions",
+        &decisions.iter().map(|d| d.id).collect::<Vec<_>>(),
+    )?;
+    crate::ops::scoring::reinforce(
+        conn,
+        "system_patterns",
+        &patterns.iter().map(|p| p.id).collect::<Vec<_>>(),
+    )?;
 
     Ok(serde_json::json!({
         "decisions": decisions,

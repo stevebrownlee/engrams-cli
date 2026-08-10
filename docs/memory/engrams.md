@@ -12,8 +12,8 @@ The three things you do with engrams: put facts **in**, wire them **together**, 
 
 | Goal | Command |
 |---|---|
-| Architectural decision | `engrams decision log --summary "..." --rationale "..." --details "..." --tags a,b --anchor src/foo.rs --pr 42 --status active` |
-| Recurring pattern/convention | `engrams pattern log --name "..." --description "..." --tags a,b --anchor src/foo.rs --pr 42` |
+| Architectural decision | `engrams decision log --summary "..." --rationale "..." --details "..." --tags a,b --anchor src/foo.rs --pr 42 --status active --importance 8` |
+| Recurring pattern/convention | `engrams pattern log --name "..." --description "..." --tags a,b --anchor src/foo.rs --pr 42 --importance 7` |
 | Task progress | `engrams progress log --status InProgress --description "..." --parent-id <n>` |
 | Custom key/value | `engrams custom set --category <cat> --key <key> --value '<string-or-json>' --json` |
 | Active-context track (full replace) | `engrams active-context update --name <track> --content '<json>'` |
@@ -45,6 +45,7 @@ Repeatable flags (`--anchor`, `--pr`, `--path`) take the same option many times.
 |---|---|
 | One-call startup briefing | `engrams prime [--budget <tokens>] [--paths p1,p2] [--tags a,b]` |
 | What's anchored to these files | `engrams relevant <paths...>` or `engrams relevant --staged` |
+| Pre-edit constraints + violations | `engrams advise <paths...>` or `engrams advise --staged` (compact: only patterns + decisions + current violations; no scores/progress/reinforcement) |
 | Cross-type free-text search | `engrams query "<topic>" [--types decision,pattern,custom] [--tags a,b] [--since <rfc3339>] [--limit 10]` |
 | Decision FTS with highlights | `engrams decision search "<term>" --snippets --limit 10 [--all]` |
 | Single item by ID | `engrams decision get <id>` / `engrams pattern get <id>` / `engrams progress get <id>` / `engrams custom get <key>` |
@@ -88,7 +89,7 @@ Patterns can carry a machine-checkable expression that turns engrams into a poli
 
 | Goal | Command |
 |---|---|
-| Export to workspace `.omp/rules/` | `engrams install --harness omp` (writes rule files + manifest + guidance) |
+| Export to workspace `.omp/rules/` | `engrams install --harness omp` (writes rule files + manifest + guidance). Add `--hooks` to also install a git pre-commit hook running `engrams check --staged` |
 | Export to a specific dir | `engrams rules export --harness omp --out <DIR>` |
 
 Each checkable pattern becomes `engrams-<slug>.md` with omp frontmatter: `name`, `description`, `condition` (regex array) or `astCondition` (ast-grep), `scope` (derived from anchors: `tool:edit(glob), tool:write(glob)`), `interruptMode` (severity→interrupt: `error`→`always`, `warn`→`never`, `info`→rulebook-only), `alwaysApply`. Prose-only patterns are skipped. A deterministic `.engrams-manifest.json` records every rule's `pattern_id`, `timestamp`, `check_kind`, `check_expr`, `severity`, and `sha256`, so `doctor` can detect drift. Re-exporting is byte-identical.
@@ -139,3 +140,62 @@ Declared **inverse** edges (e.g. `superseded_by`, `depended_on_by`) are material
 | Progress | `Todo`, `InProgress`, `InReview`, `Blocked`, `Done`, `Dropped` |
 
 Legacy/misspelled values are normalized case-insensitively during `migrate` (schema v4). Unrecognized values are preserved as-is and flagged by `doctor`.
+
+
+---
+
+## Retrieval Scoring & Memory Decay (v0.10.0)
+
+Three tier-1 agent-memory features from the arXiv survey roadmap (decision #53): blended retrieval scoring, prune-decay archiving, and read-path observability.
+
+### Retrieval Scoring
+
+Every `prime`, `relevant`, and `query` result is ranked by a blended score combining recency-decay (Ebbinghaus exponential over age) with normalized importance:
+
+```text
+score = W_RECENCY * exp(-LAMBDA * age_days) + W_IMPORTANCE * (importance / 10)
+```
+
+Full-text `query` results fold in an FTS5 BM25 term. Set an item's importance (0–10, default 5) with `--importance` on `decision log` / `pattern log`, or update it with `decision update <id> --importance <n>`. The score appears in JSON output as `score`.
+
+### Reinforce-on-Read
+
+Reading is learning. Every time `prime`, `relevant`, or `query` surfaces a record, its `access_count` is bumped and `last_accessed_at` is updated. This feeds prune strength and observability — records that are never surfaced decay faster and are flagged by `doctor`.
+
+### Prune-Decay
+
+```text
+engrams prune                    # archive decayed records (actual)
+engrams prune --dry-run          # preview what would be archived
+engrams prune --threshold 0.05   # custom retention threshold (default: 0.1)
+```
+
+Archives decisions and patterns whose Ebbinghaus retention `exp(-age_days / strength)` has decayed below the threshold. Strength = `(importance + access_count) * 30 days` — important and frequently-read records survive longer. Archived records (`archived = 1`) are excluded from `prime`, `relevant`, and `query` by default; use `--all` on `relevant` or `query` to include them (`prime` always excludes archived items).
+
+### Read Observability
+
+`engrams doctor` now reports:
+
+- **`never_read`**: records where `access_count = 0` (written but never surfaced by a read path). Advisory — identifies decisions that exist but may not be influencing retrieval.
+- **`archived`**: count of archived records per table (`decisions` / `system_patterns`).
+
+### Pre-Edit Advisory (`engrams advise`)
+
+Purpose-built pre-edit command returning only actionable constraints and current violations for the given paths:
+
+```text
+engrams advise src/ops/scoring.rs    # constraints + violations for one file
+engrams advise --staged              # for all git-staged files
+```
+
+Returns `{"constraints": [...], "violations": [...]}`. Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When both arrays are empty, proceed with no constraints.
+
+Distinct from `relevant`, which returns full structs with scores and reinforces-on-read — use `relevant` for *understanding* context, `advise` for *checking constraints before editing*.
+
+### Git Pre-Commit Hooks (`engrams install --hooks`)
+
+```text
+engrams install --harness omp --hooks   # write rule files + pre-commit hook
+```
+
+Installs `.git/hooks/pre-commit` which runs `engrams check --staged` before each commit. Violations at `error` severity block the commit (exit 1); `warn`/`info` violations are printed but don't block. Bypass with `git commit --no-verify`. The hook finds the engrams binary automatically by resolving the workspace root; delete the file to uninstall.

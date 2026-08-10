@@ -186,7 +186,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     }
 
     // Export Decisions
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions")?;
     let rows = stmt.query_map([], |row| {
         let tags_str: Option<String> = row.get(5)?;
         let tags = match tags_str {
@@ -203,6 +203,10 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "timestamp": row.get::<_, String>(6)?,
             "status": row.get::<_, String>(7)?,
             "commit_sha": row.get::<_, Option<String>>(8)?,
+            "importance": row.get::<_, i64>(9)?,
+            "access_count": row.get::<_, i64>(10)?,
+            "last_accessed_at": row.get::<_, Option<String>>(11)?,
+            "archived": row.get::<_, i64>(12)?,
         }))
     })?;
     let mut decisions_count = 0;
@@ -279,7 +283,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
 
     // Export Patterns
     let mut stmt =
-        conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns")?;
+        conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns")?;
     let rows = stmt.query_map([], |row| {
         let tags_str: Option<String> = row.get(4)?;
         let tags = match tags_str {
@@ -296,6 +300,10 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "check_kind": row.get::<_, Option<String>>(6)?,
             "check_expr": row.get::<_, Option<String>>(7)?,
             "severity": row.get::<_, String>(8)?,
+            "importance": row.get::<_, i64>(9)?,
+            "access_count": row.get::<_, i64>(10)?,
+            "last_accessed_at": row.get::<_, Option<String>>(11)?,
+            "archived": row.get::<_, i64>(12)?,
         }))
     })?;
     let mut patterns_count = 0;

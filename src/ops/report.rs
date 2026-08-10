@@ -219,9 +219,9 @@ pub(crate) fn query_decisions(
     active_only: bool,
 ) -> Result<Vec<Decision>> {
     let sql = if active_only {
-        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE status = 'active' ORDER BY id DESC LIMIT ?"
+        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE status = 'active' AND archived = 0 ORDER BY id DESC LIMIT ?"
     } else {
-        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions ORDER BY id DESC LIMIT ?"
+        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE archived = 0 ORDER BY id DESC LIMIT ?"
     };
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params![limit], |row| {
@@ -242,6 +242,11 @@ pub(crate) fn query_decisions(
             commit_sha: row.get(8)?,
             pr_urls: Vec::new(),
             anchors: Vec::new(),
+            importance: row.get(9)?,
+            access_count: row.get(10)?,
+            last_accessed_at: row.get(11)?,
+            archived: row.get(12)?,
+            score: None,
         })
     })?;
     let mut decisions = Vec::with_capacity(limit.max(0) as usize);
@@ -252,7 +257,7 @@ pub(crate) fn query_decisions(
 }
 
 pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
-    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns ORDER BY id DESC LIMIT ?")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE archived = 0 ORDER BY id DESC LIMIT ?")?;
     let rows = stmt.query_map(params![limit], |row| {
         let tags_str: Option<String> = row.get(4)?;
         let tags = match tags_str {
@@ -271,6 +276,11 @@ pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Patter
             severity: row.get(8)?,
             pr_urls: Vec::new(),
             anchors: Vec::new(),
+            importance: row.get(9)?,
+            access_count: row.get(10)?,
+            last_accessed_at: row.get(11)?,
+            archived: row.get(12)?,
+            score: None,
         })
     })?;
     let mut patterns = Vec::with_capacity(limit.max(0) as usize);

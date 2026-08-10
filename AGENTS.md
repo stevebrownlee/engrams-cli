@@ -10,19 +10,23 @@ Everything below assumes the `engrams` binary is already built (`./target/debug/
 
 ## Memory & Project Context — The Operating Loop
 
-> **Mandatory rules — read [`.agents/rules/`](.agents/rules/) first.** `001-memory.md` is a session invariant applied before any other step: run `engrams prime` before anything else. Rules `002`+ are on-demand — read a rule only when its scope matches the work at hand (e.g. `002`–`006` govern Rust edits under `src/`); do **not** read the whole directory up front.
+> **Mandatory rules — read [`.agents/rules/`](.agents/rules/) first.** `001-memory.md` is a session invariant applied before any other step: run `engrams prime` before anything else. `007-relevant-before-edit.md` is a pre-edit gate: run `engrams relevant <paths>` before modifying source files. Rules `002`–`006` are on-demand — read a rule only when its scope matches the work at hand (e.g. `002`–`006` govern Rust edits under `src/`); do **not** read the whole directory up front.
 
 Treat engrams as an **active advisor**: consult it before acting, log decisions as you make them, and check code against registered patterns before committing.
 
 ### When to Consult Engrams
 
 - **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context.
-- **Before editing files:** `engrams relevant <paths>` — get decisions, patterns, and anchors tied to those files (`--staged` for `git add`ed).
+- **Before editing files:** `engrams advise <paths>` — get only actionable constraints and violations for those files (compact, machine-readable; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
 - **Before designing or fixing:** `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` — find prior decisions and patterns so you don't re-litigate settled choices.
 - **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> [--pr <n>]` — log immediately, not at session end. To supersede: `engrams decision supersede <old-id> --by <new-id>`, then `engrams link add --rel supersedes` to connect them in the graph.
 - **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor src/ops` — make it machine-enforceable, not just prose.
 - **Before committing:** `engrams check --staged` — scan staged files for violations against registered patterns (exits 1 on violations). Use `--paths src/ops` for specific paths.
-- **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`).
+- **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`). Add `--hooks` to also install a git pre-commit hook running `engrams check --staged`.
+
+### Before Editing Source Files — Mandatory
+
+Run `engrams advise <paths>` (or `--staged`) for the files you are about to edit, **before** editing them. This returns only actionable constraints — checkable patterns and decisions anchored to those files — plus any current violations from `engrams check`. When constraints are empty, proceed. For full context (scores, reinforcement, progress), use `engrams relevant <paths>` instead. Skipping this risks duplicating conventions or violating constraints a previous session already decided. Run once per batch of related edits.
 
 ### Other Commands
 

@@ -46,7 +46,7 @@ pub fn handle(conn: &Connection, staged: bool, paths: &[String], db_path: &Path)
 /// Anchors are attached so each check can be scoped.
 fn load_checkables(conn: &Connection) -> Result<Vec<Checkable>> {
     let mut stmt = conn.prepare(
-        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity \
+        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived \
          FROM system_patterns WHERE check_kind IS NOT NULL AND check_expr IS NOT NULL \
          ORDER BY id ASC",
     )?;

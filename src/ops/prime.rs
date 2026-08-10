@@ -35,7 +35,8 @@ pub fn handle(
     let mut decisions = Vec::new();
     let skip_decisions_query = !paths.is_empty() && decision_ids.is_empty();
     if !skip_decisions_query {
-        let mut sql = "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE status = 'active'".to_string();
+        let score = crate::ops::scoring::score_expr("timestamp", "importance");
+        let mut sql = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, {score} AS score FROM decisions WHERE status = 'active' AND archived = 0");
         let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
 
         if !paths.is_empty() {
@@ -52,7 +53,7 @@ pub fn handle(
             sql.push_str(&format!(" AND EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({}))", placeholders));
         }
 
-        sql.push_str(" ORDER BY id DESC LIMIT ?");
+        sql.push_str(" ORDER BY score DESC, id DESC LIMIT ?");
 
         let mut stmt = conn.prepare(&sql)?;
 
@@ -86,6 +87,11 @@ pub fn handle(
                 commit_sha: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
+                importance: row.get(9)?,
+                access_count: row.get(10)?,
+                last_accessed_at: row.get(11)?,
+                archived: row.get(12)?,
+                score: Some(row.get(13)?),
             })
         })?;
 
@@ -142,7 +148,7 @@ pub fn handle(
             if !missing.is_empty() {
                 let placeholders = missing.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                 let sql = format!(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id IN ({}) ORDER BY id DESC",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id IN ({}) ORDER BY id DESC",
                     placeholders
                 );
                 let mut stmt = conn.prepare(&sql)?;
@@ -164,6 +170,11 @@ pub fn handle(
                         commit_sha: row.get(8)?,
                         pr_urls: Vec::new(),
                         anchors: Vec::new(),
+                        importance: row.get(9)?,
+                        access_count: row.get(10)?,
+                        last_accessed_at: row.get(11)?,
+                        archived: row.get(12)?,
+                        score: None,
                     })
                 })?;
                 for r in rows {
@@ -182,9 +193,9 @@ pub fn handle(
     let mut patterns = Vec::new();
     let skip_patterns_query = !paths.is_empty() && pattern_ids.is_empty();
     if !skip_patterns_query {
+        let pat_score = crate::ops::scoring::score_expr("timestamp", "importance");
         let mut sql =
-            "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity FROM system_patterns WHERE 1=1"
-                .to_string();
+            format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, {pat_score} AS score FROM system_patterns WHERE archived = 0");
         let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
 
         if !paths.is_empty() {
@@ -201,7 +212,7 @@ pub fn handle(
             sql.push_str(&format!(" AND EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({}))", placeholders));
         }
 
-        sql.push_str(" ORDER BY id DESC LIMIT ?");
+        sql.push_str(" ORDER BY score DESC, id DESC LIMIT ?");
 
         let mut stmt = conn.prepare(&sql)?;
 
@@ -235,6 +246,11 @@ pub fn handle(
                 severity: row.get(8)?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
+                importance: row.get(9)?,
+                access_count: row.get(10)?,
+                last_accessed_at: row.get(11)?,
+                archived: row.get(12)?,
+                score: Some(row.get(13)?),
             })
         })?;
 
@@ -242,6 +258,11 @@ pub fn handle(
             patterns.push(r?);
         }
     }
+    // Reinforce-on-read (v0.10.0): bump access_count / last_accessed_at for surfaced records.
+    let decision_ids: Vec<i64> = decisions.iter().map(|d| d.id).collect();
+    crate::ops::scoring::reinforce(conn, "decisions", &decision_ids)?;
+    let pat_ids: Vec<i64> = patterns.iter().map(|p| p.id).collect();
+    crate::ops::scoring::reinforce(conn, "system_patterns", &pat_ids)?;
 
     let mut progress = if is_scoped {
         Vec::new()

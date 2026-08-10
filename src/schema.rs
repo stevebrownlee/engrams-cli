@@ -28,7 +28,11 @@ CREATE TABLE IF NOT EXISTS decisions (
   summary TEXT NOT NULL, rationale TEXT,
   implementation_details TEXT, tags TEXT,
   status TEXT NOT NULL DEFAULT 'active',
-  commit_sha TEXT
+  commit_sha TEXT,
+  importance INTEGER NOT NULL DEFAULT 5,
+  access_count INTEGER NOT NULL DEFAULT 0,
+  last_accessed_at TEXT,
+  archived INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS progress_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +45,11 @@ CREATE TABLE IF NOT EXISTS system_patterns (
   uuid TEXT UNIQUE NOT NULL, timestamp TEXT NOT NULL,
   name TEXT UNIQUE NOT NULL, description TEXT, tags TEXT,
   check_kind TEXT, check_expr TEXT,
-  severity TEXT NOT NULL DEFAULT 'warn'
+  severity TEXT NOT NULL DEFAULT 'warn',
+  importance INTEGER NOT NULL DEFAULT 5,
+  access_count INTEGER NOT NULL DEFAULT 0,
+  last_accessed_at TEXT,
+  archived INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS custom_data (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -227,4 +235,18 @@ pub const MIGRATION_V5: &str = r#"
 ALTER TABLE system_patterns ADD COLUMN check_kind TEXT;
 ALTER TABLE system_patterns ADD COLUMN check_expr TEXT;
 ALTER TABLE system_patterns ADD COLUMN severity TEXT NOT NULL DEFAULT 'warn';
+"#;
+
+pub const MIGRATION_V6: &str = r#"
+-- v0.10.0 tier-1: retrieval scoring + prune-decay + read-observability.
+-- importance: 1-10 retrieval weight; access_count/last_accessed_at: read instrumentation;
+-- archived: prune-decay soft-delete flag (excluded from retrieval).
+ALTER TABLE decisions ADD COLUMN importance INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE decisions ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE decisions ADD COLUMN last_accessed_at TEXT;
+ALTER TABLE decisions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE system_patterns ADD COLUMN importance INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE system_patterns ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE system_patterns ADD COLUMN last_accessed_at TEXT;
+ALTER TABLE system_patterns ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
 "#;

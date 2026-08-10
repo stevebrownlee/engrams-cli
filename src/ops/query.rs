@@ -9,7 +9,7 @@ struct QueryResult {
     title: String,
     snippet: String,
     timestamp: String,
-    rank: f64,
+    score: f64,
 }
 
 pub fn handle(
@@ -30,14 +30,20 @@ pub fn handle(
     // 1. Query Decisions
     let query_decisions = types.is_empty() || types.contains(&QueryType::Decision);
     if query_decisions {
-        let status_filter = if all { "" } else { " AND d.status = 'active'" };
+        let dscore = crate::ops::scoring::query_score_expr("d.timestamp", "d.importance");
+        let status_filter = if all {
+            ""
+        } else {
+            " AND d.status = 'active' AND d.archived = 0"
+        };
         let mut sql = format!(
-            "SELECT d.id, d.summary, snippet(decisions_fts, -1, '>>', '<<', '…', 12), d.timestamp, rank \
+            "SELECT d.id, d.summary, snippet(decisions_fts, -1, '>>', '<<', '…', 12), d.timestamp, rank, ({}) AS score \
              FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
              WHERE decisions_fts MATCH ?1 {}",
+            dscore,
             status_filter
         );
-        let mut p: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(match_expr.clone())];
+        let mut p: Vec<&dyn rusqlite::ToSql> = vec![&match_expr];
 
         if !tags.is_empty() {
             let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
@@ -46,28 +52,27 @@ pub fn handle(
                 placeholders
             ));
             for t in &tags {
-                p.push(Box::new(t.clone()));
+                p.push(t);
             }
         }
 
         if let Some(since_ts) = &since {
             sql.push_str(" AND d.timestamp >= ?");
-            p.push(Box::new(since_ts.clone()));
+            p.push(since_ts);
         }
 
-        sql.push_str(" ORDER BY rank LIMIT ?");
-        p.push(Box::new(limit));
+        sql.push_str(" ORDER BY score DESC LIMIT ?");
+        p.push(&limit);
 
         let mut stmt = conn.prepare(&sql)?;
-        let p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-        let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), |row| {
+        let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
             Ok(QueryResult {
                 r#type: "decision".to_string(),
                 id: row.get(0)?,
                 title: row.get(1)?,
                 snippet: row.get(2)?,
                 timestamp: row.get(3)?,
-                rank: row.get(4)?,
+                score: row.get(5)?,
             })
         })?;
         for r in rows {
@@ -78,10 +83,12 @@ pub fn handle(
     // 2. Query System Patterns
     let query_patterns = types.is_empty() || types.contains(&QueryType::Pattern);
     if query_patterns {
-        let mut sql = "SELECT p.id, p.name, snippet(system_patterns_fts, -1, '>>', '<<', '…', 12), p.timestamp, rank \
+        let pscore = crate::ops::scoring::query_score_expr("p.timestamp", "p.importance");
+        let pat_archived_filter = if all { "" } else { " AND p.archived = 0" };
+        let mut sql = format!("SELECT p.id, p.name, snippet(system_patterns_fts, -1, '>>', '<<', '…', 12), p.timestamp, rank, ({}) AS score \
                        FROM system_patterns p JOIN system_patterns_fts f ON p.id = f.rowid \
-                       WHERE system_patterns_fts MATCH ?1".to_string();
-        let mut p: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(match_expr.clone())];
+                       WHERE system_patterns_fts MATCH ?1{}", pscore, pat_archived_filter);
+        let mut p: Vec<&dyn rusqlite::ToSql> = vec![&match_expr];
 
         if !tags.is_empty() {
             let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
@@ -90,28 +97,27 @@ pub fn handle(
                 placeholders
             ));
             for t in &tags {
-                p.push(Box::new(t.clone()));
+                p.push(t);
             }
         }
 
         if let Some(since_ts) = &since {
             sql.push_str(" AND p.timestamp >= ?");
-            p.push(Box::new(since_ts.clone()));
+            p.push(since_ts);
         }
 
-        sql.push_str(" ORDER BY rank LIMIT ?");
-        p.push(Box::new(limit));
+        sql.push_str(" ORDER BY score DESC LIMIT ?");
+        p.push(&limit);
 
         let mut stmt = conn.prepare(&sql)?;
-        let p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-        let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), |row| {
+        let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
             Ok(QueryResult {
                 r#type: "system_pattern".to_string(),
                 id: row.get(0)?,
                 title: row.get(1)?,
                 snippet: row.get(2)?,
                 timestamp: row.get(3)?,
-                rank: row.get(4)?,
+                score: row.get(5)?,
             })
         })?;
         for r in rows {
@@ -122,35 +128,35 @@ pub fn handle(
     // 3. Query Custom Data
     let query_custom = (types.is_empty() || types.contains(&QueryType::Custom)) && tags.is_empty();
     if query_custom {
-        let mut sql = "SELECT c.id, c.category, c.key, snippet(custom_data_fts, -1, '>>', '<<', '…', 12), c.timestamp, rank \
+        let cscore = crate::ops::scoring::query_score_expr("c.timestamp", "5");
+        let mut sql = format!("SELECT c.id, c.category, c.key, snippet(custom_data_fts, -1, '>>', '<<', '…', 12), c.timestamp, rank, ({}) AS score \
                        FROM custom_data c JOIN custom_data_fts f ON c.id = f.rowid \
-                       WHERE custom_data_fts MATCH ?1".to_string();
-        let mut p: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(match_expr.clone())];
+                       WHERE custom_data_fts MATCH ?1", cscore);
+        let mut p: Vec<&dyn rusqlite::ToSql> = vec![&match_expr];
 
         if let Some(since_ts) = &since {
             sql.push_str(" AND c.timestamp >= ?");
-            p.push(Box::new(since_ts.clone()));
+            p.push(since_ts);
         }
 
-        sql.push_str(" ORDER BY rank LIMIT ?");
-        p.push(Box::new(limit));
+        sql.push_str(" ORDER BY score DESC LIMIT ?");
+        p.push(&limit);
 
         let mut stmt = conn.prepare(&sql)?;
-        let p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-        let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), |row| {
+        let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
             let id = row.get::<_, i64>(0)?;
             let category = row.get::<_, String>(1)?;
             let key = row.get::<_, String>(2)?;
             let snippet = row.get::<_, String>(3)?;
             let timestamp = row.get::<_, String>(4)?;
-            let rank = row.get::<_, f64>(5)?;
+            let score = row.get::<_, f64>(6)?;
             Ok(QueryResult {
                 r#type: "custom_data".to_string(),
                 id,
                 title: format!("{}/{}", category, key),
                 snippet,
                 timestamp,
-                rank,
+                score,
             })
         })?;
         for r in rows {
@@ -158,13 +164,26 @@ pub fn handle(
         }
     }
 
-    // Sort by rank ascending (lowest rank is most relevant)
+    // Sort by blended score descending (highest score is most relevant)
     results.sort_by(|a, b| {
-        a.rank
-            .partial_cmp(&b.rank)
+        b.score
+            .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     results.truncate(limit as usize);
+    // Reinforce-on-read (v0.10.0).
+    let dec_ids: Vec<i64> = results
+        .iter()
+        .filter(|r| r.r#type == "decision")
+        .map(|r| r.id)
+        .collect();
+    crate::ops::scoring::reinforce(conn, "decisions", &dec_ids)?;
+    let pat_ids: Vec<i64> = results
+        .iter()
+        .filter(|r| r.r#type == "system_pattern")
+        .map(|r| r.id)
+        .collect();
+    crate::ops::scoring::reinforce(conn, "system_patterns", &pat_ids)?;
 
     let output: Vec<Value> = results
         .into_iter()
@@ -175,6 +194,7 @@ pub fn handle(
                 "title": r.title,
                 "snippet": r.snippet,
                 "timestamp": r.timestamp,
+                "score": (r.score * 1000.0).round() / 1000.0,
             })
         })
         .collect();

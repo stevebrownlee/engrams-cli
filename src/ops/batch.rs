@@ -71,6 +71,7 @@ pub fn handle(
                             force: true,
                             prs: Vec::new(),
                             anchors: Vec::new(),
+                            importance: None,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {
@@ -163,6 +164,7 @@ pub fn handle(
                             check_kind,
                             check_expr,
                             severity,
+                            importance: None,
                         },
                         db_path,
                     )?;

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::schema::SCHEMA;
 
-pub const LATEST_VERSION: i32 = 5;
+pub const LATEST_VERSION: i32 = 6;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -66,6 +66,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             }
             5 => {
                 tx.execute_batch(crate::schema::MIGRATION_V5)?;
+            }
+            6 => {
+                tx.execute_batch(crate::schema::MIGRATION_V6)?;
             }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }
@@ -218,6 +221,17 @@ pub fn open(db_path: &Path) -> Result<Connection> {
 
     let conn = Connection::open(db_path)?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
+
+    // Register exp() — bundled SQLite may lack math functions; used by scoring.rs
+    conn.create_scalar_function(
+        "exp",
+        1,
+        rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let x: f64 = ctx.get(0)?;
+            Ok(x.exp())
+        },
+    )?;
 
     let has_tbls = has_tables(&conn)?;
     let user_ver = get_user_version(&conn)?;

@@ -141,10 +141,17 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .and_then(|v| v.as_str())
             .unwrap_or("active");
         let commit_sha = json.get("commit_sha").and_then(|v| v.as_str());
+        let importance = json.get("importance").and_then(|v| v.as_i64()).unwrap_or(5);
+        let access_count = json
+            .get("access_count")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        let last_accessed_at = json.get("last_accessed_at").and_then(|v| v.as_str());
+        let archived = json.get("archived").and_then(|v| v.as_i64()).unwrap_or(0);
 
         tx.execute(
-            "INSERT OR REPLACE INTO decisions (id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![id, uuid, summary, rationale, implementation_details, tags_json, timestamp, status, commit_sha],
+            "INSERT OR REPLACE INTO decisions (id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![id, uuid, summary, rationale, implementation_details, tags_json, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived],
         )?;
         Ok(())
     })?;
@@ -206,10 +213,17 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .get("severity")
             .and_then(|v| v.as_str())
             .unwrap_or("warn");
+        let importance = json.get("importance").and_then(|v| v.as_i64()).unwrap_or(5);
+        let access_count = json
+            .get("access_count")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        let last_accessed_at = json.get("last_accessed_at").and_then(|v| v.as_str());
+        let archived = json.get("archived").and_then(|v| v.as_i64()).unwrap_or(0);
 
         tx.execute(
-            "INSERT INTO system_patterns (id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity",
-            params![id, uuid, name, description, tags_json, timestamp, check_kind, check_expr, severity],
+            "INSERT INTO system_patterns (id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity, importance=excluded.importance, access_count=excluded.access_count, last_accessed_at=excluded.last_accessed_at, archived=excluded.archived",
+            params![id, uuid, name, description, tags_json, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived],
         )?;
         Ok(())
     })?;

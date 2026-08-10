@@ -18,6 +18,16 @@ pub struct Decision {
     pub pr_urls: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub anchors: Vec<String>,
+    #[serde(skip_serializing_if = "is_default_importance")]
+    pub importance: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_accessed_at: Option<String>,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub access_count: i64,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub archived: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -51,6 +61,16 @@ pub struct Pattern {
     pub pr_urls: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub anchors: Vec<String>,
+    #[serde(skip_serializing_if = "is_default_importance")]
+    pub importance: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_accessed_at: Option<String>,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub access_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub archived: i64,
 }
 
 #[derive(Serialize)]
@@ -115,4 +135,12 @@ pub struct HistoryRow {
 
 fn is_active(s: &String) -> bool {
     s == "active"
+}
+
+fn is_default_importance(n: &i64) -> bool {
+    *n == 5
+}
+
+fn is_zero(n: &i64) -> bool {
+    *n == 0
 }

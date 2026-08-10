@@ -23,6 +23,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             force,
             prs,
             anchors,
+            importance,
         } => {
             let status = status.unwrap_or_else(|| "active".to_string());
             let status_overridden = crate::ops::status::check(
@@ -58,8 +59,8 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             let commit_sha = crate::ops::git::head_sha();
 
             conn.execute(
-                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha],
+                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha, importance) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha, importance.unwrap_or(5)],
             )?;
 
             let id = conn.last_insert_rowid();
@@ -84,9 +85,9 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
         DecisionCmd::List { tags, limit, all } => {
             if tags.is_empty() {
                 let sql = if all {
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions ORDER BY id DESC LIMIT ?"
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions ORDER BY id DESC LIMIT ?"
                 } else {
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE status = 'active' ORDER BY id DESC LIMIT ?"
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE status = 'active' ORDER BY id DESC LIMIT ?"
                 };
                 let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map(params![limit], parse_decision_row)?;
@@ -112,7 +113,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 } else {
                     "AND status = 'active'".to_string()
                 };
-                let query = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({})) {} ORDER BY id DESC LIMIT ?", placeholders, filter);
+                let query = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({})) {} ORDER BY id DESC LIMIT ?", placeholders, filter);
                 let mut stmt = conn.prepare(&query)?;
                 let mut p = Vec::<&dyn rusqlite::ToSql>::new();
                 for tag in &tags {
@@ -176,12 +177,12 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 Ok(serde_json::to_value(results)?)
             } else {
                 let sql = if all {
-                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha \
+                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
                      FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
                      WHERE decisions_fts MATCH ?1 \
                      ORDER BY rank LIMIT ?2"
                 } else {
-                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha \
+                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
                      FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
                      WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
                      ORDER BY rank LIMIT ?2"
@@ -215,40 +216,58 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 .context(format!("decision {} not found", id))?;
 
             let mut sets = Vec::new();
-            let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
+            let mut p: Vec<&dyn rusqlite::ToSql> = Vec::new();
 
-            if let Some(summary) = fields.summary {
-                sets.push("summary = ?");
-                p.push(Box::new(summary));
-            }
-            if let Some(rationale) = fields.rationale {
-                sets.push("rationale = ?");
-                p.push(Box::new(rationale));
-            }
-            if let Some(details) = fields.details {
-                sets.push("implementation_details = ?");
-                p.push(Box::new(details));
-            }
-            if let Some(tags) = fields.tags {
-                sets.push("tags = ?");
-                let tags_json = if tags.is_empty() {
-                    None
-                } else {
-                    Some(serde_json::to_string(&tags)?)
-                };
-                p.push(Box::new(tags_json));
-            }
+            // Bind moved values to locals so they outlive the params vec
+            let summary = fields.summary;
+            let rationale = fields.rationale;
+            let details = fields.details;
+            let status = fields.status;
+            let importance = fields.importance;
 
             let mut status_overridden = false;
-            if let Some(status) = fields.status {
+
+            if let Some(ref v) = summary {
+                sets.push("summary = ?");
+                p.push(v);
+            }
+            if let Some(ref v) = rationale {
+                sets.push("rationale = ?");
+                p.push(v);
+            }
+            if let Some(ref v) = details {
+                sets.push("implementation_details = ?");
+                p.push(v);
+            }
+
+            let tags_json: Option<Option<String>> = if let Some(tags) = &fields.tags {
+                sets.push("tags = ?");
+                Some(if tags.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::to_string(tags)?)
+                })
+            } else {
+                None
+            };
+            if let Some(ref v) = tags_json {
+                p.push(v);
+            }
+
+            if let Some(ref s) = status {
                 status_overridden = crate::ops::status::check(
-                    &status,
+                    s,
                     crate::ops::status::DECISION_STATUSES,
                     force,
                     "decision",
                 )?;
                 sets.push("status = ?");
-                p.push(Box::new(status));
+                p.push(s);
+            }
+
+            if let Some(ref v) = importance {
+                sets.push("importance = ?");
+                p.push(v);
             }
 
             if sets.is_empty() {
@@ -256,10 +275,9 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             }
 
             let query = format!("UPDATE decisions SET {} WHERE id = ?", sets.join(", "));
-            let mut p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-            p_refs.push(&id);
+            p.push(&id);
 
-            conn.execute(&query, rusqlite::params_from_iter(p_refs))?;
+            conn.execute(&query, rusqlite::params_from_iter(p))?;
             let mut result = get_decision(conn, id)?;
             if status_overridden {
                 if let Value::Object(map) = &mut result {
@@ -366,7 +384,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             // Fetch both decisions
             let source: Decision = tx
                 .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id = ?",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id = ?",
                     params![source_id],
                     parse_decision_row,
                 )
@@ -375,7 +393,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let target: Decision = tx
                 .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id = ?",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id = ?",
                     params![into_id],
                     parse_decision_row,
                 )
@@ -452,11 +470,16 @@ fn parse_decision_row(row: &rusqlite::Row) -> rusqlite::Result<Decision> {
         commit_sha: row.get(8)?,
         pr_urls: Vec::new(),
         anchors: Vec::new(),
+        importance: row.get(9)?,
+        access_count: row.get(10)?,
+        last_accessed_at: row.get(11)?,
+        archived: row.get(12)?,
+        score: None,
     })
 }
 
 fn get_decision(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha FROM decisions WHERE id = ?")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id = ?")?;
     let mut decision = stmt
         .query_row(params![id], parse_decision_row)
         .optional()?
@@ -496,7 +519,7 @@ fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Result<Vec<Deci
     );
 
     let mut stmt = conn.prepare(
-        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha \
+        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
          FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
          WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
          ORDER BY rank LIMIT ?2",

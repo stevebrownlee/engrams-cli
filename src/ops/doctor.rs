@@ -131,6 +131,51 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
         }));
     }
 
+    // 4b. Audit never-read records (written but never surfaced by a read path)
+    let mut never_read = Vec::new();
+    let mut stmt = conn.prepare(
+        "SELECT id, summary FROM decisions \
+         WHERE last_accessed_at IS NULL AND status = 'active' AND archived = 0 \
+         ORDER BY id ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(serde_json::json!({
+            "type": "decision",
+            "id": row.get::<_, i64>(0)?,
+            "title": row.get::<_, String>(1)?,
+        }))
+    })?;
+    for r in rows {
+        never_read.push(r?);
+    }
+    let mut stmt = conn.prepare(
+        "SELECT id, name FROM system_patterns \
+         WHERE last_accessed_at IS NULL AND archived = 0 \
+         ORDER BY id ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(serde_json::json!({
+            "type": "pattern",
+            "id": row.get::<_, i64>(0)?,
+            "title": row.get::<_, String>(1)?,
+        }))
+    })?;
+    for r in rows {
+        never_read.push(r?);
+    }
+
+    // 4c. Audit archived records (pruned by prune-decay)
+    let archived_decisions: i64 = conn.query_row(
+        "SELECT count(*) FROM decisions WHERE archived = 1",
+        [],
+        |row| row.get(0),
+    )?;
+    let archived_patterns: i64 = conn.query_row(
+        "SELECT count(*) FROM system_patterns WHERE archived = 1",
+        [],
+        |row| row.get(0),
+    )?;
+
     // 5. Graph advisory: orphan nodes (weighted degree <= 1, capped 50)
     let graph = crate::ops::graph::model::load(conn)?;
     let orphan_nodes: Vec<String> = graph
@@ -195,13 +240,19 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
     let ok = missing_anchor_paths.is_empty()
         && dangling_links.is_empty()
         && stale_decisions.is_empty()
-        && unlinked_decisions.is_empty();
+        && unlinked_decisions.is_empty()
+        && never_read.is_empty();
 
     Ok(serde_json::json!({
         "missing_anchor_paths": missing_anchor_paths,
         "dangling_links": dangling_links,
         "stale_decisions": stale_decisions,
         "unlinked_decisions": unlinked_decisions,
+        "never_read": never_read,
+        "archived": {
+            "decisions": archived_decisions,
+            "patterns": archived_patterns,
+        },
         "orphan_nodes": orphan_nodes,
         "graph_rebuild_recommended": graph_rebuild_recommended,
         "cycles": cycles,

@@ -93,6 +93,9 @@ pub enum Command {
         /// Target harness (only 'omp' supported)
         #[arg(long)]
         harness: String,
+        /// Also install a git pre-commit hook running `engrams check --staged`
+        #[arg(long)]
+        hooks: bool,
     },
 
     /// Store arbitrary configuration or key-value data
@@ -206,6 +209,27 @@ pub enum Command {
         #[arg(long)]
         all: bool,
     },
+    /// Pre-edit advisory: constraints and violations for the given paths
+    Advise {
+        /// Paths to check for anchored constraints
+        paths: Vec<String>,
+        /// Use git diff --cached --name-only as the path list
+        #[arg(long)]
+        staged: bool,
+    },
+
+    /// Archive decayed decisions and patterns (prune-decay)
+    Prune(PruneCmd),
+}
+
+#[derive(Args, Debug)]
+pub struct PruneCmd {
+    /// Retention threshold below which items are pruned (default: 0.1)
+    #[arg(long)]
+    pub threshold: Option<f64>,
+    /// Show what would be pruned without archiving
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -384,6 +408,9 @@ pub enum DecisionCmd {
         /// Associated file path anchor (repeatable)
         #[arg(long = "anchor")]
         anchors: Vec<String>,
+        /// Importance weight 0-10 for retrieval scoring (default: 5)
+        #[arg(long)]
+        importance: Option<i64>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -455,6 +482,9 @@ pub struct DecisionUpdateFields {
     /// New tags (replaces existing tags)
     #[arg(long, value_delimiter = ',')]
     pub tags: Option<Vec<String>>,
+    /// New importance weight 0-10
+    #[arg(long)]
+    pub importance: Option<i64>,
     /// New status (active, superseded, rejected, revisited)
     #[arg(long)]
     pub status: Option<String>,
@@ -550,6 +580,9 @@ pub enum PatternCmd {
         /// Enforcement severity when a check matches: info, warn, or error (default: warn)
         #[arg(long)]
         severity: Option<String>,
+        /// Importance weight 0-10 for retrieval scoring (default: 5)
+        #[arg(long)]
+        importance: Option<i64>,
     },
     /// List decisions, optionally filtering by tags
     List {

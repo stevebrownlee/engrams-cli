@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod advise;
 pub mod anchor;
 pub mod batch;
 pub mod check;
@@ -14,9 +15,11 @@ pub mod pattern;
 pub mod pr;
 pub mod prime;
 pub mod progress;
+pub mod prune;
 pub mod query;
 pub mod report;
 pub mod rules;
+pub mod scoring;
 pub mod status;
 pub mod transfer;
 use anyhow::Result;
@@ -69,7 +72,7 @@ pub fn dispatch(
         Command::Progress { cmd } => progress::handle(conn, cmd),
         Command::Pattern { cmd } => pattern::handle(conn, cmd, db_path),
         Command::Rules { cmd } => rules::handle(conn, cmd, db_path),
-        Command::Install { harness } => install::handle(conn, &harness, db_path),
+        Command::Install { harness, hooks } => install::handle(conn, &harness, hooks, db_path),
         Command::Check { staged, paths } => check::handle(conn, staged, &paths, db_path),
         Command::Custom { cmd } => custom::handle(conn, cmd),
         Command::Link { cmd } => link::handle(conn, cmd),
@@ -88,6 +91,8 @@ pub fn dispatch(
         Command::Relevant { paths, staged, all } => {
             anchor::handle_relevant(conn, paths, staged, all)
         }
+        Command::Advise { paths, staged } => advise::handle(conn, paths, staged, db_path),
+        Command::Prune(cmd) => prune::handle(conn, cmd),
         Command::Prime {
             budget,
             paths,

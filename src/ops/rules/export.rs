@@ -84,7 +84,7 @@ pub fn regenerate(conn: &Connection, dir: &Path) -> Result<Value> {
 /// Patterns carrying a machine-checkable expression, oldest id first (stable ordering).
 pub(crate) fn load_checkable_patterns(conn: &Connection) -> Result<Vec<Pattern>> {
     let mut stmt = conn.prepare(
-        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity \
+        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived \
          FROM system_patterns WHERE check_kind IS NOT NULL ORDER BY id ASC",
     )?;
     let rows = stmt.query_map([], crate::ops::pattern::parse_pattern_row)?;

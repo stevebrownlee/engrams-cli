@@ -564,7 +564,7 @@ fn test_version_validation() {
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 5);
+        assert_eq!(ver, 6);
     }
 }
 
@@ -685,7 +685,7 @@ fn test_migration_v1_to_v2() {
         let ver: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 5);
+        assert_eq!(ver, 6);
     }
 }
 
@@ -1660,7 +1660,7 @@ fn test_instructions() {
     let out = engrams(&db).arg("instructions").output().unwrap();
 
     let stdout_str = String::from_utf8(out.stdout).unwrap();
-    assert!(stdout_str.starts_with("## Memory & Project Context (engrams)"));
+    assert!(stdout_str.starts_with("## Engrams — Memory & Active Code Advisor"));
     assert_eq!(out.status.code(), Some(0));
 
     assert!(!temp.path().join("nonexistent_dir").exists());
@@ -2021,7 +2021,7 @@ fn test_migration_v2_to_v3() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 5);
+    assert_eq!(version, 6);
 
     // context_links gained origin/source/weight.
     let mut stmt = conn.prepare("PRAGMA table_info(context_links)").unwrap();
@@ -2428,4 +2428,497 @@ fn test_graph_export_excludes_derived() {
         assert!(!content.contains("co_changes"));
         assert!(!content.contains("anchored_to"));
     }
+}
+
+// ========== v0.10.0: retrieval scoring, prune-decay, read-observability ==========
+
+#[test]
+fn test_importance_on_log_and_update() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Log with explicit importance
+    let out = engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Important decision",
+            "--importance",
+            "9",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["importance"], 9);
+
+    // Update importance
+    let out = engrams(&db)
+        .args(&["decision", "update", "1", "--importance", "3"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["importance"], 3);
+}
+
+#[test]
+fn test_importance_default_hidden() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    let out = engrams(&db)
+        .args(&["decision", "log", "--summary", "Default importance"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    // importance=5 is the default; skip_serializing_if hides it
+    assert!(v.get("importance").is_none() || v["importance"] == 5);
+}
+
+#[test]
+fn test_reinforce_on_read() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db)
+        .args(&["decision", "log", "--summary", "Decision to be read"])
+        .assert()
+        .success();
+
+    // access_count starts at 0
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let ac: i64 = conn
+        .query_row("SELECT access_count FROM decisions WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(ac, 0);
+
+    // prime should reinforce
+    engrams(&db).arg("prime").assert().success();
+
+    let ac: i64 = conn
+        .query_row("SELECT access_count FROM decisions WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert!(
+        ac >= 1,
+        "access_count should be >= 1 after prime, got {}",
+        ac
+    );
+
+    // query should also reinforce
+    engrams(&db).args(&["query", "Decision"]).assert().success();
+
+    let ac2: i64 = conn
+        .query_row("SELECT access_count FROM decisions WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert!(
+        ac2 > ac,
+        "access_count should increase after query, got {} -> {}",
+        ac,
+        ac2
+    );
+}
+
+#[test]
+fn test_scoring_in_query_output() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Scoring test",
+            "--importance",
+            "8",
+        ])
+        .assert()
+        .success();
+
+    let out = engrams(&db).args(&["query", "Scoring"]).output().unwrap();
+    assert!(out.status.success());
+    let results: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(!results.is_empty());
+    assert!(
+        results[0].get("score").is_some(),
+        "query results must include a score field"
+    );
+}
+
+#[test]
+fn test_importance_affects_ranking() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Two decisions with same summary but different importance
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Ranking alpha beta",
+            "--importance",
+            "2",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Ranking alpha beta",
+            "--importance",
+            "10",
+            "--force",
+        ])
+        .assert()
+        .success();
+
+    // query should rank the higher-importance one first
+    let out = engrams(&db)
+        .args(&["query", "Ranking", "--limit", "5"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let results: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(results.len() >= 2, "should have at least 2 results");
+    let first_id = results[0]["id"].as_i64().unwrap();
+    assert_eq!(
+        first_id, 2,
+        "higher importance decision (id 2) should rank first"
+    );
+}
+
+#[test]
+fn test_prune_dry_run_no_match() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Fresh decision",
+            "--importance",
+            "7",
+        ])
+        .assert()
+        .success();
+
+    let out = engrams(&db).args(&["prune", "--dry-run"]).output().unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["dry_run"], true);
+    assert_eq!(
+        v["count"], 0,
+        "fresh high-importance decision should not be prunable"
+    );
+}
+
+#[test]
+fn test_prune_archives_low_importance() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // importance 0, never accessed — always prunable
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Forgettable",
+            "--importance",
+            "0",
+        ])
+        .assert()
+        .success();
+
+    // Dry run should show it as a candidate
+    let out = engrams(&db).args(&["prune", "--dry-run"]).output().unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        v["count"], 1,
+        "importance-0 never-read decision should be prunable"
+    );
+
+    // Actual prune
+    engrams(&db).args(&["prune"]).assert().success();
+
+    // Verify archived flag
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let archived: i64 = conn
+        .query_row("SELECT archived FROM decisions WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        archived, 1,
+        "decision should be archived after prune --apply"
+    );
+}
+
+#[test]
+fn test_archived_hidden_from_prime() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Will be archived",
+            "--importance",
+            "0",
+        ])
+        .assert()
+        .success();
+    engrams(&db).args(&["prune"]).assert().success();
+
+    let out = engrams(&db).arg("prime").output().unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let decisions = v["decisions"].as_array().unwrap();
+    assert!(
+        decisions.is_empty(),
+        "archived decisions should not appear in prime"
+    );
+}
+
+#[test]
+fn test_archived_visible_with_all_flag() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Log a low-importance pattern that will also be pruned
+    engrams(&db)
+        .args(&[
+            "pattern",
+            "log",
+            "--name",
+            "ForgettablePattern",
+            "--importance",
+            "0",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Will be archived",
+            "--importance",
+            "0",
+        ])
+        .assert()
+        .success();
+    engrams(&db).args(&["prune"]).assert().success();
+
+    // relevant --all should include archived
+    engrams(&db)
+        .args(&["relevant", "src/main.rs", "--all"])
+        .assert()
+        .success();
+
+    // query --all should include archived decisions AND patterns
+    let out = engrams(&db)
+        .args(&["query", "ForgettablePattern", "--all"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let results: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap();
+    let has_archived_pattern = results
+        .iter()
+        .any(|r| r["type"] == "system_pattern" && r["title"] == "ForgettablePattern");
+    assert!(
+        has_archived_pattern,
+        "archived patterns should appear in query --all"
+    );
+}
+
+#[test]
+fn test_doctor_never_read() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    // Log a decision but don't read it
+    engrams(&db)
+        .args(&["decision", "log", "--summary", "Never surfaced decision"])
+        .assert()
+        .success();
+
+    let out = engrams(&db).arg("doctor").output().unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let never_read = v["never_read"].as_array().unwrap();
+    assert!(
+        !never_read.is_empty(),
+        "un-read decisions should be flagged"
+    );
+
+    // After prime, it should be read
+    engrams(&db).arg("prime").assert().success();
+    let out = engrams(&db).arg("doctor").output().unwrap();
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let never_read = v["never_read"].as_array().unwrap();
+    assert!(
+        never_read.is_empty(),
+        "after prime, no decisions should be never-read"
+    );
+}
+
+#[test]
+fn test_doctor_archived_count() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Archived one",
+            "--importance",
+            "0",
+        ])
+        .assert()
+        .success();
+    engrams(&db).args(&["prune"]).assert().success();
+
+    let out = engrams(&db).arg("doctor").output().unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let archived = v["archived"].as_object().unwrap();
+    let dec_count = archived["decisions"].as_i64().unwrap();
+    assert_eq!(dec_count, 1, "doctor should count 1 archived decision");
+}
+
+#[test]
+fn test_v6_schema_columns() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+
+    // Check decisions columns
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(decisions)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .map(|c| c.unwrap())
+        .collect();
+    for col in &["importance", "access_count", "last_accessed_at", "archived"] {
+        assert!(
+            cols.contains(&col.to_string()),
+            "decisions table missing column: {}",
+            col
+        );
+    }
+
+    // Check system_patterns columns
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(system_patterns)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .map(|c| c.unwrap())
+        .collect();
+    for col in &["importance", "access_count", "last_accessed_at", "archived"] {
+        assert!(
+            cols.contains(&col.to_string()),
+            "system_patterns table missing column: {}",
+            col
+        );
+    }
+}
+
+#[test]
+fn test_pattern_importance_flag() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    let out = engrams(&db)
+        .args(&[
+            "pattern",
+            "log",
+            "--name",
+            "test-pattern-imp",
+            "--description",
+            "test",
+            "--importance",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let v: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["importance"], 8);
+}
+
+#[test]
+fn test_export_import_preserves_importance() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db)
+        .args(&[
+            "decision",
+            "log",
+            "--summary",
+            "Export test",
+            "--importance",
+            "9",
+        ])
+        .assert()
+        .success();
+
+    let exp_dir = temp.path().join("exp");
+    engrams(&db)
+        .args(&["export", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    // Verify importance in exported file
+    let decisions_dir = exp_dir.join("decisions");
+    let files: Vec<_> = std::fs::read_dir(&decisions_dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().map(|x| x == "md").unwrap_or(false))
+        .collect();
+    assert!(!files.is_empty(), "should have exported decisions");
+    let content = std::fs::read_to_string(&files[0]).unwrap();
+    assert!(
+        content.contains("\"importance\": 9"),
+        "exported decision must preserve importance"
+    );
+
+    // Import into a new DB
+    let db2 = temp.path().join("e2.db");
+    engrams(&db2)
+        .args(&["import", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let conn = rusqlite::Connection::open(&db2).unwrap();
+    let imp: i64 = conn
+        .query_row("SELECT importance FROM decisions WHERE id = 1", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(imp, 9, "imported decision must have importance 9");
 }
