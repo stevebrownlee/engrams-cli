@@ -53,6 +53,19 @@ pub fn handle(conn: &Connection, harness: &str, hooks: bool, db_path: &Path) -> 
                 json!(hook_path.display().to_string()),
             );
         }
+        let ext_path = write_omp_extension(db_path)?;
+        if let serde_json::Value::Object(map) = &mut result {
+            map.insert(
+                "extension_installed".into(),
+                json!(ext_path.display().to_string()),
+            );
+        }
+        if let serde_json::Value::Object(map) = &mut result {
+            map.insert(
+                "hooks_guidance".into(),
+                json!("Pre-commit hook installed: blocks on error-severity violations. omp extension installed: surfaces constraints at edit time. Restart your omp session for the extension to take effect."),
+            );
+        }
     }
 
     Ok(result)
@@ -152,4 +165,17 @@ exit 0
     }
 
     Ok(hook_path)
+}
+
+/// Write the engrams pre-edit advisor omp extension to `.omp/extensions/`.
+/// This extension intercepts `edit`/`write` tool calls and surfaces engrams
+/// constraints + error violations before the edit lands. omp auto-discovers
+/// extensions in `<workspace>/.omp/extensions/` on session start.
+fn write_omp_extension(_db_path: &Path) -> Result<std::path::PathBuf> {
+    let workspace_root = crate::db::workspace_root()?;
+    let ext_dir = workspace_root.join(".omp/extensions/engrams-advisor");
+    std::fs::create_dir_all(&ext_dir)?;
+    let ext_path = ext_dir.join("index.ts");
+    std::fs::write(&ext_path, include_str!("../assets/engrams-advisor.ts"))?;
+    Ok(ext_path)
 }
