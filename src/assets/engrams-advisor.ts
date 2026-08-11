@@ -12,8 +12,9 @@
  * Or manually: cp into .omp/extensions/engrams-advisor/index.ts
  */
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { Glob } from "bun";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 export default function engramsAdvisor(pi: ExtensionAPI): void {
   const advisedPaths = new Set<string>();
@@ -57,6 +58,22 @@ export default function engramsAdvisor(pi: ExtensionAPI): void {
       return m ? m[1] : null;
     }
     return null;
+  }
+
+  // Resolve a bare filename to its actual path relative to cwd.
+  // omp's edit tool accepts bare filenames (e.g. "foo.rs") and resolves
+  // them internally — we need to do the same before calling engrams advise.
+  function resolveFilePath(rawPath: string, cwd: string): string {
+    // Try as-is first (works for full relative paths like "src/ops/foo.rs")
+    if (existsSync(join(cwd, rawPath))) return rawPath;
+    // Search by basename, skipping build artifacts
+    const base = basename(rawPath);
+    const glob = new Glob(`**/${base}`);
+    for (const path of glob.scanSync({ cwd, onlyFiles: true })) {
+      if (path.includes("target/") || path.includes(".git/") || path.includes("node_modules/")) continue;
+      return path;
+    }
+    return rawPath; // give up — let advise handle the not-found case
   }
 
   // ── Run engrams advise ─────────────────────────────────────────────
@@ -130,8 +147,9 @@ export default function engramsAdvisor(pi: ExtensionAPI): void {
     const { toolName, input } = event;
     if (toolName !== "edit" && toolName !== "write") return;
 
-    const targetPath = extractPath(toolName, input as Record<string, unknown>);
-    if (!targetPath) return;
+    const rawPath = extractPath(toolName, input as Record<string, unknown>);
+    if (!rawPath) return;
+    const targetPath = resolveFilePath(rawPath, ctx.cwd);
 
     // Once per file per session
     const key = `${ctx.cwd}::${targetPath}`;
