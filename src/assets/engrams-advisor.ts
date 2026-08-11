@@ -63,17 +63,23 @@ export default function engramsAdvisor(pi: ExtensionAPI): void {
   // Resolve a bare filename to its actual path relative to cwd.
   // omp's edit tool accepts bare filenames (e.g. "foo.rs") and resolves
   // them internally — we need to do the same before calling engrams advise.
-  function resolveFilePath(rawPath: string, cwd: string): string {
+  // Returns null if the path can't be resolved unambiguously (multiple files
+  // share the same basename — e.g. mod.rs). In that case we skip advising
+  // rather than risk checking the wrong file.
+  function resolveFilePath(rawPath: string, cwd: string): string | null {
     // Try as-is first (works for full relative paths like "src/ops/foo.rs")
     if (existsSync(join(cwd, rawPath))) return rawPath;
     // Search by basename, skipping build artifacts
     const base = basename(rawPath);
     const glob = new Glob(`**/${base}`);
+    const matches: string[] = [];
     for (const path of glob.scanSync({ cwd, onlyFiles: true })) {
       if (path.includes("target/") || path.includes(".git/") || path.includes("node_modules/")) continue;
-      return path;
+      matches.push(path);
     }
-    return rawPath; // give up — let advise handle the not-found case
+    if (matches.length === 1) return matches[0];
+    // Zero or multiple matches — can't resolve safely
+    return null;
   }
 
   // ── Run engrams advise ─────────────────────────────────────────────
@@ -150,6 +156,7 @@ export default function engramsAdvisor(pi: ExtensionAPI): void {
     const rawPath = extractPath(toolName, input as Record<string, unknown>);
     if (!rawPath) return;
     const targetPath = resolveFilePath(rawPath, ctx.cwd);
+    if (!targetPath) return; // ambiguous or unresolved — skip advising
 
     // Once per file per session
     const key = `${ctx.cwd}::${targetPath}`;
