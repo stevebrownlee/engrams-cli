@@ -58,6 +58,54 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <div class="hero-scroll-hint" aria-hidden="true">scroll</div>
     </section>
 
+    <!-- ══ BEFORE / AFTER COMPARISON ══ -->
+    <section class="section dark compare-section">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">The hidden tax</div>
+        <h2 class="section-title">Every conversation starts <span class="accent-word">blind</span></h2>
+        <p class="section-sub">
+          Without memory, your AI repeats mistakes you already fixed, ignores conventions you
+          already decided, and wastes your time re-explaining context it should already have.
+        </p>
+      </div>
+      <div class="compare-table reveal">
+        <div class="compare-grid">
+          <div class="compare-col-header compare-without-cell">Without engrams</div>
+          <div class="compare-col-header compare-with-cell">With engrams</div>
+          <div class="compare-cell compare-without-cell">
+            <p>Every AI conversation starts cold — you re-explain your project, decisions, and conventions every time</p>
+          </div>
+          <div class="compare-cell compare-with-cell">
+            <p>One command rehydrates the full context your agent needs — decisions, patterns, open threads, what breaks if you touch this file</p>
+          </div>
+          <div class="compare-cell compare-without-cell">
+            <p>Important architectural decisions and trivial notes rank identically — the AI wades through noise</p>
+          </div>
+          <div class="compare-cell compare-with-cell">
+            <p>Important, recent, frequently-consulted decisions surface first via retrieval scoring</p>
+          </div>
+          <div class="compare-cell compare-without-cell">
+            <p>Old obsolete decisions pollute context forever</p>
+          </div>
+          <div class="compare-cell compare-with-cell">
+            <p>Memory self-cleans: unused records fade into the archive automatically</p>
+          </div>
+          <div class="compare-cell compare-without-cell">
+            <p>You hope the AI reads your conventions. It usually doesn't</p>
+          </div>
+          <div class="compare-cell compare-with-cell">
+            <p>The system surfaces constraints <em>automatically</em> when the AI edits a relevant file</p>
+          </div>
+          <div class="compare-cell compare-without-cell">
+            <p>Convention violations land in your codebase — caught in review if you're lucky</p>
+          </div>
+          <div class="compare-cell compare-with-cell">
+            <p>Violations are blocked at <em>edit time</em> and <em>commit time</em> — they never land</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
 
 
     <!-- ══ WHAT AN ADVISOR DOES ══ -->
@@ -328,6 +376,46 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .glass-card p { color: var(--color-text-muted); line-height: 1.65; font-size: .98rem; }
   .glass-card code { font-size: .88em; }
 
+
+  /* Before/after comparison table */
+  .compare-section { padding-top: 4rem; }
+  .compare-table { max-width: 60rem; margin: 0 auto; }
+  .compare-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    border-radius: var(--radius-lg); overflow: hidden;
+    border: 1px solid rgba(255,255,255,.08);
+  }
+  .compare-col-header {
+    padding: 1.1rem 1.5rem; font-weight: 800; font-size: 1rem;
+    letter-spacing: -.01em; text-align: center;
+  }
+  .compare-without-cell {
+    background: rgba(255,255,255,.03);
+    color: var(--dark-text-muted);
+  }
+  .compare-col-header.compare-without-cell {
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.05);
+    color: var(--dark-text);
+  }
+  .compare-with-cell {
+    background: rgba(204,164,59,.06);
+    color: var(--dark-text);
+  }
+  .compare-col-header.compare-with-cell {
+    border-bottom: 1px solid rgba(204,164,59,.2);
+    background: rgba(204,164,59,.1);
+    color: var(--color-accent);
+  }
+  .compare-cell { padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .compare-cell:last-child { border-bottom: none; }
+  .compare-cell:last-child + .compare-cell { border-bottom: none; }
+  .compare-cell p { font-size: .95rem; line-height: 1.6; margin: 0; }
+  .compare-cell em { color: var(--color-accent); font-style: normal; font-weight: 600; }
+  @media (max-width: 720px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .compare-with-cell { border-top: 1px solid rgba(255,255,255,.06); }
+  }
   /* For-you command rows */
   .cmd-list { display: flex; flex-direction: column; gap: 2.6rem; }
   .cmd-row {

@@ -8,6 +8,83 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.10.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Retrieval Scoring:</strong> Every decision and pattern now carries a blended score combining recency-decay (Ebbinghaus exponential over age) with a user-settable importance weight (0–10, default 5). The <code>prime</code>, <code>relevant</code>, and <code>query</code> commands rank results by this score instead of by creation order. Scores are computed in SQL via a registered <code>exp()</code> function and are visible in the JSON output. Set importance with <code>--importance</code> on <code>decision log</code>, <code>decision update</code>, and <code>pattern log</code>.
+      </li>
+      <li>
+        <strong>Reinforce-on-Read:</strong> Every time <code>prime</code>, <code>relevant</code>, or <code>query</code> surfaces a record, its <code>access_count</code> is incremented and <code>last_accessed_at</code> is updated. Frequently-consulted decisions survive longer in the active rotation — the memory self-improves with use.
+      </li>
+      <li>
+        <strong>Prune-Decay:</strong> The new <code>engrams prune</code> command archives decisions and patterns whose Ebbinghaus retention <code>exp(-age / strength)</code> has decayed below a threshold (default 0.1). Strength is <code>(importance + access_count) × 30 days</code>, so important and frequently-read records survive longer. Use <code>--dry-run</code> to preview, <code>--threshold</code> to control aggressiveness. Archived items are excluded from retrieval by default; use <code>--all</code> on <code>relevant</code> or <code>query</code> to include them.
+      </li>
+      <li>
+        <strong>Read Observability:</strong> <code>engrams doctor</code> now reports <code>never_read</code> (records written but never surfaced by any read path) and <code>archived</code> counts per table. You can audit whether logged decisions are actually influencing the agent's context.
+      </li>
+      <li>
+        <strong>Pre-Edit Advisory (<code>advise</code> command):</strong> Purpose-built companion to <code>relevant</code> that returns only actionable constraints — checkable patterns and decisions anchored to the given paths — plus any current violations from <code>engrams check</code>. No scores, no progress, no reinforcement. Compact and fast, designed for automatic harness injection.
+      </li>
+      <li>
+        <strong>Git Pre-Commit Hook (<code>install --hooks</code>):</strong> <code>engrams install --harness omp --hooks</code> now writes a git pre-commit hook that runs <code>engrams check --staged</code>. Error-severity violations block the commit; <code>warn</code>/<code>info</code> violations are printed but don't block. Bypass with <code>git commit --no-verify</code>.
+      </li>
+      <li>
+        <strong>omp Edit-Time Extension:</strong> The same <code>--hooks</code> flag also deploys an omp extension to <code>.omp/extensions/engrams-advisor/</code> that intercepts <code>edit</code>/<code>write</code> tool calls. On first edit to each file, it surfaces constraints as non-blocking guidance and blocks error-severity violations. Self-disables outside engrams workspaces.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Stale ranking poisoned retrieval:</strong> Old decisions ranked identically to fresh ones, so the agent saw noise instead of signal. Scoring ensures the 5 most important recent decisions surface first.
+      </li>
+      <li>
+        <strong>Unbounded accumulation:</strong> The database grew monotonically; obsolete records diluted retrieval precision. Prune-decay mirrors human memory: unused knowledge fades, important knowledge persists.
+      </li>
+      <li>
+        <strong>No read-path visibility:</strong> There was no way to know whether a logged decision was ever surfaced. Observability turns "hoping the agent remembers" into "verifying it read it."
+      </li>
+      <li>
+        <strong>Advisory systems are ignored under pressure:</strong> Rules and documentation proved insufficient — agents skip optional steps when working fast. The pre-commit hook and omp extension make enforcement mechanical, not voluntary.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Signal over noise:</strong> Important, recent, frequently-consulted decisions rank first. Your agent sees what matters instead of everything equally.
+      </li>
+      <li>
+        <strong>Self-cleaning memory:</strong> No manual cleanup — unused decisions fade into the archive automatically.
+      </li>
+      <li>
+        <strong>Auditable advice:</strong> <code>doctor</code> tells you which records were never read, so you can fix retrieval gaps.
+      </li>
+      <li>
+        <strong>Conventions that can't be skipped:</strong> Error-severity violations are caught at commit time and edit time, not in review.
+      </li>
+    </ul>
+
+    <h3>Upgrading from v0.9.x</h3>
+    <pre><code>engrams migrate</code></pre>
+    <p>
+      The migration to schema v6 is <strong>fully additive</strong>. It adds four columns to the <code>decisions</code> and <code>system_patterns</code> tables:
+    </p>
+    <ul>
+      <li><code>importance</code> — <code>INTEGER NOT NULL DEFAULT 5</code> (all existing records get importance 5)</li>
+      <li><code>access_count</code> — <code>INTEGER NOT NULL DEFAULT 0</code> (all existing records start unread)</li>
+      <li><code>last_accessed_at</code> — <code>TEXT</code> (NULL until first surfaced by a read path)</li>
+      <li><code>archived</code> — <code>INTEGER NOT NULL DEFAULT 0</code> (no existing records are archived)</li>
+    </ul>
+    <p>
+      All existing decisions, patterns, links, and exports continue to work unchanged. No data is modified, no breaking changes. After migration, the new <code>prime</code>/<code>query</code>/<code>relevant</code> ranking takes effect immediately.
+    </p>
+    <p>
+      <strong>Optional:</strong> Enable enforcement with <code>engrams install --harness omp --hooks</code> to install both the git pre-commit hook and the omp edit-time extension.
+    </p>
+  </div>
   <h2>v0.9.0</h2>
   <div class="release-block">
     <h3>What was done</h3>
