@@ -98,6 +98,7 @@ pub fn pr_urls_map(conn: &Connection, item_type: &str) -> Result<HashMap<i64, Ve
 fn ref_item_exists(conn: &Connection, item_type: &RefItemType, id: i64) -> Result<bool> {
     let table = match item_type {
         RefItemType::Decision => "decisions",
+        RefItemType::ProgressEntry => "progress_entries",
         RefItemType::SystemPattern => "system_patterns",
     };
     let count: i64 = conn.query_row(

@@ -257,7 +257,7 @@ pub(crate) fn query_decisions(
 }
 
 pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Pattern>> {
-    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE archived = 0 ORDER BY id DESC LIMIT ?")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at FROM system_patterns WHERE archived = 0 ORDER BY id DESC LIMIT ?")?;
     let rows = stmt.query_map(params![limit], |row| {
         let tags_str: Option<String> = row.get(4)?;
         let tags = match tags_str {
@@ -280,6 +280,13 @@ pub(crate) fn query_patterns(conn: &Connection, limit: i64) -> Result<Vec<Patter
             access_count: row.get(10)?,
             last_accessed_at: row.get(11)?,
             archived: row.get(12)?,
+            confidence: row.get(13)?,
+            effective_confidence: crate::ops::scoring::effective_confidence(
+                row.get::<_, f64>(13)?,
+                row.get::<_, Option<String>>(14)?.as_deref(),
+                &row.get::<_, String>(5)?,
+            ),
+            last_confirmed_at: row.get(14)?,
             score: None,
         })
     })?;

@@ -8,6 +8,75 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.11.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Consolidation (<code>consolidate</code> command):</strong> Repeated work graduates into knowledge automatically. <code>engrams consolidate</code> clusters <code>Done</code> progress entries that share file anchors and span enough distinct days into a <strong>candidate</strong> pattern — named <code>consolidated-&lt;path-stem&gt;</code>, tagged <code>consolidated</code>, with an initial confidence score. Propose-only by default; <code>--apply</code> inserts the pattern plus <code>derived_from</code> evidence links back to every progress entry it came from. Re-running against new evidence <strong>confirms</strong> existing consolidated patterns (bumps <code>last_confirmed_at</code>, attaches the new evidence) instead of duplicating them. Tunables: <code>--min-repeats</code> (default 3), <code>--min-days</code> (default 2).
+      </li>
+      <li>
+        <strong>Confidence with read-time decay:</strong> Patterns carry a stored <code>confidence</code> in (0, 1] and a <code>last_confirmed_at</code>. Effective confidence is computed at read time — <code>confidence × exp(−λ × days_since(last_confirmed_at))</code> reusing the same Ebbinghaus λ as retrieval scoring — so unconfirmed knowledge fades automatically, with no background jobs. <code>pattern list</code>/<code>get</code> expose both stored and effective values; <code>pattern update --confidence 0.8 --confirm</code> manages them. <code>prime</code>/<code>relevant</code> multiply pattern rank by effective confidence, so recently-confirmed knowledge outranks equally-important stale knowledge. Export/import round-trips both fields exactly.
+      </li>
+      <li>
+        <strong>Contradiction gate on <code>decision log</code>:</strong> The similarity check now classifies every hit: active near-duplicates suggest <code>conflicts_with</code>, and shared file anchors between them upgrade the suggestion to <code>supersedes</code>. Superseded/archived decisions no longer gate. Resolve inline with <code>--supersedes &lt;id&gt;</code> (inserts, flips the target to <code>superseded</code>, writes the link, skips the gate) or <code>--conflicts-with &lt;id&gt;</code> (inserts, links, both stay active). <code>--force</code> still bypasses everything.
+      </li>
+      <li>
+        <strong>Causal retrieval (<code>causes</code>/<code>caused_by</code> + <code>graph why</code>):</strong> <code>causes</code> joins the relationship ontology as a directed, transitive canonical rel with inverse <code>caused_by</code> (normalized to <code>causes</code> with endpoints swapped). <code>engrams graph why --node decision:7</code> answers "why did this happen" by walking the causal chain upstream to its roots; <code>--down</code> answers "what does this affect" downstream. Each chain entry reports depth and the edge description. Node references accept the CLI's hyphenated types (<code>system-pattern:2</code>) as well as short aliases (<code>pattern:2</code>).
+      </li>
+      <li>
+        <strong>Doctor advisories:</strong> <code>engrams doctor</code> reports <code>unconfirmed_patterns</code> — consolidated patterns (those with <code>derived_from</code> evidence) never confirmed or unconfirmed for more than 180 days — and cycles in the <code>causes</code> relation.
+      </li>
+      <li>
+        <strong>Progress-entry anchors:</strong> <code>engrams anchor add --type progress-entry --id &lt;n&gt; --path src/foo.rs</code> — progress entries can now carry file anchors, which is what consolidation clusters on.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>Progress journals don't compound:</strong> Done-entries pile up describing the same recurring work without ever becoming reusable guidance. Consolidation closes that loop: repetition detected → candidate pattern with provenance → human applies → future sessions inherit the lesson.
+      </li>
+      <li>
+        <strong>Unconfirmed knowledge is a liability:</strong> A pattern extracted once and never revisited silently rots. Read-time decay makes staleness a first-class, self-updating property instead of requiring maintenance jobs.
+      </li>
+      <li>
+        <strong>Contradictions were cheap to log:</strong> Agents re-decided settled questions because similar decisions surfaced without classification or a one-flag resolution path. The gate now hands you the relation and the fix in the same response.
+      </li>
+      <li>
+        <strong>"Why" questions had no path:</strong> The graph knew dependencies but not causality. <code>causes</code> + <code>why</code> turn hindsight queries into one command.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Memory that compiles itself:</strong> Do the same thing three times across two weeks and engrams drafts the pattern for you — with evidence.
+      </li>
+      <li>
+        <strong>Trust scores you can see:</strong> Every pattern shows stored vs. effective confidence; staleness is visible, not assumed.
+      </li>
+      <li>
+        <strong>One-flag conflict resolution:</strong> <code>--supersedes</code>/<code>--conflicts-with</code> settle near-duplicates at log time.
+      </li>
+      <li>
+        <strong>Causal hindsight:</strong> <code>graph why</code> traces any decision to its root causes or its downstream impact.
+      </li>
+    </ul>
+
+    <h3>Upgrading from v0.10.x</h3>
+    <pre><code>engrams migrate</code></pre>
+    <p>
+      The migration to schema v7 is <strong>fully additive</strong>: two columns on <code>system_patterns</code> —
+    </p>
+    <ul>
+      <li><code>confidence</code> — <code>REAL NOT NULL DEFAULT 1.0</code> (all existing patterns start at full trust)</li>
+      <li><code>last_confirmed_at</code> — <code>TEXT</code> (NULL; treated as the creation timestamp until first confirmation)</li>
+    </ul>
+    <p>
+      No existing data is modified. After migration, <code>consolidate</code>, the contradiction gate, <code>graph why</code>, and confidence-aware ranking are available immediately. To feed consolidation, attach anchors to <code>Done</code> progress entries as you log them.
+    </p>
+  </div>
   <h2>v0.10.0</h2>
   <div class="release-block">
     <h3>What was done</h3>

@@ -68,8 +68,9 @@ Repeatable flags (`--anchor`, `--pr`, `--path`) take the same option many times.
 | Neighbors within N hops | `engrams graph neighbors --node decision:7 --depth 2 [--rel <type>]` |
 | Shortest path A→B | `engrams graph path --from decision:7 --to system-pattern:2` |
 | Transitive closure ("what breaks if I revisit X?") | `engrams graph chain --node decision:7 --rel depends_on` |
+| Causal chain ("why did this happen?") | `engrams graph why --node decision:7` (upstream over `causes`; `--down` for downstream impact) |
 
-`graph chain` only accepts the four transitive canonical rels: `supersedes`, `depends_on`, `part_of`, `refines`. Nodes are addressed as `type:id` (e.g. `decision:7`).
+`graph chain` only accepts the five transitive canonical rels: `supersedes`, `depends_on`, `part_of`, `refines`, `causes`. Nodes are addressed as `type:id` (e.g. `decision:7`).
 
 
 ## Policy Engine — Checkable Patterns & Rule Export
@@ -129,6 +130,8 @@ Canonical `--rel` values and their rules (defined in `src/ops/graph/rel.rs`):
 | `conflicts_with` | symmetric | — | mutually exclusive |
 | `co_changes` | symmetric | — | derived from git co-change history |
 | `anchored_to` | directed | — | derived from file anchors |
+| `causes` | directed | ✓ | causal chain; `caused_by` normalizes to it (swapped); feeds `graph why` |
+| `derived_from` | directed | — | domain: `system_pattern` → range: `progress_entry`; consolidation evidence edges; `derives` normalizes to it (swapped) |
 
 Declared **inverse** edges (e.g. `superseded_by`, `depended_on_by`) are materialized automatically by `graph rebuild`. Non-canonical rel labels you invent are allowed, treated as symmetric for analytics, and surfaced by `engrams doctor` for vocabulary review.
 
@@ -199,3 +202,66 @@ engrams install --harness omp --hooks   # write rule files + pre-commit hook
 ```
 
 Installs `.git/hooks/pre-commit` which runs `engrams check --staged` before each commit. Violations at `error` severity block the commit (exit 1); `warn`/`info` violations are printed but don't block. Bypass with `git commit --no-verify`. The hook finds the engrams binary automatically by resolving the workspace root; delete the file to uninstall.
+
+## Consolidation, Contradiction Gate & Causal Retrieval (v0.11.0)
+
+Three tier-2 agent-memory features (spec `specs/agent-memory-0.11.0.md`, decision #53 roadmap): progress-entry consolidation into candidate patterns, a contradiction gate on `decision log`, and causal-chain retrieval.
+
+### Consolidation (`engrams consolidate`)
+
+```text
+engrams consolidate                   # propose only — reports candidates, writes nothing new
+engrams consolidate --apply           # insert candidate patterns (with evidence links + confidence)
+engrams consolidate --min-repeats 4   # minimum distinct evidence entries per cluster (default: 3)
+engrams consolidate --min-days 3      # minimum distinct calendar days spanned (default: 2)
+```
+
+Clusters `Done` progress entries that share anchor paths and span enough distinct days into a **candidate** `system_pattern` named `consolidated-<path-stem>`, tagged `consolidated`, with `initial_confidence = min(1.0, 0.5 + 0.15 × (n − min_repeats))` where `n` is the cluster's evidence count. `--apply` inserts the pattern plus:
+
+- `derived_from` evidence links (pattern → each progress entry) — the provenance graph
+- the shared anchor paths on the new pattern
+
+Re-running `consolidate` **confirms** existing consolidated patterns: new evidence on a pattern's anchors logged after its confirm anchor attaches fresh `derived_from` links and bumps `last_confirmed_at`. Confirmations run in both propose and `--apply` mode; re-runs are idempotent.
+
+The proposal also reports `merge_suggestions`: near-duplicate decision pairs (shared tag/anchor prefilter + FTS similarity). Suggestions are never auto-merged — resolve with `decision supersede <id> --by <id>` or `--conflicts-with`.
+
+### Pattern confidence & read-time decay
+
+Every pattern carries `confidence` (stored, `(0, 1]`, default 1.0) and `last_confirmed_at` (NULL until first confirmation). `pattern update <id> --confidence 0.65` sets the stored value; `--confirm` stamps `last_confirmed_at` (both are returned by `pattern list`/`get` alongside the decayed value):
+
+```text
+effective_confidence = confidence × exp(-LAMBDA × days_since(coalesce(last_confirmed_at, timestamp)))
+```
+
+Decay reuses the v0.10.0 recency `LAMBDA` (60-day half-life) and is computed **at read time** — no background jobs. `prime` and `relevant` multiply pattern ranking scores by `effective_confidence`, so recently confirmed patterns outrank stale ones with equal recency/importance.
+
+`engrams doctor` reports `unconfirmed_patterns`: consolidated patterns (with `derived_from` evidence) never confirmed or unconfirmed for more than 180 days.
+
+### Contradiction gate (`decision log`)
+
+`decision log` without `--force` blocks near-duplicate inserts (`inserted: false`) and classifies each similar **active** decision as a suggested resolution:
+
+- `supersedes` — the similar decision should give way to the new one
+- `conflicts_with` — both can stay; link them as mutually exclusive
+
+Classification prefers `supersedes` when the similar decision has no anchors, or shares an anchor with the new decision (`--anchor`), or shares a tag; `conflicts_with` otherwise. Superseded/archived near-duplicates are excluded from the gate.
+
+Resolve inline, skipping the gate:
+
+```text
+engrams decision log --summary "..." --supersedes 7      # insert + supersedes link; decision 7 flips to superseded
+engrams decision log --summary "..." --conflicts-with 7  # insert + conflicts_with link; both stay active
+```
+
+Both accept repeats (`--supersedes 7 --supersedes 9`). Targets are validated up front; missing ids fail before any write.
+
+### Causal retrieval (`graph why`)
+
+```text
+engrams graph why --node decision:7            # upstream: "why did this happen" (walk causes backwards)
+engrams graph why --node decision:7 --down     # downstream: "what does this affect"
+```
+
+Transitive walk over `causes` (use `caused_by` in `link add`; it normalizes to canonical `causes` with source/target swapped). Chain entries carry `depth`, `node`, and `via_edge_description` (the `--description` from the parent edge, when present). `roots` lists the chain's origin nodes — upstream roots are the ultimate causes, downstream roots the furthest impacts.
+
+Anchors can now attach to progress entries too: `engrams anchor add --type progress-entry --id <n> --path src/foo.rs` (required for consolidation clustering).

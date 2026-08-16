@@ -49,7 +49,9 @@ CREATE TABLE IF NOT EXISTS system_patterns (
   importance INTEGER NOT NULL DEFAULT 5,
   access_count INTEGER NOT NULL DEFAULT 0,
   last_accessed_at TEXT,
-  archived INTEGER NOT NULL DEFAULT 0
+  archived INTEGER NOT NULL DEFAULT 0,
+  confidence REAL NOT NULL DEFAULT 1.0,
+  last_confirmed_at TEXT
 );
 CREATE TABLE IF NOT EXISTS custom_data (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,4 +251,12 @@ ALTER TABLE system_patterns ADD COLUMN importance INTEGER NOT NULL DEFAULT 5;
 ALTER TABLE system_patterns ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE system_patterns ADD COLUMN last_accessed_at TEXT;
 ALTER TABLE system_patterns ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+"#;
+
+pub const MIGRATION_V7: &str = r#"
+-- v0.11.0 tier-2: consolidation confidence (spec S3).
+-- confidence: stored consolidation confidence (1.0 = full trust; decays at read time);
+-- last_confirmed_at: when confidence was last confirmed (NULL = creation timestamp).
+ALTER TABLE system_patterns ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0;
+ALTER TABLE system_patterns ADD COLUMN last_confirmed_at TEXT;
 "#;

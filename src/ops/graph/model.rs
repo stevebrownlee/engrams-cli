@@ -291,6 +291,47 @@ impl Graph {
         out
     }
 
+    /// Directed BFS over edges of a single rel, tracking the parent each
+    /// node was discovered from. `reverse` walks edges backwards (tgt → src).
+    /// Returns `(node, depth, parent)` in BFS order, excluding the start
+    /// node. Cycle-safe: each node is visited at most once.
+    pub fn transitive_reachable_traced(
+        &self,
+        start: &NodeKey,
+        rel: &str,
+        reverse: bool,
+    ) -> Vec<(NodeKey, u32, NodeKey)> {
+        let Some(&s) = self.index.get(start) else {
+            return Vec::new();
+        };
+        let n = self.nodes.len();
+        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for e in &self.edges {
+            if e.rel == rel {
+                if reverse {
+                    adj[e.tgt].push(e.src);
+                } else {
+                    adj[e.src].push(e.tgt);
+                }
+            }
+        }
+        let mut dist = vec![u32::MAX; n];
+        dist[s] = 0;
+        let mut queue = VecDeque::from([s]);
+        let mut out = Vec::new();
+        while let Some(u) = queue.pop_front() {
+            let d = dist[u];
+            for &v in &adj[u] {
+                if dist[v] == u32::MAX {
+                    dist[v] = d + 1;
+                    out.push((self.nodes[v].clone(), d + 1, self.nodes[u].clone()));
+                    queue.push_back(v);
+                }
+            }
+        }
+        out
+    }
+
     /// Directed cycles over the subgraph restricted to `rels` (e.g. the
     /// canonical transitive rels). Each cycle is reported once as a closed
     /// node path (first node repeated at the end). Self-loops are reported

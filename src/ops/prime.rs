@@ -193,9 +193,13 @@ pub fn handle(
     let mut patterns = Vec::new();
     let skip_patterns_query = !paths.is_empty() && pattern_ids.is_empty();
     if !skip_patterns_query {
-        let pat_score = crate::ops::scoring::score_expr("timestamp", "importance");
+        let pat_score = format!(
+            "({} * {})",
+            crate::ops::scoring::score_expr("timestamp", "importance"),
+            crate::ops::scoring::confidence_expr("confidence", "last_confirmed_at", "timestamp")
+        );
         let mut sql =
-            format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, {pat_score} AS score FROM system_patterns WHERE archived = 0");
+            format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at, {pat_score} AS score FROM system_patterns WHERE archived = 0");
         let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
 
         if !paths.is_empty() {
@@ -250,7 +254,14 @@ pub fn handle(
                 access_count: row.get(10)?,
                 last_accessed_at: row.get(11)?,
                 archived: row.get(12)?,
-                score: Some(row.get(13)?),
+                confidence: row.get(13)?,
+                last_confirmed_at: row.get(14)?,
+                effective_confidence: crate::ops::scoring::effective_confidence(
+                    row.get::<_, f64>(13)?,
+                    row.get::<_, Option<String>>(14)?.as_deref(),
+                    &row.get::<_, String>(5)?,
+                ),
+                score: Some(row.get(15)?),
             })
         })?;
 

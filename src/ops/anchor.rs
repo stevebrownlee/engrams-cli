@@ -65,6 +65,7 @@ pub fn anchors_map(conn: &Connection, item_type: &str) -> Result<HashMap<i64, Ve
 fn ref_item_exists(conn: &Connection, item_type: &RefItemType, id: i64) -> Result<bool> {
     let table = match item_type {
         RefItemType::Decision => "decisions",
+        RefItemType::ProgressEntry => "progress_entries",
         RefItemType::SystemPattern => "system_patterns",
     };
     let count: i64 = conn.query_row(
@@ -265,8 +266,12 @@ pub fn handle_relevant(
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
-        let pat_score = crate::ops::scoring::score_expr("timestamp", "importance");
-        let sql = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, {pat_score} AS score FROM system_patterns WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders);
+        let pat_score = format!(
+            "({} * {})",
+            crate::ops::scoring::score_expr("timestamp", "importance"),
+            crate::ops::scoring::confidence_expr("confidence", "last_confirmed_at", "timestamp")
+        );
+        let sql = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at, {pat_score} AS score FROM system_patterns WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders);
         let mut stmt = conn.prepare(&sql)?;
         let mut p = Vec::<&dyn rusqlite::ToSql>::new();
         for id in &pattern_ids {
@@ -294,7 +299,14 @@ pub fn handle_relevant(
                 access_count: row.get(10)?,
                 last_accessed_at: row.get(11)?,
                 archived: row.get(12)?,
-                score: Some(row.get(13)?),
+                confidence: row.get(13)?,
+                effective_confidence: crate::ops::scoring::effective_confidence(
+                    row.get::<_, f64>(13)?,
+                    row.get::<_, Option<String>>(14)?.as_deref(),
+                    &row.get::<_, String>(5)?,
+                ),
+                last_confirmed_at: row.get(14)?,
+                score: Some(row.get(15)?),
             })
         })?;
         for r in rows {

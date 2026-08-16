@@ -164,6 +164,37 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
         never_read.push(r?);
     }
 
+    // 4b. Unconfirmed consolidation products (v0.11.0 tier-2): patterns with
+    // derived_from evidence that were never confirmed or whose last
+    // confirmation is more than 180 days old (confidence has decayed).
+    let mut unconfirmed_patterns: Vec<Value> = Vec::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT p.id, p.name, p.last_confirmed_at, \
+             CAST(julianday('now') - julianday(p.last_confirmed_at) AS INTEGER) \
+             FROM system_patterns p \
+             WHERE p.archived = 0 \
+               AND EXISTS (SELECT 1 FROM context_links l \
+                           WHERE l.relationship_type = 'derived_from' \
+                             AND l.source_item_type = 'system_pattern' \
+                             AND l.source_item_id = p.id) \
+               AND (p.last_confirmed_at IS NULL \
+                    OR julianday('now') - julianday(p.last_confirmed_at) > 180) \
+             ORDER BY p.id ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, i64>(0)?,
+                "name": row.get::<_, String>(1)?,
+                "last_confirmed_at": row.get::<_, Option<String>>(2)?,
+                "days_since_confirmation": row.get::<_, Option<i64>>(3)?,
+            }))
+        })?;
+        for r in rows {
+            unconfirmed_patterns.push(r?);
+        }
+    }
+
     // 4c. Audit archived records (pruned by prune-decay)
     let archived_decisions: i64 = conn.query_row(
         "SELECT count(*) FROM decisions WHERE archived = 1",
@@ -211,9 +242,9 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
     };
 
     // 7. Graph advisory: cycles in canonical transitive relations
-    //    (supersedes, depends_on, part_of, refines).
+    //    (supersedes, depends_on, part_of, refines, causes).
     let mut cycles: Vec<Vec<String>> = graph
-        .cycles(&["supersedes", "depends_on", "part_of", "refines"])
+        .cycles(&["supersedes", "depends_on", "part_of", "refines", "causes"])
         .iter()
         .map(|cyc| cyc.iter().map(crate::ops::graph::model::fmt_node).collect())
         .collect();
@@ -241,7 +272,8 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
         && dangling_links.is_empty()
         && stale_decisions.is_empty()
         && unlinked_decisions.is_empty()
-        && never_read.is_empty();
+        && never_read.is_empty()
+        && unconfirmed_patterns.is_empty();
 
     Ok(serde_json::json!({
         "missing_anchor_paths": missing_anchor_paths,
@@ -249,6 +281,7 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
         "stale_decisions": stale_decisions,
         "unlinked_decisions": unlinked_decisions,
         "never_read": never_read,
+        "unconfirmed_patterns": unconfirmed_patterns,
         "archived": {
             "decisions": archived_decisions,
             "patterns": archived_patterns,

@@ -7,7 +7,7 @@ This project uses the `engrams` CLI (local SQLite) to persist decisions, pattern
 - **Session start:** `engrams prime` — load context (mandatory before any other step).
 - **Before editing files:** `engrams advise <paths>` — get only actionable constraints and violations for those files (compact; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
 - **Before designing or fixing:** `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` — find prior decisions and patterns so you don't re-litigate settled choices.
-- **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> --importance 8` — log immediately. Set importance (0–10) to influence retrieval ranking. To supersede: `engrams decision supersede <old-id> --by <new-id>`, then `engrams link add --rel supersedes` to connect them in the graph.
+- **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> --importance 8` — log immediately. Set importance (0–10) to influence retrieval ranking. A contradiction gate blocks near-duplicate active decisions and suggests `supersedes`/`conflicts_with`; resolve inline with `--supersedes <id>` / `--conflicts-with <id>` (or `--force` to bypass). To supersede after the fact: `engrams decision supersede <old-id> --by <new-id>`.
 - **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor <path>` — make it machine-enforceable, not just prose.
 - **Before committing:** `engrams check --staged` — scan staged files for violations against registered patterns (exits 1 on violations).
 - **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`). Add `--hooks` to also install a git pre-commit hook running `engrams check --staged`.
@@ -20,8 +20,10 @@ This project uses the `engrams` CLI (local SQLite) to persist decisions, pattern
 | Log task progress | `engrams progress log --status <Status> --description "..."` |
 | Hand off context | `engrams active-context update --patch '<json>'` (merge) · `--content` (replace) |
 | List patterns | `engrams pattern list [--tags a,b]` |
-| Attach file anchors | `engrams anchor add --type <decision|system-pattern> --id <n> --path <path>` |
+| Attach file anchors | `engrams anchor add --type <decision|progress-entry|system-pattern> --id <n> --path <path>` |
 | Attach PR reference | `engrams pr add --type <decision|system-pattern> --id <n> --pr <n_or_url>` |
+| Promote repeated progress into patterns | `engrams consolidate [--apply]` — propose by default; `--apply` inserts with evidence links + confidence |
+| Causal chain ("why"/impact) | `engrams graph why --node decision:7 [--down]` |
 | Bulk operations | `engrams batch --type <decision|progress|pattern|custom-data> --items <json_or_->` |
 | Export to Markdown | `engrams export [--path <dir>]` |
 | Export rules (no install) | `engrams rules export --harness omp [--out <DIR>]` |

@@ -220,10 +220,15 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .unwrap_or(0);
         let last_accessed_at = json.get("last_accessed_at").and_then(|v| v.as_str());
         let archived = json.get("archived").and_then(|v| v.as_i64()).unwrap_or(0);
+        let confidence = json
+            .get("confidence")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+        let last_confirmed_at = json.get("last_confirmed_at").and_then(|v| v.as_str());
 
         tx.execute(
-            "INSERT INTO system_patterns (id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity, importance=excluded.importance, access_count=excluded.access_count, last_accessed_at=excluded.last_accessed_at, archived=excluded.archived",
-            params![id, uuid, name, description, tags_json, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived],
+            "INSERT INTO system_patterns (id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity, importance=excluded.importance, access_count=excluded.access_count, last_accessed_at=excluded.last_accessed_at, archived=excluded.archived, confidence=excluded.confidence, last_confirmed_at=excluded.last_confirmed_at",
+            params![id, uuid, name, description, tags_json, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at],
         )?;
         Ok(())
     })?;

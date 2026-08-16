@@ -1,17 +1,22 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-10T01:12:42Z
+created: 2026-08-16T20:54:52Z
 ---
 # Active Context
 
 ```json
 {
   "content": {
+    "current_focus": "v0.11.0 tier-2 agent memory shipped on main: consolidate + contradiction gate + causal retrieval",
     "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
     "focus": "All tier-1 concepts implemented. Ready to commit.",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
+    "next": [
+      "tag v0.11.0 + CI build + Formula sha256 update",
+      "review consolidate merge_suggestions from dogfood run (10 pairs)"
+    ],
     "next_steps": "v0.9.0 release complete. Consider merging harness branch to main and opening a PR.",
     "notes": {
       "decisions_latest": "#50 hero title, #51 ScrollStory removal",
@@ -38,7 +43,7 @@ created: 2026-08-10T01:12:42Z
     }
   },
   "name": "default",
-  "updated_at": "2026-08-10T01:12:42Z",
-  "version": 38
+  "updated_at": "2026-08-16T20:54:52Z",
+  "version": 39
 }
 ```

@@ -71,6 +71,13 @@ pub struct Pattern {
     pub score: Option<f64>,
     #[serde(skip_serializing_if = "is_zero")]
     pub archived: i64,
+    /// Stored consolidation confidence in (0, 1]; 1.0 = full trust.
+    pub confidence: f64,
+    /// When confidence was last confirmed; NULL = treat creation timestamp as anchor.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_confirmed_at: Option<String>,
+    /// Read-time confidence: stored value decayed from its last confirmation.
+    pub effective_confidence: f64,
 }
 
 #[derive(Serialize)]

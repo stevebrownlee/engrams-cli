@@ -65,6 +65,38 @@ pub fn query_score_expr(ts_col: &str, imp_col: &str) -> String {
     )
 }
 
+/// Read-time consolidation confidence (v0.11.0 tier-2): stored confidence
+/// decayed exponentially from its last confirmation. Reuses `LAMBDA`
+/// (60-day half-life) per spec §4.2. A NULL `last_confirmed_at` anchors
+/// decay at the creation `timestamp`. Clamped to [0, 1]; negative ages
+/// (clock skew) are treated as 0.
+pub fn effective_confidence(
+    confidence: f64,
+    last_confirmed_at: Option<&str>,
+    timestamp: &str,
+) -> f64 {
+    let anchor = last_confirmed_at.unwrap_or(timestamp);
+    let age_days = chrono::DateTime::parse_from_rfc3339(anchor)
+        .ok()
+        .map(|t| (Utc::now() - t.with_timezone(&Utc)).num_seconds() as f64 / 86_400.0)
+        .unwrap_or(0.0)
+        .max(0.0);
+    (confidence * (-LAMBDA * age_days).exp()).clamp(0.0, 1.0)
+}
+
+/// SQL multiplier form of `effective_confidence` for ranking queries:
+/// `confidence * exp(-LAMBDA * days_since(coalesce(last_confirmed_at, timestamp)))`,
+/// floored at age 0 so clock skew cannot inflate confidence.
+pub fn confidence_expr(conf_col: &str, confirmed_col: &str, ts_col: &str) -> String {
+    format!(
+        "({conf} * exp(-{LAM} * max(0.0, julianday('now') - julianday(coalesce({conf_at}, {ts})))))",
+        conf = conf_col,
+        LAM = LAMBDA,
+        conf_at = confirmed_col,
+        ts = ts_col,
+    )
+}
+
 /// Reinforce-on-read: bump `access_count` and set `last_accessed_at` for the given
 /// item IDs in `table` (one of `decisions` / `system_patterns`). No-op on an empty list.
 pub fn reinforce(conn: &Connection, table: &str, ids: &[i64]) -> Result<()> {

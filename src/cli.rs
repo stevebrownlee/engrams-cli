@@ -220,6 +220,11 @@ pub enum Command {
 
     /// Archive decayed decisions and patterns (prune-decay)
     Prune(PruneCmd),
+
+    /// Promote repeated progress entries into candidate patterns (tier-2
+    /// consolidation). Proposes by default; confirmations are applied, and
+    /// `--apply` also inserts candidates with evidence links.
+    Consolidate(ConsolidateCmd),
 }
 
 #[derive(Args, Debug)]
@@ -230,6 +235,20 @@ pub struct PruneCmd {
     /// Show what would be pruned without archiving
     #[arg(long)]
     pub dry_run: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct ConsolidateCmd {
+    /// Insert candidates as patterns with derived_from evidence links
+    /// (default: propose only)
+    #[arg(long)]
+    pub apply: bool,
+    /// Minimum distinct evidence entries per cluster (default: 3)
+    #[arg(long, default_value_t = 3)]
+    pub min_repeats: i64,
+    /// Minimum distinct calendar days spanned by a cluster (default: 2)
+    #[arg(long, default_value_t = 2)]
+    pub min_days: i64,
 }
 
 #[derive(Subcommand, Debug)]
@@ -307,9 +326,26 @@ pub enum GraphCmd {
         /// Start node item id (requires --item-type)
         #[arg(long, requires = "item_type")]
         item_id: Option<String>,
-        /// Canonical transitive relationship (supersedes, depends_on, part_of, refines)
+        /// Canonical transitive relationship (supersedes, depends_on, part_of, refines, causes)
         #[arg(long)]
         rel: String,
+    },
+    /// Upstream causal chain ('why did this happen'); --down for impact
+    Why {
+        /// Seed node (type:id); alternative to --node/--item-type/--item-id
+        target: Option<String>,
+        /// Seed node (type:id); alternative to positional target
+        #[arg(long, conflicts_with_all = ["target", "item_type", "item_id"])]
+        node: Option<String>,
+        /// Seed node item type (requires --item-id)
+        #[arg(long, requires = "item_id", conflicts_with_all = ["target", "node"])]
+        item_type: Option<String>,
+        /// Seed node item id (requires --item-type)
+        #[arg(long, requires = "item_type", conflicts_with_all = ["target", "node"])]
+        item_id: Option<String>,
+        /// Follow causes forward (impact analysis) instead of upstream
+        #[arg(long)]
+        down: bool,
     },
 }
 
@@ -411,6 +447,14 @@ pub enum DecisionCmd {
         /// Importance weight 0-10 for retrieval scoring (default: 5)
         #[arg(long)]
         importance: Option<i64>,
+        /// Mark the given decision id as superseded by this new one
+        /// (implies intent; skips the similarity gate, writes a supersedes link)
+        #[arg(long)]
+        supersedes: Option<i64>,
+        /// Link this decision as conflicting with the given decision id(s)
+        /// (skips the similarity gate, writes symmetric conflicts_with links)
+        #[arg(long = "conflicts-with")]
+        conflicts_with: Vec<i64>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -581,6 +625,21 @@ pub enum PatternCmd {
         #[arg(long)]
         severity: Option<String>,
         /// Importance weight 0-10 for retrieval scoring (default: 5)
+        #[arg(long)]
+        importance: Option<i64>,
+    },
+    /// Update a pattern (confidence, confirmation, description, importance)
+    Update {
+        id: i64,
+        /// Stored consolidation confidence in (0, 1]; re-anchors last_confirmed_at to now
+        #[arg(long)]
+        confidence: Option<f64>,
+        /// Refresh last_confirmed_at to now without changing stored confidence
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long)]
+        description: Option<String>,
+        /// Importance weight 0-10 for retrieval scoring
         #[arg(long)]
         importance: Option<i64>,
     },
@@ -801,6 +860,7 @@ pub enum AnchorCmd {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum RefItemType {
     Decision,
+    ProgressEntry,
     SystemPattern,
 }
 
@@ -808,6 +868,7 @@ impl RefItemType {
     pub fn as_str(&self) -> &'static str {
         match self {
             RefItemType::Decision => "decision",
+            RefItemType::ProgressEntry => "progress_entry",
             RefItemType::SystemPattern => "system_pattern",
         }
     }

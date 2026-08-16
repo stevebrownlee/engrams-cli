@@ -102,7 +102,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
         }
         PatternCmd::List { tags, limit } => {
             if tags.is_empty() {
-                let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns ORDER BY id DESC LIMIT ?")?;
+                let mut stmt = conn.prepare("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at FROM system_patterns ORDER BY id DESC LIMIT ?")?;
                 let rows = stmt.query_map(params![limit], parse_pattern_row)?;
                 let mut results = Vec::new();
                 for r in rows {
@@ -117,7 +117,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
                 Ok(serde_json::to_value(results)?)
             } else {
                 let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let query = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({})) ORDER BY id DESC LIMIT ?", placeholders);
+                let query = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at FROM system_patterns WHERE EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({})) ORDER BY id DESC LIMIT ?", placeholders);
                 let mut stmt = conn.prepare(&query)?;
                 let mut p = Vec::<&dyn rusqlite::ToSql>::new();
                 for tag in &tags {
@@ -173,6 +173,67 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
                 "links_removed": links_removed
             }))
         }
+        PatternCmd::Update {
+            id,
+            confidence,
+            confirm,
+            description,
+            importance,
+        } => {
+            let _: i64 = conn
+                .query_row(
+                    "SELECT id FROM system_patterns WHERE id = ?",
+                    params![id],
+                    |r| r.get(0),
+                )
+                .optional()?
+                .context(format!("pattern {} not found", id))?;
+
+            let mut sets = Vec::new();
+            let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
+            let now = now();
+            let c_val: f64;
+            if let Some(c) = confidence {
+                if c <= 0.0 || c > 1.0 {
+                    anyhow::bail!("confidence must be in (0, 1]");
+                }
+                c_val = c;
+                sets.push("confidence = ?");
+                params_vec.push(&c_val);
+                sets.push("last_confirmed_at = ?");
+                params_vec.push(&now);
+            }
+            if confirm {
+                sets.push("last_confirmed_at = ?");
+                params_vec.push(&now);
+            }
+            if let Some(d) = &description {
+                sets.push("description = ?");
+                params_vec.push(d);
+            }
+            let imp_val: i64;
+            if let Some(imp) = importance {
+                if !(0..=10).contains(&imp) {
+                    anyhow::bail!("importance must be between 0 and 10");
+                }
+                imp_val = imp;
+                sets.push("importance = ?");
+                params_vec.push(&imp_val);
+            }
+            if sets.is_empty() {
+                anyhow::bail!(
+                    "nothing to update: pass --confidence, --confirm, --description, or --importance"
+                );
+            }
+            let sql = format!(
+                "UPDATE system_patterns SET {} WHERE id = ?",
+                sets.join(", ")
+            );
+            params_vec.push(&id);
+            conn.execute(&sql, rusqlite::params_from_iter(params_vec))?;
+
+            get_pattern(conn, id)
+        }
     }
 }
 
@@ -182,6 +243,14 @@ pub(crate) fn parse_pattern_row(row: &rusqlite::Row) -> rusqlite::Result<Pattern
         Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
         None => Value::Null,
     };
+    let confidence: f64 = row.get(13)?;
+    let last_confirmed_at: Option<String> = row.get(14)?;
+    let timestamp: String = row.get(5)?;
+    let effective_confidence = crate::ops::scoring::effective_confidence(
+        confidence,
+        last_confirmed_at.as_deref(),
+        &timestamp,
+    );
 
     Ok(Pattern {
         id: row.get(0)?,
@@ -189,7 +258,7 @@ pub(crate) fn parse_pattern_row(row: &rusqlite::Row) -> rusqlite::Result<Pattern
         name: row.get(2)?,
         description: row.get(3)?,
         tags: if tags.is_null() { None } else { Some(tags) },
-        timestamp: row.get(5)?,
+        timestamp,
         check_kind: row.get(6)?,
         check_expr: row.get(7)?,
         severity: row.get(8)?,
@@ -199,13 +268,16 @@ pub(crate) fn parse_pattern_row(row: &rusqlite::Row) -> rusqlite::Result<Pattern
         access_count: row.get(10)?,
         last_accessed_at: row.get(11)?,
         archived: row.get(12)?,
+        confidence,
+        effective_confidence,
+        last_confirmed_at,
         score: None,
     })
 }
 
 fn get_pattern(conn: &Connection, id: i64) -> Result<Value> {
     let mut stmt = conn.prepare(
-        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived FROM system_patterns WHERE id = ?",
+        "SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at FROM system_patterns WHERE id = ?",
     )?;
     let mut pattern = stmt
         .query_row(params![id], parse_pattern_row)

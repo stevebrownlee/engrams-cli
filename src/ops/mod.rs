@@ -3,6 +3,7 @@ pub mod advise;
 pub mod anchor;
 pub mod batch;
 pub mod check;
+pub mod consolidate;
 pub mod context;
 pub mod custom;
 pub mod decision;
@@ -93,6 +94,9 @@ pub fn dispatch(
         }
         Command::Advise { paths, staged } => advise::handle(conn, paths, staged, db_path),
         Command::Prune(cmd) => prune::handle(conn, cmd),
+        Command::Consolidate(cmd) => {
+            consolidate::handle(conn, cmd.apply, cmd.min_repeats, cmd.min_days)
+        }
         Command::Prime {
             budget,
             paths,

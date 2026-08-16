@@ -24,6 +24,8 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             prs,
             anchors,
             importance,
+            supersedes,
+            conflicts_with,
         } => {
             let status = status.unwrap_or_else(|| "active".to_string());
             let status_overridden = crate::ops::status::check(
@@ -38,9 +40,18 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr)?);
             }
 
-            if !force {
+            // Resolution flags imply intent: validate targets, then skip the gate.
+            if let Some(old) = supersedes {
+                ensure_decision_exists(conn, old)?;
+            }
+            for cid in &conflicts_with {
+                ensure_decision_exists(conn, *cid)?;
+            }
+
+            if !force && supersedes.is_none() && conflicts_with.is_empty() {
                 let similar = find_similar(conn, &summary, 5)?;
                 if !similar.is_empty() {
+                    let similar = classify_hits(conn, similar, &anchors)?;
                     return Ok(serde_json::json!({
                         "inserted": false,
                         "similar": similar,
@@ -58,26 +69,47 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let commit_sha = crate::ops::git::head_sha();
 
-            conn.execute(
+            let tx = conn.unchecked_transaction()?;
+            tx.execute(
                 "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha, importance) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha, importance.unwrap_or(5)],
             )?;
 
-            let id = conn.last_insert_rowid();
+            let id = tx.last_insert_rowid();
 
             if !resolved_prs.is_empty() {
-                crate::ops::pr::attach(conn, "decision", id, &resolved_prs)?;
+                crate::ops::pr::attach(&tx, "decision", id, &resolved_prs)?;
             }
             if !anchors.is_empty() {
-                crate::ops::anchor::attach(conn, "decision", id, &anchors)?;
+                crate::ops::anchor::attach(&tx, "decision", id, &anchors)?;
             }
-            crate::ops::graph::rebuild::touch_item(conn, "decision", id)?;
+            crate::ops::graph::rebuild::touch_item(&tx, "decision", id)?;
+
+            if let Some(old) = supersedes {
+                tx.execute(
+                    "UPDATE decisions SET status = 'superseded' WHERE id = ?",
+                    params![old],
+                )?;
+                insert_link_if_absent(&tx, "decision", id, "decision", old, "supersedes")?;
+            }
+            for cid in &conflicts_with {
+                insert_link_if_absent(&tx, "decision", id, "decision", *cid, "conflicts_with")?;
+            }
+
+            tx.commit()?;
 
             let mut decision = get_decision(conn, id)?;
             if let Value::Object(map) = &mut decision {
                 map.insert("inserted".into(), Value::Bool(true));
                 if status_overridden {
                     map.insert("overrides".into(), serde_json::json!(["status_vocabulary"]));
+                }
+                if let Some(old) = supersedes {
+                    map.insert("superseded_id".into(), serde_json::json!(old));
+                    map.insert("superseded_decision".into(), get_decision(conn, old)?);
+                }
+                if !conflicts_with.is_empty() {
+                    map.insert("conflicts_with".into(), serde_json::json!(conflicts_with));
                 }
             }
             Ok(decision)
@@ -491,7 +523,7 @@ fn get_decision(conn: &Connection, id: i64) -> Result<Value> {
 
 /// Query FTS5 for decisions with similar summaries.
 /// Uses OR between tokens so any shared term surfaces a match, ranked by BM25.
-fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Result<Vec<Decision>> {
+pub(crate) fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Result<Vec<Decision>> {
     // Keep tokens ≥ 3 chars but exclude common English stopwords.
     // Short technical terms like CLI, API, SQL are preserved.
     const STOPWORDS: &[&str] = &[
@@ -521,7 +553,7 @@ fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Result<Vec<Deci
     let mut stmt = conn.prepare(
         "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
          FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
-         WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
+         WHERE decisions_fts MATCH ?1 AND d.status = 'active' AND d.archived = 0 \
          ORDER BY rank LIMIT ?2",
     )?;
     let rows = stmt.query_map(params![match_expr, limit], parse_decision_row)?;
@@ -530,6 +562,111 @@ fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Result<Vec<Deci
         results.push(r?);
     }
     Ok(results)
+}
+
+/// Lowercased content tokens shared by two summaries, using the same
+/// tokenizer as the similarity gate. Exposed for consolidate's
+/// merge-suggestion output.
+pub(crate) fn shared_terms(a: &str, b: &str) -> Vec<String> {
+    const STOPWORDS: &[&str] = &[
+        "for", "the", "and", "but", "not", "its", "are", "was", "has", "this", "that", "with",
+        "from", "will", "been", "have", "were", "they", "then", "than", "when", "what", "which",
+        "their", "into", "also", "each", "does", "these", "those", "such", "only", "some", "very",
+        "just", "over", "both", "more",
+    ];
+    let b_tokens: std::collections::HashSet<String> = b
+        .split_whitespace()
+        .filter(|t| t.len() >= 3 && !STOPWORDS.contains(&t.to_lowercase().as_str()))
+        .map(|t| t.to_lowercase())
+        .collect();
+    let mut out: Vec<String> = a
+        .split_whitespace()
+        .filter(|t| t.len() >= 3 && !STOPWORDS.contains(&t.to_lowercase().as_str()))
+        .map(|t| t.to_lowercase())
+        .filter(|t| b_tokens.contains(t))
+        .collect();
+    out.sort();
+    out.dedup();
+    out.truncate(6);
+    out
+}
+
+/// Ensure a decision exists, for validating resolution-flag targets.
+fn ensure_decision_exists(conn: &Connection, id: i64) -> Result<()> {
+    let _: i64 = conn
+        .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
+            r.get(0)
+        })
+        .optional()?
+        .with_context(|| format!("decision {} not found", id))?;
+    Ok(())
+}
+
+/// Insert a manual context link unless an identical edge already exists.
+pub(crate) fn insert_link_if_absent(
+    conn: &Connection,
+    src_type: &str,
+    src_id: i64,
+    tgt_type: &str,
+    tgt_id: i64,
+    rel: &str,
+) -> Result<()> {
+    let exists: bool = conn.query_row(
+        "SELECT count(*) FROM context_links \
+         WHERE source_item_type = ?1 AND source_item_id = ?2 \
+         AND target_item_type = ?3 AND target_item_id = ?4 \
+         AND relationship_type = ?5",
+        params![
+            src_type,
+            src_id.to_string(),
+            tgt_type,
+            tgt_id.to_string(),
+            rel
+        ],
+        |row| row.get(0),
+    )?;
+    if !exists {
+        let timestamp = now();
+        conn.execute(
+            "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) \
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6)",
+            params![src_type, src_id.to_string(), tgt_type, tgt_id.to_string(), rel, timestamp],
+        )?;
+    }
+    Ok(())
+}
+
+/// Classify similarity-gate hits (S6): a hit sharing at least one file
+/// anchor with the incoming decision is a supersession candidate
+/// (`suggested_relation: supersedes`); otherwise a conflict candidate.
+fn classify_hits(
+    conn: &Connection,
+    hits: Vec<Decision>,
+    new_anchors: &[String],
+) -> Result<Vec<Value>> {
+    let cleaned: std::collections::HashSet<String> = new_anchors
+        .iter()
+        .map(|p| crate::ops::anchor::clean_path(p))
+        .collect();
+    let mut out = Vec::with_capacity(hits.len());
+    for hit in hits {
+        let hit_anchors = crate::ops::anchor::anchors_for(conn, "decision", hit.id)?;
+        let shared = hit_anchors.iter().filter(|a| cleaned.contains(*a)).count();
+        let mut v = serde_json::to_value(&hit)?;
+        if let Value::Object(map) = &mut v {
+            map.insert(
+                "suggested_relation".into(),
+                serde_json::json!(if shared > 0 {
+                    "supersedes"
+                } else {
+                    "conflicts_with"
+                }),
+            );
+            map.insert("shared_anchors".into(), serde_json::json!(shared));
+        }
+        out.push(v);
+    }
+    Ok(out)
 }
 
 /// Merge two optional text fields. If both present, concatenate with a separator.

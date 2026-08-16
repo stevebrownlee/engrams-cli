@@ -140,6 +140,28 @@ const RELS: &[RelSpec] = &[
         functional_to: false,
         disjoint_with: &[],
     },
+    RelSpec {
+        canonical: "causes",
+        symmetry: Symmetry::Directed,
+        transitive: true,
+        inverse: Some("caused_by"),
+        domain: &[],
+        range: &[],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
+    },
+    RelSpec {
+        canonical: "derived_from",
+        symmetry: Symmetry::Directed,
+        transitive: false,
+        inverse: Some("derives"),
+        domain: &["system_pattern"],
+        range: &["progress_entry"],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
+    },
 ];
 
 /// Look up a canonical relationship spec by its canonical name.
@@ -261,5 +283,27 @@ mod tests {
             assert!(spec.domain.is_empty(), "{name} domain should be empty");
             assert!(spec.range.is_empty(), "{name} range should be empty");
         }
+    }
+
+    #[test]
+    fn causes_spec_and_normalization() {
+        let causes = lookup("causes").unwrap();
+        assert!(causes.transitive);
+        assert!(!causes.same_type);
+        assert!(!causes.functional_to);
+        assert!(causes.domain.is_empty() && causes.range.is_empty());
+        assert_eq!(causes.inverse, Some("caused_by"));
+        assert_eq!(normalize("caused_by"), ("causes".to_string(), true));
+        assert_eq!(normalize("causes"), ("causes".to_string(), false));
+    }
+
+    #[test]
+    fn derived_from_domain_range() {
+        let spec = lookup("derived_from").unwrap();
+        assert!(!spec.transitive);
+        assert_eq!(spec.domain, ["system_pattern"]);
+        assert_eq!(spec.range, ["progress_entry"]);
+        assert_eq!(spec.inverse, Some("derives"));
+        assert_eq!(normalize("derives"), ("derived_from".to_string(), true));
     }
 }

@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::Result;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 use crate::cli::GraphCmd;
@@ -47,10 +47,19 @@ pub fn handle(conn: &mut Connection, cmd: GraphCmd, _db_path: &Path) -> Result<V
             item_id,
             rel,
         } => chain(conn, node, item_type, item_id, &rel),
+        GraphCmd::Why {
+            target,
+            node,
+            item_type,
+            item_id,
+            down,
+        } => why(conn, target.or(node), item_type, item_id, down),
     }
 }
 
-/// Parse a `type:id` node reference, expanding short aliases.
+/// Parse a `type:id` node reference, expanding short aliases and accepting
+/// both the CLI's hyphenated item types (`system-pattern`) and the store's
+/// underscored forms (`system_pattern`).
 pub fn parse_node(s: &str) -> Result<NodeKey> {
     let (ty, id) = s
         .split_once(':')
@@ -59,9 +68,9 @@ pub fn parse_node(s: &str) -> Result<NodeKey> {
         anyhow::bail!("invalid node reference '{}' (expected type:id)", s);
     }
     let ty = match ty {
-        "pattern" => "system_pattern",
-        "progress" => "progress_entry",
-        "custom" => "custom_data",
+        "pattern" | "system-pattern" | "system_pattern" => "system_pattern",
+        "progress" | "progress-entry" | "progress_entry" => "progress_entry",
+        "custom" | "custom-data" | "custom_data" => "custom_data",
         other => other,
     };
     Ok((ty.to_string(), id.to_string()))
@@ -251,7 +260,7 @@ fn chain(
 ) -> Result<Value> {
     if !rel::lookup(rel).map(|s| s.transitive).unwrap_or(false) {
         anyhow::bail!(
-            "rel '{}' is not a canonical transitive relationship (supersedes, depends_on, part_of, refines)",
+            "rel '{}' is not a canonical transitive relationship (supersedes, depends_on, part_of, refines, causes)",
             rel
         );
     }
@@ -275,4 +284,71 @@ fn chain(
             n
         }).collect::<Vec<_>>(),
     }))
+}
+
+/// `graph why`: upstream causal chain over `causes` (transitive, reverse
+/// walk), or downstream impact with `--down`. Roots are chain nodes that
+/// are not the parent of any other chain node.
+fn why(
+    conn: &Connection,
+    node: Option<String>,
+    item_type: Option<String>,
+    item_id: Option<String>,
+    down: bool,
+) -> Result<Value> {
+    let key = match (node, item_type, item_id) {
+        (Some(n), None, None) => parse_node(&n)?,
+        (None, Some(t), Some(i)) => parse_node(&format!("{}:{}", t, i))?,
+        _ => anyhow::bail!("why requires a node (type:id) or --item-type + --item-id"),
+    };
+    let g = model::load(conn)?;
+    if !g.contains(&key) {
+        anyhow::bail!("unknown node '{}'", model::fmt_node(&key));
+    }
+    let paths = code_paths(conn)?;
+    let traced = g.transitive_reachable_traced(&key, "causes", !down);
+    let mut chain = Vec::with_capacity(traced.len());
+    for (k, depth, parent) in &traced {
+        let mut n = node_json(k, &paths);
+        n["depth"] = json!(depth);
+        n["via_edge_description"] = edge_description(conn, "causes", parent, k, down)?;
+        chain.push(n);
+    }
+    // Roots: chain nodes that no other chain node was discovered from.
+    let roots = traced
+        .iter()
+        .filter(|(k, _, _)| !traced.iter().any(|(_, _, p)| p == k))
+        .map(|(k, _, _)| json!(model::fmt_node(k)))
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "node": model::fmt_node(&key),
+        "rel": "causes",
+        "direction": if down { "downstream" } else { "upstream" },
+        "chain": chain,
+        "roots": roots,
+    }))
+}
+
+/// Description of the `rel` edge between `a` and `b` in walk direction
+/// (`down`: a→b; upstream: b→a). Nodes without a stored link (e.g. code)
+/// yield null.
+fn edge_description(
+    conn: &Connection,
+    rel: &str,
+    a: &NodeKey,
+    b: &NodeKey,
+    down: bool,
+) -> Result<Value> {
+    let (src, tgt) = if down { (a, b) } else { (b, a) };
+    let desc = conn
+        .query_row(
+            "SELECT description FROM context_links \
+             WHERE relationship_type = ?1 AND source_item_type = ?2 AND source_item_id = ?3 \
+             AND target_item_type = ?4 AND target_item_id = ?5",
+            rusqlite::params![rel, src.0, src.1, tgt.0, tgt.1],
+            |r| r.get::<_, Option<String>>(0),
+        )
+        .optional()?
+        .flatten();
+    Ok(json!(desc))
 }
