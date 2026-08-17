@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-16T20:54:52Z
+created: 2026-08-17T03:26:02Z
 ---
 # Active Context
 
@@ -36,6 +36,7 @@ created: 2026-08-16T20:54:52Z
       "tests": "50 green"
     },
     "recent_work": "Released v0.9.0 — Policy Engine + Docs Revamp. Tag pushed, CI built 4 targets, GitHub release live with full notes, Formula bumped with verified sha256.",
+    "release_notes_style": "beginner-friendly 3-pillar breakdown (Consolidation & Decay, Contradiction Gate, Causal Hindsight)",
     "status": "Spec complete, implementation not started",
     "v0.10.0": {
       "status": "Done",
@@ -43,7 +44,7 @@ created: 2026-08-16T20:54:52Z
     }
   },
   "name": "default",
-  "updated_at": "2026-08-16T20:54:52Z",
-  "version": 39
+  "updated_at": "2026-08-17T03:26:02Z",
+  "version": 40
 }
 ```
