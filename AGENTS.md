@@ -40,8 +40,8 @@ better anchors or tags rather than another file read.
 
 - **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context.
 - **Before editing files:** `engrams advise <paths>` — get only actionable constraints and violations for those files (compact, machine-readable; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
-- **Before designing or fixing:** `engrams query "<topic>"` · `engrams decision search "<term>" --snippets` — find prior decisions and patterns so you don't re-litigate settled choices.
-- **When you make a design choice:** `engrams decision log --summary "..." --rationale "..." --tags a,b --anchor <path> [--pr <n>]` — log immediately, not at session end. A contradiction gate blocks near-duplicate active decisions and suggests `supersedes`/`conflicts_with`; resolve inline with `--supersedes <id>` / `--conflicts-with <id>` (or `--force` to bypass). To supersede after the fact: `engrams decision supersede <old-id> --by <new-id>`.
+- **Before designing or fixing:** `engrams brief "<topic>"` · `engrams query "<topic>" --full` · `engrams decision list --filter "<term>"` — composite context in one call; avoid litigating settled choices.
+- **When you make a design choice:** `engrams decision log --summary "..." [--contract "..."] --rationale "..." --tags a,b --anchor <path> [--pr <n>]` — log immediately, not at session end. Always declare `--contract` (signatures, struct shapes) when introducing an abstraction. A contradiction gate blocks near-duplicate active decisions and suggests `supersedes`/`conflicts_with`; resolve inline with `--supersedes <id>` / `--conflicts-with <id>` (or `--force` to bypass). To supersede after the fact: `engrams decision supersede <old-id> --by <new-id>`.
 - **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor src/ops` — make it machine-enforceable, not just prose.
 - **Before committing:** `engrams check --staged` — scan staged files for violations against registered patterns (exits 1 on violations). Use `--paths src/ops` for specific paths.
 - **Install enforceable rules for omp sessions:** `engrams install --harness omp` (writes `.omp/rules/`). Add `--hooks` to also install a git pre-commit hook running `engrams check --staged`.
@@ -54,15 +54,22 @@ Run `engrams advise <paths>` (or `--staged`) for the files you are about to edit
 
 | Goal | Command |
 |---|---|
+| Composite read | `engrams brief <node\|query> [--depth 1..3]` — summary, contract, anchors, symbols, 1-hop neighbors |
+| Usage telemetry | `engrams usage [--since <ts\|2w>] [--daily] [--misses]` — retrieval counts and zero-hit query ranking |
+| Knowledge coverage | `engrams coverage <paths> [--diff <base>...HEAD]` — fraction anchored, dead anchors, median hops |
+| Session ROI & PR gate | `engrams session close [--reads-skipped <n>] [--reads-required <n>] [--tokens-saved <n>] [--pr <n>]` |
+| Session history | `engrams session history` — cumulative reads saved and recent close rollups |
+| Decision curation | `engrams decision stats [--most-accessed] [--never-accessed] [--limit <n>]` |
+| PR reverse lookup | `engrams pr find <number\|url>` — which decisions/patterns reference a PR |
 | Relate items (graph) | `engrams link add --source-type <t> --source-id <n> --target-type <t> --target-id <n> --rel <canonical> [--description "..."]` |
 | Log task progress | `engrams progress log --status <Status> --description "..."` |
 | Hand off context | `engrams active-context update --patch '<json>'` (merge) · `--content` (replace) |
 | List patterns | `engrams pattern list [--tags a,b]` |
-| Attach file anchors | `engrams anchor add --type <decision|progress-entry|system-pattern> --id <n> --path <path>` |
-| Attach PR reference | `engrams pr add --type <decision|system-pattern> --id <n> --pr <n_or_url>` |
+| Attach file anchors | `engrams anchor add --type <decision\|progress-entry\|system-pattern> --id <n> --path <path>` |
+| Attach PR reference | `engrams pr add --type <decision\|system-pattern> --id <n> --pr <n_or_url>` |
 | Promote repeated progress into patterns | `engrams consolidate [--apply] [--min-repeats <n>] [--min-days <n>]` — propose by default; `--apply` inserts with evidence links + confidence; re-runs confirm |
 | Causal chain ("why"/impact) | `engrams graph why --node decision:7 [--down]` — transitive walk over `causes` |
-| Bulk operations | `engrams batch --type <decision|progress|pattern|custom-data> --items <json_or_->` |
+| Bulk operations | `engrams batch --type <decision\|progress\|pattern\|custom-data> --items <json_or_->` |
 | Export to Markdown | `engrams export [--path <dir>]` |
 | Export rules (no install) | `engrams rules export --harness omp [--out <DIR>]` |
 | Health check | `engrams doctor` |
