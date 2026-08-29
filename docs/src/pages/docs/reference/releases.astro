@@ -8,6 +8,71 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.12.0</h2>
+  <div class="release-block">
+    <h3>What was done</h3>
+    <ul>
+      <li>
+        <strong>Contracts on Decisions:</strong> Architectural decisions can now declare an explicit interface contract via <code>--contract</code> on <code>decision log</code> and <code>update</code> (and merged on <code>consolidate</code>). A write-time nudge reminds agents to specify contracts when introducing adapters, behaviors, or interfaces.
+      </li>
+      <li>
+        <strong>Code-Node Enrichment:</strong> <code>engrams graph rebuild</code> now automatically scans source files to extract exported symbols, module docstrings, and line counts onto code nodes in SQLite, rendered in <code>graph neighbors</code>.
+      </li>
+      <li>
+        <strong>One-Call Composite Brief (<code>brief</code> command):</strong> <code>engrams brief &lt;node|query&gt;</code> returns full decision text, contract, tags, PRs, anchors, drift status, and enriched 1-hop neighbors in a single call.
+      </li>
+      <li>
+        <strong>Miss-Guidance on Empty Queries:</strong> <code>engrams query</code> returns structured guidance (top tags, per-token hits, recent decisions, graph hubs) instead of a bare empty array when a search yields 0 hits.
+      </li>
+      <li>
+        <strong>Retrieval Economy &amp; Filtering:</strong> <code>engrams query --full</code> embeds complete payloads; <code>--fields</code> supports canonical aliases (<code>summary</code>, <code>name</code>); cross-convention FTS matches <code>snake_case</code>, <code>camelCase</code>, and <code>kebab-case</code> transparently; and <code>decision list --filter &lt;text&gt;</code> provides fast server-side filtering.
+      </li>
+      <li>
+        <strong>Staleness Drift Detection:</strong> Git-backed staleness scoring detects when anchored source files have been modified after a decision was logged, surfacing <code>stale: true/false</code> in <code>brief</code>, <code>advise</code>, and <code>relevant</code>.
+      </li>
+      <li>
+        <strong>Usage Telemetry &amp; Session Closure:</strong> Added automatic retrieval logging via <code>engrams usage</code> (with <code>--misses</code> and <code>--daily</code>), access count tracking across all paths including <code>decision get</code>, <code>decision stats</code>, <code>engrams coverage</code> (with <code>--diff</code>), <code>engrams pr find</code>, and <code>engrams session close</code> with automated PR linkage gates.
+      </li>
+      <li>
+        <strong>Graph Report Polish:</strong> <code>engrams report open</code> now outputs HTML reports to <code>/tmp</code> and features wider node repulsion spacing.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <ul>
+      <li>
+        <strong>The File-Reading Tax:</strong> Reading source files costs 5k–15k tokens while querying the knowledge base costs tens of tokens. Making the graph self-sufficient allows agents to formulate complete strategies without opening files.
+      </li>
+      <li>
+        <strong>Defensive Reads Stems from Distrust:</strong> When agents find incomplete or stale knowledge, they fall back to defensive file reading. Contracts, enriched code nodes, and staleness drift restore trust.
+      </li>
+      <li>
+        <strong>Curation Requires Telemetry:</strong> Tracking zero-hit queries and access counts gives maintainers the exact vocabulary gaps that cause agent fallbacks.
+      </li>
+    </ul>
+
+    <h3>Developer Benefits</h3>
+    <ul>
+      <li>
+        <strong>Zero-Read Strategy Formation:</strong> Formulate implementation plans purely from graph queries.
+      </li>
+      <li>
+        <strong>Convention-Agnostic Search:</strong> Search without worrying about identifier casing mismatches.
+      </li>
+      <li>
+        <strong>Verified PR Linkage:</strong> Enforce that PRs are linked to decisions and anchored code files at session close.
+      </li>
+    </ul>
+
+    <h3>Upgrading from v0.11.x</h3>
+    <pre><code>engrams migrate</code></pre>
+    <p>
+      Upgrades schema to v10 with additive columns (<code>contract</code> on decisions, code-node metadata, <code>usage_log</code>, and <code>session_closes</code>).
+    </p>
+  </div>
+
+  <hr />
+
   <h2>v0.11.0</h2>
   <div class="release-block">
     <h3>What was done</h3>
