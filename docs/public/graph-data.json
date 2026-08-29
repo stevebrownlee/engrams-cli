@@ -1,1 +1,1692 @@
-{"meta":{"generated":"2026-08-08","nodeCount":71,"linkCount":29,"byGroup":{"decision":33,"system_pattern":6,"progress_entry":32},"timeRange":["2026-07-10T12:35:17Z","2026-08-05T15:26:18Z"],"relTypes":["depends_on","extends","implements","part_of","refines","relates_to","supersedes","supports","uses"],"viewBox":[1000,620],"note":"Filtered to feature/product work; docs & system-prompt meta decisions/progress excluded.","fullGraph":{"edges":802,"codeNodes":67,"derived":757}},"nodes":[{"id":"decision:1","group":"decision","label":"Use SQLite for context database","ts":"2026-07-10T12:35:17Z","tags":"[\"database\",\"sqlite\",\"storage\"]","status":"active","x":326.7,"y":331.1,"degree":1},{"id":"decision:2","group":"decision","label":"Support both JSON and human-readable plain text outputs","ts":"2026-07-10T12:35:17Z","tags":"[\"cli\",\"output\",\"json\"]","status":"active","x":289.0,"y":227.2,"degree":2},{"id":"decision:3","group":"decision","label":"Auto-detect workspace root for database discovery","ts":"2026-07-10T12:35:18Z","tags":"[\"workspace\",\"discovery\",\"cli\"]","status":"active","x":356.0,"y":331.3,"degree":1},{"id":"system_pattern:1","group":"system_pattern","label":"JSON Error Outputs on Failure","ts":"2026-07-10T12:35:21Z","tags":"[\"error-handling\",\"cli\",\"json\"]","severity":"warn","x":287.4,"y":226.9,"degree":1},{"id":"system_pattern:2","group":"system_pattern","label":"Atomic Batch Operations","ts":"2026-07-10T12:35:22Z","tags":"[\"database\",\"transactions\",\"batch\"]","severity":"warn","x":169.2,"y":159.9,"degree":0},{"id":"progress_entry:1","group":"progress_entry","label":"Initiated release strategy decision process","ts":"2026-07-10T12:38:52Z","status":"Done","x":128.7,"y":167.9,"degree":0},{"id":"decision:4","group":"decision","label":"Prioritize GitHub Releases and Homebrew for initial distribution","ts":"2026-07-10T12:39:38Z","tags":"[\"release\",\"distribution\",\"homebrew\",\"github\"]","status":"active","x":469.1,"y":127.7,"degree":0},{"id":"progress_entry:2","group":"progress_entry","label":"Decided on distribution channels (GitHub Releases and Homebrew)","ts":"2026-07-10T12:39:38Z","status":"Done","x":391.7,"y":119.7,"degree":0},{"id":"decision:5","group":"decision","label":"Adopt Semantic Versioning starting at v0.1.0","ts":"2026-07-10T12:40:02Z","tags":"[\"release\",\"versioning\",\"semver\"]","status":"active","x":272.1,"y":70.0,"degree":0},{"id":"progress_entry:3","group":"progress_entry","label":"Decided on versioning scheme (SemVer starting at v0.1.0)","ts":"2026-07-10T12:40:02Z","status":"Done","x":344.4,"y":538.1,"degree":0},{"id":"decision:6","group":"decision","label":"Implement manual migration command for schema updates","ts":"2026-07-10T12:40:27Z","tags":"[\"release\",\"database\",\"migrations\",\"cli\"]","status":"active","x":290.3,"y":303.8,"degree":1},{"id":"progress_entry:4","group":"progress_entry","label":"Decided on database migration strategy (Manual engrams migrate\u2026","ts":"2026-07-10T12:40:27Z","status":"Done","x":301.7,"y":97.5,"degree":0},{"id":"decision:7","group":"decision","label":"Use on-demand, feature-driven release triggers","ts":"2026-07-10T12:42:05Z","tags":"[\"release\",\"cadence\",\"github\",\"workflow\"]","status":"active","x":96.3,"y":185.7,"degree":0},{"id":"progress_entry:5","group":"progress_entry","label":"Decided on release trigger cadence (On-Demand, Feature-Driven)","ts":"2026-07-10T12:42:05Z","status":"Done","x":551.7,"y":324.1,"degree":0},{"id":"decision:8","group":"decision","label":"Rely on automated CI checks for release verification","ts":"2026-07-10T12:42:57Z","tags":"[\"release\",\"qa\",\"ci\",\"automation\"]","status":"active","x":190.2,"y":467.9,"degree":0},{"id":"progress_entry:6","group":"progress_entry","label":"Decided on release verification strategy (Automated CI Checks)","ts":"2026-07-10T12:42:57Z","status":"Done","x":155.6,"y":113.7,"degree":0},{"id":"progress_entry:7","group":"progress_entry","label":"Completed release strategy decision process","ts":"2026-07-10T12:42:59Z","status":"Done","x":77.3,"y":364.8,"degree":0},{"id":"progress_entry:8","group":"progress_entry","label":"Began implementing engrams migrate command","ts":"2026-07-10T12:44:01Z","status":"Done","x":506.0,"y":234.3,"degree":0},{"id":"progress_entry:9","group":"progress_entry","label":"Marked initial project version as v0.0.1 in Cargo.toml","ts":"2026-07-10T12:46:15Z","status":"Done","x":80.2,"y":256.1,"degree":0},{"id":"progress_entry:10","group":"progress_entry","label":"Documented installation steps and added Homebrew Formula templa\u2026","ts":"2026-07-10T12:47:26Z","status":"Done","x":535.1,"y":395.4,"degree":0},{"id":"progress_entry:15","group":"progress_entry","label":"Locally verified packaging of release build (engrams-x86_64-app\u2026","ts":"2026-07-10T15:41:42Z","status":"Done","x":497.0,"y":461.1,"degree":0},{"id":"progress_entry:16","group":"progress_entry","label":"Committed release changes and tagged repository with v0.0.1","ts":"2026-07-10T15:42:17Z","status":"Done","x":85.3,"y":407.2,"degree":0},{"id":"progress_entry:17","group":"progress_entry","label":"Pushed release tag and created GitHub release v0.0.1 using gh C\u2026","ts":"2026-07-10T15:44:15Z","status":"Done","x":517.6,"y":355.2,"degree":0},{"id":"progress_entry:18","group":"progress_entry","label":"Optimized CLI database workspace resolution, batch, context, ou\u2026","ts":"2026-07-11T23:43:41Z","status":"InProgress","x":195.2,"y":513.0,"degree":0},{"id":"progress_entry:19","group":"progress_entry","label":"Re-compiled and replaced the stale 0.1.0 binary in /usr/local/b\u2026","ts":"2026-07-11T23:46:40Z","status":"Done","x":78.4,"y":291.1,"degree":0},{"id":"progress_entry:20","group":"progress_entry","label":"Implemented engrams report command, bumped version to 0.2.0, an\u2026","ts":"2026-07-12T00:56:37Z","status":"Done","x":302.3,"y":550.0,"degree":0},{"id":"decision:9","group":"decision","label":"Support project knowledge reports via engrams report","ts":"2026-07-12T00:56:40Z","tags":"[\"report\",\"cli\",\"features\"]","status":"active","x":325.6,"y":332.6,"degree":3},{"id":"decision:10","group":"decision","label":"JSON-only CLI output","ts":"2026-07-12T18:55:30Z","tags":null,"status":"active","x":290.7,"y":226.7,"degree":1},{"id":"decision:11","group":"decision","label":"Static self-contained HTML dashboard via report open with vendo\u2026","ts":"2026-07-12T18:55:30Z","tags":null,"status":"active","x":326.4,"y":334.4,"degree":1},{"id":"progress_entry:21","group":"progress_entry","label":"Implemented JSON-only CLI output and engrams report open static\u2026","ts":"2026-07-12T18:55:43Z","status":"Done","x":492.3,"y":164.0,"degree":0},{"id":"decision:12","group":"decision","label":"PR provenance via context_links 'pr' target type","ts":"2026-07-12T23:23:15Z","tags":"[\"pr\",\"provenance\",\"links\"]","status":"active","x":200.5,"y":108.0,"degree":0},{"id":"decision:13","group":"decision","label":"Migration v2 schema changes","ts":"2026-07-12T23:23:15Z","tags":"[\"db\",\"migration\",\"schema\"]","status":"active","x":291.8,"y":305.9,"degree":2},{"id":"decision:15","group":"decision","label":"CWD-based git resolution","ts":"2026-07-12T23:23:16Z","tags":"[\"git\",\"cwd\",\"resolution\"]","status":"active","x":355.0,"y":335.4,"degree":2},{"id":"progress_entry:24","group":"progress_entry","label":"Released v0.5.0 with PR provenance, budgeted briefing, file anc\u2026","ts":"2026-07-12T23:23:20Z","status":"Done","x":336.6,"y":79.0,"degree":0},{"id":"decision:16","group":"decision","label":"Worktree-aware workspace resolution","ts":"2026-07-13T01:59:35Z","tags":"[\"git\",\"worktree\",\"workspace\"]","status":"active","x":355.3,"y":333.1,"degree":2},{"id":"decision:17","group":"decision","label":"Scoped priming via paths and tags","ts":"2026-07-13T01:59:41Z","tags":"[\"prime\",\"token-optimization\",\"cli\"]","status":"active","x":323.8,"y":332.8,"degree":1},{"id":"progress_entry:25","group":"progress_entry","label":"Implemented Git worktree workspace resolution and scoped primin\u2026","ts":"2026-07-13T01:59:44Z","status":"Done","x":460.6,"y":489.0,"degree":0},{"id":"progress_entry:26","group":"progress_entry","label":"Configured and tested local TTS integration and updated agent g\u2026","ts":"2026-07-13T03:14:14Z","status":"Done","x":269.3,"y":523.6,"degree":0},{"id":"decision:18","group":"decision","label":"Schema v3: context_links gains origin/weight; new code_nodes +\u2026","ts":"2026-07-17T03:28:10Z","tags":"[\"graph\",\"schema\",\"migration\"]","status":"active","x":293.9,"y":308.9,"degree":11},{"id":"decision:19","group":"decision","label":"graph ingest no-ops when since==HEAD (empty window guard)","ts":"2026-07-17T03:28:40Z","tags":"[\"graph\",\"ingest\",\"bugfix\"]","status":"active","x":293.4,"y":311.7,"degree":1},{"id":"decision:20","group":"decision","label":"Graph analytics are in-memory over full load; PageRank centrali\u2026","ts":"2026-07-17T03:28:40Z","tags":"[\"graph\",\"analytics\",\"pagerank\"]","status":"active","x":291.2,"y":309.5,"degree":1},{"id":"progress_entry:30","group":"progress_entry","label":"Implemented engrams knowledge-graph \u2192 codebase topology (schema\u2026","ts":"2026-07-17T03:29:33Z","status":"Done","x":376.3,"y":80.0,"degree":0},{"id":"progress_entry:31","group":"progress_entry","label":"Opened PR #1 (knowledge-graph \u2192 main) for the graph topology fe\u2026","ts":"2026-07-17T12:22:28Z","status":"Done","x":493.7,"y":419.7,"degree":0},{"id":"progress_entry:32","group":"progress_entry","label":"Fixed co-change ingest noise: is_generated path filter (vendore\u2026","ts":"2026-07-17T12:47:08Z","status":"Done","x":521.4,"y":293.0,"degree":0},{"id":"progress_entry:33","group":"progress_entry","label":"Released v0.7.0: bumped Cargo.toml/Formula/docs versions, added\u2026","ts":"2026-07-17T23:09:32Z","status":"Done","x":89.4,"y":222.4,"degree":0},{"id":"decision:21","group":"decision","label":"Disjoint rel pairs rejected at link add: depends_on vs conflict\u2026","ts":"2026-08-02T23:32:53Z","tags":"[\"ontology\",\"graph\",\"validation\"]","status":"active","x":295.0,"y":310.9,"degree":2},{"id":"decision:22","group":"decision","label":"Transitive closure over supersedes/depends_on chains; supersede\u2026","ts":"2026-08-02T23:32:53Z","tags":"[\"ontology\",\"graph\",\"transitive\",\"prime\"]","status":"active","x":295.9,"y":309.6,"degree":4},{"id":"decision:23","group":"decision","label":"Domain/range constraints on RelSpec enforced at link add; rejec\u2026","ts":"2026-08-02T23:33:34Z","tags":"[\"ontology\",\"graph\",\"validation\"]","status":"active","x":292.0,"y":310.9,"degree":1},{"id":"decision:24","group":"decision","label":"Cardinality: supersedes functional on to-side; active-context b\u2026","ts":"2026-08-02T23:33:34Z","tags":"[\"ontology\",\"cardinality\",\"workstreams\",\"schema\"]","status":"active","x":293.9,"y":306.4,"degree":1},{"id":"decision:25","group":"decision","label":"Controlled status vocabulary for progress entries and decisions","ts":"2026-08-02T23:39:59Z","tags":"[\"ontology\",\"cli\",\"validation\"]","status":"active","x":296.4,"y":310.5,"degree":2},{"id":"decision:26","group":"decision","label":"Inference materialized as derived edges via EdgeSource: inverse\u2026","ts":"2026-08-02T23:53:53Z","tags":"[\"ontology\",\"inference\",\"graph\",\"edgesource\"]","status":"active","x":296.3,"y":308.2,"degree":3},{"id":"decision:27","group":"decision","label":"Export reuses standard vocabularies: YAML frontmatter with Dubl\u2026","ts":"2026-08-03T00:18:48Z","tags":"[\"ontology\",\"export\",\"vocabulary\",\"interoperability\"]","status":"active","x":295.8,"y":307.0,"degree":2},{"id":"decision:28","group":"decision","label":"Bottom-up rel vocabulary growth: doctor lint surfaces non-canon\u2026","ts":"2026-08-03T00:19:23Z","tags":"[\"ontology\",\"graph\",\"vocabulary\",\"doctor\"]","status":"active","x":291.6,"y":308.0,"degree":1},{"id":"progress_entry:34","group":"progress_entry","label":"Ontology walkthrough complete: all 8 talk-derived recommendatio\u2026","ts":"2026-08-03T00:21:09Z","status":"Done","x":146.7,"y":500.1,"degree":0},{"id":"progress_entry:35","group":"progress_entry","label":"v0.8.0 implemented: all 8 ontology recommendations shipped (dec\u2026","ts":"2026-08-03T02:33:27Z","status":"Done","x":423.9,"y":511.7,"degree":0},{"id":"progress_entry:36","group":"progress_entry","label":"Fixed update_track archive/version-semantics regression (Workst\u2026","ts":"2026-08-03T02:38:14Z","status":"Done","x":235.3,"y":89.4,"degree":0},{"id":"decision:29","group":"decision","label":"Add /harden-rust omp prompt-template command for hardening LLM-\u2026","ts":"2026-08-03T03:12:17Z","tags":"[\"tooling\",\"prompt-template\",\"omp\",\"workflow\",\"rust\",\"developer-experience\"]","status":"active","x":210.2,"y":353.4,"degree":1},{"id":"progress_entry:37","group":"progress_entry","label":"Built /harden-rust omp prompt-template command at .omp/commands\u2026","ts":"2026-08-03T03:13:26Z","status":"Done","x":386.8,"y":533.3,"degree":0},{"id":"decision:30","group":"decision","label":"v0.8.0 Rust hardening: typed Direction enum, lazy error context\u2026","ts":"2026-08-03T03:31:46Z","tags":"[\"rust\",\"performance\",\"hardening\",\"v0.8.0\",\"release\",\"zero-cost\"]","status":"active","x":211.3,"y":354.7,"degree":2},{"id":"progress_entry:38","group":"progress_entry","label":"v0.8.0 released: pushed v0.8.0 tag (triggers release.yml), CI b\u2026","ts":"2026-08-03T03:45:47Z","status":"Done","x":70.0,"y":326.2,"degree":0},{"id":"progress_entry:52","group":"progress_entry","label":"Released v0.8.1: bumped version (Cargo.toml/Cargo.lock/docs pac\u2026","ts":"2026-08-04T04:01:21Z","status":"Done","x":116.0,"y":456.8,"degree":0},{"id":"decision:41","group":"decision","label":"Add 5 zero-allocation Rust rules (002-006) to .agents/rules/ de\u2026","ts":"2026-08-05T03:58:32Z","tags":"[\"rust\",\"rules\",\"zero-alloc\",\"performance\"]","status":"active","x":211.7,"y":356.4,"degree":1},{"id":"decision:42","group":"decision","label":"Ship omp integration from CLI: engrams install --harness omp","ts":"2026-08-05T04:30:32Z","tags":"[\"omp\",\"hooks\",\"integration\",\"guidance\"]","status":"active","x":357.4,"y":341.8,"degree":1},{"id":"decision:44","group":"decision","label":"Path A ratified: TTSR-export-led policy engine; Path B demoted\u2026","ts":"2026-08-05T04:43:41Z","tags":"[\"architecture\",\"guidance\",\"omp\",\"ttsr\",\"policy-engine\"]","status":"active","x":355.7,"y":340.5,"degree":3},{"id":"progress_entry:56","group":"progress_entry","label":"Ratified Path A (decision 44) and wrote specs/policy-engine.md:\u2026","ts":"2026-08-05T04:48:15Z","status":"Done","x":432.0,"y":103.7,"degree":0},{"id":"system_pattern:7","group":"system_pattern","label":"Borrowed SQL Parameters Only","ts":"2026-08-05T13:01:31Z","tags":"[\"performance\",\"sql\"]","severity":"error","x":227.9,"y":542.9,"degree":0},{"id":"system_pattern:8","group":"system_pattern","label":"One Allocation Per String Chain","ts":"2026-08-05T13:01:31Z","tags":"[\"performance\"]","severity":"warn","x":515.9,"y":195.8,"degree":0},{"id":"system_pattern:9","group":"system_pattern","label":"Enrich By Move Not get().clone()","ts":"2026-08-05T13:01:31Z","tags":"[\"performance\"]","severity":"warn","x":437.6,"y":175.3,"degree":0},{"id":"system_pattern:10","group":"system_pattern","label":"No Throwaway Intermediate Collections","ts":"2026-08-05T13:01:31Z","tags":"[\"performance\"]","severity":"info","x":543.5,"y":254.6,"degree":0},{"id":"progress_entry:57","group":"progress_entry","label":"Implemented Policy Engine (Path A) per spec specs/policy-engine\u2026","ts":"2026-08-05T15:22:43Z","status":"Done","x":354.9,"y":342.4,"degree":1},{"id":"decision:45","group":"decision","label":"Workspace isolation: implicit write-through/staleness anchored\u2026","ts":"2026-08-05T15:26:18Z","tags":"[\"policy-engine\",\"workspace-isolation\",\"write-through\",\"bug-fix\"]","status":"active","x":355.2,"y":338.0,"degree":2}],"links":[{"source":"system_pattern:1","target":"decision:2","type":"supports","ts":"2026-07-10T12:35:24Z"},{"source":"decision:9","target":"decision:1","type":"uses","ts":"2026-07-12T19:03:56Z"},{"source":"decision:10","target":"decision:2","type":"supersedes","ts":"2026-07-12T19:03:56Z"},{"source":"decision:11","target":"decision:9","type":"extends","ts":"2026-07-12T19:03:56Z"},{"source":"decision:16","target":"decision:3","type":"extends","ts":"2026-07-13T02:10:25Z"},{"source":"decision:16","target":"decision:15","type":"uses","ts":"2026-07-13T02:10:29Z"},{"source":"decision:17","target":"decision:9","type":"extends","ts":"2026-07-13T02:10:32Z"},{"source":"decision:13","target":"decision:6","type":"supports","ts":"2026-07-13T02:10:36Z"},{"source":"decision:18","target":"decision:13","type":"extends","ts":"2026-07-17T03:29:09Z"},{"source":"decision:19","target":"decision:18","type":"uses","ts":"2026-07-17T03:29:09Z"},{"source":"decision:20","target":"decision:18","type":"uses","ts":"2026-07-17T03:29:09Z"},{"source":"decision:21","target":"decision:18","type":"refines","ts":"2026-08-02T23:34:12Z"},{"source":"decision:22","target":"decision:18","type":"refines","ts":"2026-08-02T23:34:12Z"},{"source":"decision:23","target":"decision:18","type":"refines","ts":"2026-08-02T23:34:12Z"},{"source":"decision:24","target":"decision:18","type":"refines","ts":"2026-08-02T23:34:12Z"},{"source":"decision:21","target":"decision:22","type":"depends_on","ts":"2026-08-02T23:34:12Z"},{"source":"decision:25","target":"decision:18","type":"refines","ts":"2026-08-02T23:40:10Z"},{"source":"decision:25","target":"decision:22","type":"relates_to","ts":"2026-08-02T23:40:11Z"},{"source":"decision:26","target":"decision:18","type":"refines","ts":"2026-08-02T23:54:10Z"},{"source":"decision:26","target":"decision:22","type":"relates_to","ts":"2026-08-02T23:54:10Z"},{"source":"decision:27","target":"decision:18","type":"refines","ts":"2026-08-03T00:19:40Z"},{"source":"decision:28","target":"decision:18","type":"refines","ts":"2026-08-03T00:19:40Z"},{"source":"decision:27","target":"decision:26","type":"depends_on","ts":"2026-08-03T00:19:40Z"},{"source":"decision:30","target":"decision:29","type":"uses","ts":"2026-08-03T03:33:09Z"},{"source":"decision:41","target":"decision:30","type":"implements","ts":"2026-08-05T03:58:32Z"},{"source":"decision:44","target":"decision:42","type":"refines","ts":"2026-08-05T04:48:15Z"},{"source":"progress_entry:57","target":"decision:44","type":"implements","ts":"2026-08-05T15:23:18Z"},{"source":"decision:45","target":"decision:15","type":"refines","ts":"2026-08-05T15:26:42Z"},{"source":"decision:45","target":"decision:44","type":"part_of","ts":"2026-08-05T15:26:42Z"}]}
+{
+  "meta": {
+    "generated": "2026-08-29",
+    "nodeCount": 142,
+    "linkCount": 62,
+    "byGroup": {
+      "decision": 69,
+      "system_pattern": 6,
+      "progress_entry": 67
+    },
+    "timeRange": [
+      "2026-07-10T12:35:17Z",
+      "2026-08-29T22:38:09Z"
+    ],
+    "relTypes": [
+      "builds_on",
+      "depends_on",
+      "extends",
+      "implements",
+      "part_of",
+      "refines",
+      "relates_to",
+      "supersedes",
+      "supports",
+      "uses"
+    ],
+    "viewBox": [
+      1000,
+      620
+    ],
+    "note": "Live knowledge graph from Engrams v0.12.0 development history.",
+    "fullGraph": {
+      "edges": 1273,
+      "codeNodes": 81,
+      "derived": 1183
+    }
+  },
+  "nodes": [
+    {
+      "id": "decision:1",
+      "group": "decision",
+      "label": "Use SQLite for context database",
+      "ts": "2026-07-10T12:35:17Z",
+      "tags": "[\"database\",\"sqlite\",\"storage\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:2",
+      "group": "decision",
+      "label": "Support both JSON and human-readable plain text outputs",
+      "ts": "2026-07-10T12:35:17Z",
+      "tags": "[\"cli\",\"output\",\"json\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:3",
+      "group": "decision",
+      "label": "Auto-detect workspace root for database discovery",
+      "ts": "2026-07-10T12:35:18Z",
+      "tags": "[\"workspace\",\"discovery\",\"cli\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:4",
+      "group": "decision",
+      "label": "Prioritize GitHub Releases and Homebrew for initial distribution",
+      "ts": "2026-07-10T12:39:38Z",
+      "tags": "[\"release\",\"distribution\",\"homebrew\",\"github\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:5",
+      "group": "decision",
+      "label": "Adopt Semantic Versioning starting at v0.1.0",
+      "ts": "2026-07-10T12:40:02Z",
+      "tags": "[\"release\",\"versioning\",\"semver\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:6",
+      "group": "decision",
+      "label": "Implement manual migration command for schema updates",
+      "ts": "2026-07-10T12:40:27Z",
+      "tags": "[\"release\",\"database\",\"migrations\",\"cli\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:7",
+      "group": "decision",
+      "label": "Use on-demand, feature-driven release triggers",
+      "ts": "2026-07-10T12:42:05Z",
+      "tags": "[\"release\",\"cadence\",\"github\",\"workflow\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:8",
+      "group": "decision",
+      "label": "Rely on automated CI checks for release verification",
+      "ts": "2026-07-10T12:42:57Z",
+      "tags": "[\"release\",\"qa\",\"ci\",\"automation\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:9",
+      "group": "decision",
+      "label": "Support project knowledge reports via engrams report",
+      "ts": "2026-07-12T00:56:40Z",
+      "tags": "[\"report\",\"cli\",\"features\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:10",
+      "group": "decision",
+      "label": "JSON-only CLI output",
+      "ts": "2026-07-12T18:55:30Z",
+      "tags": "[]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:11",
+      "group": "decision",
+      "label": "Static self-contained HTML dashboard via report open with vendored Cytoscape",
+      "ts": "2026-07-12T18:55:30Z",
+      "tags": "[]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:12",
+      "group": "decision",
+      "label": "PR provenance via context_links 'pr' target type",
+      "ts": "2026-07-12T23:23:15Z",
+      "tags": "[\"pr\",\"provenance\",\"links\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:13",
+      "group": "decision",
+      "label": "Migration v2 schema changes",
+      "ts": "2026-07-12T23:23:15Z",
+      "tags": "[\"db\",\"migration\",\"schema\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:14",
+      "group": "decision",
+      "label": "Raw markdown output for instructions command",
+      "ts": "2026-07-12T23:23:15Z",
+      "tags": "[\"instructions\",\"markdown\",\"cli\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:15",
+      "group": "decision",
+      "label": "CWD-based git resolution",
+      "ts": "2026-07-12T23:23:16Z",
+      "tags": "[\"git\",\"cwd\",\"resolution\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:16",
+      "group": "decision",
+      "label": "Worktree-aware workspace resolution",
+      "ts": "2026-07-13T01:59:35Z",
+      "tags": "[\"git\",\"worktree\",\"workspace\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:17",
+      "group": "decision",
+      "label": "Scoped priming via paths and tags",
+      "ts": "2026-07-13T01:59:41Z",
+      "tags": "[\"prime\",\"token-optimization\",\"cli\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:18",
+      "group": "decision",
+      "label": "Schema v3: context_links gains origin/weight; new code_nodes + graph_meta tables; canonical relationship algebra",
+      "ts": "2026-07-17T03:28:10Z",
+      "tags": "[\"graph\",\"schema\",\"migration\"]",
+      "status": "active",
+      "degree": 12
+    },
+    {
+      "id": "decision:19",
+      "group": "decision",
+      "label": "graph ingest no-ops when since==HEAD (empty window guard)",
+      "ts": "2026-07-17T03:28:40Z",
+      "tags": "[\"graph\",\"ingest\",\"bugfix\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:20",
+      "group": "decision",
+      "label": "Graph analytics are in-memory over full load; PageRank centrality, symmetric edges stored canonically once",
+      "ts": "2026-07-17T03:28:40Z",
+      "tags": "[\"graph\",\"analytics\",\"pagerank\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:21",
+      "group": "decision",
+      "label": "Disjoint rel pairs rejected at link add: depends_on vs conflicts_with, supersedes vs refines",
+      "ts": "2026-08-02T23:32:53Z",
+      "tags": "[\"ontology\",\"graph\",\"validation\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:22",
+      "group": "decision",
+      "label": "Transitive closure over supersedes/depends_on chains; superseded items demoted in prime",
+      "ts": "2026-08-02T23:32:53Z",
+      "tags": "[\"ontology\",\"graph\",\"transitive\",\"prime\"]",
+      "status": "active",
+      "degree": 4
+    },
+    {
+      "id": "decision:23",
+      "group": "decision",
+      "label": "Domain/range constraints on RelSpec enforced at link add; reject by default with --force",
+      "ts": "2026-08-02T23:33:34Z",
+      "tags": "[\"ontology\",\"graph\",\"validation\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:24",
+      "group": "decision",
+      "label": "Cardinality: supersedes functional on to-side; active-context becomes named workstream documents",
+      "ts": "2026-08-02T23:33:34Z",
+      "tags": "[\"ontology\",\"cardinality\",\"workstreams\",\"schema\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:25",
+      "group": "decision",
+      "label": "Controlled status vocabulary for progress entries and decisions",
+      "ts": "2026-08-02T23:39:59Z",
+      "tags": "[\"ontology\",\"cli\",\"validation\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:26",
+      "group": "decision",
+      "label": "Inference materialized as derived edges via EdgeSource: inverse edges first, transitive deferred",
+      "ts": "2026-08-02T23:53:53Z",
+      "tags": "[\"ontology\",\"inference\",\"graph\",\"edgesource\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:27",
+      "group": "decision",
+      "label": "Export reuses standard vocabularies: YAML frontmatter with Dublin Core + schema.org terms",
+      "ts": "2026-08-03T00:18:48Z",
+      "tags": "[\"ontology\",\"export\",\"vocabulary\",\"interoperability\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:28",
+      "group": "decision",
+      "label": "Bottom-up rel vocabulary growth: doctor lint surfaces non-canonical rel frequency",
+      "ts": "2026-08-03T00:19:23Z",
+      "tags": "[\"ontology\",\"graph\",\"vocabulary\",\"doctor\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:29",
+      "group": "decision",
+      "label": "Add /harden-rust omp prompt-template command for hardening LLM-written Rust",
+      "ts": "2026-08-03T03:12:17Z",
+      "tags": "[\"tooling\",\"prompt-template\",\"omp\",\"workflow\",\"rust\",\"developer-experience\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:30",
+      "group": "decision",
+      "label": "v0.8.0 Rust hardening: typed Direction enum, lazy error context, zero-alloc token estimation",
+      "ts": "2026-08-03T03:31:46Z",
+      "tags": "[\"rust\",\"performance\",\"hardening\",\"v0.8.0\",\"release\",\"zero-cost\"]",
+      "status": "active",
+      "degree": 4
+    },
+    {
+      "id": "decision:31",
+      "group": "decision",
+      "label": "Documented v0.8.0 in docs + changelog; grounded all claims against source",
+      "ts": "2026-08-03T04:24:58Z",
+      "tags": "[\"docs\",\"changelog\",\"v0.8.0\",\"accuracy\"]",
+      "status": "active",
+      "degree": 4
+    },
+    {
+      "id": "decision:32",
+      "group": "decision",
+      "label": "Rewrite AGENTS.md with v0.8.0-accurate Store/Link/Retrieve quick references",
+      "ts": "2026-08-03T04:34:25Z",
+      "tags": "[\"docs\",\"agents-md\",\"v0.8.0\",\"reference\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:33",
+      "group": "decision",
+      "label": "Split AGENTS.md: slim every-session guide + docs/memory/engrams.md full reference",
+      "ts": "2026-08-03T11:06:55Z",
+      "tags": "[\"docs\",\"agents-md\",\"reference\",\"token-efficiency\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:34",
+      "group": "decision",
+      "label": "Slim AGENTS.md Operating Loop into a goals/command table; tighten Core Rules",
+      "ts": "2026-08-03T11:19:50Z",
+      "tags": "[\"docs\",\"agents-md\",\"token-efficiency\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:35",
+      "group": "decision",
+      "label": "Introduce .agents/rules/ system; rule 001 requires engrams prime first",
+      "ts": "2026-08-03T11:36:08Z",
+      "tags": "[\"docs\",\"agents-md\",\"rules\",\"governance\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:36",
+      "group": "decision",
+      "label": "Redesign homepage from docs-style to full marketing landing page",
+      "ts": "2026-08-03T22:00:46Z",
+      "tags": "[\"docs\",\"marketing\",\"homepage\",\"ui\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:37",
+      "group": "decision",
+      "label": "Pivot homepage hero framing from memory to decision-visibility risk",
+      "ts": "2026-08-03T22:24:18Z",
+      "tags": "[\"docs\",\"marketing\",\"hero\",\"messaging\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:38",
+      "group": "decision",
+      "label": "Replace fake terminal demo with real engrams prime JSON output on homepage",
+      "ts": "2026-08-03T23:58:50Z",
+      "tags": "[\"docs\",\"marketing\",\"homepage\",\"terminal\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:39",
+      "group": "decision",
+      "label": "Reframe how-it-works section: 3-command walkthrough \u2192 4-step LLM workflow loop",
+      "ts": "2026-08-04T02:52:51Z",
+      "tags": "[\"docs\",\"marketing\",\"homepage\",\"workflow\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:40",
+      "group": "decision",
+      "label": "instructions output tracks AGENTS.md operating loop, scoped to distribution-portable content",
+      "ts": "2026-08-04T03:11:11Z",
+      "tags": "[\"instructions\",\"markdown\",\"cli\",\"docs\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:41",
+      "group": "decision",
+      "label": "Add 5 zero-allocation Rust rules (002-006) to .agents/rules/ derived from code audit",
+      "ts": "2026-08-05T03:58:32Z",
+      "tags": "[\"rust\",\"rules\",\"zero-alloc\",\"performance\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:42",
+      "group": "decision",
+      "label": "Ship omp integration from CLI: engrams install --harness omp",
+      "ts": "2026-08-05T04:30:32Z",
+      "tags": "[\"omp\",\"hooks\",\"integration\",\"guidance\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:43",
+      "group": "decision",
+      "label": "Selective rule reading: AGENTS.md directive scopes .agents/rules consumption",
+      "ts": "2026-08-05T04:30:32Z",
+      "tags": "[\"agents-md\",\"rules\",\"governance\",\"token-efficiency\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:44",
+      "group": "decision",
+      "label": "Path A ratified: TTSR-export-led policy engine; Path B demoted to prose-tier delivery",
+      "ts": "2026-08-05T04:43:41Z",
+      "tags": "[\"architecture\",\"guidance\",\"omp\",\"ttsr\",\"policy-engine\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:45",
+      "group": "decision",
+      "label": "Workspace isolation: implicit write-through/staleness anchored to db_path only, never CWD",
+      "ts": "2026-08-05T15:26:18Z",
+      "tags": "[\"policy-engine\",\"workspace-isolation\",\"write-through\",\"bug-fix\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:46",
+      "group": "decision",
+      "label": "Docs v0.9.0: three.js hero particles + 3d-force-graph interactive viz + GSAP ScrollTrigger scroll-driven maturation story on landing page",
+      "ts": "2026-08-08T15:44:03Z",
+      "tags": "[\"docs\",\"v0.9.0\",\"threejs\",\"3d-force-graph\",\"gsap\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:47",
+      "group": "decision",
+      "label": "Docs v0.9.0: feature-filtered real graph data (71 nodes/29 links) from engrams own SQLite DB, excluding 12 meta decisions (docs/agents-md/instructions) and 25 docs/marketing progress entries",
+      "ts": "2026-08-08T15:44:03Z",
+      "tags": "[\"docs\",\"v0.9.0\",\"graph\",\"real-data\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:48",
+      "group": "decision",
+      "label": "Docs v0.9.0 revamp: three-pillar IA restructure (Advisor / For You / For Your Agent), advisor-first narrative replacing 14 command-centric feature pages",
+      "ts": "2026-08-08T15:44:03Z",
+      "tags": "[\"docs\",\"v0.9.0\",\"ia\",\"advisor\"]",
+      "status": "active",
+      "degree": 3
+    },
+    {
+      "id": "decision:49",
+      "group": "decision",
+      "label": "Fix: .reveal CSS hidden by default (opacity:0) but IntersectionObserver existed only in index.astro. Moved shared reveal+stagger observer into DocsLayout so all 12 pillar pages animate correctly.",
+      "ts": "2026-08-08T15:44:04Z",
+      "tags": "[\"docs\",\"v0.9.0\",\"bugfix\",\"css\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:50",
+      "group": "decision",
+      "label": "Hero title changed to 'An advisor with a memory that compounds' \u2014 combines advisor + memory/brain concepts",
+      "ts": "2026-08-08T17:18:04Z",
+      "tags": "[\"docs\",\"landing\",\"messaging\",\"hero\",\"v0.9.0\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:51",
+      "group": "decision",
+      "label": "Removed ScrollStory maturation scroll animation from landing \u2014 did not convey useful information",
+      "ts": "2026-08-08T17:18:04Z",
+      "tags": "[\"docs\",\"landing\",\"ux\",\"gsap\",\"v0.9.0\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:52",
+      "group": "decision",
+      "label": "Released v0.9.0 \u2014 Policy Engine + Docs Revamp 'The Active Advisor'",
+      "ts": "2026-08-08T17:32:14Z",
+      "tags": "[\"release\",\"v0.9.0\",\"policy-engine\",\"docs\",\"homebrew\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:53",
+      "group": "decision",
+      "label": "Release roadmap: tiered agent-memory improvements by version",
+      "ts": "2026-08-09T02:14:17Z",
+      "tags": "[\"roadmap\",\"memory-survey\",\"versioning\",\"planning\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:54",
+      "group": "decision",
+      "label": "v0.10.0 scoring smoke test",
+      "ts": "2026-08-09T03:16:17Z",
+      "tags": "[\"test\",\"scoring\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:55",
+      "group": "decision",
+      "label": "v0.10.0: retrieval scoring, prune-decay, read-observability (tier-1 agent memory)",
+      "ts": "2026-08-09T03:38:45Z",
+      "tags": "[\"v0.10.0\",\"retrieval\",\"scoring\",\"prune\",\"observability\",\"agent-memory\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:56",
+      "group": "decision",
+      "label": "v0.11.0 advise command + git pre-commit hook: automatic pre-edit constraint enforcement",
+      "ts": "2026-08-10T01:12:21Z",
+      "tags": "[\"v0.10.0\",\"advise\",\"hooks\",\"visibility\",\"automation\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:57",
+      "group": "decision",
+      "label": "Released v0.10.0 \u2014 retrieval scoring, prune-decay, read-observability, advise, omp extension",
+      "ts": "2026-08-15T23:57:36Z",
+      "tags": "[\"release\",\"v0.10.0\",\"scoring\",\"prune\",\"advise\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "decision:58",
+      "group": "decision",
+      "label": "v0.11.0 spec composed: consolidate (propose+--apply, derived_from evidence links, read-time confidence decay), contradiction gate (active-only find_similar, supersedes/conflicts_with classification + resolve flags), causal rels (causes/caused_by + graph why)",
+      "ts": "2026-08-16T17:36:19Z",
+      "tags": "[\"v0.11.0\",\"spec\",\"agent-memory\",\"consolidation\",\"causal\"]",
+      "status": "superseded",
+      "degree": 1
+    },
+    {
+      "id": "decision:59",
+      "group": "decision",
+      "label": "v0.11.0 implemented: consolidation, contradiction gate, causal retrieval (tier-2 agent memory)",
+      "ts": "2026-08-16T20:54:20Z",
+      "tags": "[\"v0.11.0\",\"agent-memory\",\"consolidation\",\"contradiction-gate\",\"causal\"]",
+      "status": "active",
+      "degree": 2
+    },
+    {
+      "id": "decision:60",
+      "group": "decision",
+      "label": "Contracts on decisions (1.1): nullable contract TEXT + write-time nudge",
+      "ts": "2026-08-29T07:09:47Z",
+      "tags": "[\"v0.12.0\",\"tier1\",\"graph-self-sufficiency\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:61",
+      "group": "decision",
+      "label": "Code-node enrichment at upsert_file seam (1.2): symbols/module_doc/line_count",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"tier1\",\"graph\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:62",
+      "group": "decision",
+      "label": "brief: one-call composite read (1.3)",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"tier1\",\"retrieval\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:63",
+      "group": "decision",
+      "label": "Miss-guidance on empty query (1.4): object instead of bare array",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"tier1\",\"retrieval\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:64",
+      "group": "decision",
+      "label": "Cross-convention FTS match: phrase OR concat* query-side, no schema change (2.2)",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"tier2\",\"fts\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:65",
+      "group": "decision",
+      "label": "Staleness drift (2.3): one git log pass, drift null outside git",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"tier2\",\"trust\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:66",
+      "group": "decision",
+      "label": "Tier 4 measurement: usage_log + session_closes in base SCHEMA and MIGRATION_V10",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"tier4\",\"measurement\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:67",
+      "group": "decision",
+      "label": "Report temp path pinned to /tmp and cose layout spacing raised",
+      "ts": "2026-08-29T07:10:29Z",
+      "tags": "[\"v0.12.0\",\"viz\"]",
+      "status": "active",
+      "degree": 1
+    },
+    {
+      "id": "decision:68",
+      "group": "decision",
+      "label": "v0.12.0 plan: strategy-first retrieval per user feedback \u2014 graph self-sufficiency, retrieval economy, measurement",
+      "ts": "2026-08-29T07:11:49Z",
+      "tags": "[\"v0.12.0\",\"plan\",\"feedback\"]",
+      "status": "active",
+      "degree": 8
+    },
+    {
+      "id": "decision:69",
+      "group": "decision",
+      "label": "Hero headline updated: 'The self-sufficient architecture graph your AI agent actually trusts'",
+      "ts": "2026-08-29T22:38:09Z",
+      "tags": "[\"docs\",\"landing\",\"hero\",\"positioning\",\"v0.12.0\"]",
+      "status": "active",
+      "degree": 0
+    },
+    {
+      "id": "system_pattern:1",
+      "group": "system_pattern",
+      "label": "JSON Error Outputs on Failure",
+      "ts": "2026-07-10T12:35:21Z",
+      "tags": "[\"error-handling\",\"cli\",\"json\"]",
+      "status": "warn",
+      "degree": 1
+    },
+    {
+      "id": "system_pattern:2",
+      "group": "system_pattern",
+      "label": "Atomic Batch Operations",
+      "ts": "2026-07-10T12:35:22Z",
+      "tags": "[\"database\",\"transactions\",\"batch\"]",
+      "status": "warn",
+      "degree": 0
+    },
+    {
+      "id": "system_pattern:7",
+      "group": "system_pattern",
+      "label": "Borrowed SQL Parameters Only",
+      "ts": "2026-08-05T13:01:31Z",
+      "tags": "[\"performance\",\"sql\"]",
+      "status": "error",
+      "degree": 0
+    },
+    {
+      "id": "system_pattern:8",
+      "group": "system_pattern",
+      "label": "One Allocation Per String Chain",
+      "ts": "2026-08-05T13:01:31Z",
+      "tags": "[\"performance\"]",
+      "status": "warn",
+      "degree": 0
+    },
+    {
+      "id": "system_pattern:9",
+      "group": "system_pattern",
+      "label": "Enrich By Move Not get().clone()",
+      "ts": "2026-08-05T13:01:31Z",
+      "tags": "[\"performance\"]",
+      "status": "warn",
+      "degree": 0
+    },
+    {
+      "id": "system_pattern:10",
+      "group": "system_pattern",
+      "label": "No Throwaway Intermediate Collections",
+      "ts": "2026-08-05T13:01:31Z",
+      "tags": "[\"performance\"]",
+      "status": "info",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:1",
+      "group": "progress_entry",
+      "label": "Initiated release strategy decision process",
+      "ts": "2026-07-10T12:38:52Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:2",
+      "group": "progress_entry",
+      "label": "Decided on distribution channels (GitHub Releases and Homebrew)",
+      "ts": "2026-07-10T12:39:38Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:3",
+      "group": "progress_entry",
+      "label": "Decided on versioning scheme (SemVer starting at v0.1.0)",
+      "ts": "2026-07-10T12:40:02Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:4",
+      "group": "progress_entry",
+      "label": "Decided on database migration strategy (Manual engrams migrate command)",
+      "ts": "2026-07-10T12:40:27Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:5",
+      "group": "progress_entry",
+      "label": "Decided on release trigger cadence (On-Demand, Feature-Driven)",
+      "ts": "2026-07-10T12:42:05Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:6",
+      "group": "progress_entry",
+      "label": "Decided on release verification strategy (Automated CI Checks)",
+      "ts": "2026-07-10T12:42:57Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:7",
+      "group": "progress_entry",
+      "label": "Completed release strategy decision process",
+      "ts": "2026-07-10T12:42:59Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:8",
+      "group": "progress_entry",
+      "label": "Began implementing engrams migrate command",
+      "ts": "2026-07-10T12:44:01Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:9",
+      "group": "progress_entry",
+      "label": "Marked initial project version as v0.0.1 in Cargo.toml",
+      "ts": "2026-07-10T12:46:15Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:10",
+      "group": "progress_entry",
+      "label": "Documented installation steps and added Homebrew Formula template",
+      "ts": "2026-07-10T12:47:26Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:11",
+      "group": "progress_entry",
+      "label": "Re-wrote README.md with developer-friendly documentation on feature set, installation, and agentic workflows",
+      "ts": "2026-07-10T12:49:35Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:12",
+      "group": "progress_entry",
+      "label": "Removed MCP integration section from README.md",
+      "ts": "2026-07-10T12:51:54Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:13",
+      "group": "progress_entry",
+      "label": "Removed tool-specific instructions from README.md",
+      "ts": "2026-07-10T12:52:45Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:14",
+      "group": "progress_entry",
+      "label": "Updated README.md agent configuration instructions with preferred generic phrasing",
+      "ts": "2026-07-10T12:53:39Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:15",
+      "group": "progress_entry",
+      "label": "Locally verified packaging of release build (engrams-x86_64-apple-darwin.tar.gz)",
+      "ts": "2026-07-10T15:41:42Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:16",
+      "group": "progress_entry",
+      "label": "Committed release changes and tagged repository with v0.0.1",
+      "ts": "2026-07-10T15:42:17Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:17",
+      "group": "progress_entry",
+      "label": "Pushed release tag and created GitHub release v0.0.1 using gh CLI",
+      "ts": "2026-07-10T15:44:15Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:18",
+      "group": "progress_entry",
+      "label": "Optimized CLI database workspace resolution, batch, context, output, and link listing commands to eliminate unnecessary heap allocations and string cloning",
+      "ts": "2026-07-11T23:43:41Z",
+      "tags": "[]",
+      "status": "InProgress",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:19",
+      "group": "progress_entry",
+      "label": "Re-compiled and replaced the stale 0.1.0 binary in /usr/local/bin with the current v0.0.2 binary",
+      "ts": "2026-07-11T23:46:40Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:20",
+      "group": "progress_entry",
+      "label": "Implemented engrams report command, bumped version to 0.2.0, and generated GitHub release v0.2.0",
+      "ts": "2026-07-12T00:56:37Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:21",
+      "group": "progress_entry",
+      "label": "Implemented JSON-only CLI output and engrams report open static HTML dashboard with Cytoscape.js knowledge graph.",
+      "ts": "2026-07-12T18:55:43Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:22",
+      "group": "progress_entry",
+      "label": "Added HTML Report documentation page and Sidebar entry",
+      "ts": "2026-07-12T19:49:11Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:23",
+      "group": "progress_entry",
+      "label": "Updated documentation website to v0.4.0 and documented v0.3.0 and v0.4.0 release features",
+      "ts": "2026-07-12T22:48:08Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:24",
+      "group": "progress_entry",
+      "label": "Released v0.5.0 with PR provenance, budgeted briefing, file anchors, supersede lifecycle, compact/projected output, instructions generator, git awareness/doctor, and unified cross-type query.",
+      "ts": "2026-07-12T23:23:20Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:25",
+      "group": "progress_entry",
+      "label": "Implemented Git worktree workspace resolution and scoped priming feature for v0.6.0 release",
+      "ts": "2026-07-13T01:59:44Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:26",
+      "group": "progress_entry",
+      "label": "Configured and tested local TTS integration and updated agent guidelines in AGENTS.md",
+      "ts": "2026-07-13T03:14:14Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:27",
+      "group": "progress_entry",
+      "label": "Updated AGENTS.md rule to explicitly require progress filtering over a 48 hour window for recent status queries",
+      "ts": "2026-07-13T03:17:54Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:28",
+      "group": "progress_entry",
+      "label": "Updated AGENTS.md rule to specify simple plain language for 'Talk to me' prompts and verbose technical details for 'Explain {x} to me' prompts",
+      "ts": "2026-07-13T03:31:32Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:29",
+      "group": "progress_entry",
+      "label": "Updated the terminal UI component on the homepage to accurately reflect all possible commands",
+      "ts": "2026-07-13T11:47:44Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:30",
+      "group": "progress_entry",
+      "label": "Implemented engrams knowledge-graph \u2192 codebase topology (schema v3): code_nodes + graph_meta tables, context_links origin/weight, canonical rel algebra (rel.rs), derived edges via EdgeSource (anchor/co-anchor/git co-change) with rebuild/ingest/touch_item incremental refresh, in-memory model.rs with PageRank/components/BFS/path/orphans/density, full 'graph' CLI family (rebuild/ingest/stats/central/clusters/orphans/path/neighbors), prime graph summary + doctor orphan/rebuild_recommended advisory, export/import preserves manual-only links with origin. Fixed ingest empty-window wipe bug and -0.0 degree cosmetic bug. 34/34 tests pass (6 new graph tests), clippy clean on src, smoke-tested on repo context.db (10,017 nodes / 2,046 edges).",
+      "ts": "2026-07-17T03:29:33Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:31",
+      "group": "progress_entry",
+      "label": "Opened PR #1 (knowledge-graph \u2192 main) for the graph topology feature. v0.7.0 release sequence (version bump, build, commit, GitHub release) staged to run from main after merge.",
+      "ts": "2026-07-17T12:22:28Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:32",
+      "group": "progress_entry",
+      "label": "Fixed co-change ingest noise: is_generated path filter (vendored dirs, build output, lockfiles, engrams-internal state) in CoChangeSource; rebuild prunes unreferenced code nodes. Real repo: 9,969 -> 54 code nodes (9,931 pruned), cochange edges 2,033 -> 551, PageRank now surfaces true hubs. 34/34 tests pass.",
+      "ts": "2026-07-17T12:47:08Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:33",
+      "group": "progress_entry",
+      "label": "Released v0.7.0: bumped Cargo.toml/Formula/docs versions, added releases.astro entry, verified docs via agent-browser (v0.7.0 entry + sidebar badge), 34/34 tests on release build, tagged v0.7.0 and pushed to trigger CI release workflow.",
+      "ts": "2026-07-17T23:09:32Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:34",
+      "group": "progress_entry",
+      "label": "Ontology walkthrough complete: all 8 talk-derived recommendations reviewed with user and logged as decisions #21-28 (transitive closure, domain/range, functional/workstream contexts, disjoint pairs, controlled status vocab, inference as derived edges, export vocabularies, bottom-up rel growth). Interlinked in graph via refines->18 and cross-dependency edges. Rec-5 data fix applied (progress entry 20 status D->Done).",
+      "ts": "2026-08-03T00:21:09Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:35",
+      "group": "progress_entry",
+      "label": "v0.8.0 implemented: all 8 ontology recommendations shipped (decisions #21-28). RelSpec domain/range/same_type/functional_to/disjoint_with enforced at link add with --force; closed status vocabularies (progress/decision) with supersede auto-flip; schema v4 named workstream contexts; transitive closure via graph chain + prime demotion + doctor cycle detection; InverseEdgeSource materializes inverse rels on rebuild; doctor non-canonical rel lint; YAML frontmatter (Dublin Core + schema.org) on export. 35/35 tests pass, bin clippy-clean, all features smoke-tested.",
+      "ts": "2026-08-03T02:33:27Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:36",
+      "group": "progress_entry",
+      "label": "Fixed update_track archive/version-semantics regression (Workstreams slice): was computing new_version from MAX(history.version)+1 (collided when history lagged the live row) and archiving NEW content under new_version instead of OLD under old version. Applied the same fix pattern as update(): fetch (content,version) from live row, archive old under old version (skip first write), new_version=old_version+1, transactional. Both history-write paths now correct; verified on scratch DB. Pre-existing designComplete v13 content overwritten by buggy run; recoverable from commit 86c0210.",
+      "ts": "2026-08-03T02:38:14Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:37",
+      "group": "progress_entry",
+      "label": "Built /harden-rust omp prompt-template command at .omp/commands/harden-rust.md (project-scoped). Adopt the Zero-Cost Pragmatist persona (read rust-developer-persona.md), resolve scope from  (default: uncommitted working-tree .rs via git status; also --staged, --base <ref>, paths/globs), audit 4 bands (memory/zero-alloc, cache-friendly layout, static-vs-dynamic dispatch + #[inline], pet peeves), fix at the source (lsp refs/rename before signature changes, no shims/allow), verify cargo fmt+build+clippy+targeted test, report findings table + leave uncommitted. Decision #29. Frontmatter parses (native commands fatal on parse error).",
+      "ts": "2026-08-03T03:13:26Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:38",
+      "group": "progress_entry",
+      "label": "v0.8.0 released: pushed v0.8.0 tag (triggers release.yml), CI built all 4 targets and published GitHub Release, corrected all 4 Formula sha256 checksums from verified artifacts (pre-filled values were stale), pushed to main. Also added /harden-rust omp prompt-template command (decision #29) and hardened src for release (decision #30).",
+      "ts": "2026-08-03T03:45:47Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:39",
+      "group": "progress_entry",
+      "label": "Updated all v0.8.0 docs (cli reference, changelog/releases, knowledge-graph, structured-context, doctor, prime) and bumped docs package to 0.8.0. All claims grounded against source; fabricated content removed. 24/24 Astro pages build; rendered HTML verified. Decision #31.",
+      "ts": "2026-08-03T04:25:18Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:40",
+      "group": "progress_entry",
+      "label": "Rewrote AGENTS.md: added comprehensive Store/Link/Retrieve quick-reference covering all 24 top-level commands (incl. batch, history, init, import), verified Relationship Ontology (10 canonical rels) and Status Vocabularies tables, and an accuracy-discipline rule. Every command/flag verified against live CLI help and src.",
+      "ts": "2026-08-03T04:37:14Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:41",
+      "group": "progress_entry",
+      "label": "Split AGENTS.md (189->94 lines): kept Purpose, Operating Loop, Core Rules, project/tech meta, DB discovery, developer commands, UI verification + bottom pointer. Moved Store/Link/Retrieve tables, graph queries, relationship ontology, and status vocabularies to new docs/memory/engrams.md (101 lines). Fixed the moved Relationship Ontology anchor link. Verified against live --help; no command text changed.",
+      "ts": "2026-08-03T11:05:17Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:42",
+      "group": "progress_entry",
+      "label": "Slimmed AGENTS.md: replaced verbose 10-step Operating Loop with a 12-row goals/command table; tightened Core Rules 18->6 bullets (all rules preserved). 94->86 lines. No command/flag text changed.",
+      "ts": "2026-08-03T11:20:09Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:43",
+      "group": "progress_entry",
+      "label": "Created .agents/rules/001-memory.md (prime-first rule). Verified .agents/rules/ NOT auto-loaded; rule:// is a separate lint-rules mechanism. Wired AGENTS.md with a Mandatory Rules directive pointing to .agents/rules/ so the rule is actually followed.",
+      "ts": "2026-08-03T11:36:34Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:44",
+      "group": "progress_entry",
+      "label": "Redesigned docs homepage (index.astro) from documentation-style to full marketing landing page. PAS framework with 10 sections: amnesia hero, hidden tax (problem agitation), payoff benefits (4 cards), before/after shift, dead-simple 3-command walkthrough, token economics (12k vs 1k comparison), knowledge graph spotlight with animated SVG, ecosystem tools, final CTA. Polished chip badges. Production build passes (24 pages, 0 errors). Verified via agent-browser.",
+      "ts": "2026-08-03T22:01:00Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:45",
+      "group": "progress_entry",
+      "label": "Revised homepage marketing copy per user feedback: refactored problem section and comparison to directly answer 'why not just a markdown file?' objection. Hero subtitle now leads with retrieval differentiator ('Not just recorded. Retrieved.'). Three problem cards: retrieval gap (path-anchored filtering), silent staleness (supersession tracking), flat vs connected (typed edges). Comparison section: markdown file vs knowledge graph with 5-point contrast. Production build passes. Committed b953cda.",
+      "ts": "2026-08-03T22:16:42Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:46",
+      "group": "progress_entry",
+      "label": "Pivoted homepage hero messaging from memory/recording framing to decision-visibility risk framing per user feedback. Hero: 'Your AI can see your code. It can't see your decisions.' Subtitle anchors reasoning to code as knowledge graph. Meta description updated to match. Commits: 567e84e (hero), abf5f2d (meta). Build passes, agent-browser verified.",
+      "ts": "2026-08-03T22:24:30Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:47",
+      "group": "progress_entry",
+      "label": "Replaced homepage terminal demo with real engrams prime --budget 1500 JSON output from this project (active context, product context, decisions #35-37, patterns, graph stats). Build passes, agent-browser verified. Committed 115677b.",
+      "ts": "2026-08-03T23:58:56Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:48",
+      "group": "progress_entry",
+      "label": "Corrected homepage terminal: removed fabricated token count line, fixed graph stats to real values (149 nodes/764 edges/62 orphans), replaced invented relative timestamps with real dates from database. Verified against live engrams prime + graph stats output. Committed 4171181.",
+      "ts": "2026-08-04T00:17:49Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:49",
+      "group": "progress_entry",
+      "label": "Reframed homepage how-it-works section from misleading '3 commands' to 4-step LLM workflow loop (log decisions, retrieve relevant, prime, track progress+handoff). Fixed active-context update command syntax to include --content argument. Escaped JSON braces with HTML entities for Astro. Build passes, agent-browser verified. Committed 8e18db9, pushed.",
+      "ts": "2026-08-04T02:52:51Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:50",
+      "group": "progress_entry",
+      "label": "Rewrote src/assets/instructions.md (engrams instructions output) to track the updated AGENTS.md: operating-loop command table, real status enum, link/doctor/migrate/export, 6-step session-end protocol, distribution-portable omissions (TTS, .agents/rules, source map, cargo), public docs URL. Verified test_instructions passes and output renders. Decision #40.",
+      "ts": "2026-08-04T03:11:32Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:51",
+      "group": "progress_entry",
+      "label": "Mirrored the canonical-rel correction from decision #40 into AGENTS.md line 38: session-end protocol example rels extends/uses -> implements/depends_on/supersedes. AGENTS.md and the engrams instructions output now agree.",
+      "ts": "2026-08-04T03:37:06Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:52",
+      "group": "progress_entry",
+      "label": "Released v0.8.1: bumped version (Cargo.toml/Cargo.lock/docs package.json/homepage banner/changelog entry), 35 tests green, tagged v0.8.1. release.yml cross-compiled 4 targets and published GitHub Release with artifacts. Updated Formula/engrams.rb with computed sha256 for all 4 artifacts. Released binary verified reporting 0.8.1.",
+      "ts": "2026-08-04T04:01:21Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:53",
+      "group": "progress_entry",
+      "label": "Canonicalized all GitHub repo hyperlinks in docs site to https://github.com/stevebrownlee/engrams-cli (12 links across Header/Sidebar/DocsLayout/index/contributing/installation pages, incl. code blocks). Verified rendered DOM via agent-browser on live dev server: zero non-canonical links remain. Pushed (triggers publish.yml redeploy).",
+      "ts": "2026-08-04T04:01:22Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:54",
+      "group": "progress_entry",
+      "label": "Added .agents/rules/002-006: zero-allocation Rust rules from persona-grounded code audit",
+      "ts": "2026-08-05T03:58:32Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:55",
+      "group": "progress_entry",
+      "label": "Pattern audit (2 patterns, both prose-level) + AGENTS.md selective-read rewording + decisions logged for omp hook packaging and rule scoping",
+      "ts": "2026-08-05T04:30:32Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:56",
+      "group": "progress_entry",
+      "label": "Ratified Path A (decision 44) and wrote specs/policy-engine.md: 12 scope items, 9 risks, 5 phases, 13 BDD scenarios; TTSR export-led build order",
+      "ts": "2026-08-05T04:48:15Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:57",
+      "group": "progress_entry",
+      "label": "Implemented Policy Engine (Path A) per spec specs/policy-engine.md. Schema v5 (check_kind/check_expr/severity columns on system_patterns). New commands: pattern log --check-kind/--check/--severity, rules export --harness omp, install --harness omp, check (--staged/--paths, exit 1 on violations). Rules module exports omp-compatible TTSR rule files with frontmatter, deterministic manifest, write-through on pattern log/delete, doctor staleness check. Check runner: regex engine (in-process) + ast-grep shell-out. Dogfooded: rules 002-005 registered as patterns 7-10, exported to .omp/rules/. 50 tests green (35 cli + 15 policy). Fixed CWD-fallback bug in write_through/staleness that could corrupt cross-workspace rule files.",
+      "ts": "2026-08-05T15:22:43Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 1
+    },
+    {
+      "id": "progress_entry:58",
+      "group": "progress_entry",
+      "label": "Docs v0.9.0 revamp complete: three-pillar IA (Advisor/For You/For Your Agent) replacing 14 feature pages. three.js hero, 3d-force-graph interactive viz, GSAP scroll-driven maturation story on landing \u2014 all real data (71 nodes/29 links from engrams own DB, meta excluded). 22 pages build clean, all 3D/motion browser-verified. Sidebar restructured, reveal-observer fixed in DocsLayout, dangling links repointed, orphaned pages removed. Decisions #46-49.",
+      "ts": "2026-08-08T15:44:28Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:59",
+      "group": "progress_entry",
+      "label": "Refined docs v0.9.0 landing: removed ScrollStory maturation animation (not useful per user), dropped gsap dep, repointed hero CTA to interactive graph. Changed hero title to 'An advisor with a memory that compounds' (advisor+brain/memory concepts). Verified via agent-browser: balanced two-line break, no overflow. Decisions #50-51.",
+      "ts": "2026-08-08T17:18:34Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:60",
+      "group": "progress_entry",
+      "label": "Released v0.9.0: tagged v0.9.0, CI built all 4 targets (aarch64/x86_64 apple-darwin + linux-musl), GitHub release published with comprehensive notes (Policy Engine + Docs Revamp). Formula updated to v0.9.0 with verified sha256 hashes for all 4 artifacts. Decision #52.",
+      "ts": "2026-08-08T17:32:41Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:61",
+      "group": "progress_entry",
+      "label": "Surveyed arXiv:2603.07670 (Memory for Autonomous LLM Agents) + 13 key references for engrams improvement ideas. Findings stored in custom-data category=research key=agent-memory-survey-2603.07670. Top recommendations: (1) recency x importance x relevance scoring in prime/relevant (SQL-native, Generative Agents + MemoryBank), (2) decay-based prune command, (3) read-path observability (access_count/last_accessed_at), (4) consolidate pass with confidence-scored patterns, (5) FTS-based contradiction detection at decision-log time, (6) causes/caused_by graph rels, (7) memory-quality regression tests. Non-transferable: embeddings, RL control, parametric memory.",
+      "ts": "2026-08-08T18:37:33Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:62",
+      "group": "progress_entry",
+      "label": "Implemented all v0.10.0 tier-1 concepts: retrieval scoring (blended recency\u00d7importance), prune-decay archiving, read-observability. 85 tests pass, clean build.",
+      "ts": "2026-08-09T03:38:58Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:63",
+      "group": "progress_entry",
+      "label": "v0.10.0 advise + hooks: purpose-built pre-edit advisory, git pre-commit hook with check --staged, managed skill, all docs updated",
+      "ts": "2026-08-10T01:12:41Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:64",
+      "group": "progress_entry",
+      "label": "Released v0.10.0: tagged, CI built 4 targets, GitHub release with curated notes, Formula bumped with verified sha256, released binary smoke-tested against real workspace (doctor returns new never_read/archived checks).",
+      "ts": "2026-08-15T23:57:36Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:65",
+      "group": "progress_entry",
+      "label": "probe",
+      "ts": "2026-08-16T19:22:25Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:66",
+      "group": "progress_entry",
+      "label": "Implemented agent-memory tier 2 (v0.11.0): schema v7 confidence columns; consolidate propose/apply/confirm with derived_from evidence links; contradiction gate with --supersedes/--conflicts-with; causes/caused_by + graph why; doctor unconfirmed-patterns advisory; confidence-aware ranking; progress-entry anchors; S1-S13 BDD suite (tests/memory.rs); docs (reference, releases entry, AGENTS.md, instructions) + version 0.11.0; 99 tests green, docs build green",
+      "ts": "2026-08-16T20:54:52Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    },
+    {
+      "id": "progress_entry:67",
+      "group": "progress_entry",
+      "label": "v0.12.0 tier 1-4 implemented from user feedback: contracts (1.1), code-node enrichment + rendering (1.2), brief composite read (1.3), miss-guidance (1.4), query --full + --fields aliases (2.1), cross-convention FTS + list --filter (2.2), staleness drift in brief/advise/relevant (2.3), usage_log/session_closes + usage/coverage/session close/pr find/decision stats (tier 4), /tmp report path + wider cose spacing, strategy-first + PR close-back protocol in AGENTS.md. 103 tests green, clippy clean (pre-existing warnings out of scope), fmt clean.",
+      "ts": "2026-08-29T07:12:24Z",
+      "tags": "[]",
+      "status": "Done",
+      "degree": 0
+    }
+  ],
+  "links": [
+    {
+      "source": "system_pattern:1",
+      "target": "decision:2",
+      "type": "supports",
+      "ts": "2026-07-10T12:35:24Z"
+    },
+    {
+      "source": "decision:10",
+      "target": "decision:2",
+      "type": "supersedes",
+      "ts": "2026-07-12T19:03:56Z"
+    },
+    {
+      "source": "decision:11",
+      "target": "decision:9",
+      "type": "extends",
+      "ts": "2026-07-12T19:03:56Z"
+    },
+    {
+      "source": "decision:9",
+      "target": "decision:1",
+      "type": "uses",
+      "ts": "2026-07-12T19:03:56Z"
+    },
+    {
+      "source": "decision:16",
+      "target": "decision:3",
+      "type": "extends",
+      "ts": "2026-07-13T02:10:25Z"
+    },
+    {
+      "source": "decision:16",
+      "target": "decision:15",
+      "type": "uses",
+      "ts": "2026-07-13T02:10:29Z"
+    },
+    {
+      "source": "decision:17",
+      "target": "decision:9",
+      "type": "extends",
+      "ts": "2026-07-13T02:10:32Z"
+    },
+    {
+      "source": "decision:13",
+      "target": "decision:6",
+      "type": "supports",
+      "ts": "2026-07-13T02:10:36Z"
+    },
+    {
+      "source": "decision:14",
+      "target": "decision:10",
+      "type": "extends",
+      "ts": "2026-07-13T02:10:38Z"
+    },
+    {
+      "source": "decision:18",
+      "target": "decision:13",
+      "type": "extends",
+      "ts": "2026-07-17T03:29:09Z"
+    },
+    {
+      "source": "decision:19",
+      "target": "decision:18",
+      "type": "uses",
+      "ts": "2026-07-17T03:29:09Z"
+    },
+    {
+      "source": "decision:20",
+      "target": "decision:18",
+      "type": "uses",
+      "ts": "2026-07-17T03:29:09Z"
+    },
+    {
+      "source": "decision:21",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-02T23:34:12Z"
+    },
+    {
+      "source": "decision:22",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-02T23:34:12Z"
+    },
+    {
+      "source": "decision:23",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-02T23:34:12Z"
+    },
+    {
+      "source": "decision:24",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-02T23:34:12Z"
+    },
+    {
+      "source": "decision:21",
+      "target": "decision:22",
+      "type": "depends_on",
+      "ts": "2026-08-02T23:34:12Z"
+    },
+    {
+      "source": "decision:25",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-02T23:40:10Z"
+    },
+    {
+      "source": "decision:25",
+      "target": "decision:22",
+      "type": "relates_to",
+      "ts": "2026-08-02T23:40:11Z"
+    },
+    {
+      "source": "decision:26",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-02T23:54:10Z"
+    },
+    {
+      "source": "decision:26",
+      "target": "decision:22",
+      "type": "relates_to",
+      "ts": "2026-08-02T23:54:10Z"
+    },
+    {
+      "source": "decision:27",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-03T00:19:40Z"
+    },
+    {
+      "source": "decision:28",
+      "target": "decision:18",
+      "type": "refines",
+      "ts": "2026-08-03T00:19:40Z"
+    },
+    {
+      "source": "decision:27",
+      "target": "decision:26",
+      "type": "depends_on",
+      "ts": "2026-08-03T00:19:40Z"
+    },
+    {
+      "source": "decision:30",
+      "target": "decision:29",
+      "type": "uses",
+      "ts": "2026-08-03T03:33:09Z"
+    },
+    {
+      "source": "decision:31",
+      "target": "decision:30",
+      "type": "extends",
+      "ts": "2026-08-03T04:25:18Z"
+    },
+    {
+      "source": "decision:31",
+      "target": "decision:30",
+      "type": "extends",
+      "ts": "2026-08-03T04:26:02Z"
+    },
+    {
+      "source": "decision:32",
+      "target": "decision:31",
+      "type": "extends",
+      "ts": "2026-08-03T04:37:14Z"
+    },
+    {
+      "source": "decision:32",
+      "target": "decision:31",
+      "type": "extends",
+      "ts": "2026-08-03T04:37:14Z"
+    },
+    {
+      "source": "decision:33",
+      "target": "decision:32",
+      "type": "refines",
+      "ts": "2026-08-03T11:07:09Z"
+    },
+    {
+      "source": "decision:34",
+      "target": "decision:33",
+      "type": "refines",
+      "ts": "2026-08-03T11:20:08Z"
+    },
+    {
+      "source": "decision:35",
+      "target": "decision:34",
+      "type": "extends",
+      "ts": "2026-08-03T11:36:34Z"
+    },
+    {
+      "source": "decision:36",
+      "target": "decision:33",
+      "type": "extends",
+      "ts": "2026-08-03T22:01:00Z"
+    },
+    {
+      "source": "decision:37",
+      "target": "decision:36",
+      "type": "extends",
+      "ts": "2026-08-03T22:24:24Z"
+    },
+    {
+      "source": "decision:38",
+      "target": "decision:37",
+      "type": "extends",
+      "ts": "2026-08-03T23:58:56Z"
+    },
+    {
+      "source": "decision:39",
+      "target": "decision:38",
+      "type": "extends",
+      "ts": "2026-08-04T02:53:04Z"
+    },
+    {
+      "source": "decision:40",
+      "target": "decision:14",
+      "type": "refines",
+      "ts": "2026-08-04T03:11:32Z"
+    },
+    {
+      "source": "decision:41",
+      "target": "decision:30",
+      "type": "implements",
+      "ts": "2026-08-05T03:58:32Z"
+    },
+    {
+      "source": "decision:41",
+      "target": "decision:35",
+      "type": "depends_on",
+      "ts": "2026-08-05T03:58:32Z"
+    },
+    {
+      "source": "decision:43",
+      "target": "decision:35",
+      "type": "refines",
+      "ts": "2026-08-05T04:30:32Z"
+    },
+    {
+      "source": "decision:44",
+      "target": "decision:42",
+      "type": "refines",
+      "ts": "2026-08-05T04:48:15Z"
+    },
+    {
+      "source": "progress_entry:57",
+      "target": "decision:44",
+      "type": "implements",
+      "ts": "2026-08-05T15:23:18Z"
+    },
+    {
+      "source": "decision:45",
+      "target": "decision:15",
+      "type": "refines",
+      "ts": "2026-08-05T15:26:42Z"
+    },
+    {
+      "source": "decision:45",
+      "target": "decision:44",
+      "type": "part_of",
+      "ts": "2026-08-05T15:26:42Z"
+    },
+    {
+      "source": "decision:48",
+      "target": "decision:36",
+      "type": "refines",
+      "ts": "2026-08-08T15:44:16Z"
+    },
+    {
+      "source": "decision:46",
+      "target": "decision:47",
+      "type": "depends_on",
+      "ts": "2026-08-08T15:44:16Z"
+    },
+    {
+      "source": "decision:47",
+      "target": "decision:18",
+      "type": "relates_to",
+      "ts": "2026-08-08T15:44:16Z"
+    },
+    {
+      "source": "decision:49",
+      "target": "decision:48",
+      "type": "relates_to",
+      "ts": "2026-08-08T15:44:16Z"
+    },
+    {
+      "source": "decision:51",
+      "target": "decision:46",
+      "type": "refines",
+      "ts": "2026-08-08T17:18:20Z"
+    },
+    {
+      "source": "decision:50",
+      "target": "decision:48",
+      "type": "relates_to",
+      "ts": "2026-08-08T17:18:20Z"
+    },
+    {
+      "source": "decision:52",
+      "target": "decision:51",
+      "type": "builds_on",
+      "ts": "2026-08-08T17:32:26Z"
+    },
+    {
+      "source": "decision:55",
+      "target": "decision:53",
+      "type": "implements",
+      "ts": "2026-08-09T03:38:58Z"
+    },
+    {
+      "source": "decision:59",
+      "target": "decision:58",
+      "type": "supersedes",
+      "ts": "2026-08-16T20:54:20Z"
+    },
+    {
+      "source": "decision:59",
+      "target": "decision:53",
+      "type": "implements",
+      "ts": "2026-08-16T20:54:20Z"
+    },
+    {
+      "source": "decision:60",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:61",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:62",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:63",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:64",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:65",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:66",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    },
+    {
+      "source": "decision:67",
+      "target": "decision:68",
+      "type": "implements",
+      "ts": "2026-08-29T07:12:02Z"
+    }
+  ]
+}
