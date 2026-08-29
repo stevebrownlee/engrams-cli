@@ -26,6 +26,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             importance,
             supersedes,
             conflicts_with,
+            contract,
         } => {
             let status = status.unwrap_or_else(|| "active".to_string());
             let status_overridden = crate::ops::status::check(
@@ -71,8 +72,8 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let tx = conn.unchecked_transaction()?;
             tx.execute(
-                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha, importance) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha, importance.unwrap_or(5)],
+                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha, importance, contract) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha, importance.unwrap_or(5), contract],
             )?;
 
             let id = tx.last_insert_rowid();
@@ -111,66 +112,139 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 if !conflicts_with.is_empty() {
                     map.insert("conflicts_with".into(), serde_json::json!(conflicts_with));
                 }
+                if contract.is_none() {
+                    map.insert(
+                        "hint".into(),
+                        serde_json::json!("no --contract given: if this decision introduces or changes an interface (signatures, struct shapes, error tuples), declare it so strategy queries don't need file reads"),
+                    );
+                }
             }
             Ok(decision)
         }
-        DecisionCmd::List { tags, limit, all } => {
-            if tags.is_empty() {
-                let sql = if all {
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions ORDER BY id DESC LIMIT ?"
-                } else {
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE status = 'active' ORDER BY id DESC LIMIT ?"
-                };
-                let mut stmt = conn.prepare(sql)?;
-                let rows = stmt.query_map(params![limit], parse_decision_row)?;
-                let mut results = Vec::new();
-                for r in rows {
-                    results.push(r?);
-                }
-                let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
-                let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
-                for d in &mut results {
-                    if let Some(urls) = prs_map.get(&d.id) {
-                        d.pr_urls = urls.clone();
-                    }
-                    if let Some(paths) = anchors_map.get(&d.id) {
-                        d.anchors = paths.clone();
-                    }
-                }
-                Ok(serde_json::to_value(results)?)
+        DecisionCmd::List {
+            tags,
+            limit,
+            all,
+            filter,
+        } => {
+            let has_filter = filter.as_deref().is_some_and(|f| !f.trim().is_empty());
+            // FTS join condition binds its ? before any WHERE placeholders,
+            // so the match expression is the first query parameter.
+            let fts_filter = has_filter
+                .then(|| crate::ops::fts_match_expr(filter.as_deref().unwrap_or_default()));
+            let fts_join = if fts_filter.is_some() {
+                " JOIN decisions_fts ON decisions_fts.rowid = d.id AND decisions_fts MATCH ?"
+            } else {
+                ""
+            };
+            let col_prefix = if has_filter { "d." } else { "" };
+            let status_term: String = if all {
+                String::new()
+            } else {
+                format!("{}status = 'active'", col_prefix)
+            };
+            let tag_clause = if tags.is_empty() {
+                String::new()
             } else {
                 let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-                let filter = if all {
-                    String::new()
-                } else {
-                    "AND status = 'active'".to_string()
-                };
-                let query = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE EXISTS (SELECT 1 FROM json_each(decisions.tags) WHERE json_each.value IN ({})) {} ORDER BY id DESC LIMIT ?", placeholders, filter);
-                let mut stmt = conn.prepare(&query)?;
-                let mut p = Vec::<&dyn rusqlite::ToSql>::new();
-                for tag in &tags {
-                    p.push(tag);
-                }
-                p.push(&limit);
-                let rows = stmt.query_map(rusqlite::params_from_iter(p), parse_decision_row)?;
-                let mut results = Vec::new();
-                for r in rows {
-                    results.push(r?);
-                }
-                let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
-                let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
-                for d in &mut results {
-                    if let Some(urls) = prs_map.get(&d.id) {
-                        d.pr_urls = urls.clone();
-                    }
-                    if let Some(paths) = anchors_map.get(&d.id) {
-                        d.anchors = paths.clone();
-                    }
-                }
-                Ok(serde_json::to_value(results)?)
+                format!(
+                    "EXISTS (SELECT 1 FROM json_each({}tags) WHERE json_each.value IN ({}))",
+                    col_prefix, placeholders
+                )
+            };
+            let where_sql = match (tag_clause.is_empty(), status_term.is_empty()) {
+                (true, true) => String::new(),
+                (true, false) => format!(" WHERE {}", status_term),
+                (false, true) => format!(" WHERE {}", tag_clause),
+                (false, false) => format!(" WHERE {} AND {}", tag_clause, status_term),
+            };
+            let mut p = Vec::<&dyn rusqlite::ToSql>::new();
+            if let Some(e) = &fts_filter {
+                p.push(e);
             }
+            for tag in &tags {
+                p.push(tag);
+            }
+            p.push(&limit);
+            // FTS tables share column names (summary, rationale, …): qualify
+            // the select list whenever the join is present.
+            let cols = if has_filter {
+                "d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract"
+            } else {
+                "id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract"
+            };
+            let sql = format!(
+                "SELECT {} FROM decisions d{}{} ORDER BY id DESC LIMIT ?",
+                cols, fts_join, where_sql
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(p), parse_decision_row)?;
+            let mut results = Vec::new();
+            for r in rows {
+                results.push(r?);
+            }
+            let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
+            let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
+            for d in &mut results {
+                if let Some(urls) = prs_map.get(&d.id) {
+                    d.pr_urls = urls.clone();
+                }
+                if let Some(paths) = anchors_map.get(&d.id) {
+                    d.anchors = paths.clone();
+                }
+            }
+            Ok(serde_json::to_value(results)?)
         }
-        DecisionCmd::Get { id } => get_decision(conn, id),
+        DecisionCmd::Get { id } => {
+            // access_count semantics (tier-4): `get` is a retrieval path.
+            crate::ops::scoring::reinforce(conn, "decisions", &[id])?;
+            get_decision(conn, id)
+        }
+        DecisionCmd::Stats {
+            most_accessed,
+            never_accessed,
+            limit,
+        } => {
+            let mut out = serde_json::Map::new();
+            if most_accessed {
+                let mut stmt = conn.prepare(
+                    "SELECT id, summary, access_count, last_accessed_at \
+                     FROM decisions WHERE archived = 0 AND status = 'active' AND access_count > 0 \
+                     ORDER BY access_count DESC, id DESC LIMIT ?1",
+                )?;
+                let rows = stmt
+                    .query_map(params![limit], |row| {
+                        Ok(serde_json::json!({
+                            "id": row.get::<_, i64>(0)?,
+                            "summary": row.get::<_, String>(1)?,
+                            "access_count": row.get::<_, i64>(2)?,
+                            "last_accessed_at": row.get::<_, Option<String>>(3)?,
+                        }))
+                    })?
+                    .filter_map(|r| r.ok())
+                    .collect::<Vec<_>>();
+                out.insert("most_accessed".into(), serde_json::Value::Array(rows));
+            }
+            if never_accessed {
+                let mut stmt = conn.prepare(
+                    "SELECT id, summary, timestamp FROM decisions \
+                     WHERE archived = 0 AND status = 'active' AND access_count = 0 \
+                     ORDER BY id DESC LIMIT ?1",
+                )?;
+                let rows = stmt
+                    .query_map(params![limit], |row| {
+                        Ok(serde_json::json!({
+                            "id": row.get::<_, i64>(0)?,
+                            "summary": row.get::<_, String>(1)?,
+                            "timestamp": row.get::<_, String>(2)?,
+                        }))
+                    })?
+                    .filter_map(|r| r.ok())
+                    .collect::<Vec<_>>();
+                out.insert("never_accessed".into(), serde_json::Value::Array(rows));
+            }
+            Ok(serde_json::Value::Object(out))
+        }
         DecisionCmd::Search {
             query,
             limit,
@@ -209,12 +283,12 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 Ok(serde_json::to_value(results)?)
             } else {
                 let sql = if all {
-                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
+                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract \
                      FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
                      WHERE decisions_fts MATCH ?1 \
                      ORDER BY rank LIMIT ?2"
                 } else {
-                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
+                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract \
                      FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
                      WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
                      ORDER BY rank LIMIT ?2"
@@ -254,6 +328,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             let summary = fields.summary;
             let rationale = fields.rationale;
             let details = fields.details;
+            let contract = fields.contract;
             let status = fields.status;
             let importance = fields.importance;
 
@@ -269,6 +344,10 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             }
             if let Some(ref v) = details {
                 sets.push("implementation_details = ?");
+                p.push(v);
+            }
+            if let Some(ref v) = contract {
+                sets.push("contract = ?");
                 p.push(v);
             }
 
@@ -416,7 +495,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             // Fetch both decisions
             let source: Decision = tx
                 .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id = ?",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id = ?",
                     params![source_id],
                     parse_decision_row,
                 )
@@ -425,7 +504,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let target: Decision = tx
                 .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id = ?",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id = ?",
                     params![into_id],
                     parse_decision_row,
                 )
@@ -440,6 +519,9 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 target.implementation_details.as_deref(),
                 source.implementation_details.as_deref(),
             );
+            // Merge contracts
+            let merged_contract =
+                merge_text_fields(target.contract.as_deref(), source.contract.as_deref());
 
             // Merge tags (union, deduplicated)
             let merged_tags = merge_tags(&target.tags, &source.tags);
@@ -451,8 +533,8 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             // Update target with merged fields
             tx.execute(
-                "UPDATE decisions SET rationale = ?1, implementation_details = ?2, tags = ?3 WHERE id = ?4",
-                params![merged_rationale, merged_details, merged_tags_json, into_id],
+                "UPDATE decisions SET rationale = ?1, implementation_details = ?2, tags = ?3, contract = ?4 WHERE id = ?5",
+                params![merged_rationale, merged_details, merged_tags_json, merged_contract, into_id],
             )?;
 
             // Repoint links from source to target
@@ -506,12 +588,13 @@ fn parse_decision_row(row: &rusqlite::Row) -> rusqlite::Result<Decision> {
         access_count: row.get(10)?,
         last_accessed_at: row.get(11)?,
         archived: row.get(12)?,
+        contract: row.get(13)?,
         score: None,
     })
 }
 
 fn get_decision(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id = ?")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id = ?")?;
     let mut decision = stmt
         .query_row(params![id], parse_decision_row)
         .optional()?
@@ -551,7 +634,7 @@ pub(crate) fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Resu
     );
 
     let mut stmt = conn.prepare(
-        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived \
+        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract \
          FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
          WHERE decisions_fts MATCH ?1 AND d.status = 'active' AND d.archived = 0 \
          ORDER BY rank LIMIT ?2",

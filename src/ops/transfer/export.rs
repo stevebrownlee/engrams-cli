@@ -186,7 +186,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     }
 
     // Export Decisions
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions")?;
+    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions")?;
     let rows = stmt.query_map([], |row| {
         let tags_str: Option<String> = row.get(5)?;
         let tags = match tags_str {
@@ -207,6 +207,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "access_count": row.get::<_, i64>(10)?,
             "last_accessed_at": row.get::<_, Option<String>>(11)?,
             "archived": row.get::<_, i64>(12)?,
+            "contract": row.get::<_, Option<String>>(13)?,
         }))
     })?;
     let mut decisions_count = 0;

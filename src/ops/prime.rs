@@ -36,7 +36,7 @@ pub fn handle(
     let skip_decisions_query = !paths.is_empty() && decision_ids.is_empty();
     if !skip_decisions_query {
         let score = crate::ops::scoring::score_expr("timestamp", "importance");
-        let mut sql = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, {score} AS score FROM decisions WHERE status = 'active' AND archived = 0");
+        let mut sql = format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract, {score} AS score FROM decisions WHERE status = 'active' AND archived = 0");
         let mut params_vec = Vec::<&dyn rusqlite::ToSql>::new();
 
         if !paths.is_empty() {
@@ -91,7 +91,8 @@ pub fn handle(
                 access_count: row.get(10)?,
                 last_accessed_at: row.get(11)?,
                 archived: row.get(12)?,
-                score: Some(row.get(13)?),
+                contract: row.get(13)?,
+                score: Some(row.get(14)?),
             })
         })?;
 
@@ -148,7 +149,7 @@ pub fn handle(
             if !missing.is_empty() {
                 let placeholders = missing.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                 let sql = format!(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE id IN ({}) ORDER BY id DESC",
+                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id IN ({}) ORDER BY id DESC",
                     placeholders
                 );
                 let mut stmt = conn.prepare(&sql)?;
@@ -174,6 +175,7 @@ pub fn handle(
                         access_count: row.get(10)?,
                         last_accessed_at: row.get(11)?,
                         archived: row.get(12)?,
+                        contract: row.get(13)?,
                         score: None,
                     })
                 })?;

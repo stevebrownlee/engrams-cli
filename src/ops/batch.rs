@@ -74,6 +74,7 @@ pub fn handle(
                             importance: None,
                             supersedes: None,
                             conflicts_with: Vec::new(),
+                            contract: None,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {

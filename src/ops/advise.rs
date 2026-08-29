@@ -90,19 +90,32 @@ pub fn handle(
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
-            "SELECT id, summary, status, rationale \
+            "SELECT id, summary, status, rationale, timestamp, commit_sha \
              FROM decisions WHERE id IN ({}) AND archived = 0 AND status = 'active'",
             placeholders
         );
         let mut stmt = conn.prepare(&sql)?;
+        // Staleness drift (2.3): one git scan for the whole batch.
+        let mut drift = crate::ops::drift::Drift::scan(&crate::db::workspace_root()?);
         let rows = stmt.query_map(rusqlite::params_from_iter(&decision_ids), |row| {
-            Ok(json!({
+            let mut c = json!({
                 "type": "decision",
                 "id": row.get::<_, i64>(0)?,
                 "summary": row.get::<_, String>(1)?,
                 "status": row.get::<_, String>(2)?,
                 "rationale": row.get::<_, Option<String>>(3)?,
-            }))
+            });
+            let report = drift.report(
+                conn,
+                "decision",
+                row.get::<_, i64>(0)?,
+                &row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(5)?.as_deref(),
+            );
+            if !report.is_null() {
+                c["drift"] = report;
+            }
+            Ok(c)
         })?;
         for r in rows {
             constraints.push(r?);
@@ -115,6 +128,16 @@ pub fn handle(
         .get("violations")
         .cloned()
         .unwrap_or_else(|| json!([]));
+
+    // access_count semantics (tier-4): advise is a retrieval path — reinforce
+    // exactly the decisions it surfaced, and log the call.
+    let surfaced: Vec<i64> = constraints
+        .iter()
+        .filter(|c| c.get("type").and_then(|v| v.as_str()) == Some("decision"))
+        .filter_map(|c| c.get("id").and_then(|v| v.as_i64()))
+        .collect();
+    crate::ops::scoring::reinforce(conn, "decisions", &surfaced)?;
+    crate::ops::usage::record(conn, "advise", &cleaned.join(","), constraints.len(), false);
 
     Ok(json!({
         "constraints": constraints,

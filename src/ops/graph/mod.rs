@@ -110,26 +110,60 @@ fn stats(conn: &Connection) -> Result<Value> {
     }))
 }
 
-/// code_nodes id-string → path, for human-readable query output.
-fn code_paths(conn: &Connection) -> Result<HashMap<String, String>> {
-    let mut stmt = conn.prepare("SELECT id, path FROM code_nodes WHERE kind = 'file'")?;
+/// Enrichment metadata for a code node, loaded for graph rendering.
+struct CodeInfo {
+    path: String,
+    symbols: Option<Value>,
+    module_doc: Option<String>,
+    line_count: Option<i64>,
+}
+
+/// code_nodes id-string → info, for human-readable query output.
+fn code_paths(conn: &Connection) -> Result<HashMap<String, CodeInfo>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, path, symbols, module_doc, line_count FROM code_nodes WHERE kind = 'file'",
+    )?;
     let rows = stmt.query_map([], |row| {
-        Ok((row.get::<_, i64>(0)?.to_string(), row.get::<_, String>(1)?))
+        Ok((
+            row.get::<_, i64>(0)?.to_string(),
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+            row.get::<_, Option<String>>(3)?,
+            row.get::<_, Option<i64>>(4)?,
+        ))
     })?;
     let mut map = HashMap::new();
     for r in rows {
-        let (k, v) = r?;
-        map.insert(k, v);
+        let (k, path, symbols, module_doc, line_count) = r?;
+        map.insert(
+            k,
+            CodeInfo {
+                path,
+                symbols: symbols.and_then(|s| serde_json::from_str(&s).ok()),
+                module_doc,
+                line_count,
+            },
+        );
     }
     Ok(map)
 }
 
-/// `{"node": "code:5", "path": "src/main.rs"}` — `path` only for code nodes.
-fn node_json(key: &NodeKey, paths: &HashMap<String, String>) -> Value {
+/// `{"node": "code:5", "path": "src/main.rs", ...}` — enrichment fields for
+/// code nodes so strategy queries can describe a file without reading it.
+fn node_json(key: &NodeKey, paths: &HashMap<String, CodeInfo>) -> Value {
     let mut v = json!({"node": model::fmt_node(key)});
     if key.0 == "code" {
-        if let Some(p) = paths.get(&key.1) {
-            v["path"] = json!(p);
+        if let Some(info) = paths.get(&key.1) {
+            v["path"] = json!(info.path);
+            if let Some(s) = &info.symbols {
+                v["symbols"] = s.clone();
+            }
+            if let Some(d) = &info.module_doc {
+                v["module_doc"] = json!(d);
+            }
+            if let Some(n) = info.line_count {
+                v["line_count"] = json!(n);
+            }
         }
     }
     v

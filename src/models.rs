@@ -9,6 +9,8 @@ pub struct Decision {
     pub rationale: Option<String>,
     pub implementation_details: Option<String>,
     pub tags: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract: Option<String>,
     pub timestamp: String,
     #[serde(skip_serializing_if = "is_active")]
     pub status: String,

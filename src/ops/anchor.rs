@@ -217,9 +217,9 @@ pub fn handle_relevant(
             .join(",");
         let score = crate::ops::scoring::score_expr("timestamp", "importance");
         let sql = if all {
-            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, {score} AS score FROM decisions WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders)
+            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract, {score} AS score FROM decisions WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders)
         } else {
-            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, {score} AS score FROM decisions WHERE id IN ({}) AND status = 'active' AND archived = 0 ORDER BY score DESC", placeholders)
+            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract, {score} AS score FROM decisions WHERE id IN ({}) AND status = 'active' AND archived = 0 ORDER BY score DESC", placeholders)
         };
         let mut stmt = conn.prepare(&sql)?;
         let mut p = Vec::<&dyn rusqlite::ToSql>::new();
@@ -248,7 +248,8 @@ pub fn handle_relevant(
                 access_count: row.get(10)?,
                 last_accessed_at: row.get(11)?,
                 archived: row.get(12)?,
-                score: Some(row.get(13)?),
+                contract: row.get(13)?,
+                score: Some(row.get(14)?),
             })
         })?;
         for r in rows {
@@ -328,8 +329,36 @@ pub fn handle_relevant(
         &patterns.iter().map(|p| p.id).collect::<Vec<_>>(),
     )?;
 
-    Ok(serde_json::json!({
+    // Tier-4 telemetry: one usage row per retrieval call.
+    crate::ops::usage::record(
+        conn,
+        "relevant",
+        &cleaned_paths.join(","),
+        decisions.len(),
+        false,
+    );
+
+    let mut out = serde_json::json!({
         "decisions": decisions,
         "patterns": patterns,
-    }))
+    });
+    // Staleness drift (2.3): per-decision trust signal — anchored files
+    // committed after the decision. Null (stripped on read) when no signal.
+    if let Ok(root) = crate::db::workspace_root() {
+        let mut drift = crate::ops::drift::Drift::scan(&root);
+        if let Some(arr) = out.get_mut("decisions").and_then(Value::as_array_mut) {
+            for d in arr.iter_mut() {
+                let id = d.get("id").and_then(Value::as_i64);
+                let ts = d.get("timestamp").and_then(Value::as_str);
+                if let (Some(id), Some(ts)) = (id, ts) {
+                    let sha = d.get("commit_sha").and_then(Value::as_str);
+                    let report = drift.report(conn, "decision", id, ts, sha);
+                    if !report.is_null() {
+                        d["drift"] = report;
+                    }
+                }
+            }
+        }
+    }
+    Ok(out)
 }

@@ -216,6 +216,30 @@ fn s3_migration_v6_to_v7_adds_confidence_columns() {
               last_accessed_at TEXT,
               archived INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE decisions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              uuid TEXT NOT NULL,
+              timestamp TEXT NOT NULL,
+              summary TEXT NOT NULL,
+              rationale TEXT,
+              implementation_details TEXT,
+              tags TEXT,
+              status TEXT NOT NULL DEFAULT 'active',
+              commit_sha TEXT,
+              importance INTEGER NOT NULL DEFAULT 5,
+              access_count INTEGER NOT NULL DEFAULT 0,
+              last_accessed_at TEXT,
+              archived INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE code_nodes (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              kind TEXT NOT NULL,
+              path TEXT NOT NULL,
+              symbol TEXT NOT NULL DEFAULT '',
+              first_seen TEXT NOT NULL,
+              last_seen TEXT NOT NULL,
+              UNIQUE(kind, path, symbol)
+            );
             INSERT INTO system_patterns (uuid, timestamp, name) VALUES ('u1', '2026-01-01T00:00:00Z', 'legacy');
             PRAGMA user_version = 6;"#,
         )
@@ -240,7 +264,7 @@ fn s3_migration_v6_to_v7_adds_confidence_columns() {
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 7);
+        assert_eq!(version, 10);
         let mut stmt = conn.prepare("PRAGMA table_info(system_patterns)").unwrap();
         let cols: Vec<String> = stmt
             .query_map([], |r| r.get::<_, String>(1))

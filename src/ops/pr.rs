@@ -168,5 +168,25 @@ pub fn handle(conn: &Connection, cmd: PrCmd) -> Result<Value> {
                 "url": target_url,
             }))
         }
+        PrCmd::Find { pr } => {
+            let url = resolve_pr_url(&pr)?;
+            let suffix = format!("%/{}", url.rsplit('/').next().unwrap_or(&url));
+            let mut stmt = conn.prepare(
+                "SELECT source_item_type, source_item_id, timestamp FROM context_links \
+                 WHERE target_item_type = 'pr' AND (target_item_id = ?1 OR target_item_id LIKE ?2) \
+                 ORDER BY id ASC",
+            )?;
+            let rows = stmt
+                .query_map(params![url, suffix], |row| {
+                    Ok(serde_json::json!({
+                        "type": row.get::<_, String>(0)?,
+                        "id": row.get::<_, String>(1)?,
+                        "attached_at": row.get::<_, String>(2)?,
+                    }))
+                })?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<_>>();
+            Ok(serde_json::json!({ "pr": url, "referenced_by": rows }))
+        }
     }
 }

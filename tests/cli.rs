@@ -564,7 +564,7 @@ fn test_version_validation() {
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 7);
+        assert_eq!(ver, 10);
     }
 }
 
@@ -685,7 +685,7 @@ fn test_migration_v1_to_v2() {
         let ver: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 7);
+        assert_eq!(ver, 10);
     }
 }
 
@@ -2021,7 +2021,7 @@ fn test_migration_v2_to_v3() {
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 7);
+    assert_eq!(version, 10);
 
     // context_links gained origin/source/weight.
     let mut stmt = conn.prepare("PRAGMA table_info(context_links)").unwrap();

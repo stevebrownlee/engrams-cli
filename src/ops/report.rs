@@ -70,7 +70,14 @@ pub fn open(
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             db_path.hash(&mut hasher);
             let hash = hasher.finish() as u32;
-            std::env::temp_dir().join(format!("engrams-report-{:08x}.html", hash))
+            // /tmp explicitly: macOS env::temp_dir() resolves under
+            // /var/folders/…, which users reported as the wrong location.
+            let tmp = if cfg!(target_os = "macos") && std::path::Path::new("/tmp").is_dir() {
+                std::path::PathBuf::from("/tmp")
+            } else {
+                std::env::temp_dir()
+            };
+            tmp.join(format!("engrams-report-{:08x}.html", hash))
         }
     };
 
@@ -219,9 +226,9 @@ pub(crate) fn query_decisions(
     active_only: bool,
 ) -> Result<Vec<Decision>> {
     let sql = if active_only {
-        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE status = 'active' AND archived = 0 ORDER BY id DESC LIMIT ?"
+        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE status = 'active' AND archived = 0 ORDER BY id DESC LIMIT ?"
     } else {
-        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE archived = 0 ORDER BY id DESC LIMIT ?"
+        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE archived = 0 ORDER BY id DESC LIMIT ?"
     };
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params![limit], |row| {
@@ -246,6 +253,7 @@ pub(crate) fn query_decisions(
             access_count: row.get(10)?,
             last_accessed_at: row.get(11)?,
             archived: row.get(12)?,
+            contract: row.get(13)?,
             score: None,
         })
     })?;
