@@ -31,6 +31,27 @@ engrams prime --paths src/graph,src/ontology --tags policy-engine</code></pre>
     those paths. Your agent runs this first; you skim the same output to see exactly what it was
     told.
   </p>
+  <h2><code>engrams brief</code> — the architectural feature brief</h2>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams brief "payment adapter"
+engrams brief decision:62 --depth 2</code></pre>
+  <p>
+    <strong>What you get:</strong> a composite one-call architectural brief for a specific feature,
+    decision, or query in under 200 tokens:
+  </p>
+  <ul>
+    <li>Full decision text and explicit interface contract (<code>--contract</code>).</li>
+    <li>File anchors with their extracted symbols, module docstrings, and line counts.</li>
+    <li><strong>Git Staleness Drift (<code>stale: true/false</code>):</strong> Tells you immediately if any anchored file was committed in Git <em>after</em> the decision was logged.</li>
+    <li>Connected 1-hop graph neighbors with one-line summaries.</li>
+  </ul>
+  <p>
+    <strong>Why it's valuable:</strong> While <code>prime</code> is the project-level morning brief,
+    <code>brief</code> is the feature-level deep dive. It replaces 5 separate CLI round trips and allows
+    both you and your AI agent to understand and verify complex systems without opening a single source file.
+  </p>
 
   <h2><code>engrams report</code> — the project at a glance</h2>
   <p>

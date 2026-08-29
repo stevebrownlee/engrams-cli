@@ -47,9 +47,9 @@ engrams active-context list`}</code></pre>
   <pre><code>{`engrams history <product-context|active-context> [--version <N>] [--limit <LIMIT>] [--name <TRACK>] [--all]`}</code></pre>
 
   <h3>6. <code>decision</code></h3>
-  <p>Log, list, search, update, delete, or consolidate architectural decisions (ADRs). <code>decision log</code> checks for similar existing decisions by default and skips insertion on near-matches unless <code>--force</code> is passed. Status is validated against a closed vocabulary — <code>active</code>, <code>superseded</code>, <code>rejected</code>, <code>revisited</code>; <code>--force</code> bypasses validation on updates, and <code>decision supersede</code> automatically flips the retired decision to <code>superseded</code>.</p>
-  <pre><code>{`# Log a new decision (fails if a similar summary exists)
-engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql"
+  <p>Log, list, search, update, delete, or consolidate architectural decisions (ADRs). <code>decision log</code> checks for similar existing decisions by default and skips insertion on near-matches unless <code>--force</code> is passed. Always declare <code>--contract</code> when introducing an interface abstraction. Status is validated against a closed vocabulary — <code>active</code>, <code>superseded</code>, <code>rejected</code>, <code>revisited</code>; <code>--force</code> bypasses validation on updates, and <code>decision supersede</code> automatically flips the retired decision to <code>superseded</code>.</p>
+  <pre><code>{`# Log a new decision with contract (fails if a similar summary exists)
+engrams decision log --summary "Use Postgres" --contract "fn connect() -> Result<Conn>" --rationale "ACID required" --tags "db,sql"
 
 # Log with an explicit initial status (default: active)
 engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql" --status active
@@ -57,27 +57,29 @@ engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags
 # Log a new decision unconditionally (also bypasses the similarity check)
 engrams decision log --summary "Use Postgres" --rationale "ACID required" --tags "db,sql" --force
 
-# List decisions
-engrams decision list [--tags "db,sql"] [--limit 20]
+# List decisions (supports convention-aware --filter)
+engrams decision list [--tags "db,sql"] [--filter "postgres"] [--limit 20]
 
 # Search decisions using FTS5 (optionally returning snippets)
 engrams decision search "Postgres" [--limit 10] [--snippets]
 
-# Retrieve a decision by ID
+# Query decision curation stats (access frequency & dead knowledge audit)
+engrams decision stats [--most-accessed] [--never-accessed] [--limit 10]
+
+# Retrieve a decision by ID (reinforces access count)
 engrams decision get <ID>
 
-# Update a decision (status must be active, superseded, rejected, or revisited; --force bypasses)
-engrams decision update <ID> [--status "superseded"] [--summary "New summary"] [--rationale "New rationale"] [--details "details"] [--tags "new,tags"] [--force]
+# Update a decision (supports --contract update)
+engrams decision update <ID> [--status "superseded"] [--summary "New summary"] [--contract "New contract"] [--rationale "New rationale"] [--details "details"] [--tags "new,tags"] [--force]
 
 # Delete a decision
 engrams decision delete <ID>
 
-# Consolidate two decisions (merges fields, repoints links, and deletes source)
+# Consolidate two decisions (merges fields, contracts, repoints links, and deletes source)
 engrams decision consolidate <SOURCE_ID> <INTO_ID>
 
 # Supersede a decision with another (auto-sets the retired decision's status to 'superseded')
 engrams decision supersede <ID> --by <REPLACEMENT_ID>`}</code></pre>
-
   <h3>7. <code>progress</code></h3>
   <p>Log and track tasks and subtasks. Status is validated against a closed vocabulary — <code>Todo</code>, <code>InProgress</code>, <code>InReview</code>, <code>Blocked</code>, <code>Done</code>, <code>Dropped</code>; <code>--force</code> bypasses validation. Use <code>--check-similar</code> to prevent logging duplicate entries for the same status and description.</p>
   <pre><code>{`# Log progress (status must be in the closed vocabulary)
@@ -203,16 +205,18 @@ cat items.json | engrams batch --type custom_data --items -`}</code></pre>
   <pre><code>{`engrams import [--path <DIR>]`}</code></pre>
 
   <h3>17. <code>pr</code></h3>
-  <p>Manage PR URLs and numbers associated with decisions and patterns. Supports automatic host mapping for PR numbers if a git repository is configured.</p>
+  <p>Manage PR URLs and numbers associated with decisions and patterns. Supports automatic host mapping for PR numbers if a git repository is configured, and reverse lookup via <code>pr find</code>.</p>
   <pre><code>{`# Attach PR URLs/numbers
 engrams pr add --type decision --id <ID> --pr <PR_NUMBER_OR_URL>
+
+# Reverse lookup: find all decisions/patterns referencing a PR
+engrams pr find <PR_NUMBER_OR_URL>
 
 # List PRs attached to an item
 engrams pr list --type decision --id <ID>
 
 # Remove a PR URL from an item
 engrams pr remove --type decision --id <ID> --url <PR_URL>`}</code></pre>
-
   <h3>18. <code>anchor</code></h3>
   <p>Manage file path anchors for decisions and patterns.</p>
   <pre><code>{`# Add file anchors
@@ -242,13 +246,46 @@ engrams prime [--budget <TOKENS>]`}</code></pre>
   <pre><code>{`engrams doctor`}</code></pre>
 
   <h3>22. <code>query</code></h3>
-  <p>Unified query search across decisions, patterns, and custom data, with FTS5 highlighting.</p>
-  <pre><code>{`engrams query <QUERY> [--types decision,pattern,custom] [--tags <TAGS>] [--since <TIMESTAMP>] [--limit <LIMIT>] [--all]`}</code></pre>
+  <p>Unified query search across decisions, patterns, and custom data, with FTS5 highlighting and cross-convention matching (<code>snake_case</code>, <code>camelCase</code>, and <code>kebab-case</code> match identically). Pass <code>--full</code> to embed complete payloads. When a search matches 0 items, returns structured <code>miss_guidance</code>.</p>
+  <pre><code>{`# Unified query
+engrams query <QUERY> [--types decision,pattern,custom] [--tags <TAGS>] [--since <TIMESTAMP>] [--limit <LIMIT>] [--all]
+
+# Full-payload query (kills 1+N decision get calls)
+engrams query "auth" --full`}</code></pre>
 
   <h3>23. <code>instructions</code></h3>
   <p>Print agent onboarding instructions in raw markdown.</p>
   <pre><code>{`engrams instructions`}</code></pre>
-  <h2>Automatic Update Checks</h2>
+
+  <h3>24. <code>brief</code></h3>
+  <p>One-call composite architectural brief for a node reference or FTS query in under 200 tokens: returns decision text, contract, tags, PRs, anchors with extracted symbols/docstrings/lines, Git staleness drift, and 1-hop neighbors.</p>
+  <pre><code>{`# Brief by query or node reference
+engrams brief "payment provider"
+engrams brief decision:62 [--depth 2]`}</code></pre>
+
+  <h3>25. <code>usage</code></h3>
+  <p>Retrieval telemetry and curation feedback. Tracks call counts, constraints fired, and zero-hit searches.</p>
+  <pre><code>{`# Show aggregate retrieval counts
+engrams usage [--since <TIMESTAMP|2w>] [--daily]
+
+# Rank zero-hit queries (vocabulary gaps to curate)
+engrams usage --misses`}</code></pre>
+
+  <h3>26. <code>coverage</code></h3>
+  <p>Audit anchored-knowledge coverage, dead anchors, and median hop distance for a file set or git diff.</p>
+  <pre><code>{`# Audit paths
+engrams coverage src/
+
+# Audit changed files on a branch
+engrams coverage --diff main...HEAD`}</code></pre>
+
+  <h3>27. <code>session</code></h3>
+  <p>Record session ROI rollups (reads skipped vs required) and enforce PR validation gates.</p>
+  <pre><code>{`# Close session with PR validation gate
+engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000 --pr 42 [--note "..."]
+
+# View session history and cumulative savings
+engrams session history`}</code></pre>
   <p>
     Engrams CLI automatically checks for new releases in the background (at most once every 24 hours). If a new version is available, a notification is printed to standard error.
   </p>

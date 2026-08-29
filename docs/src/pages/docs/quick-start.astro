@@ -2,40 +2,35 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Quick Start" description="Get Engrams running in your project in under five minutes.">
-  <h1>Quick Start</h1>
+<DocsLayout title="Quick Start" description="Get Engrams running in your project in under five minutes — from zero to strategy-first retrieval.">
+  <h1>Quick Start: Zero-Read Strategy in 5 Minutes</h1>
   <p class="lead">
-    From zero to a working advisory memory in five minutes — initialize, log, recall, link.
-    By the end your AI assistant has a persistent memory for your project: thin on day one,
-    compounding from the first session onward.
+    From an empty repository to a self-sufficient architecture graph in five commands.
+    By the end, your AI assistant can plan features, verify contracts, and check Git drift without opening source files.
     Make sure you have completed the <a href="/docs/installation">installation</a> first.
   </p>
 
-  <h2>Agent Integration</h2>
+  <h2>Agent Setup</h2>
   <p>
-    Engrams provides a built-in <code>instructions</code> command designed to output the standardized instruction manual that teaches LLM agents how to interact with the Engrams CLI:
+    Engrams provides a built-in <code>instructions</code> command designed to output the standardized instruction manual that teaches LLM agents the Strategy-First retrieval protocol:
   </p>
   <pre><code>engrams instructions</code></pre>
   <p>
-    Run this command in your project root and copy-paste the output directly into your project's <code>AGENTS.md</code> file, <code>.clinerules</code>, <code>.cursorrules</code>, or system prompt configuration. This teaches the AI agent exactly when and how to call the CLI to query context, log decisions, and update progress.
+    Run this in your project root and paste the output directly into your <code>AGENTS.md</code> file, <code>.cursorrules</code>, or system prompt configuration.
   </p>
-  <h2>Interactive Walkthrough</h2>
+
+  <h2>5-Minute Walkthrough</h2>
   <div class="steps">
 
     <!-- Step 1 -->
     <div class="step">
       <div class="step-num">1</div>
       <div class="step-body">
-        <h3>Orient the agent on startup</h3>
+        <h3>Initialize the local database</h3>
         <p>
-          At the start of a session, your AI agent runs <code>engrams prime</code> to fetch the project overview, active focus, decisions, and patterns all in one call:
+          Create the embedded SQLite database in your workspace:
         </p>
-        <pre><code>{`You: Let's start working on the project.
-
-AI:  Sure, let me orient myself with the project context first.
-     [Running: engrams prime --budget 1000]
-     Loaded product context, active context, and recent decisions.
-     I see we are building a Rust CLI using SQLite, and the active task is implementing search. I'm ready!`}</code></pre>
+        <pre><code>engrams init</code></pre>
       </div>
     </div>
 
@@ -43,16 +38,16 @@ AI:  Sure, let me orient myself with the project context first.
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-body">
-        <h3>Bootstrap from existing docs (optional)</h3>
+        <h3>Log an architecture decision with an explicit contract</h3>
         <p>
-          If you already have a <code>README.md</code>, architecture doc, or similar, ask your AI
-          to parse it and log the key facts to the Engrams database. Behind the scenes, the AI will execute CLI commands:
+          When introducing an interface, behavior, or adapter, embed its contract so future sessions don't need to read implementation files:
         </p>
-        <pre><code>{`You: Parse my README.md and store our core architecture choices in Engrams.
-
-AI:  I'll extract the core architecture choices.
-     [Running: engrams decision log --summary "Use Node.js with TypeScript" --rationale "Team proficiency" ...]
-     Logged 3 architectural decisions successfully!`}</code></pre>
+        <pre><code>engrams decision log \
+  --summary "Provider behavior for payment adapters" \
+  --contract "fn process(amount: u64, currency: &amp;str) -> Result&lt;Receipt, PaymentError&gt;" \
+  --rationale "Pluggable payment processors across Stripe and PayPal" \
+  --tags payment,adapter,api \
+  --anchor src/adapters/stripe.rs</code></pre>
       </div>
     </div>
 
@@ -60,13 +55,11 @@ AI:  I'll extract the core architecture choices.
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <h3>Log a decision manually</h3>
-        <p>When you and your AI agree on a design choice, have the AI log it to keep the database fresh:</p>
-        <pre><code>{`You: We've decided to use SQLite with FTS5 for local search.
-
-AI:  Understood. Logging that decision.
-     [Running: engrams decision log --summary "Use SQLite with FTS5 for local search" --rationale "Fast, local, simple" --tags "search,db"]
-     Decision logged as ID 4.`}</code></pre>
+        <h3>Rebuild the code graph</h3>
+        <p>
+          Let Engrams scan your repository, extracting exported symbols, docstrings, and line counts onto code nodes:
+        </p>
+        <pre><code>engrams graph rebuild</code></pre>
       </div>
     </div>
 
@@ -74,67 +67,66 @@ AI:  Understood. Logging that decision.
     <div class="step">
       <div class="step-num">4</div>
       <div class="step-body">
-        <h3>Retrieve context on demand</h3>
+        <h3>Retrieve full architectural context in one call</h3>
         <p>
-          The AI agent checks Engrams at the start of a task or searches for topics to ensure it follows your conventions:
+          Before writing code, your agent runs <code>brief</code> to get the decision, contract, symbols, and Git staleness drift:
         </p>
-        <pre><code>{`You: Write a search module for the database.
+        <pre><code>engrams brief "payment provider"</code></pre>
+        <pre><code>&#123;
+  "brief": &#123;
+    "summary": "Provider behavior for payment adapters",
+    "contract": "fn process(amount: u64, currency: &amp;str) -> Result&lt;Receipt, PaymentError&gt;",
+    "drift": &#123; "stale": false, "checked": 1 &#125;
+  &#125;,
+  "neighbors": [
+    &#123;
+      "node": "code:42",
+      "path": "src/adapters/stripe.rs",
+      "symbols": ["StripeAdapter", "process", "refund"],
+      "line_count": 148
+    &#125;
+  ]
+&#125;</code></pre>
+      </div>
+    </div>
 
-AI:  Let me search Engrams for search-related decisions first.
-     [Running: engrams decision search "search"]
-     Found:
-     - Decision #4: Use SQLite with FTS5 for local search (Fast, local, simple)
-
-     I'll implement the search module using SQLite FTS5 as decided.`}</code></pre>
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h3>Close the session with PR verification</h3>
         <p>
-          Because the AI queried the CLI directly, it aligned with your stack choice instantly—without you needing to re-state the rules.
+          Enforce that PRs are anchored to decisions and record token ROI:
         </p>
+        <pre><code>engrams session close --reads-skipped 12 --tokens-saved 60000 --pr 42</code></pre>
       </div>
     </div>
   </div>
 
   <h2>What to try next</h2>
   <div class="next-cards">
-    <a href="/docs/for-agent/maintaining" class="next-card">
-      <span class="nc-icon">🔄</span>
-      <strong>Export &amp; Team Sync</strong>
-      <span>Share decisions via Markdown export and Git</span>
-    </a>
     <a href="/docs/for-agent/retrieving" class="next-card">
       <span class="nc-icon">⚡</span>
-      <strong>Retrieval &amp; Search</strong>
-      <span>How prime, relevant, and FTS5 query surface context</span>
+      <strong>Strategy-First Retrieval</strong>
+      <span>How prime, brief, and cross-convention search save tokens</span>
     </a>
-    <a href="/docs/for-agent/connecting" class="next-card">
-      <span class="nc-icon">🕸️</span>
-      <strong>Knowledge Graph</strong>
-      <span>Link decisions, patterns, and tasks into a reasoning web</span>
+    <a href="/docs/for-agent/maintaining" class="next-card">
+      <span class="nc-icon">📊</span>
+      <strong>Telemetry &amp; PR Gates</strong>
+      <span>Track zero-hit queries and enforce PR linkage</span>
     </a>
     <a href="/docs/for-you/exploration" class="next-card">
-      <span class="nc-icon">📊</span>
-      <strong>HTML Report</strong>
-      <span>Open a browser dashboard with an interactive graph</span>
+      <span class="nc-icon">🕸️</span>
+      <strong>Interactive Graph</strong>
+      <span>Explore the living 3D knowledge graph</span>
     </a>
     <a href="/docs/reference/cli" class="next-card">
       <span class="nc-icon">💻</span>
       <strong>CLI Reference</strong>
-      <span>Check all commands and format options</span>
+      <span>All commands, options, and flags</span>
     </a>
   </div>
-
-  <h2>What happens next</h2>
-  <p>
-    What you just built is the seed. From here the loop runs itself: your agent primes at session
-    start, recalls relevant context before acting, and logs decisions, patterns, and progress as it
-    works. Each record you link makes the next briefing sharper — on day one your advisor fetches;
-    within weeks it anticipates, warning you when new work contradicts a settled decision or violates
-    a pattern you care about.
-  </p>
-  <p>
-    Since <a href="/docs/reference/releases">v0.9.0</a>, patterns can even be made machine-checkable,
-    so the conventions you log are verified by <code>engrams check</code> — enforced, not just
-    remembered. See the <a href="/docs/reference/cli">CLI reference</a> for the full command surface.
-  </p>
+</DocsLayout>
 
 <style>
   .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }

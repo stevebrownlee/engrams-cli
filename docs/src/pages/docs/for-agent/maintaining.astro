@@ -2,114 +2,168 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Maintaining" description="How the agent keeps the engrams knowledge graph healthy and current: supersede, active-context, export, migrate, doctor.">
-  <h1>Maintaining</h1>
+<DocsLayout title="Maintaining" description="Telemetry, coverage audits, PR gates, and session-end protocol in engrams.">
+  <h1>Maintaining: Telemetry, Coverage &amp; Curation</h1>
   <p class="lead">
-    A knowledge graph decays unless someone maintains it. That someone is the agent: superseding
-    decisions that no longer hold, patching the active-context track, exporting for git sync,
-    migrating schema, and running the doctor to catch drift before it misleads.
+    Maintenance in Engrams is continuous and measurable. Instead of passive knowledge decay,
+    Engrams uses <strong>retrieval telemetry</strong> to identify vocabulary gaps, <strong>coverage audits</strong>
+    to prevent unanchored code, and <strong>enforced PR gates</strong> at session close.
   </p>
 
-  <h2 class="reveal">Superseding decisions — <code>engrams decision supersede</code></h2>
+  <h2 class="reveal">1. Usage Telemetry &amp; Curation — <code>engrams usage</code></h2>
   <p>
-    When a decision is replaced, don't delete it — supersede it. The old decision keeps its
-    rationale (which is often exactly what a future session needs to avoid repeating a dead end),
-    and the <code>supersedes</code> link preserves the reasoning trail.
+    Engrams automatically logs every retrieval command (<code>query</code>, <code>relevant</code>, <code>advise</code>, <code>brief</code>).
+    The <code>usage</code> command exposes call counts and trends:
   </p>
-  <pre><code>engrams decision supersede 7 --by 11
-engrams link add --source-type decision --source-id 7 \
-  --target-type decision --target-id 11 --rel supersedes</code></pre>
-  <p>
-    <code>supersedes</code> is functional — a decision has at most one successor — and
-    transitive, so <code>engrams graph chain --rel supersedes</code> walks the full history.
-    Valid decision statuses: <code>active</code>, <code>superseded</code>, <code>rejected</code>,
-    <code>revisited</code>. Reopening a settled choice means changing its status to
-    <code>revisited</code>, not silently editing it.
-  </p>
+  <pre><code>engrams usage
+engrams usage --since 2w --daily</code></pre>
 
-  <h2 class="reveal">Active context — <code>engrams active-context update</code></h2>
-  <p>
-    Active-context tracks are named workstream documents — goals, open questions, next steps —
-    that survive session boundaries. <code>prime</code> always includes them, no matter how tight
-    the token budget. Update the track at session end so the next session starts where this one
-    stopped.
-  </p>
-  <pre><code>{`engrams active-context update --name default \\
-  --patch '{"goals": ["ship 0.9.0"], "next_steps": ["verify docs build"]}'
+  <p>Example response:</p>
+  <pre><code>&#123;
+  "total_calls": 73,
+  "commands": &#123;
+    "advise": &#123; "calls": 34, "constraints_fired": 89, "distinct_targets": 3 &#125;,
+    "relevant": &#123; "calls": 21, "decisions_surfaced": 67 &#125;,
+    "query": &#123; "calls": 18, "zero_hit": 4 &#125;,
+    "brief": &#123; "calls": 5, "hits": 5 &#125;
+  &#125;
+&#125;</code></pre>
 
-# replace the whole document instead of merging
-engrams active-context update --content '{"goals": [...]}'`}</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
-    <tbody>
-      <tr><td><code>--name</code></td><td>Track name (default <code>default</code>).</td></tr>
-      <tr><td><code>--patch</code></td><td>JSON object merged into the document; the sentinel <code>"__DELETE__"</code> removes a key.</td></tr>
-      <tr><td><code>--content</code></td><td>Full JSON content replacing the document.</td></tr>
-    </tbody>
-  </table>
+  <h3 class="reveal">The Zero-Hit Curation Loop</h3>
+  <p>
+    Zero-hit queries are the single most valuable telemetry signal — each miss represents a vocabulary
+    gap that likely caused an agent to fall back to an expensive file dump. <code>engrams usage --misses</code>
+    ranks these gaps so maintainers can add missing tags or anchors:
+  </p>
+  <pre><code>engrams usage --misses</code></pre>
+  <pre><code>&#123;
+  "hint": "each miss is a search that found nothing — a vocabulary gap that likely triggered a file-dump fallback",
+  "misses": [
+    &#123; "query": "outlook", "count": 2 &#125;,
+    &#123; "query": "system_user_id", "count": 1 &#125;
+  ]
+&#125;</code></pre>
 
-  <h2 class="reveal">Audits — <code>engrams doctor</code></h2>
+  <h2 class="reveal">2. Knowledge Health &amp; Access Stats — <code>decision stats</code></h2>
   <p>
-    Run periodically. The doctor scans for eight problems; the first four set the
-    <code>ok</code> flag, the rest are advisories about graph and vocabulary health:
+    Verify which architectural decisions are actively earning their keep vs. candidates for consolidation:
   </p>
-  <ol>
-    <li><strong>Missing file anchors</strong> — anchored files that were renamed, moved, or deleted.</li>
-    <li><strong>Dangling links</strong> — relationships whose source or target no longer exists.</li>
-    <li><strong>Stale decisions</strong> — anchored files modified since the decision's commit.</li>
-    <li><strong>Unlinked decisions</strong> — active decisions carrying a commit but no PR link.</li>
-    <li><strong>Orphan nodes</strong> — graph nodes with degree ≤ 1: link them or prune them.</li>
-    <li><strong>Graph rebuild recommendation</strong> — writes landed after the last <code>graph rebuild</code>; derived edges are stale.</li>
-    <li><strong>Transitive-relation cycles</strong> — loops in <code>supersedes</code>, <code>depends_on</code>, <code>part_of</code>, or <code>refines</code> that break reachability queries.</li>
-    <li><strong>Non-canonical relationship vocabulary</strong> — free-form rel labels, tallied for review (normalize or keep intentionally).</li>
-  </ol>
-  <p>
-    The agent should treat doctor output as a work queue: clean up obsolete anchors, attach
-    missing PR links, and alert when code drifts from documented decisions.
-  </p>
+  <pre><code>engrams decision stats --most-accessed --limit 5
+engrams decision stats --never-accessed</code></pre>
 
-  <h2 class="reveal">Export — <code>engrams export</code></h2>
-  <pre><code>engrams export            # writes ./engrams_export/
-engrams export --path ./docs/memory</code></pre>
+  <h2 class="reveal">3. Knowledge Coverage Audits — <code>engrams coverage</code></h2>
   <p>
-    Dumps the database to Markdown for git sync and human browsing. Commit
-    <code>engrams_export/</code> alongside the code so the team's knowledge travels with the
-    repository. Agents must not read <code>engrams_export/</code> files — they are verbose and
-    token-expensive; the CLI (<code>prime</code>, <code>relevant</code>, <code>query</code>,
-    <code>graph</code>) is the source of truth.
+    Before shipping feature work or refactors, verify what fraction of files have live anchored decisions and how close the nearest guidance is:
   </p>
+  <pre><code># Check a directory
+engrams coverage src/
 
-  <h2 class="reveal">Schema — <code>engrams migrate</code></h2>
-  <p>
-    Brings the database schema to the latest version. Run it after upgrading the CLI binary.
-    Migration also normalizes legacy status values case-insensitively toward the canonical
-    vocabularies; values it doesn't recognize are preserved as-is and flagged by
-    <code>doctor</code> for review.
-  </p>
+# Audit changed files on a PR branch
+engrams coverage --diff main...HEAD</code></pre>
 
-  <h2 class="reveal">The session-end protocol</h2>
+  <p>Example response:</p>
+  <pre><code>&#123;
+  "files": 14,
+  "anchored": 10,
+  "anchored_pct": 0.714,
+  "dead_anchors": [],
+  "median_hops": 1.0
+&#125;</code></pre>
+
+  <h2 class="reveal">4. Session Closure &amp; PR Gates — <code>engrams session close</code></h2>
   <p>
-    Maintenance is a loop, not a chore list. Every session ends the same way:
+    At the end of a session, record the reads your knowledge graph prevented and validate that PRs are properly connected to decisions and source files:
   </p>
-  <ol class="loop">
-    <li><code>engrams decision log</code> — record what was decided, with rationale and anchors.</li>
-    <li><code>engrams link add</code> — wire it to what it implements, depends on, or supersedes.</li>
-    <li><code>engrams progress log</code> — mark the task state.</li>
-    <li><code>engrams active-context update --patch</code> — merge outcome and next steps into the track.</li>
-    <li><code>engrams export</code> — then commit <code>engrams_export/</code> with the code.</li>
-  </ol>
+  <pre><code>engrams session close \
+  --reads-skipped 14 \
+  --reads-required 2 \
+  --tokens-saved 70000 \
+  --pr 42 \
+  --note "Designed Stripe adapter using Provider contract"</code></pre>
 
   <div class="callout tip reveal">
-    <strong>The full loop</strong>
-    Storing, connecting, retrieving, and maintaining are one cycle the agent runs every session.
-    The conceptual frame — fetch to anticipation — is in
-    <a href="/docs/advisor/loop">The Advisor Loop</a>. Back to
-    <a href="/docs/for-agent/overview">For Your Agent</a>.
+    <strong>Enforced PR Gate:</strong> When <code>--pr</code> is supplied, <code>session close</code> <strong>refuses to close</strong>
+    unless the PR node is linked to at least one architectural decision and connected to anchored source files.
   </div>
+
+  <p>To inspect cumulative token ROI and past sessions:</p>
+  <pre><code>engrams session history</code></pre>
+
+  <h2 class="reveal">5. PR Reverse Lookup — <code>engrams pr find</code></h2>
+  <p>
+    Find which decisions, patterns, or progress entries reference a specific PR number or URL:
+  </p>
+  <pre><code>engrams pr find 42</code></pre>
+
+  <h2 class="reveal">6. Structural Health — <code>engrams doctor</code></h2>
+  <p>
+    Run project-wide integrity checks across all records:
+  </p>
+  <pre><code>engrams doctor</code></pre>
+  <ul>
+    <li>Dead file anchors (anchors pointing to deleted or moved files).</li>
+    <li>Dangling manual links.</li>
+    <li>Decisions with Git staleness drift.</li>
+    <li>Unconfirmed consolidation patterns (&gt;180 days old).</li>
+    <li>Cycles in transitive relationships (<code>causes</code>, <code>supersedes</code>, <code>depends_on</code>).</li>
+  </ul>
+
+  <h2 class="reveal">Session End Protocol (PR Close-Back)</h2>
+  <ol class="loop reveal">
+    <li class="loop-step">
+      <span class="loop-num">1</span>
+      <h3>Enumerate</h3>
+      <p><code>git diff --name-only &lt;base&gt;...HEAD</code> to list changed paths.</p>
+    </li>
+    <li class="loop-step">
+      <span class="loop-num">2</span>
+      <h3>Decide</h3>
+      <p>Log decisions for all durable design choices with <code>--contract</code>.</p>
+    </li>
+    <li class="loop-step">
+      <span class="loop-num">3</span>
+      <h3>Anchor &amp; Link</h3>
+      <p>Attach file anchors (<code>anchor add</code>) and PR references (<code>pr add</code>).</p>
+    </li>
+    <li class="loop-step">
+      <span class="loop-num">4</span>
+      <h3>Rebuild</h3>
+      <p><code>engrams graph rebuild</code> turns anchors into code-node edges.</p>
+    </li>
+    <li class="loop-step">
+      <span class="loop-num">5</span>
+      <h3>Close &amp; Export</h3>
+      <p><code>engrams session close --pr &lt;n&gt;</code> validates the PR gate and <code>engrams export</code> commits markdown.</p>
+    </li>
+  </ol>
 </DocsLayout>
 
 <style>
-  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
-  h2 { margin-top: 2.25rem; margin-bottom: 1rem; }
-  .loop li { margin-bottom: .5rem; line-height: 1.65; }
+.loop {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+.loop-step {
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+.loop-num {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--gold-primary);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
 </style>

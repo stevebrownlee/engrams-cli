@@ -2,20 +2,32 @@
 import DocsLayout from '../../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Retrieving" description="How the agent pulls context back out of engrams: prime, relevant, query, and decision search.">
-  <h1>Retrieving</h1>
+<DocsLayout title="Retrieving" description="The Strategy-First Retrieval Ladder: prime, brief, query, relevant, and decision search.">
+  <h1>Retrieving: The Strategy-First Ladder</h1>
   <p class="lead">
-    Pull context back out — before acting, not after. The agent consults engrams at three
-    moments: session start (<code>prime</code>), before editing files (<code>relevant</code>),
-    and before designing or fixing (<code>query</code>, <code>decision search</code>). All output
-    is JSON, ranked and token-lean.
+    A knowledge graph query costs tens of tokens; opening a source file costs 5,000 to 15,000 tokens.
+    Engrams structures agent retrieval around a <strong>Strategy-First Ladder</strong>: your agent formulates
+    and verifies implementation plans from self-sufficient graph contracts before opening a single file on disk.
   </p>
 
-  <h2 class="reveal">Session start — <code>engrams prime</code></h2>
+  <div class="callout tip reveal">
+    <strong>The Compounding Rule:</strong> Open files <em>only</em> when the graph lacks contracts or symbols.
+    Whenever your agent is forced to read a file, it must write what it learned back to Engrams
+    (<code>decision update --contract</code>, <code>anchor add</code>) so the next agent doesn't pay the same reading tax.
+  </div>
+
+  <h2 class="reveal">The Strategy-First Ladder</h2>
+  <ol class="ladder-list reveal">
+    <li><strong>1. Session Briefing (<code>engrams prime</code>):</strong> Rehydrate high-level active context, recent decisions, and open threads.</li>
+    <li><strong>2. Architectural Brief (<code>engrams brief &lt;node|query&gt;</code>):</strong> Retrieve full decision text, exact interface contracts, file anchors with symbols, Git drift, and 1-hop neighbors.</li>
+    <li><strong>3. Search &amp; Pre-Edit Advice (<code>engrams query --full</code>, <code>engrams advise</code>):</strong> Query with convention-aware search. If a search yields 0 hits, use the returned Miss-Guidance instead of reading raw files.</li>
+    <li><strong>4. Selective File Reading (Escalation only):</strong> Open only the specific ranges and symbols the graph identified.</li>
+  </ol>
+
+  <h2 class="reveal">1. Session Start — <code>engrams prime</code></h2>
   <p>
-    One call replaces half a dozen. <code>prime</code> fans out queries across product context,
-    active-context tracks, decisions, progress, and patterns, joins PRs and anchors, and returns
-    a single consolidated briefing. It is the first command of every session.
+    One call replaces half a dozen queries. <code>prime</code> fans out across active-context tracks,
+    decisions, progress, and patterns, returning a single consolidated briefing within your token budget.
   </p>
   <pre><code>engrams prime
 engrams prime --budget 1000 --paths src/ops,src/db.rs --tags database</code></pre>
@@ -27,81 +39,95 @@ engrams prime --budget 1000 --paths src/ops,src/db.rs --tags database</code></pr
       <tr><td><code>--tags</code></td><td>Filter by tags.</td></tr>
     </tbody>
   </table>
-  <p>
-    Token estimation is payload length ÷ 4. When the estimate exceeds the budget, less critical
-    sections are discarded in a fixed order — but <code>active-context</code> is never shed,
-    because it carries the session's immediate goals, open questions, and next steps.
-  </p>
 
-  <h2 class="reveal">Before editing — <code>engrams relevant</code></h2>
+  <h2 class="reveal">2. The One-Call Architectural Brief — <code>engrams brief</code></h2>
   <p>
-    The anchor graph in reverse: give it paths, get back every decision and pattern anchored to
-    them. This is how context stays anchored to the files being edited instead of the whole
-    database. Run it before touching any file.
+    Assembling context around a feature previously took 5 round-trips (<code>decision get</code> + <code>anchor list</code> + <code>pr list</code> + <code>link list</code> + <code>graph neighbors</code>).
+    <code>engrams brief &lt;node|query&gt;</code> collapses all five into a single call:
   </p>
-  <pre><code>engrams relevant src/db.rs src/ops
+  <pre><code>engrams brief "payment provider"
+engrams brief decision:62 --depth 2</code></pre>
+
+  <p>Example response (under 200 tokens):</p>
+  <pre><code>&#123;
+  "brief": &#123;
+    "summary": "Stripe payment adapter",
+    "contract": "fn process(amount: u64, curr: &amp;str) -> Result&lt;Receipt, Error&gt;",
+    "status": "active",
+    "drift": &#123;
+      "stale": false,
+      "base_source": "commit",
+      "checked": 1
+    &#125;,
+    "anchors": ["src/adapters/stripe.rs"]
+  &#125;,
+  "neighbors": [
+    &#123;
+      "node": "code:42",
+      "kind": "code",
+      "path": "src/adapters/stripe.rs",
+      "symbols": ["StripeAdapter", "process", "refund"],
+      "module_doc": "Stripe API v3 payment integration with webhook retry.",
+      "line_count": 148
+    &#125;
+  ]
+&#125;</code></pre>
+
+  <h2 class="reveal">3. Cross-Type Search — <code>engrams query</code></h2>
+  <p>
+    Cross-type full-text search over decisions, patterns, and custom data with <strong>cross-convention matching</strong>:
+    searching for <code>system_user_id</code> automatically matches <code>systemUserId</code>, <code>system-user-id</code>, and <code>system_user_id</code>.
+  </p>
+  <pre><code># Standard snippet query
+engrams query "authentication"
+
+# Embed full summaries and implementation details (kills the 1+N decision get pattern)
+engrams query "auth" --full
+
+# Project specific fields (canonical aliases like summary/name work automatically)
+engrams query "database" --fields id,summary</code></pre>
+
+  <h3 class="reveal">The Miss-Guidance Protocol</h3>
+  <p>
+    When a search matches 0 items, <code>engrams query</code> returns a structured <code>miss_guidance</code> object
+    instead of a blank array. Agents are instructed to re-target using the nearest clusters rather than dumping raw tables into context:
+  </p>
+  <pre><code>&#123;
+  "results": [],
+  "miss_guidance": &#123;
+    "hint": "query matched nothing; nearest clusters below — retry with one of these terms, tags, or nodes",
+    "top_tags": [&#123;"tag": "gcal-sync", "count": 14&#125;, &#123;"tag": "event-bus", "count": 8&#125;],
+    "token_hits": [&#123;"token": "outlook", "decisions": 0, "patterns": 0&#125;],
+    "recent_decisions": [&#123;"id": 42, "summary": "External calendar sync architecture"&#125;],
+    "graph_hubs": [&#123;"node": "decision:42", "score": 0.85&#125;]
+  &#125;
+&#125;</code></pre>
+
+  <h2 class="reveal">4. Pre-Edit Constraints — <code>engrams advise</code> &amp; <code>relevant</code></h2>
+  <p>
+    Run before editing any source file:
+  </p>
+  <ul>
+    <li><code>engrams advise &lt;paths&gt;</code> — Fast, machine-readable constraints and current violations for your target files.</li>
+    <li><code>engrams relevant &lt;paths&gt;</code> — Full decision structs with retrieval scores, anchors, and Git staleness drift indicators.</li>
+  </ul>
+  <pre><code>engrams advise src/db.rs src/ops
 engrams relevant --staged</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
-    <tbody>
-      <tr><td><code>[PATHS]...</code></td><td>Files or directories to match against stored anchors; directory anchors match recursively.</td></tr>
-      <tr><td><code>--staged</code></td><td>Use <code>git diff --cached --name-only</code> as the path list — context for exactly what you're about to commit.</td></tr>
-      <tr><td><code>--all</code></td><td>Include superseded decisions (default: active only) to see how an area evolved.</td></tr>
-    </tbody>
-  </table>
 
-  <h2 class="reveal">Before designing — <code>engrams query</code></h2>
+  <h2 class="reveal">5. Fast Server-Side Filtering — <code>decision list --filter</code></h2>
   <p>
-    Cross-type full-text search over decisions, patterns, and custom data, backed by SQLite FTS5
-    and ranked by BM25. Results come back as highlighted snippets — matching terms wrapped in
-    <code>&gt;&gt;</code>/<code>&lt;&lt;</code> markers — so the agent scans hits without pulling
-    full rows.
+    Search decisions directly from the list command without pulling the full table into prompt context:
   </p>
-  <pre><code>engrams query "authentication"
-engrams query "redis" --types decision,pattern --tags database,cache --limit 5
-engrams query "JWT" --since "2026-07-01T00:00:00Z" --all</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
-    <tbody>
-      <tr><td><code>--types</code></td><td>Restrict to <code>decision</code>, <code>pattern</code>, <code>custom</code> (comma-separated; default all three).</td></tr>
-      <tr><td><code>--tags</code></td><td>Only items carrying these tags.</td></tr>
-      <tr><td><code>--since</code></td><td>RFC3339 lower bound on timestamp.</td></tr>
-      <tr><td><code>--limit</code></td><td>Max results (default 10).</td></tr>
-      <tr><td><code>--all</code></td><td>Include superseded decisions.</td></tr>
-    </tbody>
-  </table>
-
-  <h2 class="reveal">Decisions only — <code>engrams decision search</code></h2>
-  <p>
-    FTS over decisions alone, for when the question is specifically "have we already decided
-    this?" Settled choices stay settled instead of being re-litigated every session.
-  </p>
-  <pre><code>engrams decision search "database" --snippets --limit 10
-engrams decision search "sqlite" --all</code></pre>
-  <table>
-    <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
-    <tbody>
-      <tr><td><code>--snippets</code></td><td>Return highlighted FTS snippets instead of full rows — the token-lean default for agents.</td></tr>
-      <tr><td><code>--limit</code></td><td>Max results (default 10).</td></tr>
-      <tr><td><code>--all</code></td><td>Include superseded decisions.</td></tr>
-    </tbody>
-  </table>
-
-  <div class="callout note reveal">
-    <strong>Why retrieval gets better over time</strong>
-    These four commands are the same on day 1 and day 90 — what changes is what they find. Every
-    stored item and asserted link makes the next retrieval sharper. That compounding is the
-    subject of <a href="/docs/advisor/loop">The Advisor Loop</a>.
-  </div>
-
-  <div class="callout tip reveal">
-    <strong>Next</strong>
-    Retrieval assumes the graph is current. Continue to
-    <a href="/docs/for-agent/maintaining">Maintaining</a> for superseding, auditing, and export.
-  </div>
+  <pre><code>engrams decision list --filter "payment" --limit 10</code></pre>
 </DocsLayout>
 
 <style>
-  .lead { font-size: 1.125rem; color: var(--color-text-muted); line-height: 1.75; margin-bottom: 1.75rem; }
-  h2 { margin-top: 2.25rem; margin-bottom: 1rem; }
+.ladder-list {
+  padding-left: 1.2rem;
+  margin: 1.2rem 0 2rem;
+}
+.ladder-list li {
+  margin-bottom: 0.8rem;
+  line-height: 1.6;
+}
 </style>

@@ -265,3 +265,68 @@ engrams graph why --node decision:7 --down     # downstream: "what does this aff
 Transitive walk over `causes` (use `caused_by` in `link add`; it normalizes to canonical `causes` with source/target swapped). Chain entries carry `depth`, `node`, and `via_edge_description` (the `--description` from the parent edge, when present). `roots` lists the chain's origin nodes — upstream roots are the ultimate causes, downstream roots the furthest impacts.
 
 Anchors can now attach to progress entries too: `engrams anchor add --type progress-entry --id <n> --path src/foo.rs` (required for consolidation clustering).
+
+## Strategy-First Retrieval & Telemetry (v0.12.0)
+
+The v0.12.0 release eliminates the 5,000–15,000 token "file-reading tax" by making the knowledge graph self-sufficient for strategy formation, expanding search recall across naming conventions, and introducing automated usage telemetry and PR gates.
+
+### Decision contracts (`--contract`)
+
+```text
+engrams decision log --summary "..." --contract "fn connect() -> Result<Conn>" --anchor src/db.rs
+```
+
+Decisions can declare an explicit interface contract (`contract` column, Schema v10) capturing signatures, struct shapes, and error tuples. When a decision introduces or modifies an abstraction, Engrams prompts with a write-time nudge if `--contract` is omitted.
+
+### One-call architectural brief (`engrams brief`)
+
+```text
+engrams brief <node|query> [--depth 1..3]
+```
+
+Replaces 5 separate CLI calls (`decision get` + `anchor list` + `pr list` + `link list` + `graph neighbors`) with a single token-lean composite read:
+
+- Full decision summary and contract
+- PR references and tag list
+- File anchors with extracted symbols, module docstrings, and line counts
+- Git staleness drift (`stale: true/false`)
+- Connected 1-hop neighbors with summaries
+
+### Cross-convention search & filtering
+
+FTS queries automatically expand compound tokens to `("phrase" OR concat*)` — searching for `system_user_id` matches `systemUserId`, `system-user-id`, and `system_user_id`. Empty result sets return structured `miss_guidance` (top tags, per-token hits, recent decisions, graph hubs) to guide agents without table dumps. Fast server-side filtering is supported via `engrams decision list --filter <text>`.
+
+### Usage telemetry & curation loop (`engrams usage`)
+
+```text
+engrams usage [--since <timestamp|2w>] [--daily]
+engrams usage --misses
+```
+
+Every retrieval call (`query`, `relevant`, `advise`, `brief`) is logged to `usage_log`. `--misses` ranks zero-hit searches, turning vocabulary gaps into actionable curation targets.
+
+### Knowledge coverage (`engrams coverage`)
+
+```text
+engrams coverage src/
+engrams coverage --diff main...HEAD
+```
+
+Audits the percentage of files with live anchored knowledge, flags dead file anchors, and measures median hop distance across the graph.
+
+### Session closure & PR validation (`engrams session close`)
+
+```text
+engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000 --pr 42
+engrams session history
+```
+
+Records reads skipped vs required and token ROI rollups. When `--pr` is provided, Engrams validates that the PR node is linked to at least one decision and connected to anchored code files before blessing the session.
+
+### PR reverse lookup (`engrams pr find`)
+
+```text
+engrams pr find 42
+```
+
+Finds all decisions, patterns, or progress entries that reference a PR number or URL.

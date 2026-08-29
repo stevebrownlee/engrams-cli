@@ -84,6 +84,28 @@ engrams check --paths src/db,src/cli   # explicit files/dirs — CI</code></pre>
     to reach your main branch.
   </p>
 
+  <h3>4. Gate Pull Requests — <code>engrams session close --pr</code></h3>
+  <p>
+    <strong>What you run:</strong>
+  </p>
+  <pre><code>engrams session close \
+  --reads-skipped 14 \
+  --reads-required 2 \
+  --tokens-saved 70000 \
+  --pr 42 \
+  --note "Designed payment adapter using Provider contract"</code></pre>
+  <p>
+    <strong>What you get:</strong> an enforced close-out checkpoint. If <code>--pr</code> is specified,
+    Engrams <strong>refuses</strong> to close the session unless:
+  </p>
+  <ul>
+    <li>The PR node is linked to at least one architectural decision.</li>
+    <li>The PR node is connected to anchored source code files.</li>
+  </ul>
+  <p>
+    <strong>Why it's valuable:</strong> Code review checks what changed; the PR gate checks that the
+    <em>reasoning</em> was preserved. This prevents PRs from merging unanchored, unlinked code into your codebase.
+  </p>
   <h2>Enforced, not remembered</h2>
   <p>
     This repository dogfoods the policy engine on itself: the architecture decisions that

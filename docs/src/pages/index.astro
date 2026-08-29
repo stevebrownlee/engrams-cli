@@ -62,45 +62,45 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <section class="section dark compare-section">
       <div class="section-head reveal">
         <div class="section-eyebrow">The hidden tax</div>
-        <h2 class="section-title">Every conversation starts <span class="accent-word">blind</span></h2>
+        <h2 class="section-title">Stop paying the <span class="accent-word">15,000-token</span> file reading tax</h2>
         <p class="section-sub">
-          Without memory, your AI repeats mistakes you already fixed, ignores conventions you
-          already decided, and wastes your time re-explaining context it should already have.
+          When agents distrust incomplete context, they open files defensively. Reading 10 source files
+          just to inspect an adapter shape burns 100k+ tokens before writing a single line of code.
         </p>
       </div>
       <div class="compare-table reveal">
         <div class="compare-grid">
           <div class="compare-col-header compare-without-cell">Without engrams</div>
-          <div class="compare-col-header compare-with-cell">With engrams</div>
+          <div class="compare-col-header compare-with-cell">With engrams v0.12.0</div>
           <div class="compare-cell compare-without-cell">
-            <p>Every AI conversation starts cold — you re-explain your project, decisions, and conventions every time</p>
+            <p>Agent opens 10+ source files (50k–150k tokens) to inspect behaviors, types, and callback names</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>One command rehydrates the full context your agent needs — decisions, patterns, open threads, what breaks if you touch this file</p>
+            <p><code>engrams brief</code> serves exact interface contracts and symbols in &lt;200 tokens — <strong>zero file reads required</strong></p>
           </div>
           <div class="compare-cell compare-without-cell">
-            <p>Important architectural decisions and trivial notes rank identically — the AI wades through noise</p>
+            <p>Querying <code>system_user_id</code> misses <code>systemUserId</code> in code, prompting a desperate full-table context dump</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>Important, recent, frequently-consulted decisions surface first via retrieval scoring</p>
+            <p>Cross-convention FTS matches <code>snake_case</code>, <code>camelCase</code>, and <code>kebab-case</code> transparently</p>
           </div>
           <div class="compare-cell compare-without-cell">
-            <p>Old obsolete decisions pollute context forever</p>
+            <p>Empty search returns <code>[]</code> — agent assumes no architecture exists and creates a duplicate system</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>Memory self-cleans: unused records fade into the archive automatically</p>
+            <p>Miss-Guidance steers the agent to top tag clusters, recent decisions, and graph hubs instead of a dead end</p>
           </div>
           <div class="compare-cell compare-without-cell">
-            <p>You hope the AI reads your conventions. It usually doesn't</p>
+            <p>Agent assumes stale 6-month-old decisions are current and builds on outdated assumptions</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>The system surfaces constraints <em>automatically</em> when the AI edits a relevant file</p>
+            <p>Git-backed Staleness Drift detects if anchored files changed at HEAD (<code>stale: true/false</code>)</p>
           </div>
           <div class="compare-cell compare-without-cell">
-            <p>Convention violations land in your codebase — caught in review if you're lucky</p>
+            <p>Unmeasured memory — no way to know if context is helping or how many reads were saved</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>Violations are blocked at <em>edit time</em> and <em>commit time</em> — they never land</p>
+            <p><code>engrams usage</code> and <code>session close</code> track exact retrieval counts, zero-hit queries, and token ROI</p>
           </div>
         </div>
       </div>
@@ -114,34 +114,33 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="section-eyebrow">The difference</div>
         <h2 class="section-title">A database answers. An advisor <span class="accent-word">anticipates</span>.</h2>
         <p class="section-sub">
-          Query tools wait for you to ask the right question. Engrams builds enough context to
-          raise its hand first.
+          Query tools wait for you to ask the right question. Engrams builds enough architectural context to
+          guide your agent before it writes code.
         </p>
       </div>
       <div class="card-grid">
         <article class="glass-card reveal">
           <div class="card-icon" aria-hidden="true">◆</div>
-          <h3>It warns you first</h3>
+          <h3>It embeds the contract</h3>
           <p>
-            You're about to hand-rollback a migration. Engrams surfaces decision #6 —
-            <em>"use the <code>migrate</code> command, never manual SQL"</em> — before you repeat a
-            mistake it already watched you make.
+            Decisions don't just state intent — they embed exact callback signatures, struct shapes, and error
+            tuples via <code>--contract</code>. Strategy formation never dead-ends.
           </p>
         </article>
         <article class="glass-card reveal">
           <div class="card-icon" aria-hidden="true">◈</div>
-          <h3>It explains the why</h3>
+          <h3>It catches code drift</h3>
           <p>
-            Any line of code traces back to the trade-off that created it. Ask why the graph uses
-            PageRank and get the rationale, the rejected alternatives, and the incident that forced it.
+            Lightweight Git staleness scoring tells your agent whether anchored source files were committed
+            after a decision was logged. Trust is verified, not assumed.
           </p>
         </article>
         <article class="glass-card reveal">
           <div class="card-icon" aria-hidden="true">◇</div>
-          <h3>It protects the boundaries</h3>
+          <h3>It guides empty searches</h3>
           <p>
-            Every <code>refines</code> and <code>depends_on</code> link is a tripwire. Touch a
-            load-bearing decision and engrams tells your agent exactly what else moves.
+            Zero-hit queries don't return dead ends. Engrams analyzes your knowledge graph and returns the
+            nearest tag clusters and graph hubs so agents re-target immediately.
           </p>
         </article>
       </div>
@@ -173,25 +172,30 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="cmd-row reveal">
           <div class="cmd-term">
             <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams report
-→ dashboard.html  (open in browser)</code></pre>
+            <pre><code>$ engrams brief "payment adapter"
+&#123;"contract": "fn process(amount: u64) -> Result&lt;Receipt, Error&gt;",
+ "symbols": ["StripeAdapter", "process", "refund"],
+ "drift": &#123;"stale": false, "checked": 2&#125;&#125;</code></pre>
           </div>
           <div class="cmd-copy">
-            <h3><code>report</code> — see the whole project</h3>
-            <p>A static HTML dashboard of decisions, open threads, and graph health. The state of the work at a glance.</p>
-            <a href="/docs/for-you/briefing" class="text-link">See a report →</a>
+            <h3><code>brief</code> — the architectural brief</h3>
+            <p>One-call composite read: contracts, docstrings, symbols, anchors, and Git drift in under 200 tokens.</p>
+            <a href="/docs/for-agent/retrieving" class="text-link">Strategy retrieval →</a>
           </div>
         </div>
         <div class="cmd-row reveal">
           <div class="cmd-term">
             <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams check
-✗ src/ops: pattern "no-throwaway-collect" violated</code></pre>
+            <pre><code>$ engrams session close --pr 42
+&#123;"closed": true,
+ "reads_skipped_estimated": 14,
+ "tokens_saved_estimated": 70000,
+ "pr_validation": &#123;"gate_ok": true&#125;&#125;</code></pre>
           </div>
           <div class="cmd-copy">
-            <h3><code>check</code> — enforce what you decided</h3>
-            <p>Turn logged patterns into checks that run in CI. The standards you agreed on actually hold.</p>
-            <a href="/docs/for-you/enforcement" class="text-link">Enforcement →</a>
+            <h3><code>session close</code> — PR gate &amp; token ROI</h3>
+            <p>Close sessions with enforced PR linkage gates and track the reads your knowledge graph made unnecessary.</p>
+            <a href="/docs/for-agent/maintaining" class="text-link">Session close &amp; ROI →</a>
           </div>
         </div>
       </div>
@@ -214,32 +218,32 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <!-- ══ ADVISOR LOOP ══ -->
     <section class="section">
       <div class="section-head reveal">
-        <div class="section-eyebrow">How it compounds</div>
-        <h2 class="section-title">The advisor loop</h2>
+        <div class="section-eyebrow">Strategy-First Protocol</div>
+        <h2 class="section-title">The strategy-first loop</h2>
       </div>
       <ol class="loop reveal">
         <li class="loop-step">
           <span class="loop-num">1</span>
-          <h3>Store</h3>
-          <p>Your agent logs each decision and pattern as it works — no extra effort from you.</p>
+          <h3>Formulate</h3>
+          <p><code>prime</code> and <code>brief</code> assemble the complete architecture strategy in &lt;200 tokens before touching files.</p>
         </li>
         <li class="loop-arrow" aria-hidden="true">→</li>
         <li class="loop-step">
           <span class="loop-num">2</span>
-          <h3>Link</h3>
-          <p>It connects new knowledge to old: <code>refines</code>, <code>supersedes</code>, <code>depends_on</code>.</p>
+          <h3>Verify</h3>
+          <p><code>advise</code> and Git drift check rules, constraints, and staleness before editing code.</p>
         </li>
         <li class="loop-arrow" aria-hidden="true">→</li>
         <li class="loop-step">
           <span class="loop-num">3</span>
-          <h3>Surface</h3>
-          <p><code>prime</code> and <code>relevant</code> push the right context to the front at the right moment.</p>
+          <h3>Escalate</h3>
+          <p>Open files <em>only</em> if the graph lacks contracts, and immediately write back what you learned.</p>
         </li>
         <li class="loop-arrow" aria-hidden="true">→</li>
         <li class="loop-step">
           <span class="loop-num">4</span>
-          <h3>Act</h3>
-          <p>You and your agent decide with full memory. The graph gets denser. Repeat.</p>
+          <h3>Close</h3>
+          <p><code>session close</code> validates PR linkage, connects the graph, and records token ROI. Repeat.</p>
         </li>
       </ol>
       <div class="loop-cta reveal">

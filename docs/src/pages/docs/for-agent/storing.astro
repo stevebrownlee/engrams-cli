@@ -13,20 +13,23 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <h2 class="reveal">Decisions — <code>engrams decision log</code></h2>
   <p>
     A decision is an ADR: what was chosen, why, and how it's implemented. Log it the moment the
-    choice is made. By default the CLI checks for similar existing decisions first; pass
-    <code>--force</code> to skip the similarity check and insert unconditionally.
+    choice is made. When introducing or modifying an abstraction, always embed its <strong>interface contract</strong>
+    via <code>--contract</code> (callback signatures, struct shapes, error tuples). This enables zero-file-read
+    strategy formation for future sessions.
   </p>
   <pre><code>engrams decision log \
-  --summary "Use SQLite for context database" \
-  --rationale "Embedded, zero-config, FTS5 built in" \
-  --details "rusqlite with the bundled feature" \
-  --tags database,sqlite,storage \
-  --anchor src/db.rs \
+  --summary "Provider behavior and Stripe adapter" \
+  --contract "fn process(amount: u64, currency: &amp;str) -> Result&lt;Receipt, PaymentError&gt;" \
+  --rationale "Support pluggable payment gateways via unified interface" \
+  --details "Stripe and Mock adapters implement Provider" \
+  --tags payment,adapter,api \
+  --anchor src/adapters/stripe.rs \
   --pr 42</code></pre>
   <table>
     <thead><tr><th>Flag</th><th>Purpose</th></tr></thead>
     <tbody>
       <tr><td><code>--summary</code></td><td>Required. Short statement of the decision.</td></tr>
+      <tr><td><code>--contract</code></td><td>Interface contract: callback signatures, struct shapes, error tuples (~15–20 lines).</td></tr>
       <tr><td><code>--rationale</code></td><td>The reasoning — the part future sessions actually need.</td></tr>
       <tr><td><code>--details</code></td><td>Implementation specifics.</td></tr>
       <tr><td><code>--tags</code></td><td>Comma-separated tags for filtering.</td></tr>
@@ -36,6 +39,12 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
       <tr><td><code>--force</code></td><td>Skip the similar-decision check.</td></tr>
     </tbody>
   </table>
+
+  <div class="callout tip reveal">
+    <strong>Write-Time Contract Nudge:</strong> If your decision summary or details mention words like
+    <code>interface</code>, <code>adapter</code>, <code>behavior</code>, or <code>trait</code>, Engrams will print a
+    non-blocking hint if no <code>--contract</code> was provided.
+  </div>
 
   <h2 class="reveal">Patterns — <code>engrams pattern log</code></h2>
   <p>

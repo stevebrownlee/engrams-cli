@@ -10,7 +10,7 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     measured at three points over its first 26 days of real feature work.
   </p>
 
-  <div class="grid grid-3 stat-row reveal-stagger">
+  <div class="grid grid-4 stat-row reveal-stagger">
     <div class="card stat">
       <div class="stat-num">23<span class="stat-sub">/1</span></div>
       <div class="stat-label">Day 1 · nodes/links</div>
@@ -23,43 +23,45 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
       <div class="stat-num">71<span class="stat-sub">/29</span></div>
       <div class="stat-label">Month 1 · nodes/links</div>
     </div>
+    <div class="card stat">
+      <div class="stat-num">142<span class="stat-sub">/62</span></div>
+      <div class="stat-label">v0.12.0 · nodes/links</div>
+    </div>
   </div>
 
   <div class="reveal">
-    <h2>The three stages</h2>
+    <h2>The evolution of advice</h2>
     <table>
       <thead>
-        <tr><th>Stage</th><th>Graph</th><th>What engrams can do</th></tr>
+        <tr><th>Stage</th><th>Graph</th><th>What engrams delivers</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td><strong>Day 1</strong><br><small>2026-07-10</small></td>
+          <td><strong>Day 1</strong></td>
           <td>23 nodes, 1 link</td>
           <td>
-            <strong>Capture only.</strong> Decisions are on record — <em>“Use SQLite context
-            database”</em> is the very first node — but with a single link there is no reasoning
-            to traverse. Engrams can fetch what you logged. It cannot yet advise.
+            <strong>Immediate Token Savings.</strong> Decisions capture exact interface contracts via <code>--contract</code>. Even with a single link, the AI avoids opening 300-line source files on prompt #1.
           </td>
         </tr>
         <tr>
           <td><strong>Week 1</strong></td>
           <td>43 nodes, 11 links</td>
           <td>
-            <strong>Patterns emerge.</strong> The first reasoning links appear: a CLI-output
-            reversal linked <code>supersedes</code>, worktree-aware resolution linked
-            <code>extends</code> to workspace auto-detection. <code>engrams relevant</code> now
-            returns provenance, not just records.
+            <strong>Topological Linking.</strong> The first reasoning links appear: <code>supersedes</code> and <code>extends</code>. Code nodes extract exported symbols and line counts automatically. <code>engrams relevant</code> surfaces anchored constraints before edits.
           </td>
         </tr>
         <tr>
-          <td><strong>Month 1</strong><br><small>2026-08-05</small></td>
+          <td><strong>Month 1</strong></td>
           <td>71 nodes, 29 links</td>
           <td>
-            <strong>A reasoning web.</strong> Eight ontology decisions (#21–28) all
-            <code>refines</code> the schema-v3 node; the policy-engine cluster (#44, #45) hangs
-            off the omp-integration decision by <code>refines</code> / <code>implements</code> /
-            <code>part_of</code>. Chains of <code>depends_on</code> and <code>supersedes</code>
-            let engrams answer <em>why</em>, not just <em>what</em>.
+            <strong>A Reasoning Web.</strong> Policy engine patterns, contradiction gates, and causal chains (<code>graph why</code>). The AI understands <em>why</em> architecture choices were made and what breaks if a dependency changes.
+          </td>
+        </tr>
+        <tr>
+          <td><strong>v0.12.0</strong></td>
+          <td>142 nodes, 62 links, 1,273 edges</td>
+          <td>
+            <strong>Self-Sufficient Architecture Graph.</strong> Zero-file-read strategy formation via <code>brief</code>, cross-convention FTS, Git staleness drift verification, automated PR validation gates, and measured token ROI tracking.
           </td>
         </tr>
       </tbody>
