@@ -88,14 +88,42 @@ fn validate_pr(conn: &Connection, url: &str) -> Result<PrValidation> {
     for r in rows {
         let (ty, id) = r?;
         match ty.as_str() {
-            "decision" => has_decision = true,
+            "decision" => {
+                has_decision = true;
+                if let Ok(id_int) = id.parse::<i64>() {
+                    let mut stmt_a = conn.prepare(
+                        "SELECT path FROM item_anchors WHERE item_type = 'decision' AND item_id = ?1",
+                    )?;
+                    let paths = stmt_a.query_map(params![id_int], |r| r.get::<_, String>(0))?;
+                    for p in paths.flatten() {
+                        if !code_files.contains(&p) {
+                            code_files.push(p);
+                        }
+                    }
+                }
+            }
+            "system_pattern" | "pattern" => {
+                if let Ok(id_int) = id.parse::<i64>() {
+                    let mut stmt_a = conn.prepare(
+                        "SELECT path FROM item_anchors WHERE item_type = 'system_pattern' AND item_id = ?1",
+                    )?;
+                    let paths = stmt_a.query_map(params![id_int], |r| r.get::<_, String>(0))?;
+                    for p in paths.flatten() {
+                        if !code_files.contains(&p) {
+                            code_files.push(p);
+                        }
+                    }
+                }
+            }
             "code" => {
                 if let Ok(Some(path)) = conn.query_row(
                     "SELECT path FROM code_nodes WHERE id = ?1 AND kind = 'file'",
                     params![id],
                     |r| r.get::<_, Option<String>>(0),
                 ) {
-                    code_files.push(path);
+                    if !code_files.contains(&path) {
+                        code_files.push(path);
+                    }
                 }
             }
             _ => {}
