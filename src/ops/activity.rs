@@ -18,7 +18,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
 
     let mut decisions = Vec::new();
     {
-        let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived FROM decisions WHERE timestamp >= ? AND archived = 0 ORDER BY timestamp DESC LIMIT ?")?;
+        let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE timestamp >= ? AND archived = 0 ORDER BY timestamp DESC LIMIT ?")?;
         let rows = stmt.query_map(params![cutoff, limit], |row| {
             let tags_str: Option<String> = row.get(5)?;
             let tags = match tags_str {
@@ -41,6 +41,7 @@ pub fn handle(conn: &Connection, args: ActivityArgs) -> Result<Value> {
                 access_count: row.get(10)?,
                 last_accessed_at: row.get(11)?,
                 archived: row.get(12)?,
+                contract: row.get(13)?,
                 score: None,
             })
         })?;

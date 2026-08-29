@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-08-17T03:36:04Z
+created: 2026-08-29T07:12:24Z
 ---
 # Active Context
 
@@ -10,7 +10,7 @@ created: 2026-08-17T03:36:04Z
   "content": {
     "current_focus": "v0.11.0 officially released (tag v0.11.0, GitHub release created, Homebrew formula updated)",
     "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
-    "focus": "All tier-1 concepts implemented. Ready to commit.",
+    "focus": "v0.12.0 shipped: strategy-first retrieval tiers 1-4 complete; open items: pre-existing batch --type decision nested-transaction bug, pre-existing clippy warnings in install.rs/tests",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next": [
@@ -36,6 +36,7 @@ created: 2026-08-17T03:36:04Z
     },
     "recent_work": "Released v0.9.0 — Policy Engine + Docs Revamp. Tag pushed, CI built 4 targets, GitHub release live with full notes, Formula bumped with verified sha256.",
     "release_notes_style": "beginner-friendly 3-pillar breakdown (Consolidation & Decay, Contradiction Gate, Causal Hindsight)",
+    "session": "v0.12.0-feedback",
     "status": "Spec complete, implementation not started",
     "v0.10.0": {
       "status": "Done",
@@ -43,7 +44,7 @@ created: 2026-08-17T03:36:04Z
     }
   },
   "name": "default",
-  "updated_at": "2026-08-17T03:36:04Z",
-  "version": 41
+  "updated_at": "2026-08-29T07:12:24Z",
+  "version": 42
 }
 ```

@@ -36,7 +36,7 @@ fn s1_fresh_db_has_v5_schema_with_check_columns() {
     let v: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v, 7);
+    assert_eq!(v, 10);
 
     // The three new columns must exist.
     let cols: Vec<String> = conn

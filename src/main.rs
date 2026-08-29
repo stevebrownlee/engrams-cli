@@ -68,14 +68,27 @@ fn run() -> Result<()> {
     Ok(())
 }
 
+/// Canonical-name fallbacks: request `summary`/`name`, get a hit's `title` value.
+const FIELD_ALIASES: &[(&str, &str)] = &[("summary", "title"), ("name", "title")];
+
 fn project_fields(val: &mut serde_json::Value, fields: &[String]) {
     match val {
         serde_json::Value::Object(map) => {
+            // Miss-guidance (query's empty-result advice) survives projection:
+            // an agent requesting narrow fields still needs re-targeting help.
+            let guidance = map.remove("miss_guidance");
             let mut new_map = serde_json::Map::new();
             for f in fields {
                 if let Some(v) = map.remove(f) {
                     new_map.insert(f.clone(), v);
+                } else if let Some((_, src)) = FIELD_ALIASES.iter().find(|(alias, _)| alias == f) {
+                    if let Some(v) = map.remove(*src) {
+                        new_map.insert(f.clone(), v);
+                    }
                 }
+            }
+            if let Some(g) = guidance {
+                new_map.insert("miss_guidance".to_string(), g);
             }
             *map = new_map;
         }

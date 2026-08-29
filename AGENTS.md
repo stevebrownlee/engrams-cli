@@ -14,6 +14,28 @@ Everything below assumes the `engrams` binary is already built (`./target/debug/
 
 Treat engrams as an **active advisor**: consult it before acting, log decisions as you make them, and check code against registered patterns before committing.
 
+### Strategy-First Retrieval — before any file read
+
+A KB query costs tens of tokens; a source-file read costs 5–15k. Climb this
+ladder in order and only fall through when the current rung fails:
+
+1. `engrams prime` — session brief (top decisions, patterns, active context).
+2. `engrams brief <node|query>` — one-call composite read: summary, contract,
+   rationale, PRs, anchors, drift, and enriched 1..3-hop neighbors. This
+   replaces "get the decision, then read its anchored file".
+3. `engrams query <q> --full` / `engrams relevant <paths>` — FTS hits with
+   embedded summaries and implementation details; no follow-up `get` calls.
+   Empty result sets include `miss_guidance` (nearest tags, per-token hit
+   counts, recent decisions, graph hubs) — re-target from it instead of
+   dumping tables or guessing file names.
+4. Only now open files — and open only the symbols the graph said matter.
+
+Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and
+`camelCase` variants of the same words all match (`decision list --filter`
+supports the same). Every retrieval is logged (`engrams usage`); zero-hit
+queries (`engrams usage --misses`) name vocabulary gaps worth closing with
+better anchors or tags rather than another file read.
+
 ### When to Consult Engrams
 
 - **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context.
@@ -54,7 +76,18 @@ Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Vali
 - **Don't read `engrams_export/`:** for human Git-tracking only — token-inefficient and misses database-only state (links, graph edges, history). The CLI is the source of truth.
 - **Accuracy discipline:** verify any command/flag/output you describe against the live CLI (`--help`) or source. Decision logs describe intent, not implementation.
 - **Entity types use hyphens:** `decision`, `progress-entry`, `system-pattern`, `custom-data` (underscores rejected).
-- **Session End Protocol:** before declaring done, run: (1) `decision log` each design choice → (2) `link add` new items to related ones (`implements`/`depends_on`/`supersedes`) → (3) `progress log --status Done` → (4) `active-context update --patch '<json>'` → (5) `engrams export` → (6) commit & push `engrams_export/`.
+- **Session End Protocol (PR close-back):** before declaring done, run:
+  (1) `decision log` each design choice (declare `--contract` for any interface
+  the decision introduces) → (2) `link add` new items to related ones
+  (`implements`/`depends_on`/`supersedes`) → (3) `progress log --status Done` →
+  (4) `active-context update --patch '<json>'` → (5) `engrams session close
+  --reads-skipped <n> --reads-required <n> --tokens-saved <est> --pr <n>` —
+  ties the session's usage rollup to its PR and validates the PR exists and is
+  referenced by this session's decisions → (6) `engrams export` →
+  (7) commit & push `engrams_export/`. The close record makes "the graph grew
+  this session" a checked invariant: `engrams usage` and
+  `engrams session history` show what retrieval answered vs. what still
+  required file reads.
 - **TTS Vocalization:** on "Talk to me" / "What should I work on?" / "What did we get done yesterday?" (or similar recent-work prompts): query active context + progress from the past 48h (filter `timestamp`), shape it to the phrasing (plain for "Talk to me"; verbose/technical for "Explain {x}"), synthesize via `tts`, play with `afplay`, confirm.
 
 ---

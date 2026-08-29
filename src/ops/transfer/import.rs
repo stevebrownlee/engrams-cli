@@ -148,10 +148,11 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .unwrap_or(0);
         let last_accessed_at = json.get("last_accessed_at").and_then(|v| v.as_str());
         let archived = json.get("archived").and_then(|v| v.as_i64()).unwrap_or(0);
+        let contract = json.get("contract").and_then(|v| v.as_str());
 
         tx.execute(
-            "INSERT OR REPLACE INTO decisions (id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-            params![id, uuid, summary, rationale, implementation_details, tags_json, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived],
+            "INSERT OR REPLACE INTO decisions (id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            params![id, uuid, summary, rationale, implementation_details, tags_json, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract],
         )?;
         Ok(())
     })?;

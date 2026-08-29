@@ -725,7 +725,11 @@ function renderGraph() {
       name: 'cose',
       animate: false,
       fit: true,
-      padding: 30
+      padding: 60,
+      nodeRepulsion: 1200000,
+      idealEdgeLength: 220,
+      edgeElasticity: 80,
+      spacingFactor: 1.8
     }
   });
 
@@ -985,11 +989,10 @@ function setupGraphEvents() {
   nodeCheckboxes.forEach(cb => {
     cb.addEventListener('change', updateGraphFilter);
   });
-
   // Re-layout button
   document.getElementById('btn-re-layout').addEventListener('click', () => {
     if (window.cyInstance) {
-      window.cyInstance.layout({ name: 'cose', animate: false, fit: true, padding: 30 }).run();
+      window.cyInstance.layout({ name: 'cose', animate: false, fit: true, padding: 60, nodeRepulsion: 1200000, idealEdgeLength: 220, edgeElasticity: 80, spacingFactor: 1.8 }).run();
     }
   });
 

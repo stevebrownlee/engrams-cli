@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS decisions (
   importance INTEGER NOT NULL DEFAULT 5,
   access_count INTEGER NOT NULL DEFAULT 0,
   last_accessed_at TEXT,
-  archived INTEGER NOT NULL DEFAULT 0
+  archived INTEGER NOT NULL DEFAULT 0,
+  contract TEXT
 );
 CREATE TABLE IF NOT EXISTS progress_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,6 +75,9 @@ CREATE TABLE IF NOT EXISTS code_nodes (
   symbol TEXT NOT NULL DEFAULT '',
   first_seen TEXT NOT NULL,
   last_seen TEXT NOT NULL,
+  symbols TEXT,
+  module_doc TEXT,
+  line_count INTEGER,
   UNIQUE(kind, path, symbol)
 );
 CREATE INDEX IF NOT EXISTS ix_code_nodes_path ON code_nodes(path);
@@ -131,6 +135,27 @@ CREATE TABLE IF NOT EXISTS item_anchors (
   UNIQUE(item_type, item_id, path)
 );
 CREATE INDEX IF NOT EXISTS ix_anchors_path ON item_anchors(path);
+CREATE TABLE IF NOT EXISTS usage_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL,
+  command TEXT NOT NULL,
+  arg TEXT,
+  hits INTEGER NOT NULL DEFAULT 0,
+  miss INTEGER NOT NULL DEFAULT 0,
+  session TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_usage_ts ON usage_log(timestamp);
+CREATE INDEX IF NOT EXISTS ix_usage_miss ON usage_log(miss, timestamp);
+CREATE TABLE IF NOT EXISTS session_closes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL,
+  session TEXT,
+  reads_skipped INTEGER NOT NULL DEFAULT 0,
+  reads_required INTEGER NOT NULL DEFAULT 0,
+  tokens_saved INTEGER,
+  note TEXT,
+  pr_url TEXT
+);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS system_patterns_fts USING fts5(
   name, description, tags, content='system_patterns', content_rowid='id'
@@ -259,4 +284,49 @@ pub const MIGRATION_V7: &str = r#"
 -- last_confirmed_at: when confidence was last confirmed (NULL = creation timestamp).
 ALTER TABLE system_patterns ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0;
 ALTER TABLE system_patterns ADD COLUMN last_confirmed_at TEXT;
+"#;
+
+pub const MIGRATION_V8: &str = r#"
+-- v0.12.0 tier-1 (1.1): contracts on decisions. The full interface surface a
+-- decision introduces or modifies (callback signatures, struct shapes, error
+-- tuples) so strategy formation does not require reading the implementation file.
+ALTER TABLE decisions ADD COLUMN contract TEXT;
+"#;
+
+pub const MIGRATION_V9: &str = r#"
+-- v0.12.0 tier-1 (1.2): code-node enrichment. symbols/module_doc/line_count
+-- let strategy queries describe a file without reading it. NULL = not yet
+-- scanned (deleted, binary, or unreadable file).
+ALTER TABLE code_nodes ADD COLUMN symbols TEXT;
+ALTER TABLE code_nodes ADD COLUMN module_doc TEXT;
+ALTER TABLE code_nodes ADD COLUMN line_count INTEGER;
+"#;
+
+pub const MIGRATION_V10: &str = r#"
+-- v0.12.0 tier-4 (4.1/4.4): measurement & feedback.
+-- usage_log: one row per retrieval call (query/relevant/advise/brief) with hit
+-- count and a zero-hit flag — the curation feedback loop's raw data.
+-- session_closes: end-of-session ROI rollups (reads skipped vs required), the
+-- counterfactual the usage counts alone cannot express.
+CREATE TABLE IF NOT EXISTS usage_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL,
+  command TEXT NOT NULL,
+  arg TEXT,
+  hits INTEGER NOT NULL DEFAULT 0,
+  miss INTEGER NOT NULL DEFAULT 0,
+  session TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_usage_ts ON usage_log(timestamp);
+CREATE INDEX IF NOT EXISTS ix_usage_miss ON usage_log(miss, timestamp);
+CREATE TABLE IF NOT EXISTS session_closes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL,
+  session TEXT,
+  reads_skipped INTEGER NOT NULL DEFAULT 0,
+  reads_required INTEGER NOT NULL DEFAULT 0,
+  tokens_saved INTEGER,
+  note TEXT,
+  pr_url TEXT
+);
 "#;

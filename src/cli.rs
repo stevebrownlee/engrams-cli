@@ -164,6 +164,48 @@ pub enum Command {
         /// Include superseded decisions
         #[arg(long)]
         all: bool,
+        /// Embed full text payloads in hits (summary/implementation_details, description, value)
+        #[arg(long)]
+        full: bool,
+    },
+
+    /// One-call composite read of a node (or top FTS hit for a query)
+    Brief {
+        /// Node reference (`decision:7`, `code:3`, …) or free-text query
+        target: String,
+        /// Traversal depth for neighbors (1-3)
+        #[arg(long, default_value_t = 1)]
+        depth: i64,
+    },
+
+    /// Retrieval usage telemetry and curation feedback
+    Usage {
+        /// Lower bound: RFC3339 or relative (<n><m|h|d|w|mo|y>)
+        #[arg(long)]
+        since: Option<String>,
+        /// Bucket queries by day
+        #[arg(long)]
+        daily: bool,
+        /// Rank zero-hit queries (vocabulary gaps worth logging as items)
+        #[arg(long)]
+        misses: bool,
+    },
+
+    /// Anchored-knowledge coverage for a file set (live anchors, dead
+    /// anchors, median hop distance to nearest decision/pattern)
+    Coverage {
+        /// Files or directories to check (default: whole workspace)
+        paths: Vec<String>,
+        /// Use changed paths between <base> and HEAD instead of walking
+        #[arg(long)]
+        diff: Option<String>,
+    },
+
+    /// Session rollups: the checkpoint that makes "the graph grew this
+    /// session" a checked invariant
+    Session {
+        #[command(subcommand)]
+        cmd: SessionCmd,
     },
 
     /// Perform multiple operations in a single transaction
@@ -432,6 +474,9 @@ pub enum DecisionCmd {
         /// Specific implementation details
         #[arg(long)]
         details: Option<String>,
+        /// Contract: interface this decision introduces (signatures, struct shapes, error tuples)
+        #[arg(long)]
+        contract: Option<String>,
         /// Comma-separated list of tags
         #[arg(long, value_delimiter = ',')]
         tags: Vec<String>,
@@ -465,6 +510,20 @@ pub enum DecisionCmd {
         /// Include superseded decisions
         #[arg(long)]
         all: bool,
+        /// Free-text filter (FTS, convention-aware: snake_case/camelCase/kebab)
+        #[arg(long)]
+        filter: Option<String>,
+    },
+    /// Curation stats: most/never accessed (anchors decision growth)
+    Stats {
+        /// Include top-N decisions by access_count
+        #[arg(long)]
+        most_accessed: bool,
+        /// Include decisions never retrieved
+        #[arg(long)]
+        never_accessed: bool,
+        #[arg(long, default_value_t = 10)]
+        limit: i64,
     },
     /// Get a specific decision by ID
     Get { id: i64 },
@@ -523,6 +582,9 @@ pub struct DecisionUpdateFields {
     /// New details
     #[arg(long)]
     pub details: Option<String>,
+    /// New contract: interface the decision introduces
+    #[arg(long)]
+    pub contract: Option<String>,
     /// New tags (replaces existing tags)
     #[arg(long, value_delimiter = ',')]
     pub tags: Option<Vec<String>>,
@@ -800,6 +862,32 @@ pub enum BatchType {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum SessionCmd {
+    /// Record an end-of-session ROI rollup (optionally gates a PR)
+    Close {
+        /// Reads the KB made unnecessary this session (estimate)
+        #[arg(long, default_value_t = 0)]
+        reads_skipped: i64,
+        /// Reads still required (estimate)
+        #[arg(long, default_value_t = 0)]
+        reads_required: i64,
+        /// Estimated tokens saved, taken as-is — never derived
+        #[arg(long)]
+        tokens_saved: Option<i64>,
+        /// What this session accomplished
+        #[arg(long)]
+        note: Option<String>,
+        /// PR to bless; gate requires ≥1 linked decision + ≥1 anchored code file
+        #[arg(long)]
+        pr: Option<String>,
+        /// Session key (defaults to ENGRAMS_SESSION)
+        #[arg(long)]
+        session: Option<String>,
+    },
+    /// Show recorded session rollups
+    History,
+}
+#[derive(Subcommand, Debug)]
 pub enum PrCmd {
     /// Attach PR URL or number to a decision or pattern
     Add {
@@ -825,6 +913,11 @@ pub enum PrCmd {
         id: i64,
         #[arg(long)]
         url: String,
+    },
+    /// Find which items reference a PR
+    Find {
+        /// PR number or URL
+        pr: String,
     },
 }
 
