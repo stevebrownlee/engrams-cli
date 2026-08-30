@@ -51,11 +51,7 @@ pub fn handle(
     let mut constraints = Vec::new();
 
     if !pattern_ids.is_empty() {
-        let placeholders = pattern_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::ops::sql_placeholders(pattern_ids.len());
         let sql = format!(
             "SELECT id, name, description, check_kind, check_expr, severity, tags \
              FROM system_patterns WHERE id IN ({}) AND archived = 0",
@@ -84,11 +80,7 @@ pub fn handle(
     }
 
     if !decision_ids.is_empty() {
-        let placeholders = decision_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::ops::sql_placeholders(decision_ids.len());
         let sql = format!(
             "SELECT id, summary, status, rationale, timestamp, commit_sha \
              FROM decisions WHERE id IN ({}) AND archived = 0 AND status = 'active'",

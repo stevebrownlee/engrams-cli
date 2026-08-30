@@ -374,10 +374,12 @@ pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts) -> Result<Value> {
         [],
     )?;
 
+    let summary = crate::ops::graph::model::summary(&tx)?;
     tx.execute(
-        "INSERT INTO graph_meta (id, last_rebuild_at) VALUES (1, ?1) \
-         ON CONFLICT(id) DO UPDATE SET last_rebuild_at = excluded.last_rebuild_at",
-        params![ts],
+        "INSERT INTO graph_meta (id, last_rebuild_at, summary_json) VALUES (1, ?1, ?2) \
+         ON CONFLICT(id) DO UPDATE SET last_rebuild_at = excluded.last_rebuild_at, \
+         summary_json = excluded.summary_json",
+        params![ts, summary.to_string()],
     )?;
     tx.commit()?;
 

@@ -309,7 +309,7 @@ fn new_evidence_for(
     if paths.is_empty() {
         return Ok(Vec::new());
     }
-    let placeholders = paths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let placeholders = crate::ops::sql_placeholders(paths.len());
     let sql = format!(
         "SELECT pe.id FROM progress_entries pe \
          JOIN item_anchors ia ON ia.item_type = 'progress_entry' AND ia.item_id = pe.id \

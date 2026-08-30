@@ -49,7 +49,7 @@ pub fn handle(
         let mut p: Vec<&dyn rusqlite::ToSql> = vec![&match_expr];
 
         if !tags.is_empty() {
-            let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = crate::ops::sql_placeholders(tags.len());
             sql.push_str(&format!(
                 " AND EXISTS (SELECT 1 FROM json_each(d.tags) WHERE json_each.value IN ({}))",
                 placeholders
@@ -97,7 +97,7 @@ pub fn handle(
         let mut p: Vec<&dyn rusqlite::ToSql> = vec![&match_expr];
 
         if !tags.is_empty() {
-            let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = crate::ops::sql_placeholders(tags.len());
             sql.push_str(&format!(
                 " AND EXISTS (SELECT 1 FROM json_each(p.tags) WHERE json_each.value IN ({}))",
                 placeholders
@@ -282,10 +282,15 @@ fn miss_guidance(conn: &Connection, query: &str) -> Result<Value> {
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
-    let hubs = crate::ops::graph::model::summary(conn)?
-        .get("top_central")
-        .cloned()
-        .unwrap_or_else(|| json!([]));
+    // Cached at rebuild (graph_meta.summary_json); falls back to a live
+    // PageRank pass only when the cache is missing (pre-V11 db, no rebuild).
+    let hubs = match cached_hubs(conn) {
+        Some(v) => v,
+        None => crate::ops::graph::model::summary(conn)?
+            .get("top_central")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+    };
 
     Ok(json!({
         "hint": "query matched nothing; nearest clusters below — retry with one of these terms, tags, or nodes",
@@ -294,4 +299,20 @@ fn miss_guidance(conn: &Connection, query: &str) -> Result<Value> {
         "recent_decisions": recent,
         "graph_hubs": hubs,
     }))
+}
+
+/// `top_central` from the rebuild-written graph summary, when present and
+/// well-formed. One indexed row read; never recomputes PageRank.
+fn cached_hubs(conn: &Connection) -> Option<Value> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT summary_json FROM graph_meta WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+    json.and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.get("top_central").cloned())
+        .filter(Value::is_array)
 }

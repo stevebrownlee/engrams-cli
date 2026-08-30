@@ -46,7 +46,11 @@ pub fn dispatch(
         Command::Init => Ok(json!({"db_path": db_path.display().to_string(), "created": created})),
         Command::Migrate => {
             crate::db::run_migrations(conn)?;
-            Ok(json!({"status": "success", "message": "Database migrated to the latest version"}))
+            Ok(json!({
+                "status": "success",
+                "version": crate::db::LATEST_VERSION,
+                "message": "Database migrated to the latest version"
+            }))
         }
         Command::ProductContext { cmd } => match cmd {
             ContextCmd::Get => context::get(conn, "product_context"),
@@ -207,6 +211,18 @@ pub(crate) fn fts_match_expr(query: &str) -> String {
         return format!("\"{}\"", query.trim().replace('"', "\"\""));
     }
     clauses.join(" ")
+}
+/// N comma-separated SQL placeholders (`?,?,…`), built with one allocation.
+/// Supersedes the per-item `"?"` map-collect-join idiom (rule 005).
+pub(crate) fn sql_placeholders(n: usize) -> String {
+    let mut s = String::with_capacity(n + n.saturating_sub(1));
+    for i in 0..n {
+        if i > 0 {
+            s.push(',');
+        }
+        s.push('?');
+    }
+    s
 }
 #[cfg(test)]
 mod fts_expr_tests {

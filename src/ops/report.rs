@@ -225,35 +225,39 @@ pub(crate) fn query_decisions(
     limit: i64,
     active_only: bool,
 ) -> Result<Vec<Decision>> {
-    let sql = if active_only {
-        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE status = 'active' AND archived = 0 ORDER BY id DESC LIMIT ?"
+    let filter = if active_only {
+        "status = 'active' AND "
     } else {
-        "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE archived = 0 ORDER BY id DESC LIMIT ?"
+        ""
     };
-    let mut stmt = conn.prepare(sql)?;
+    let sql = format!(
+        "SELECT {} FROM decisions WHERE {filter}archived = 0 ORDER BY id DESC LIMIT ?",
+        crate::models::DECISION_COLS
+    );
+    let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params![limit], |row| {
-        let tags_str: Option<String> = row.get(5)?;
+        let tags_str: Option<String> = row.get("tags")?;
         let tags = match tags_str {
             Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
             None => Value::Null,
         };
         Ok(Decision {
-            id: row.get(0)?,
-            uuid: row.get(1)?,
-            summary: row.get(2)?,
-            rationale: row.get(3)?,
-            implementation_details: row.get(4)?,
+            id: row.get("id")?,
+            uuid: row.get("uuid")?,
+            summary: row.get("summary")?,
+            rationale: row.get("rationale")?,
+            implementation_details: row.get("implementation_details")?,
             tags: if tags.is_null() { None } else { Some(tags) },
-            timestamp: row.get(6)?,
-            status: row.get(7)?,
-            commit_sha: row.get(8)?,
+            timestamp: row.get("timestamp")?,
+            status: row.get("status")?,
+            commit_sha: row.get("commit_sha")?,
             pr_urls: Vec::new(),
             anchors: Vec::new(),
-            importance: row.get(9)?,
-            access_count: row.get(10)?,
-            last_accessed_at: row.get(11)?,
-            archived: row.get(12)?,
-            contract: row.get(13)?,
+            importance: row.get("importance")?,
+            access_count: row.get("access_count")?,
+            last_accessed_at: row.get("last_accessed_at")?,
+            archived: row.get("archived")?,
+            contract: row.get("contract")?,
             score: None,
         })
     })?;

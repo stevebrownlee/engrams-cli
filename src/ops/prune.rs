@@ -89,7 +89,7 @@ pub fn handle(conn: &Connection, cmd: PruneCmd) -> Result<Value> {
             .collect();
 
         if !dec_ids.is_empty() {
-            let placeholders = dec_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = crate::ops::sql_placeholders(dec_ids.len());
             let sql = format!(
                 "UPDATE decisions SET archived = 1 WHERE id IN ({})",
                 placeholders
@@ -101,7 +101,7 @@ pub fn handle(conn: &Connection, cmd: PruneCmd) -> Result<Value> {
             conn.execute(&sql, rusqlite::params_from_iter(params))?;
         }
         if !pat_ids.is_empty() {
-            let placeholders = pat_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = crate::ops::sql_placeholders(pat_ids.len());
             let sql = format!(
                 "UPDATE system_patterns SET archived = 1 WHERE id IN ({})",
                 placeholders

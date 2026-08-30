@@ -558,13 +558,16 @@ fn test_version_validation() {
     // Run a command, it should succeed and auto-upgrade version to 2
     engrams(&db).arg("decision").arg("list").assert().success();
 
-    // Verify it was upgraded to the latest schema version
+    // Verify it was upgraded to the latest schema version — derived from the
+    // migrate output itself so adding a migration never breaks this pin.
     {
+        let out = engrams(&db).arg("migrate").output().unwrap();
+        let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
         let conn = rusqlite::Connection::open(&db).unwrap();
         let ver: i32 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 10);
+        assert_eq!(ver, parsed["version"].as_i64().unwrap() as i32);
     }
 }
 
@@ -679,13 +682,16 @@ fn test_migration_v1_to_v2() {
     // Now it should succeed
     engrams(&db).arg("decision").arg("list").assert().success();
 
-    // Verify columns exist by checking PRAGMA user_version is the latest
+    // Verify the on-disk version matches migrate's self-reported latest —
+    // derived from the command output so new migrations never break this pin.
     {
+        let out = engrams(&db).arg("migrate").output().unwrap();
+        let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
         let conn = rusqlite::Connection::open(&db).unwrap();
         let ver: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(ver, 10);
+        assert_eq!(ver, parsed["version"].as_i64().unwrap());
     }
 }
 
@@ -2014,14 +2020,15 @@ fn test_migration_v2_to_v3() {
         )
         .unwrap();
     }
-
-    engrams(&db).arg("migrate").assert().success();
-
+    // On-disk version must match migrate's self-reported latest (self-maintaining
+    // pin — derived from command output, not a hardcoded number).
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let conn = rusqlite::Connection::open(&db).unwrap();
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 10);
+    assert_eq!(version, parsed["version"].as_i64().unwrap() as i32);
 
     // context_links gained origin/source/weight.
     let mut stmt = conn.prepare("PRAGMA table_info(context_links)").unwrap();

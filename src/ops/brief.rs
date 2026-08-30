@@ -7,7 +7,7 @@
 /// One code_nodes row: path, symbols JSON, module doc, line count.
 type CodeRow = (String, Option<String>, Option<String>, Option<i64>);
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension};
@@ -37,14 +37,13 @@ pub fn handle(conn: &Connection, target: &str, depth: i64) -> Result<Value> {
         current_depth += 1;
         let layer: Vec<(String, String)> = frontier.drain(..).collect();
         for (ty, id) in &layer {
-            for mut n in direct_neighbors(conn, ty, id)? {
+            for n in direct_neighbors(conn, ty, id)? {
                 let nk = (
                     n["kind"].as_str().unwrap_or_default().to_string(),
                     n["id"].as_str().unwrap_or_default().to_string(),
                 );
                 let is_new = seen.insert(nk.clone());
                 if current_depth == 1 {
-                    enrich_neighbor(conn, &mut n)?;
                     neighbors.push(n);
                 }
                 if is_new && current_depth < depth {
@@ -53,6 +52,8 @@ pub fn handle(conn: &Connection, target: &str, depth: i64) -> Result<Value> {
             }
         }
     }
+    // Batched enrichment: one query per node type, not one per neighbor.
+    enrich_neighbors(conn, &mut neighbors)?;
 
     // Reinforce-on-read: a brief counts as retrieval of the item.
     match key.0.as_str() {
@@ -347,82 +348,131 @@ fn direct_neighbors(conn: &Connection, ty: &str, id: &str) -> Result<Vec<Value>>
     Ok(out)
 }
 
-/// Attach a one-line summary (knowledge) or enrichment (code) to a neighbor.
-fn enrich_neighbor(conn: &Connection, n: &mut Value) -> Result<()> {
-    let ty = n["kind"].as_str().unwrap_or_default().to_string();
-    let id = n["id"].as_str().unwrap_or_default().to_string();
-    let Ok(idv) = id.parse::<i64>() else {
-        // PR ids are URLs, not integers.
-        if ty == "pr" {
-            n["url"] = json!(id);
+/// Enrich hop-1 neighbors with batched per-type lookups — one query per node
+/// type instead of one per neighbor. Decisions missing from the live set are
+/// flagged `archived`; PR ids are URLs, not integers, and surface as `url`.
+fn enrich_neighbors(conn: &Connection, neighbors: &mut [Value]) -> Result<()> {
+    let mut dec: Vec<(i64, usize)> = Vec::new();
+    let mut pat: Vec<(i64, usize)> = Vec::new();
+    let mut prog: Vec<(i64, usize)> = Vec::new();
+    let mut code: Vec<(i64, usize)> = Vec::new();
+    for (i, n) in neighbors.iter_mut().enumerate() {
+        let ty = n["kind"].as_str().unwrap_or_default();
+        let Ok(idv) = n["id"].as_str().unwrap_or_default().parse::<i64>() else {
+            if ty == "pr" {
+                n["url"] = json!(n["id"].as_str().unwrap_or_default());
+            }
+            continue;
+        };
+        match ty {
+            "decision" => dec.push((idv, i)),
+            "system_pattern" => pat.push((idv, i)),
+            "progress_entry" => prog.push((idv, i)),
+            "code" => code.push((idv, i)),
+            _ => {}
         }
-        return Ok(());
-    };
-    match ty.as_str() {
-        "decision" => {
-            let s: Option<String> = conn
-                .query_row(
-                    "SELECT summary FROM decisions WHERE id = ?1 AND archived = 0",
-                    [idv],
-                    |r| r.get(0),
-                )
-                .ok();
-            if let Some(s) = s {
-                n["summary"] = json!(clamp(&s, MAX_NEIGHBOR_TEXT));
-            } else {
-                n["archived"] = json!(true);
+    }
+
+    // Single-text-column batch shared by the three knowledge types.
+    let name_map =
+        |conn: &Connection, sql: &str, ids: &[(i64, usize)]| -> Result<HashMap<i64, String>> {
+            let mut found: HashMap<i64, String> = HashMap::with_capacity(ids.len());
+            if ids.is_empty() {
+                return Ok(found);
+            }
+            let mut stmt = conn.prepare(sql)?;
+            let id_refs: Vec<&i64> = ids.iter().map(|(id, _)| id).collect();
+            let rows = stmt.query_map(rusqlite::params_from_iter(id_refs), |r| {
+                Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+            })?;
+            for row in rows {
+                let row = row?;
+                found.insert(row.0, row.1);
+            }
+            Ok(found)
+        };
+
+    {
+        let ph = crate::ops::sql_placeholders(dec.len());
+        let found = name_map(
+            conn,
+            &format!("SELECT id, summary FROM decisions WHERE archived = 0 AND id IN ({ph})"),
+            &dec,
+        )?;
+        for (idv, i) in &dec {
+            match found.get(idv) {
+                Some(s) => neighbors[*i]["summary"] = json!(clamp(s, MAX_NEIGHBOR_TEXT)),
+                None => neighbors[*i]["archived"] = json!(true),
             }
         }
-        "system_pattern" => {
-            let s: Option<String> = conn
-                .query_row(
-                    "SELECT name FROM system_patterns WHERE id = ?1",
-                    [idv],
-                    |r| r.get(0),
-                )
-                .ok();
-            if let Some(s) = s {
-                n["name"] = json!(s);
+    }
+    {
+        let ph = crate::ops::sql_placeholders(pat.len());
+        let found = name_map(
+            conn,
+            &format!("SELECT id, name FROM system_patterns WHERE id IN ({ph})"),
+            &pat,
+        )?;
+        for (idv, i) in &pat {
+            if let Some(s) = found.get(idv) {
+                neighbors[*i]["name"] = json!(s);
             }
         }
-        "progress_entry" => {
-            let s: Option<String> = conn
-                .query_row(
-                    "SELECT description FROM progress_entries WHERE id = ?1",
-                    [idv],
-                    |r| r.get(0),
-                )
-                .ok();
-            if let Some(s) = s {
-                n["description"] = json!(clamp(&s, MAX_NEIGHBOR_TEXT));
+    }
+    {
+        let ph = crate::ops::sql_placeholders(prog.len());
+        let found = name_map(
+            conn,
+            &format!("SELECT id, description FROM progress_entries WHERE id IN ({ph})"),
+            &prog,
+        )?;
+        for (idv, i) in &prog {
+            if let Some(s) = found.get(idv) {
+                neighbors[*i]["description"] = json!(clamp(s, MAX_NEIGHBOR_TEXT));
             }
         }
-        "code" => {
-            let row: Option<CodeRow> = conn
-                .query_row(
-                    "SELECT path, symbols, module_doc, line_count FROM code_nodes WHERE id = ?1",
-                    [idv],
-                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-                )
-                .ok();
-            if let Some((path, symbols, doc, lines)) = row {
-                n["path"] = json!(path);
-                if let Some(s) = symbols.and_then(|s| serde_json::from_str::<Value>(&s).ok()) {
-                    n["symbols"] = s;
+    }
+    if !code.is_empty() {
+        let ph = crate::ops::sql_placeholders(code.len());
+        let sql = format!(
+            "SELECT id, path, symbols, module_doc, line_count FROM code_nodes WHERE id IN ({ph})"
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let id_refs: Vec<&i64> = code.iter().map(|(id, _)| id).collect();
+        let rows = stmt.query_map(rusqlite::params_from_iter(id_refs), |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<i64>>(4)?,
+            ))
+        })?;
+        let mut found: HashMap<i64, CodeRow> = HashMap::with_capacity(code.len());
+        for row in rows {
+            let row = row?;
+            found.insert(row.0, (row.1, row.2, row.3, row.4));
+        }
+        for (idv, i) in &code {
+            if let Some((path, symbols, doc, lines)) = found.get(idv) {
+                neighbors[*i]["path"] = json!(path);
+                if let Some(s) = symbols
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                {
+                    neighbors[*i]["symbols"] = s;
                 }
                 if let Some(d) = doc {
-                    n["module_doc"] = json!(clamp(&d, MAX_DOC_CHARS));
+                    neighbors[*i]["module_doc"] = json!(clamp(d, MAX_DOC_CHARS));
                 }
                 if let Some(l) = lines {
-                    n["line_count"] = json!(l);
+                    neighbors[*i]["line_count"] = json!(l);
                 }
             }
         }
-        _ => {}
     }
     Ok(())
 }
-
 fn anchor_paths(conn: &Connection, ty: &str, id: &str) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT path FROM item_anchors WHERE item_type = ?1 AND item_id = ?2 ORDER BY id ASC",

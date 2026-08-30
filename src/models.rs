@@ -1,6 +1,24 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Single source of truth for the decisions row projection. SELECT lists must
+/// embed this (or `decision_cols_qualified()`) so column order can never drift
+/// from the name-based row parsers.
+pub(crate) const DECISION_COLS: &str = "id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract";
+
+/// `DECISION_COLS` qualified with the `d` table alias, built without a
+/// throwaway Vec.
+pub(crate) fn decision_cols_qualified() -> String {
+    let mut out = String::with_capacity(DECISION_COLS.len() + 14 * 2);
+    for (i, col) in DECISION_COLS.split(", ").enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        out.push_str("d.");
+        out.push_str(col);
+    }
+    out
+}
 #[derive(Serialize)]
 pub struct Decision {
     pub id: i64,

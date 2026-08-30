@@ -2,6 +2,15 @@ use anyhow::{Context, Result};
 use std::process::Command;
 use std::sync::LazyLock;
 
+/// Owned decode of subprocess output: `String::from_utf8` moves the buffer
+/// (zero copy) on the UTF-8 happy path; only invalid bytes fall back to a
+/// lossy allocation. Preferred over lossy-then-copy conversion, which doubles
+/// the allocation.
+fn decode(bytes: Vec<u8>) -> String {
+    String::from_utf8(bytes)
+        .unwrap_or_else(|e| String::from_utf8_lossy(&e.into_bytes()).into_owned())
+}
+
 pub fn head_sha() -> Option<String> {
     static HEAD_SHA: LazyLock<Option<String>> = LazyLock::new(|| {
         let output = Command::new("git")
@@ -9,7 +18,8 @@ pub fn head_sha() -> Option<String> {
             .output()
             .ok()?;
         if output.status.success() {
-            let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let sha = decode(output.stdout);
+            let sha = sha.trim().to_string();
             if !sha.is_empty() {
                 return Some(sha);
             }
@@ -25,13 +35,14 @@ pub fn origin_base() -> Result<String> {
         .output()
         .context("git command unavailable")?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr);
         anyhow::bail!(
             "cannot derive PR URL: git command failed: {}; pass the full URL",
-            stderr
+            stderr.trim()
         );
     }
-    let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let url = decode(output.stdout);
+    let url = url.trim().to_string();
     if url.is_empty() {
         anyhow::bail!("cannot derive PR URL: origin remote URL is empty; pass the full URL");
     }
@@ -65,8 +76,8 @@ pub fn staged_files() -> Result<Vec<String>> {
         .output()
         .context("git command failed")?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        anyhow::bail!("git diff failed: {}", stderr);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("git diff failed: {}", stderr.trim());
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let files: Vec<String> = stdout
@@ -90,8 +101,8 @@ pub fn changed_since(sha: &str, paths: &[String]) -> Result<Vec<String>> {
         .output()
         .context("git command failed")?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        anyhow::bail!("git diff failed: {}", stderr);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("git diff failed: {}", stderr.trim());
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let files: Vec<String> = stdout
@@ -109,10 +120,10 @@ pub fn toplevel() -> Result<String> {
         .output()
         .context("git command failed")?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        anyhow::bail!("git rev-parse --show-toplevel failed: {}", stderr);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("git rev-parse --show-toplevel failed: {}", stderr.trim());
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(decode(output.stdout).trim().to_string())
 }
 
 /// Files touched per commit, one `Vec<String>` per commit (newest first).

@@ -92,12 +92,8 @@ fn write_pre_commit_hook(db_path: &Path) -> Result<std::path::PathBuf> {
         }
     };
 
-    // Resolve the DB path relative to workspace root for the hook
-    let db_arg = if db_path.is_absolute() {
-        db_path.display().to_string()
-    } else {
-        db_path.display().to_string()
-    };
+    // Resolve the DB path for the hook (absolute and relative render the same).
+    let db_arg = db_path.display().to_string();
 
     let hook_content = format!(
 "#!/bin/sh

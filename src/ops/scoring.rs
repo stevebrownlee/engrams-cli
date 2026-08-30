@@ -104,7 +104,7 @@ pub fn reinforce(conn: &Connection, table: &str, ids: &[i64]) -> Result<()> {
         return Ok(());
     }
     let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
-    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let placeholders = crate::ops::sql_placeholders(ids.len());
     let sql = format!(
         "UPDATE {t} SET access_count = access_count + 1, last_accessed_at = ? WHERE id IN ({ph})",
         t = table,

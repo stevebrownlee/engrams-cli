@@ -240,6 +240,11 @@ fn s3_migration_v6_to_v7_adds_confidence_columns() {
               last_seen TEXT NOT NULL,
               UNIQUE(kind, path, symbol)
             );
+            CREATE TABLE graph_meta (
+              id INTEGER PRIMARY KEY CHECK (id = 1),
+              last_rebuild_at TEXT,
+              last_ingest_sha TEXT
+            );
             INSERT INTO system_patterns (uuid, timestamp, name) VALUES ('u1', '2026-01-01T00:00:00Z', 'legacy');
             PRAGMA user_version = 6;"#,
         )
@@ -260,11 +265,15 @@ fn s3_migration_v6_to_v7_adds_confidence_columns() {
         .stdout(predicates::str::contains("success"));
 
     {
+        // On-disk version must match migrate's self-reported latest (self-maintaining
+        // pin — derived from command output, not a hardcoded number).
+        let out = engrams(&db).arg("migrate").output().unwrap();
+        let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
         let conn = Connection::open(&db).unwrap();
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, parsed["version"].as_i64().unwrap());
         let mut stmt = conn.prepare("PRAGMA table_info(system_patterns)").unwrap();
         let cols: Vec<String> = stmt
             .query_map([], |r| r.get::<_, String>(1))

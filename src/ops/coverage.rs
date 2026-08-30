@@ -124,7 +124,7 @@ fn live_ids(
         } else {
             ""
         };
-        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let placeholders = crate::ops::sql_placeholders(ids.len());
         let sql = format!(
             "SELECT id FROM {} WHERE id IN ({}) AND archived = 0{}",
             table, placeholders, status_col

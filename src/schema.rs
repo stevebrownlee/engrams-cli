@@ -84,7 +84,8 @@ CREATE INDEX IF NOT EXISTS ix_code_nodes_path ON code_nodes(path);
 CREATE TABLE IF NOT EXISTS graph_meta (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   last_rebuild_at TEXT,
-  last_ingest_sha TEXT
+  last_ingest_sha TEXT,
+  summary_json TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ix_links_derived_uniq
   ON context_links(source_item_type, source_item_id, target_item_type, target_item_id, relationship_type)
@@ -329,4 +330,10 @@ CREATE TABLE IF NOT EXISTS session_closes (
   note TEXT,
   pr_url TEXT
 );
+"#;
+
+pub const MIGRATION_V11: &str = r#"
+-- v0.12.0 perf: cached graph summary. Rebuild stores its PageRank top_central
+-- here so hot-path readers (query miss_guidance) skip recomputing PageRank.
+ALTER TABLE graph_meta ADD COLUMN summary_json TEXT;
 "#;

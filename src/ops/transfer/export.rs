@@ -186,9 +186,12 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     }
 
     // Export Decisions
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions")?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM decisions",
+        crate::models::DECISION_COLS
+    ))?;
     let rows = stmt.query_map([], |row| {
-        let tags_str: Option<String> = row.get(5)?;
+        let tags_str: Option<String> = row.get("tags")?;
         let tags = match tags_str {
             Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
             None => Value::Null,

@@ -80,15 +80,15 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             limit,
         } => {
             let mut conditions = Vec::new();
-            let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
+            let mut p = Vec::<&dyn rusqlite::ToSql>::new();
 
-            if let Some(s) = status {
+            if let Some(s) = &status {
                 conditions.push("status = ?");
-                p.push(Box::new(s));
+                p.push(s);
             }
-            if let Some(pid) = parent_id {
+            if let Some(pid) = &parent_id {
                 conditions.push("parent_id = ?");
-                p.push(Box::new(pid));
+                p.push(pid);
             }
 
             let where_clause = if conditions.is_empty() {
@@ -99,11 +99,9 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
 
             let query = format!("SELECT id, timestamp, status, description, parent_id, commit_sha FROM progress_entries {} ORDER BY id DESC LIMIT ?", where_clause);
 
-            let mut p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-            p_refs.push(&limit);
-
+            p.push(&limit);
             let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), parse_progress_row)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(p), parse_progress_row)?;
 
             let mut results = Vec::new();
             for r in rows {
@@ -134,26 +132,26 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             }
 
             let mut sets = Vec::new();
-            let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
+            let mut p = Vec::<&dyn rusqlite::ToSql>::new();
 
             let mut status_overridden = false;
-            if let Some(s) = fields.status {
+            if let Some(s) = &fields.status {
                 status_overridden = crate::ops::status::check(
-                    &s,
+                    s,
                     crate::ops::status::PROGRESS_STATUSES,
                     force,
                     "progress_entry",
                 )?;
                 sets.push("status = ?");
-                p.push(Box::new(s));
+                p.push(s);
             }
-            if let Some(d) = fields.description {
+            if let Some(d) = &fields.description {
                 sets.push("description = ?");
-                p.push(Box::new(d));
+                p.push(d);
             }
-            if let Some(pid) = fields.parent_id {
+            if let Some(pid) = &fields.parent_id {
                 sets.push("parent_id = ?");
-                p.push(Box::new(pid));
+                p.push(pid);
             }
 
             if sets.is_empty() {
@@ -164,10 +162,9 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
                 "UPDATE progress_entries SET {} WHERE id = ?",
                 sets.join(", ")
             );
-            let mut p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-            p_refs.push(&id);
 
-            conn.execute(&query, rusqlite::params_from_iter(p_refs))?;
+            p.push(&id);
+            conn.execute(&query, rusqlite::params_from_iter(p))?;
             let mut result = get_progress(conn, id)?;
             if status_overridden {
                 if let Value::Object(map) = &mut result {

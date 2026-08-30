@@ -116,7 +116,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
                 }
                 Ok(serde_json::to_value(results)?)
             } else {
-                let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let placeholders = crate::ops::sql_placeholders(tags.len());
                 let query = format!("SELECT id, uuid, name, description, tags, timestamp, check_kind, check_expr, severity, importance, access_count, last_accessed_at, archived, confidence, last_confirmed_at FROM system_patterns WHERE EXISTS (SELECT 1 FROM json_each(system_patterns.tags) WHERE json_each.value IN ({})) ORDER BY id DESC LIMIT ?", placeholders);
                 let mut stmt = conn.prepare(&query)?;
                 let mut p = Vec::<&dyn rusqlite::ToSql>::new();

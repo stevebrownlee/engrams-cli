@@ -3,10 +3,13 @@
 //!
 //! Trust signal for KG-first retrieval — a `stale: false` report lets an agent
 //! skip the defensive file read; `stale: true` says the decision predates the
-//! file's current shape. One `git log` walk per command invocation builds the
-//! path→last-commit map; commit references resolve lazily with caching. Every
-//! failure mode (no git, not a repo, unknown sha) degrades to a null report.
+//! current shape. The `git log` walk runs lazily — only when the first drift
+//! report is actually requested; commands that never ask for drift skip the
+//! subprocess entirely. Commit references resolve lazily with caching.
+//! Every failure mode (no git, not a repo, unknown sha) degrades to a null
+//! report.
 
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -23,8 +26,9 @@ const MAX_COMMITS: usize = 2000;
 /// Precomputed drift context for one CLI invocation.
 pub struct Drift {
     root: PathBuf,
-    /// path → last-commit epoch secs; None = git unavailable.
-    map: Option<HashMap<String, i64>>,
+    /// path → last-commit epoch secs; None = git unavailable. Computed on
+    /// first report, not at scan time.
+    map: OnceCell<Option<HashMap<String, i64>>>,
     /// commit sha → epoch secs, resolved on demand.
     sha_cache: HashMap<String, Option<i64>>,
 }
@@ -33,12 +37,17 @@ impl Drift {
     /// Scan the workspace once. Fails soft: reports become null when git is
     /// missing or the root is not a repository.
     pub fn scan(root: &Path) -> Drift {
-        let map = git_commit_map(root);
         Drift {
             root: root.to_path_buf(),
-            map,
+            map: OnceCell::new(),
             sha_cache: HashMap::new(),
         }
+    }
+
+    /// The commit map, walking git history on first use.
+    fn commit_map(&self) -> Option<&HashMap<String, i64>> {
+        let root = self.root.clone();
+        self.map.get_or_init(|| git_commit_map(&root)).as_ref()
     }
 
     /// Drift report for one item, or null when there is no signal (no anchors,
@@ -51,15 +60,12 @@ impl Drift {
         base_ts: &str,
         commit_sha: Option<&str>,
     ) -> Value {
-        // Mutable borrow (base resolution) must end before the immutable
+        // Base resolution (mutable sha_cache) must end before the immutable
         // map borrow below.
-        if self.map.is_none() {
-            return Value::Null;
-        }
         let Some(base_epoch) = self.base_epoch(commit_sha, base_ts) else {
             return Value::Null;
         };
-        let Some(map) = self.map.as_ref() else {
+        let Some(map) = self.commit_map() else {
             return Value::Null;
         };
 

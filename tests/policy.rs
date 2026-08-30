@@ -32,11 +32,15 @@ fn s1_fresh_db_has_v5_schema_with_check_columns() {
     let db = temp.path().join("e.db");
     engrams(&db).arg("init").assert().success();
 
+    // On-disk version must match migrate's self-reported latest (self-maintaining
+    // pin — derived from command output, not a hardcoded number).
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     let conn = rusqlite::Connection::open(&db).unwrap();
     let v: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v, 10);
+    assert_eq!(v, parsed["version"].as_i64().unwrap());
 
     // The three new columns must exist.
     let cols: Vec<String> = conn

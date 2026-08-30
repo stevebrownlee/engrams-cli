@@ -146,7 +146,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             let tag_clause = if tags.is_empty() {
                 String::new()
             } else {
-                let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let placeholders = crate::ops::sql_placeholders(tags.len());
                 format!(
                     "EXISTS (SELECT 1 FROM json_each({}tags) WHERE json_each.value IN ({}))",
                     col_prefix, placeholders
@@ -282,18 +282,23 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 }
                 Ok(serde_json::to_value(results)?)
             } else {
+                let dcols = crate::models::decision_cols_qualified();
                 let sql = if all {
-                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract \
+                    format!(
+                        "SELECT {dcols} \
                      FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
                      WHERE decisions_fts MATCH ?1 \
                      ORDER BY rank LIMIT ?2"
+                    )
                 } else {
-                    "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract \
+                    format!(
+                        "SELECT {dcols} \
                      FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
                      WHERE decisions_fts MATCH ?1 AND d.status = 'active' \
                      ORDER BY rank LIMIT ?2"
+                    )
                 };
-                let mut stmt = conn.prepare(sql)?;
+                let mut stmt = conn.prepare(&sql)?;
                 let rows = stmt.query_map(params![match_expr, limit], parse_decision_row)?;
                 let mut results = Vec::new();
                 for r in rows {
@@ -492,22 +497,17 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let tx = conn.unchecked_transaction()?;
 
-            // Fetch both decisions
+            let base_sql = format!(
+                "SELECT {} FROM decisions WHERE id = ?",
+                crate::models::DECISION_COLS
+            );
             let source: Decision = tx
-                .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id = ?",
-                    params![source_id],
-                    parse_decision_row,
-                )
+                .query_row(&base_sql, params![source_id], parse_decision_row)
                 .optional()?
                 .context(format!("source decision {} not found", source_id))?;
 
             let target: Decision = tx
-                .query_row(
-                    "SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id = ?",
-                    params![into_id],
-                    parse_decision_row,
-                )
+                .query_row(&base_sql, params![into_id], parse_decision_row)
                 .optional()?
                 .context(format!("target decision {} not found", into_id))?;
             // Merge rationale
@@ -566,35 +566,38 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 }
 
 fn parse_decision_row(row: &rusqlite::Row) -> rusqlite::Result<Decision> {
-    let tags_str: Option<String> = row.get(5)?;
+    let tags_str: Option<String> = row.get("tags")?;
     let tags = match tags_str {
         Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
         None => Value::Null,
     };
 
     Ok(Decision {
-        id: row.get(0)?,
-        uuid: row.get(1)?,
-        summary: row.get(2)?,
-        rationale: row.get(3)?,
-        implementation_details: row.get(4)?,
+        id: row.get("id")?,
+        uuid: row.get("uuid")?,
+        summary: row.get("summary")?,
+        rationale: row.get("rationale")?,
+        implementation_details: row.get("implementation_details")?,
         tags: if tags.is_null() { None } else { Some(tags) },
-        timestamp: row.get(6)?,
-        status: row.get(7)?,
-        commit_sha: row.get(8)?,
+        timestamp: row.get("timestamp")?,
+        status: row.get("status")?,
+        commit_sha: row.get("commit_sha")?,
         pr_urls: Vec::new(),
         anchors: Vec::new(),
-        importance: row.get(9)?,
-        access_count: row.get(10)?,
-        last_accessed_at: row.get(11)?,
-        archived: row.get(12)?,
-        contract: row.get(13)?,
+        importance: row.get("importance")?,
+        access_count: row.get("access_count")?,
+        last_accessed_at: row.get("last_accessed_at")?,
+        archived: row.get("archived")?,
+        contract: row.get("contract")?,
         score: None,
     })
 }
 
 fn get_decision(conn: &Connection, id: i64) -> Result<Value> {
-    let mut stmt = conn.prepare("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract FROM decisions WHERE id = ?")?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM decisions WHERE id = ?",
+        crate::models::DECISION_COLS
+    ))?;
     let mut decision = stmt
         .query_row(params![id], parse_decision_row)
         .optional()?
@@ -633,12 +636,13 @@ pub(crate) fn find_similar(conn: &Connection, summary: &str, limit: i64) -> Resu
             .join(" OR ")
     );
 
-    let mut stmt = conn.prepare(
-        "SELECT d.id, d.uuid, d.summary, d.rationale, d.implementation_details, d.tags, d.timestamp, d.status, d.commit_sha, d.importance, d.access_count, d.last_accessed_at, d.archived, d.contract \
+    let dcols = crate::models::decision_cols_qualified();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {dcols} \
          FROM decisions d JOIN decisions_fts f ON d.id = f.rowid \
          WHERE decisions_fts MATCH ?1 AND d.status = 'active' AND d.archived = 0 \
-         ORDER BY rank LIMIT ?2",
-    )?;
+         ORDER BY rank LIMIT ?2"
+    ))?;
     let rows = stmt.query_map(params![match_expr, limit], parse_decision_row)?;
     let mut results = Vec::new();
     for r in rows {

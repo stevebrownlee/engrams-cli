@@ -210,16 +210,12 @@ pub fn handle_relevant(
 
     let mut decisions = Vec::new();
     if !decision_ids.is_empty() {
-        let placeholders = decision_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::ops::sql_placeholders(decision_ids.len());
         let score = crate::ops::scoring::score_expr("timestamp", "importance");
         let sql = if all {
-            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract, {score} AS score FROM decisions WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", placeholders)
+            format!("SELECT {}, {score} AS score FROM decisions WHERE id IN ({}) AND archived = 0 ORDER BY score DESC", crate::models::DECISION_COLS, placeholders)
         } else {
-            format!("SELECT id, uuid, summary, rationale, implementation_details, tags, timestamp, status, commit_sha, importance, access_count, last_accessed_at, archived, contract, {score} AS score FROM decisions WHERE id IN ({}) AND status = 'active' AND archived = 0 ORDER BY score DESC", placeholders)
+            format!("SELECT {}, {score} AS score FROM decisions WHERE id IN ({}) AND status = 'active' AND archived = 0 ORDER BY score DESC", crate::models::DECISION_COLS, placeholders)
         };
         let mut stmt = conn.prepare(&sql)?;
         let mut p = Vec::<&dyn rusqlite::ToSql>::new();
@@ -227,29 +223,29 @@ pub fn handle_relevant(
             p.push(id);
         }
         let rows = stmt.query_map(rusqlite::params_from_iter(p), |row| {
-            let tags_str: Option<String> = row.get(5)?;
+            let tags_str: Option<String> = row.get("tags")?;
             let tags = match tags_str {
                 Some(s) => serde_json::from_str(&s).unwrap_or(Value::Null),
                 None => Value::Null,
             };
             Ok(Decision {
-                id: row.get(0)?,
-                uuid: row.get(1)?,
-                summary: row.get(2)?,
-                rationale: row.get(3)?,
-                implementation_details: row.get(4)?,
+                id: row.get("id")?,
+                uuid: row.get("uuid")?,
+                summary: row.get("summary")?,
+                rationale: row.get("rationale")?,
+                implementation_details: row.get("implementation_details")?,
                 tags: if tags.is_null() { None } else { Some(tags) },
-                timestamp: row.get(6)?,
-                status: row.get(7)?,
-                commit_sha: row.get(8)?,
+                timestamp: row.get("timestamp")?,
+                status: row.get("status")?,
+                commit_sha: row.get("commit_sha")?,
                 pr_urls: Vec::new(),
                 anchors: Vec::new(),
-                importance: row.get(9)?,
-                access_count: row.get(10)?,
-                last_accessed_at: row.get(11)?,
-                archived: row.get(12)?,
-                contract: row.get(13)?,
-                score: Some(row.get(14)?),
+                importance: row.get("importance")?,
+                access_count: row.get("access_count")?,
+                last_accessed_at: row.get("last_accessed_at")?,
+                archived: row.get("archived")?,
+                contract: row.get("contract")?,
+                score: Some(row.get("score")?),
             })
         })?;
         for r in rows {
@@ -262,11 +258,7 @@ pub fn handle_relevant(
 
     let mut patterns = Vec::new();
     if !pattern_ids.is_empty() {
-        let placeholders = pattern_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::ops::sql_placeholders(pattern_ids.len());
         let pat_score = format!(
             "({} * {})",
             crate::ops::scoring::score_expr("timestamp", "importance"),

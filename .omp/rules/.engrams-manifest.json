@@ -44,6 +44,28 @@
       "sha256": "00132cce7a1c72534a67242d0ebd299116c08b0c7352a48d8dea212759c1a232",
       "slug": "no-throwaway-intermediate-collections",
       "timestamp": "2026-08-05T13:01:31Z"
+    },
+    {
+      "check_expr": "SELECT id, uuid, summary, rationale",
+      "check_kind": "regex",
+      "file": "engrams-single-source-row-projections.md",
+      "name": "Single-Source Row Projections",
+      "pattern_id": 11,
+      "severity": "error",
+      "sha256": "d273e1063810ca3c94b8174f8ea13ef61cdd06f10768dd4daf1f4fd719626083",
+      "slug": "single-source-row-projections",
+      "timestamp": "2026-08-30T19:51:21Z"
+    },
+    {
+      "check_expr": "$MAP.get($KEY).clone()",
+      "check_kind": "ast",
+      "file": "engrams-enrich-by-move-ast-grep-companion.md",
+      "name": "Enrich By Move (ast-grep companion)",
+      "pattern_id": 12,
+      "severity": "warn",
+      "sha256": "c06f331ea6443e686e497cdd14f5e2644c5476328e9965b3249d98a54c933564",
+      "slug": "enrich-by-move-ast-grep-companion",
+      "timestamp": "2026-08-30T19:51:21Z"
     }
   ],
   "version": 1

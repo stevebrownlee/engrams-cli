@@ -41,15 +41,15 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
         }
         CustomCmd::Get { category, key } => {
             let mut conditions = Vec::new();
-            let mut p = Vec::<Box<dyn rusqlite::ToSql>>::new();
+            let mut p = Vec::<&dyn rusqlite::ToSql>::new();
 
-            if let Some(c) = category {
+            if let Some(c) = &category {
                 conditions.push("category = ?");
-                p.push(Box::new(c));
+                p.push(c);
             }
-            if let Some(k) = key {
+            if let Some(k) = &key {
                 conditions.push("key = ?");
-                p.push(Box::new(k));
+                p.push(k);
             }
 
             let where_clause = if conditions.is_empty() {
@@ -63,10 +63,8 @@ pub fn handle(conn: &Connection, cmd: CustomCmd) -> Result<Value> {
                 where_clause
             );
 
-            let p_refs: Vec<&dyn rusqlite::ToSql> = p.iter().map(|b| b.as_ref()).collect();
-
             let mut stmt = conn.prepare(&query)?;
-            let rows = stmt.query_map(rusqlite::params_from_iter(p_refs), parse_custom_row)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(p), parse_custom_row)?;
 
             let mut results = Vec::new();
             for r in rows {
