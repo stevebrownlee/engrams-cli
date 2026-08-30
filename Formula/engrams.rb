@@ -6,18 +6,18 @@ class Engrams < Formula
   if OS.mac?
     if Hardware::CPU.intel?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-x86_64-apple-darwin.tar.gz"
-      sha256 "46931f07573c14c199a73089aff5c8abe8ffd87b55a8cb27d53458c600678088"
+      sha256 "2db71bdae2aa7e71a2a93290c521266af6e29026535241b9136316b706a4999f"
     elsif Hardware::CPU.arm?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-aarch64-apple-darwin.tar.gz"
-      sha256 "f9c0772f90390e0fde92c9e35a0bb8edd848d925f24e7bc3f86eca540f0ce1ee"
+      sha256 "2c2d49f99ad8d1f9f235cf98549c7dfc2268b6962fa6f3e25995fe870489de1b"
     end
   elsif OS.linux?
     if Hardware::CPU.intel?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "f00abd9bd0b09c9e51452bb30bf49eee58692d544b56ae524efb8522eb692819"
+      sha256 "8f604e6522a8c837c514c46d1362806388a8e1c4d14d4cb82f8fa2209a95be53"
     elsif Hardware::CPU.arm?
       url "https://github.com/stevebrownlee/engrams-cli/releases/download/v#{version}/engrams-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "dab77e7a57eb6fc1dd43dc9ed2f17e1443d3c91342e8d0820649d86901cdd399"
+      sha256 "1a26a8caa4fe9c025f9cff2b2532ad6d193682291e41bcf231d7f9f0814729bb"
     end
   end
 
