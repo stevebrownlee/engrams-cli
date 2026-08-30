@@ -8,6 +8,38 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.12.1</h2>
+  <div class="release-block">
+    <h3>What was fixed</h3>
+    <ul>
+      <li>
+        <strong>Lazy staleness checks:</strong> <code>relevant</code>, <code>advise</code>, and <code>brief</code> no longer shell out to <code>git</code> unless an item actually has file anchors — retrieval stays fast in young or non-git workspaces.
+      </li>
+      <li>
+        <strong>Cached graph hubs:</strong> Empty-query miss-guidance now reads its hub scores from the snapshot written at <code>graph rebuild</code> instead of recomputing PageRank on every miss.
+      </li>
+      <li>
+        <strong>Faster briefs:</strong> <code>brief</code> neighbor enrichment issues one query per node type instead of one per neighbor.
+      </li>
+      <li>
+        <strong>Correct dynamic SQL parameter handling:</strong> Remaining <code>Box&lt;dyn ToSql&gt;</code> parameter lists were converted to borrowed parameters, eliminating a hidden double allocation per parameter in <code>custom</code> and <code>progress</code> listing.
+      </li>
+      <li>
+        <strong>Schema-change robustness:</strong> Decisions row selection now flows through a single shared column projection parsed by column name, so future schema additions can't silently shift row indices.
+      </li>
+      <li>
+        <strong>Leaner release binary:</strong> Release builds now use thin LTO and symbol stripping.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <p>
+      A post-release audit surfaced redundant work on hot retrieval paths — a <code>git</code> subprocess on every command, a fresh PageRank per empty query, and N+1 queries in <code>brief</code> — plus allocation and index-drift hazards that made schema evolution fragile. v0.12.1 removes those costs without changing any command surface.
+    </p>
+  </div>
+
+  <hr />
+
   <h2>v0.12.0</h2>
   <div class="release-block">
     <h3>What was done</h3>
