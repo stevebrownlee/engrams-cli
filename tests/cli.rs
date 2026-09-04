@@ -35,7 +35,7 @@ fn test_decision_lifecycle() {
 
     // Log
     let output = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -58,28 +58,28 @@ fn test_decision_lifecycle() {
 
     // Get
     engrams(&db)
-        .args(&["decision", "get", &id.to_string()])
+        .args(["decision", "get", &id.to_string()])
         .assert()
         .success()
         .stdout(predicate::str::contains("Use Rust"));
 
     // List
     engrams(&db)
-        .args(&["decision", "list"])
+        .args(["decision", "list"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Use Rust"));
 
     // Search
     engrams(&db)
-        .args(&["decision", "search", "Speed"])
+        .args(["decision", "search", "Speed"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Use Rust"));
 
     // Update
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "update",
             &id.to_string(),
@@ -92,7 +92,7 @@ fn test_decision_lifecycle() {
 
     // Delete
     engrams(&db)
-        .args(&["decision", "delete", &id.to_string()])
+        .args(["decision", "delete", &id.to_string()])
         .assert()
         .success()
         .stdout(
@@ -102,7 +102,7 @@ fn test_decision_lifecycle() {
 
     // Get (not found)
     engrams(&db)
-        .args(&["decision", "get", &id.to_string()])
+        .args(["decision", "get", &id.to_string()])
         .assert()
         .failure();
 }
@@ -113,7 +113,7 @@ fn test_progress_linkage() {
     let db = temp.path().join("e.db");
 
     let out1 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -127,7 +127,7 @@ fn test_progress_linkage() {
     let id1 = p1["id"].as_i64().unwrap();
 
     let out2 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -146,7 +146,7 @@ fn test_progress_linkage() {
 
     // List by parent
     engrams(&db)
-        .args(&["progress", "list", "--parent-id", &id1.to_string()])
+        .args(["progress", "list", "--parent-id", &id1.to_string()])
         .assert()
         .success()
         .stdout(predicate::str::contains("Task 2"));
@@ -158,14 +158,14 @@ fn test_pattern_upsert() {
     let db = temp.path().join("e.db");
 
     let out1 = engrams(&db)
-        .args(&["pattern", "log", "--name", "MVC", "--description", "desc 1"])
+        .args(["pattern", "log", "--name", "MVC", "--description", "desc 1"])
         .output()
         .unwrap();
     let p1: Value = serde_json::from_slice(&out1.stdout).unwrap();
     let id1 = p1["id"].as_i64().unwrap();
 
     let out2 = engrams(&db)
-        .args(&["pattern", "log", "--name", "MVC", "--description", "desc 2"])
+        .args(["pattern", "log", "--name", "MVC", "--description", "desc 2"])
         .output()
         .unwrap();
     let p2: Value = serde_json::from_slice(&out2.stdout).unwrap();
@@ -181,7 +181,7 @@ fn test_custom_data() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "custom",
             "set",
             "--category",
@@ -199,7 +199,7 @@ fn test_custom_data() {
         );
 
     engrams(&db)
-        .args(&[
+        .args([
             "custom",
             "set",
             "--category",
@@ -218,19 +218,19 @@ fn test_custom_data() {
         );
 
     engrams(&db)
-        .args(&["custom", "get", "--category", "conf", "--key", "port"])
+        .args(["custom", "get", "--category", "conf", "--key", "port"])
         .assert()
         .success()
         .stdout(predicate::str::contains("8080"));
 
     engrams(&db)
-        .args(&["custom", "search", "8080"])
+        .args(["custom", "search", "8080"])
         .assert()
         .success()
         .stdout(predicate::str::contains("8080"));
 
     engrams(&db)
-        .args(&["custom", "delete", "--category", "conf", "--key", "port"])
+        .args(["custom", "delete", "--category", "conf", "--key", "port"])
         .assert()
         .success()
         .stdout(predicate::str::contains("deleted"));
@@ -242,7 +242,7 @@ fn test_product_context() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "product-context",
             "update",
             "--content",
@@ -252,7 +252,7 @@ fn test_product_context() {
         .success();
 
     engrams(&db)
-        .args(&[
+        .args([
             "product-context",
             "update",
             "--patch",
@@ -262,7 +262,7 @@ fn test_product_context() {
         .success();
 
     let out = engrams(&db)
-        .args(&["product-context", "get"])
+        .args(["product-context", "get"])
         .output()
         .unwrap();
     let doc: Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -271,7 +271,7 @@ fn test_product_context() {
     assert!(doc["content"]["stack"].is_null());
 
     let hist = engrams(&db)
-        .args(&["history", "product-context"])
+        .args(["history", "product-context"])
         .output()
         .unwrap();
     let h: Value = serde_json::from_slice(&hist.stdout).unwrap();
@@ -285,7 +285,7 @@ fn test_links() {
     let db = temp.path().join("e.db");
 
     let out1 = engrams(&db)
-        .args(&["decision", "log", "--summary", "d1"])
+        .args(["decision", "log", "--summary", "d1"])
         .output()
         .unwrap();
     let id1 = serde_json::from_slice::<Value>(&out1.stdout).unwrap()["id"]
@@ -293,7 +293,7 @@ fn test_links() {
         .unwrap();
 
     let out2 = engrams(&db)
-        .args(&["decision", "log", "--summary", "d2"])
+        .args(["decision", "log", "--summary", "d2"])
         .output()
         .unwrap();
     let id2 = serde_json::from_slice::<Value>(&out2.stdout).unwrap()["id"]
@@ -301,7 +301,7 @@ fn test_links() {
         .unwrap();
 
     engrams(&db)
-        .args(&[
+        .args([
             "link",
             "add",
             "--source-type",
@@ -319,7 +319,7 @@ fn test_links() {
         .success();
 
     engrams(&db)
-        .args(&[
+        .args([
             "link",
             "list",
             "--item-type",
@@ -333,7 +333,7 @@ fn test_links() {
 
     // delete id1, link should be removed
     let del = engrams(&db)
-        .args(&["decision", "delete", &id1.to_string()])
+        .args(["decision", "delete", &id1.to_string()])
         .output()
         .unwrap();
     let d: Value = serde_json::from_slice(&del.stdout).unwrap();
@@ -347,7 +347,7 @@ fn test_link_rel_constraints() {
 
     let mk_decision = |summary: &str| -> i64 {
         let out = engrams(&db)
-            .args(&["decision", "log", "--summary", summary, "--force"])
+            .args(["decision", "log", "--summary", summary, "--force"])
             .output()
             .unwrap();
         let v = serde_json::from_slice::<Value>(&out.stdout).unwrap();
@@ -359,7 +359,7 @@ fn test_link_rel_constraints() {
     let d3 = mk_decision("rel d3");
 
     let out = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -462,11 +462,11 @@ fn test_activity() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&["decision", "log", "--summary", "act d1"])
+        .args(["decision", "log", "--summary", "act d1"])
         .output()
         .unwrap();
     engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -477,7 +477,7 @@ fn test_activity() {
         .output()
         .unwrap();
 
-    let out = engrams(&db).args(&["activity"]).output().unwrap();
+    let out = engrams(&db).args(["activity"]).output().unwrap();
     let a: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(a["decisions"].as_array().unwrap().len(), 1);
     assert_eq!(a["progress"].as_array().unwrap().len(), 1);
@@ -491,21 +491,21 @@ fn test_export_import() {
     let db2 = temp.path().join("e2.db");
 
     engrams(&db1)
-        .args(&["decision", "log", "--summary", "exp_d1"])
+        .args(["decision", "log", "--summary", "exp_d1"])
         .output()
         .unwrap();
     engrams(&db1)
-        .args(&["export", "--path", exp_dir.to_str().unwrap()])
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
         .assert()
         .success();
 
     engrams(&db2)
-        .args(&["import", "--path", exp_dir.to_str().unwrap()])
+        .args(["import", "--path", exp_dir.to_str().unwrap()])
         .assert()
         .success();
 
     engrams(&db2)
-        .args(&["decision", "list"])
+        .args(["decision", "list"])
         .assert()
         .success()
         .stdout(predicate::str::contains("exp_d1"));
@@ -705,11 +705,11 @@ fn test_report() {
 
     // Seed data
     engrams(&db)
-        .args(&["decision", "log", "--summary", "Use SQLite"])
+        .args(["decision", "log", "--summary", "Use SQLite"])
         .output()
         .unwrap();
     engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -720,7 +720,7 @@ fn test_report() {
         .output()
         .unwrap();
     engrams(&db)
-        .args(&[
+        .args([
             "pattern",
             "log",
             "--name",
@@ -732,7 +732,7 @@ fn test_report() {
         .unwrap();
 
     // Full report (JSON)
-    let out = engrams(&db).args(&["report"]).output().unwrap();
+    let out = engrams(&db).args(["report"]).output().unwrap();
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(r["active_context"].is_null() || r["active_context"].is_object());
     assert_eq!(r["decisions"].as_array().unwrap().len(), 1);
@@ -741,17 +741,14 @@ fn test_report() {
     assert!(r["links"].as_array().unwrap().is_empty());
 
     // Topic report (JSON)
-    let out = engrams(&db)
-        .args(&["report", "decisions"])
-        .output()
-        .unwrap();
+    let out = engrams(&db).args(["report", "decisions"]).output().unwrap();
     let r: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(r.is_array());
     assert_eq!(r.as_array().unwrap().len(), 1);
 
     // Human formatting flag should now fail since it was removed
     engrams(&db)
-        .args(&["--format", "human", "report"])
+        .args(["--format", "human", "report"])
         .assert()
         .failure();
 }
@@ -766,11 +763,11 @@ fn test_report_open() {
 
     // Seed data
     engrams(&db)
-        .args(&["decision", "log", "--summary", "Use SQLite"])
+        .args(["decision", "log", "--summary", "Use SQLite"])
         .output()
         .unwrap();
     engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -781,7 +778,7 @@ fn test_report_open() {
         .output()
         .unwrap();
     engrams(&db)
-        .args(&[
+        .args([
             "pattern",
             "log",
             "--name",
@@ -792,7 +789,7 @@ fn test_report_open() {
         .output()
         .unwrap();
     engrams(&db)
-        .args(&[
+        .args([
             "link",
             "add",
             "--source-type",
@@ -811,7 +808,7 @@ fn test_report_open() {
 
     let html_file = temp.path().join("dash.html");
     let out = engrams(&db)
-        .args(&[
+        .args([
             "report",
             "open",
             "--no-browser",
@@ -841,7 +838,7 @@ fn test_decision_similarity_check() {
 
     // Log a decision with --force (bypasses check, ensures insert)
     let out1 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -860,7 +857,7 @@ fn test_decision_similarity_check() {
 
     // Log a similar decision WITHOUT --force — should be blocked
     let out2 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -879,7 +876,7 @@ fn test_decision_similarity_check() {
 
     // Log the same decision WITH --force — should insert
     let out3 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -896,7 +893,7 @@ fn test_decision_similarity_check() {
 
     // A completely different decision should insert without --force
     let out4 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -917,7 +914,7 @@ fn test_decision_consolidate() {
 
     // Create two decisions
     let out1 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -934,7 +931,7 @@ fn test_decision_consolidate() {
     let id1 = j1["id"].as_i64().unwrap();
 
     let out2 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -954,7 +951,7 @@ fn test_decision_consolidate() {
 
     // Add a link from id2 to id1 to verify repointing
     engrams(&db)
-        .args(&[
+        .args([
             "link",
             "add",
             "--source-type",
@@ -973,7 +970,7 @@ fn test_decision_consolidate() {
 
     // Consolidate id2 into id1
     let out3 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "consolidate",
             &id2.to_string(),
@@ -1003,13 +1000,13 @@ fn test_decision_consolidate() {
 
     // Source decision should be gone
     engrams(&db)
-        .args(&["decision", "get", &id2.to_string()])
+        .args(["decision", "get", &id2.to_string()])
         .assert()
         .failure();
 
     // Consolidating into self should fail
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "consolidate",
             &id1.to_string(),
@@ -1026,7 +1023,7 @@ fn test_progress_check_similar() {
 
     // Log a progress entry
     let out1 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -1041,7 +1038,7 @@ fn test_progress_check_similar() {
 
     // Log an identical entry with --check-similar — should be blocked
     let out2 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -1058,7 +1055,7 @@ fn test_progress_check_similar() {
 
     // Case-insensitive match
     let out3 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -1074,7 +1071,7 @@ fn test_progress_check_similar() {
 
     // Different description should insert
     let out4 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -1090,7 +1087,7 @@ fn test_progress_check_similar() {
 
     // Without --check-similar, duplicates insert freely
     let out5 = engrams(&db)
-        .args(&[
+        .args([
             "progress",
             "log",
             "--status",
@@ -1112,7 +1109,7 @@ fn test_pr_provenance() {
 
     // Log decision with PR URL
     let out = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -1133,7 +1130,7 @@ fn test_pr_provenance() {
 
     // Add another PR using engrams pr add
     let out2 = engrams(&db)
-        .args(&[
+        .args([
             "pr",
             "add",
             "--type",
@@ -1150,7 +1147,7 @@ fn test_pr_provenance() {
 
     // List PRs
     let out3 = engrams(&db)
-        .args(&["pr", "list", "--type", "decision", "--id", &id.to_string()])
+        .args(["pr", "list", "--type", "decision", "--id", &id.to_string()])
         .output()
         .unwrap();
     let pr_list: Value = serde_json::from_slice(&out3.stdout).unwrap();
@@ -1166,7 +1163,7 @@ fn test_pr_provenance() {
 
     // Remove PR
     engrams(&db)
-        .args(&[
+        .args([
             "pr",
             "remove",
             "--type",
@@ -1181,7 +1178,7 @@ fn test_pr_provenance() {
 
     // Verify removed
     let out4 = engrams(&db)
-        .args(&["decision", "get", &id.to_string()])
+        .args(["decision", "get", &id.to_string()])
         .output()
         .unwrap();
     let j4: Value = serde_json::from_slice(&out4.stdout).unwrap();
@@ -1207,14 +1204,14 @@ fn test_pr_provenance_git_derivation() {
         .output()
         .unwrap();
     std::process::Command::new("git")
-        .args(&["remote", "add", "origin", "git@github.com:acme/w.git"])
+        .args(["remote", "add", "origin", "git@github.com:acme/w.git"])
         .current_dir(repo_path)
         .output()
         .unwrap();
 
     // Log a decision with a numeric PR ID, passing custom current_dir
     let mut cmd = engrams(&db);
-    cmd.current_dir(repo_path).args(&[
+    cmd.current_dir(repo_path).args([
         "decision",
         "log",
         "--summary",
@@ -1239,7 +1236,7 @@ fn test_anchors_and_relevant() {
 
     // Log decision with anchor
     let out = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -1257,7 +1254,7 @@ fn test_anchors_and_relevant() {
 
     // Query relevant for src/db.rs
     let out2 = engrams(&db)
-        .args(&["relevant", "src/db.rs"])
+        .args(["relevant", "src/db.rs"])
         .output()
         .unwrap();
     let j2: Value = serde_json::from_slice(&out2.stdout).unwrap();
@@ -1266,13 +1263,13 @@ fn test_anchors_and_relevant() {
     assert_eq!(matched_decisions[0]["id"].as_i64().unwrap(), id);
 
     // Query relevant for src (parent dir of anchor)
-    let out3 = engrams(&db).args(&["relevant", "src"]).output().unwrap();
+    let out3 = engrams(&db).args(["relevant", "src"]).output().unwrap();
     let j3: Value = serde_json::from_slice(&out3.stdout).unwrap();
     assert_eq!(j3["decisions"].as_array().unwrap().len(), 1);
 
     // Query relevant for other.rs (no match)
     let out4 = engrams(&db)
-        .args(&["relevant", "other.rs"])
+        .args(["relevant", "other.rs"])
         .output()
         .unwrap();
     let j4: Value = serde_json::from_slice(&out4.stdout).unwrap();
@@ -1286,7 +1283,7 @@ fn test_decision_supersede() {
 
     // Log decision 1
     let out1 = engrams(&db)
-        .args(&["decision", "log", "--summary", "First Decision", "--force"])
+        .args(["decision", "log", "--summary", "First Decision", "--force"])
         .output()
         .unwrap();
     let j1: Value = serde_json::from_slice(&out1.stdout).unwrap();
@@ -1294,7 +1291,7 @@ fn test_decision_supersede() {
 
     // Log decision 2
     let out2 = engrams(&db)
-        .args(&["decision", "log", "--summary", "Second Decision", "--force"])
+        .args(["decision", "log", "--summary", "Second Decision", "--force"])
         .output()
         .unwrap();
     let j2: Value = serde_json::from_slice(&out2.stdout).unwrap();
@@ -1302,7 +1299,7 @@ fn test_decision_supersede() {
 
     // Superseding self should fail
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "supersede",
             &id1.to_string(),
@@ -1314,7 +1311,7 @@ fn test_decision_supersede() {
 
     // Supersede 1 by 2
     let out_sup = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "supersede",
             &id1.to_string(),
@@ -1328,7 +1325,7 @@ fn test_decision_supersede() {
     assert_eq!(j_sup["superseded_by"].as_i64().unwrap(), id2);
 
     // decision list should omit #1
-    let out_list1 = engrams(&db).args(&["decision", "list"]).output().unwrap();
+    let out_list1 = engrams(&db).args(["decision", "list"]).output().unwrap();
     let j_list1: Value = serde_json::from_slice(&out_list1.stdout).unwrap();
     let ids_list1: Vec<i64> = j_list1
         .as_array()
@@ -1341,7 +1338,7 @@ fn test_decision_supersede() {
 
     // decision list --all should include #1 with status superseded
     let out_list2 = engrams(&db)
-        .args(&["decision", "list", "--all"])
+        .args(["decision", "list", "--all"])
         .output()
         .unwrap();
     let j_list2: Value = serde_json::from_slice(&out_list2.stdout).unwrap();
@@ -1355,7 +1352,7 @@ fn test_decision_supersede() {
 
     // decision get 1 still works
     let out_get = engrams(&db)
-        .args(&["decision", "get", &id1.to_string()])
+        .args(["decision", "get", &id1.to_string()])
         .output()
         .unwrap();
     let j_get: Value = serde_json::from_slice(&out_get.stdout).unwrap();
@@ -1363,7 +1360,7 @@ fn test_decision_supersede() {
 
     // link list shows the supersedes edge
     let out_link = engrams(&db)
-        .args(&[
+        .args([
             "link",
             "list",
             "--item-type",
@@ -1383,14 +1380,14 @@ fn test_decision_supersede() {
 
     // Reversal path: update status active
     let out_update = engrams(&db)
-        .args(&["decision", "update", &id1.to_string(), "--status", "active"])
+        .args(["decision", "update", &id1.to_string(), "--status", "active"])
         .output()
         .unwrap();
     let j_update: Value = serde_json::from_slice(&out_update.stdout).unwrap();
     assert!(j_update.get("status").is_none());
 
     // decision list now includes #1 again
-    let out_list3 = engrams(&db).args(&["decision", "list"]).output().unwrap();
+    let out_list3 = engrams(&db).args(["decision", "list"]).output().unwrap();
     let j_list3: Value = serde_json::from_slice(&out_list3.stdout).unwrap();
     let ids_list3: Vec<i64> = j_list3
         .as_array()
@@ -1408,14 +1405,14 @@ fn test_prime() {
 
     // Seed context
     engrams(&db)
-        .args(&["active-context", "update", "--content", "{\"tasks\": []}"])
+        .args(["active-context", "update", "--content", "{\"tasks\": []}"])
         .assert()
         .success();
 
     // Seed 12 decisions
     for i in 1..=12 {
         engrams(&db)
-            .args(&[
+            .args([
                 "decision",
                 "log",
                 "--summary",
@@ -1429,7 +1426,7 @@ fn test_prime() {
     // Seed 2 patterns
     for i in 1..=2 {
         engrams(&db)
-            .args(&["pattern", "log", "--name", &format!("Pattern {}", i)])
+            .args(["pattern", "log", "--name", &format!("Pattern {}", i)])
             .assert()
             .success();
     }
@@ -1437,7 +1434,7 @@ fn test_prime() {
     // Seed 2 progress entries
     for i in 1..=2 {
         engrams(&db)
-            .args(&[
+            .args([
                 "progress",
                 "log",
                 "--status",
@@ -1450,7 +1447,7 @@ fn test_prime() {
     }
 
     // Call prime without budget
-    let out = engrams(&db).args(&["prime"]).output().unwrap();
+    let out = engrams(&db).args(["prime"]).output().unwrap();
     let j: Value = serde_json::from_slice(&out.stdout).unwrap();
 
     // Decisions should be capped at 10
@@ -1467,7 +1464,7 @@ fn test_prime() {
 
     // Call prime with budget 10
     let out2 = engrams(&db)
-        .args(&["prime", "--budget", "10"])
+        .args(["prime", "--budget", "10"])
         .output()
         .unwrap();
     let j2: Value = serde_json::from_slice(&out2.stdout).unwrap();
@@ -1504,12 +1501,12 @@ fn test_doctor() {
         .output()
         .unwrap();
     std::process::Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(repo_path)
         .output()
         .unwrap();
     std::process::Command::new("git")
-        .args(&["config", "user.email", "test@example.com"])
+        .args(["config", "user.email", "test@example.com"])
         .current_dir(repo_path)
         .output()
         .unwrap();
@@ -1518,19 +1515,19 @@ fn test_doctor() {
     std::fs::write(&file_path, "original content").unwrap();
 
     std::process::Command::new("git")
-        .args(&["add", "anchor.txt"])
+        .args(["add", "anchor.txt"])
         .current_dir(repo_path)
         .output()
         .unwrap();
     std::process::Command::new("git")
-        .args(&["commit", "-m", "initial commit"])
+        .args(["commit", "-m", "initial commit"])
         .current_dir(repo_path)
         .output()
         .unwrap();
 
     // Log decision with anchor inside the repo
     let mut cmd = engrams(&db);
-    cmd.current_dir(repo_path).args(&[
+    cmd.current_dir(repo_path).args([
         "decision",
         "log",
         "--summary",
@@ -1556,7 +1553,7 @@ fn test_doctor() {
 
     // 4. Test missing_anchor_paths (anchor to non-existent path)
     let out_anchor = engrams(&db)
-        .args(&[
+        .args([
             "anchor",
             "add",
             "--type",
@@ -1581,12 +1578,12 @@ fn test_doctor() {
     // 5. Test stale_decisions (modify+commit the anchored file)
     std::fs::write(&file_path, "modified content").unwrap();
     std::process::Command::new("git")
-        .args(&["add", "anchor.txt"])
+        .args(["add", "anchor.txt"])
         .current_dir(repo_path)
         .output()
         .unwrap();
     std::process::Command::new("git")
-        .args(&["commit", "-m", "modified anchor"])
+        .args(["commit", "-m", "modified anchor"])
         .current_dir(repo_path)
         .output()
         .unwrap();
@@ -1613,7 +1610,7 @@ fn test_compact_fields_snippets() {
 
     // Log a decision without rationale
     let out = engrams(&db)
-        .args(&["decision", "log", "--summary", "Compact Test Decision"])
+        .args(["decision", "log", "--summary", "Compact Test Decision"])
         .output()
         .unwrap();
     let j: Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -1621,7 +1618,7 @@ fn test_compact_fields_snippets() {
 
     // 1. Test --compact decision get <id>
     let out_compact = engrams(&db)
-        .args(&["--compact", "decision", "get", &id.to_string()])
+        .args(["--compact", "decision", "get", &id.to_string()])
         .output()
         .unwrap();
     let stdout_str = String::from_utf8(out_compact.stdout).unwrap();
@@ -1630,7 +1627,7 @@ fn test_compact_fields_snippets() {
 
     // 2. Test --fields id,summary decision list
     let out_fields = engrams(&db)
-        .args(&["--fields", "id,summary", "decision", "list"])
+        .args(["--fields", "id,summary", "decision", "list"])
         .output()
         .unwrap();
     let j_fields: Value = serde_json::from_slice(&out_fields.stdout).unwrap();
@@ -1644,7 +1641,7 @@ fn test_compact_fields_snippets() {
 
     // 3. Test decision search --snippets
     let out_snippets = engrams(&db)
-        .args(&["decision", "search", "Compact", "--snippets"])
+        .args(["decision", "search", "Compact", "--snippets"])
         .output()
         .unwrap();
     let j_snippets: Value = serde_json::from_slice(&out_snippets.stdout).unwrap();
@@ -1679,7 +1676,7 @@ fn test_query() {
 
     // 1. Seed decision
     let out1 = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -1697,7 +1694,7 @@ fn test_query() {
 
     // 2. Seed pattern
     let out2 = engrams(&db)
-        .args(&[
+        .args([
             "pattern",
             "log",
             "--name",
@@ -1714,7 +1711,7 @@ fn test_query() {
 
     // 3. Seed custom row
     let out3 = engrams(&db)
-        .args(&[
+        .args([
             "custom",
             "set",
             "--category",
@@ -1730,7 +1727,7 @@ fn test_query() {
     let cust_id = j3["id"].as_i64().unwrap();
 
     // Query for "token"
-    let out_q = engrams(&db).args(&["query", "token"]).output().unwrap();
+    let out_q = engrams(&db).args(["query", "token"]).output().unwrap();
     let j_q: Value = serde_json::from_slice(&out_q.stdout).unwrap();
     let results = j_q.as_array().unwrap();
 
@@ -1751,7 +1748,7 @@ fn test_query() {
 
     // Test --types decision
     let out_types = engrams(&db)
-        .args(&["query", "token", "--types", "decision"])
+        .args(["query", "token", "--types", "decision"])
         .output()
         .unwrap();
     let j_types: Value = serde_json::from_slice(&out_types.stdout).unwrap();
@@ -1761,7 +1758,7 @@ fn test_query() {
 
     // Test --tags sql
     let out_tags = engrams(&db)
-        .args(&["query", "token", "--tags", "sql"])
+        .args(["query", "token", "--tags", "sql"])
         .output()
         .unwrap();
     let j_tags: Value = serde_json::from_slice(&out_tags.stdout).unwrap();
@@ -1774,11 +1771,11 @@ fn test_query() {
 
     // Test superseded decision exclusion
     engrams(&db)
-        .args(&["decision", "supersede", &dec_id.to_string()])
+        .args(["decision", "supersede", &dec_id.to_string()])
         .assert()
         .success();
 
-    let out_q2 = engrams(&db).args(&["query", "token"]).output().unwrap();
+    let out_q2 = engrams(&db).args(["query", "token"]).output().unwrap();
     let j_q2: Value = serde_json::from_slice(&out_q2.stdout).unwrap();
     let results2 = j_q2.as_array().unwrap();
     assert_eq!(results2.len(), 2);
@@ -1789,7 +1786,7 @@ fn test_query() {
 
     // With --all, it should find the superseded decision too
     let out_all = engrams(&db)
-        .args(&["query", "token", "--all"])
+        .args(["query", "token", "--all"])
         .output()
         .unwrap();
     let j_all: Value = serde_json::from_slice(&out_all.stdout).unwrap();
@@ -2071,7 +2068,7 @@ fn test_graph_densification_from_anchors() {
 
     engrams(&db).arg("init").assert().success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2084,7 +2081,7 @@ fn test_graph_densification_from_anchors() {
         .assert()
         .success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2098,11 +2095,11 @@ fn test_graph_densification_from_anchors() {
         .success();
 
     engrams(&db)
-        .args(&["graph", "rebuild", "--no-git"])
+        .args(["graph", "rebuild", "--no-git"])
         .assert()
         .success();
 
-    let out = engrams(&db).args(&["graph", "stats"]).output().unwrap();
+    let out = engrams(&db).args(["graph", "stats"]).output().unwrap();
     let stats: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(stats["edges"]["total"].as_i64().unwrap() >= 3);
     let relates = stats["edges"]["by_relationship"]["relates_to"]
@@ -2111,7 +2108,7 @@ fn test_graph_densification_from_anchors() {
     assert!(relates >= 1, "expected relates_to edges, got {:?}", stats);
 
     let out = engrams(&db)
-        .args(&[
+        .args([
             "graph",
             "path",
             "--from",
@@ -2124,7 +2121,7 @@ fn test_graph_densification_from_anchors() {
     let path: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(!path["path"].as_array().unwrap().is_empty());
 
-    let out = engrams(&db).args(&["graph", "orphans"]).output().unwrap();
+    let out = engrams(&db).args(["graph", "orphans"]).output().unwrap();
     let orphans: Value = serde_json::from_slice(&out.stdout).unwrap();
     let list: Vec<&str> = orphans["orphans"]
         .as_array()
@@ -2142,7 +2139,7 @@ fn test_graph_incremental_on_write() {
 
     engrams(&db).arg("init").assert().success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2155,7 +2152,7 @@ fn test_graph_incremental_on_write() {
         .assert()
         .success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2170,7 +2167,7 @@ fn test_graph_incremental_on_write() {
 
     // No rebuild yet: touch_item on the second log must already link d1 and d2.
     let out = engrams(&db)
-        .args(&["link", "list", "--item-type", "decision", "--item-id", "1"])
+        .args(["link", "list", "--item-type", "decision", "--item-id", "1"])
         .output()
         .unwrap();
     let links: Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -2189,20 +2186,20 @@ fn test_graph_centrality_stats_shape() {
 
     engrams(&db).arg("init").assert().success();
     engrams(&db)
-        .args(&["decision", "log", "--summary", "d1", "--anchor", "src/a.rs"])
+        .args(["decision", "log", "--summary", "d1", "--anchor", "src/a.rs"])
         .assert()
         .success();
     engrams(&db)
-        .args(&["decision", "log", "--summary", "d2", "--anchor", "src/a.rs"])
+        .args(["decision", "log", "--summary", "d2", "--anchor", "src/a.rs"])
         .assert()
         .success();
     engrams(&db)
-        .args(&["graph", "rebuild", "--no-git"])
+        .args(["graph", "rebuild", "--no-git"])
         .assert()
         .success();
 
     let out = engrams(&db)
-        .args(&["graph", "central", "--limit", "5"])
+        .args(["graph", "central", "--limit", "5"])
         .output()
         .unwrap();
     let central: Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -2217,7 +2214,7 @@ fn test_graph_centrality_stats_shape() {
         assert!(w[0]["score"].as_f64().unwrap() >= w[1]["score"].as_f64().unwrap());
     }
 
-    let out = engrams(&db).args(&["graph", "stats"]).output().unwrap();
+    let out = engrams(&db).args(["graph", "stats"]).output().unwrap();
     let stats: Value = serde_json::from_slice(&out.stdout).unwrap();
     for key in [
         "nodes",
@@ -2269,7 +2266,7 @@ fn test_graph_git_cochange() {
     let mut cmd = Command::cargo_bin("engrams").unwrap();
     cmd.env("ENGRAMS_NO_UPDATE_CHECK", "1");
     cmd.current_dir(repo)
-        .args(&["graph", "ingest"])
+        .args(["graph", "ingest"])
         .assert()
         .success();
 
@@ -2368,7 +2365,7 @@ fn test_graph_export_excludes_derived() {
 
     engrams(&db).arg("init").assert().success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2381,7 +2378,7 @@ fn test_graph_export_excludes_derived() {
         .assert()
         .success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2395,7 +2392,7 @@ fn test_graph_export_excludes_derived() {
         .success();
     // One manual edge alongside the derived ones.
     engrams(&db)
-        .args(&[
+        .args([
             "link",
             "add",
             "--source-type",
@@ -2412,12 +2409,12 @@ fn test_graph_export_excludes_derived() {
         .assert()
         .success();
     engrams(&db)
-        .args(&["graph", "rebuild", "--no-git"])
+        .args(["graph", "rebuild", "--no-git"])
         .assert()
         .success();
 
     engrams(&db)
-        .args(&["export", "--path", exp_dir.to_str().unwrap()])
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
         .assert()
         .success();
 
@@ -2446,7 +2443,7 @@ fn test_importance_on_log_and_update() {
 
     // Log with explicit importance
     let out = engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2462,7 +2459,7 @@ fn test_importance_on_log_and_update() {
 
     // Update importance
     let out = engrams(&db)
-        .args(&["decision", "update", "1", "--importance", "3"])
+        .args(["decision", "update", "1", "--importance", "3"])
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -2476,7 +2473,7 @@ fn test_importance_default_hidden() {
     let db = temp.path().join("e.db");
 
     let out = engrams(&db)
-        .args(&["decision", "log", "--summary", "Default importance"])
+        .args(["decision", "log", "--summary", "Default importance"])
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -2491,7 +2488,7 @@ fn test_reinforce_on_read() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&["decision", "log", "--summary", "Decision to be read"])
+        .args(["decision", "log", "--summary", "Decision to be read"])
         .assert()
         .success();
 
@@ -2519,7 +2516,7 @@ fn test_reinforce_on_read() {
     );
 
     // query should also reinforce
-    engrams(&db).args(&["query", "Decision"]).assert().success();
+    engrams(&db).args(["query", "Decision"]).assert().success();
 
     let ac2: i64 = conn
         .query_row("SELECT access_count FROM decisions WHERE id = 1", [], |r| {
@@ -2540,7 +2537,7 @@ fn test_scoring_in_query_output() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2551,7 +2548,7 @@ fn test_scoring_in_query_output() {
         .assert()
         .success();
 
-    let out = engrams(&db).args(&["query", "Scoring"]).output().unwrap();
+    let out = engrams(&db).args(["query", "Scoring"]).output().unwrap();
     assert!(out.status.success());
     let results: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap();
     assert!(!results.is_empty());
@@ -2568,7 +2565,7 @@ fn test_importance_affects_ranking() {
 
     // Two decisions with same summary but different importance
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2579,7 +2576,7 @@ fn test_importance_affects_ranking() {
         .assert()
         .success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2593,7 +2590,7 @@ fn test_importance_affects_ranking() {
 
     // query should rank the higher-importance one first
     let out = engrams(&db)
-        .args(&["query", "Ranking", "--limit", "5"])
+        .args(["query", "Ranking", "--limit", "5"])
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -2612,7 +2609,7 @@ fn test_prune_dry_run_no_match() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2623,7 +2620,7 @@ fn test_prune_dry_run_no_match() {
         .assert()
         .success();
 
-    let out = engrams(&db).args(&["prune", "--dry-run"]).output().unwrap();
+    let out = engrams(&db).args(["prune", "--dry-run"]).output().unwrap();
     assert!(out.status.success());
     let v: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["dry_run"], true);
@@ -2640,7 +2637,7 @@ fn test_prune_archives_low_importance() {
 
     // importance 0, never accessed — always prunable
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2652,7 +2649,7 @@ fn test_prune_archives_low_importance() {
         .success();
 
     // Dry run should show it as a candidate
-    let out = engrams(&db).args(&["prune", "--dry-run"]).output().unwrap();
+    let out = engrams(&db).args(["prune", "--dry-run"]).output().unwrap();
     assert!(out.status.success());
     let v: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
@@ -2661,7 +2658,7 @@ fn test_prune_archives_low_importance() {
     );
 
     // Actual prune
-    engrams(&db).args(&["prune"]).assert().success();
+    engrams(&db).args(["prune"]).assert().success();
 
     // Verify archived flag
     let conn = rusqlite::Connection::open(&db).unwrap();
@@ -2682,7 +2679,7 @@ fn test_archived_hidden_from_prime() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2692,7 +2689,7 @@ fn test_archived_hidden_from_prime() {
         ])
         .assert()
         .success();
-    engrams(&db).args(&["prune"]).assert().success();
+    engrams(&db).args(["prune"]).assert().success();
 
     let out = engrams(&db).arg("prime").output().unwrap();
     assert!(out.status.success());
@@ -2711,7 +2708,7 @@ fn test_archived_visible_with_all_flag() {
 
     // Log a low-importance pattern that will also be pruned
     engrams(&db)
-        .args(&[
+        .args([
             "pattern",
             "log",
             "--name",
@@ -2722,7 +2719,7 @@ fn test_archived_visible_with_all_flag() {
         .assert()
         .success();
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2732,17 +2729,17 @@ fn test_archived_visible_with_all_flag() {
         ])
         .assert()
         .success();
-    engrams(&db).args(&["prune"]).assert().success();
+    engrams(&db).args(["prune"]).assert().success();
 
     // relevant --all should include archived
     engrams(&db)
-        .args(&["relevant", "src/main.rs", "--all"])
+        .args(["relevant", "src/main.rs", "--all"])
         .assert()
         .success();
 
     // query --all should include archived decisions AND patterns
     let out = engrams(&db)
-        .args(&["query", "ForgettablePattern", "--all"])
+        .args(["query", "ForgettablePattern", "--all"])
         .output()
         .unwrap();
     assert!(out.status.success());
@@ -2763,7 +2760,7 @@ fn test_doctor_never_read() {
 
     // Log a decision but don't read it
     engrams(&db)
-        .args(&["decision", "log", "--summary", "Never surfaced decision"])
+        .args(["decision", "log", "--summary", "Never surfaced decision"])
         .assert()
         .success();
 
@@ -2793,7 +2790,7 @@ fn test_doctor_archived_count() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2803,7 +2800,7 @@ fn test_doctor_archived_count() {
         ])
         .assert()
         .success();
-    engrams(&db).args(&["prune"]).assert().success();
+    engrams(&db).args(["prune"]).assert().success();
 
     let out = engrams(&db).arg("doctor").output().unwrap();
     assert!(out.status.success());
@@ -2860,7 +2857,7 @@ fn test_pattern_importance_flag() {
     let db = temp.path().join("e.db");
 
     let out = engrams(&db)
-        .args(&[
+        .args([
             "pattern",
             "log",
             "--name",
@@ -2883,7 +2880,7 @@ fn test_export_import_preserves_importance() {
     let db = temp.path().join("e.db");
 
     engrams(&db)
-        .args(&[
+        .args([
             "decision",
             "log",
             "--summary",
@@ -2896,7 +2893,7 @@ fn test_export_import_preserves_importance() {
 
     let exp_dir = temp.path().join("exp");
     engrams(&db)
-        .args(&["export", "--path", exp_dir.to_str().unwrap()])
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
         .assert()
         .success();
 
@@ -2917,7 +2914,7 @@ fn test_export_import_preserves_importance() {
     // Import into a new DB
     let db2 = temp.path().join("e2.db");
     engrams(&db2)
-        .args(&["import", "--path", exp_dir.to_str().unwrap()])
+        .args(["import", "--path", exp_dir.to_str().unwrap()])
         .assert()
         .success();
 
@@ -2928,4 +2925,58 @@ fn test_export_import_preserves_importance() {
         })
         .unwrap();
     assert_eq!(imp, 9, "imported decision must have importance 9");
+}
+
+#[test]
+fn test_batch_decision() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    let items_json = r#"[
+        {"summary": "Batch decision one", "rationale": "Rationale 1"},
+        {"summary": "Batch decision two", "rationale": "Rationale 2", "tags": ["tagA", "tagB"]}
+    ]"#;
+    let stdout = engrams(&db)
+        .args(["batch", "--type", "decision", "--items", items_json])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let result: Value = serde_json::from_slice(&stdout).unwrap();
+    assert_eq!(result["created"], 2, "batch must create 2 decisions");
+    let ids = result["ids"].as_array().expect("ids array in batch output");
+    assert_eq!(ids.len(), 2, "batch must return 2 ids");
+
+    let id1 = ids[0].as_i64().unwrap();
+    let id2 = ids[1].as_i64().unwrap();
+
+    let stdout = engrams(&db)
+        .args(["decision", "get", &id1.to_string()])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let one: Value = serde_json::from_slice(&stdout).unwrap();
+    assert_eq!(one["summary"], "Batch decision one");
+    assert_eq!(one["rationale"], "Rationale 1");
+
+    let stdout = engrams(&db)
+        .args(["decision", "get", &id2.to_string()])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let two: Value = serde_json::from_slice(&stdout).unwrap();
+    assert_eq!(two["summary"], "Batch decision two");
+    assert_eq!(two["rationale"], "Rationale 2");
+    assert_eq!(
+        two["tags"],
+        serde_json::json!(["tagA", "tagB"]),
+        "batched decision must keep its tags"
+    );
 }

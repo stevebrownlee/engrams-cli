@@ -12,6 +12,23 @@ fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
+/// Run `f` in a transaction, committing on success. If the connection is
+/// already inside a transaction (e.g. batch mode reusing an outer
+/// transaction), run `f` directly rather than opening a nested one.
+fn with_transaction<F, R>(conn: &Connection, f: F) -> Result<R>
+where
+    F: FnOnce(&Connection) -> Result<R>,
+{
+    if conn.is_autocommit() {
+        let tx = conn.unchecked_transaction()?;
+        let res = f(&tx)?;
+        tx.commit()?;
+        Ok(res)
+    } else {
+        f(conn)
+    }
+}
+
 pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
     match cmd {
         DecisionCmd::Log {
@@ -70,34 +87,35 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let commit_sha = crate::ops::git::head_sha();
 
-            let tx = conn.unchecked_transaction()?;
-            tx.execute(
-                "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha, importance, contract) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha, importance.unwrap_or(5), contract],
-            )?;
-
-            let id = tx.last_insert_rowid();
-
-            if !resolved_prs.is_empty() {
-                crate::ops::pr::attach(&tx, "decision", id, &resolved_prs)?;
-            }
-            if !anchors.is_empty() {
-                crate::ops::anchor::attach(&tx, "decision", id, &anchors)?;
-            }
-            crate::ops::graph::rebuild::touch_item(&tx, "decision", id)?;
-
-            if let Some(old) = supersedes {
+            let id = with_transaction(conn, |tx| {
                 tx.execute(
-                    "UPDATE decisions SET status = 'superseded' WHERE id = ?",
-                    params![old],
+                    "INSERT INTO decisions (uuid, timestamp, summary, rationale, implementation_details, tags, status, commit_sha, importance, contract) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![uuid, timestamp, summary, rationale, details, tags_json, status, commit_sha, importance.unwrap_or(5), contract],
                 )?;
-                insert_link_if_absent(&tx, "decision", id, "decision", old, "supersedes")?;
-            }
-            for cid in &conflicts_with {
-                insert_link_if_absent(&tx, "decision", id, "decision", *cid, "conflicts_with")?;
-            }
 
-            tx.commit()?;
+                let id = tx.last_insert_rowid();
+
+                if !resolved_prs.is_empty() {
+                    crate::ops::pr::attach(tx, "decision", id, &resolved_prs)?;
+                }
+                if !anchors.is_empty() {
+                    crate::ops::anchor::attach(tx, "decision", id, &anchors)?;
+                }
+                crate::ops::graph::rebuild::touch_item(tx, "decision", id)?;
+
+                if let Some(old) = supersedes {
+                    tx.execute(
+                        "UPDATE decisions SET status = 'superseded' WHERE id = ?",
+                        params![old],
+                    )?;
+                    insert_link_if_absent(tx, "decision", id, "decision", old, "supersedes")?;
+                }
+                for cid in &conflicts_with {
+                    insert_link_if_absent(tx, "decision", id, "decision", *cid, "conflicts_with")?;
+                }
+
+                Ok(id)
+            })?;
 
             let mut decision = get_decision(conn, id)?;
             if let Value::Object(map) = &mut decision {
@@ -424,33 +442,33 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                     .context(format!("decision {} not found", by_id))?;
             }
 
-            let tx = conn.unchecked_transaction()?;
-
-            tx.execute(
-                "UPDATE decisions SET status = 'superseded' WHERE id = ?",
-                params![id],
-            )?;
-
-            if let Some(by_id) = by {
-                let exists: bool = tx.query_row(
-                    "SELECT count(*) FROM context_links \
-                     WHERE source_item_type = 'decision' AND source_item_id = ?1 \
-                     AND target_item_type = 'decision' AND target_item_id = ?2 \
-                     AND relationship_type = 'supersedes'",
-                    params![by_id.to_string(), id.to_string()],
-                    |row| row.get(0),
+            with_transaction(conn, |tx| {
+                tx.execute(
+                    "UPDATE decisions SET status = 'superseded' WHERE id = ?",
+                    params![id],
                 )?;
-                if !exists {
-                    let timestamp = now();
-                    tx.execute(
-                        "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) \
-                         VALUES ('decision', ?1, 'decision', ?2, 'supersedes', NULL, ?3)",
-                        params![by_id.to_string(), id.to_string(), timestamp],
-                    )?;
-                }
-            }
 
-            tx.commit()?;
+                if let Some(by_id) = by {
+                    let exists: bool = tx.query_row(
+                        "SELECT count(*) FROM context_links \
+                         WHERE source_item_type = 'decision' AND source_item_id = ?1 \
+                         AND target_item_type = 'decision' AND target_item_id = ?2 \
+                         AND relationship_type = 'supersedes'",
+                        params![by_id.to_string(), id.to_string()],
+                        |row| row.get(0),
+                    )?;
+                    if !exists {
+                        let timestamp = now();
+                        tx.execute(
+                            "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp) \
+                             VALUES ('decision', ?1, 'decision', ?2, 'supersedes', NULL, ?3)",
+                            params![by_id.to_string(), id.to_string(), timestamp],
+                        )?;
+                    }
+                }
+
+                Ok(())
+            })?;
 
             let mut result = get_decision(conn, id)?;
             if let Value::Object(map) = &mut result {
@@ -462,27 +480,27 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             Ok(result)
         }
         DecisionCmd::Delete { id } => {
-            let tx = conn.unchecked_transaction()?;
+            let links_removed = with_transaction(conn, |tx| {
+                // ensure it exists
+                let _: i64 = tx
+                    .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
+                        r.get(0)
+                    })
+                    .optional()?
+                    .context(format!("decision {} not found", id))?;
 
-            // ensure it exists
-            let _: i64 = tx
-                .query_row("SELECT id FROM decisions WHERE id = ?", params![id], |r| {
-                    r.get(0)
-                })
-                .optional()?
-                .context(format!("decision {} not found", id))?;
+                let links_removed = delete_links_for(tx, "decision", id)?;
+                tx.execute(
+                    "DELETE FROM item_anchors WHERE item_type='decision' AND item_id=?",
+                    params![id],
+                )?;
+                let deleted = tx.execute("DELETE FROM decisions WHERE id = ?", params![id])?;
+                if deleted == 0 {
+                    anyhow::bail!("decision {} not found", id);
+                }
 
-            let links_removed = delete_links_for(&tx, "decision", id)?;
-            tx.execute(
-                "DELETE FROM item_anchors WHERE item_type='decision' AND item_id=?",
-                params![id],
-            )?;
-            let deleted = tx.execute("DELETE FROM decisions WHERE id = ?", params![id])?;
-            if deleted == 0 {
-                anyhow::bail!("decision {} not found", id);
-            }
-
-            tx.commit()?;
+                Ok(links_removed)
+            })?;
 
             Ok(serde_json::json!({
                 "deleted": true,
@@ -495,65 +513,65 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 anyhow::bail!("source and target must be different decisions");
             }
 
-            let tx = conn.unchecked_transaction()?;
+            let repointed = with_transaction(conn, |tx| {
+                let base_sql = format!(
+                    "SELECT {} FROM decisions WHERE id = ?",
+                    crate::models::DECISION_COLS
+                );
+                let source: Decision = tx
+                    .query_row(&base_sql, params![source_id], parse_decision_row)
+                    .optional()?
+                    .context(format!("source decision {} not found", source_id))?;
 
-            let base_sql = format!(
-                "SELECT {} FROM decisions WHERE id = ?",
-                crate::models::DECISION_COLS
-            );
-            let source: Decision = tx
-                .query_row(&base_sql, params![source_id], parse_decision_row)
-                .optional()?
-                .context(format!("source decision {} not found", source_id))?;
+                let target: Decision = tx
+                    .query_row(&base_sql, params![into_id], parse_decision_row)
+                    .optional()?
+                    .context(format!("target decision {} not found", into_id))?;
+                // Merge rationale
+                let merged_rationale =
+                    merge_text_fields(target.rationale.as_deref(), source.rationale.as_deref());
 
-            let target: Decision = tx
-                .query_row(&base_sql, params![into_id], parse_decision_row)
-                .optional()?
-                .context(format!("target decision {} not found", into_id))?;
-            // Merge rationale
-            let merged_rationale =
-                merge_text_fields(target.rationale.as_deref(), source.rationale.as_deref());
+                // Merge implementation_details
+                let merged_details = merge_text_fields(
+                    target.implementation_details.as_deref(),
+                    source.implementation_details.as_deref(),
+                );
+                // Merge contracts
+                let merged_contract =
+                    merge_text_fields(target.contract.as_deref(), source.contract.as_deref());
 
-            // Merge implementation_details
-            let merged_details = merge_text_fields(
-                target.implementation_details.as_deref(),
-                source.implementation_details.as_deref(),
-            );
-            // Merge contracts
-            let merged_contract =
-                merge_text_fields(target.contract.as_deref(), source.contract.as_deref());
+                // Merge tags (union, deduplicated)
+                let merged_tags = merge_tags(&target.tags, &source.tags);
+                let merged_tags_json = if merged_tags.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::to_string(&merged_tags)?)
+                };
 
-            // Merge tags (union, deduplicated)
-            let merged_tags = merge_tags(&target.tags, &source.tags);
-            let merged_tags_json = if merged_tags.is_empty() {
-                None
-            } else {
-                Some(serde_json::to_string(&merged_tags)?)
-            };
+                // Update target with merged fields
+                tx.execute(
+                    "UPDATE decisions SET rationale = ?1, implementation_details = ?2, tags = ?3, contract = ?4 WHERE id = ?5",
+                    params![merged_rationale, merged_details, merged_tags_json, merged_contract, into_id],
+                )?;
 
-            // Update target with merged fields
-            tx.execute(
-                "UPDATE decisions SET rationale = ?1, implementation_details = ?2, tags = ?3, contract = ?4 WHERE id = ?5",
-                params![merged_rationale, merged_details, merged_tags_json, merged_contract, into_id],
-            )?;
+                // Repoint links from source to target
+                let repointed = repoint_links(tx, "decision", source_id, into_id)?;
 
-            // Repoint links from source to target
-            let repointed = repoint_links(&tx, "decision", source_id, into_id)?;
+                // Repoint anchors from source to target, then delete source anchors
+                tx.execute(
+                    "UPDATE OR IGNORE item_anchors SET item_id = ?1 WHERE item_type = 'decision' AND item_id = ?2",
+                    params![into_id, source_id],
+                )?;
+                tx.execute(
+                    "DELETE FROM item_anchors WHERE item_type = 'decision' AND item_id = ?1",
+                    params![source_id],
+                )?;
 
-            // Repoint anchors from source to target, then delete source anchors
-            tx.execute(
-                "UPDATE OR IGNORE item_anchors SET item_id = ?1 WHERE item_type = 'decision' AND item_id = ?2",
-                params![into_id, source_id],
-            )?;
-            tx.execute(
-                "DELETE FROM item_anchors WHERE item_type = 'decision' AND item_id = ?1",
-                params![source_id],
-            )?;
+                // Delete source
+                tx.execute("DELETE FROM decisions WHERE id = ?", params![source_id])?;
 
-            // Delete source
-            tx.execute("DELETE FROM decisions WHERE id = ?", params![source_id])?;
-
-            tx.commit()?;
+                Ok(repointed)
+            })?;
 
             let mut result = get_decision(conn, into_id)?;
             if let Value::Object(map) = &mut result {
