@@ -400,7 +400,11 @@ pub enum GraphCmd {
 #[derive(Subcommand, Debug)]
 pub enum SchemaCmd {
     /// Run detection and staging upsert; report candidates with gate detail
-    Scan,
+    Scan {
+        /// Promote every gate-passing candidate after staging
+        #[arg(long)]
+        apply: bool,
+    },
     /// Promote a passing candidate into a confirmed schema
     Confirm {
         /// Candidate id or unique signature prefix (`decision:1,dec…`)
@@ -408,6 +412,25 @@ pub enum SchemaCmd {
         /// Schema name (defaults to the drafted lexical-centroid name)
         #[arg(long)]
         name: Option<String>,
+    },
+    /// List confirmed schemas, agent-authored above drafted
+    List {
+        /// Filter by status (active, needs_review, retired)
+        #[arg(long)]
+        status: Option<String>,
+    },
+    /// Show one schema's summary, members, and centroid
+    Show {
+        /// Schema id or exact name
+        target: String,
+    },
+    /// Refine a schema's summary as agent-authored (ranks above drafts)
+    Refine {
+        /// Schema id or exact name
+        target: String,
+        /// The agent-refined summary text
+        #[arg(long)]
+        summary: String,
     },
 }
 

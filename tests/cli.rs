@@ -2257,6 +2257,148 @@ fn test_schema_scan_stages_and_writes_nothing_else() {
         );
     }
 }
+
+#[test]
+fn test_schema_list_show_refine_and_confirm_bump() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Seed a dense fully-linked trio by SQL: `anchor add` would materialize
+    // a code node into the cluster, and a real CLI decision log would hit
+    // the similarity gate on near-identical summaries.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','t','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','t','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','t','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','t','manual'),
+             ('decision','2','decision','3','relates_to','t','manual'),
+             ('decision','1','decision','3','relates_to','t','manual');",
+        )
+        .unwrap();
+    }
+
+    // Stability ramps per sighting; gates pass on the third, so --apply
+    // promotes exactly then.
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    let out = engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let applied = json["applied"].as_array().unwrap();
+    assert_eq!(applied.len(), 1, "expected one promotion: {json}");
+    assert_eq!(applied[0], "core");
+
+    // list: the draft exists with its member count.
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schemas = json["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(schemas[0]["name"], "core");
+    assert_eq!(schemas[0]["summary_source"], "drafted");
+    assert_eq!(schemas[0]["member_count"], 3);
+
+    // show resolves by name and lists members.
+    let out = engrams(&db)
+        .args(["schema", "show", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schema = &json["schema"];
+    assert_eq!(schema["name"], "core");
+    assert_eq!(schema["members"].as_array().unwrap().len(), 3);
+
+    // refine rewrites the summary as agent-authored and re-ranks.
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "core",
+            "--summary",
+            "Gateway architecture: how requests route",
+        ])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schema"]["summary_source"], "agent");
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schemas"][0]["summary_source"], "agent");
+
+    // Confirm by name is a bump: timestamp advances, no new row or edges.
+    // last_confirmed_at is second-granularity; wait out the rollover.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let before: String = conn
+        .query_row(
+            "SELECT last_confirmed_at FROM schemas WHERE name = 'core'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let member_of: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    drop(conn);
+    let out = engrams(&db)
+        .args(["schema", "confirm", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schema"]["bumped"], true, "expected bump: {json}");
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let after: String = conn
+        .query_row(
+            "SELECT last_confirmed_at FROM schemas WHERE name = 'core'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let member_of_after: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+        .unwrap();
+    assert_ne!(before, after, "last_confirmed_at must advance");
+    assert_eq!(rows, 1, "bump must not create a schema row");
+    assert_eq!(
+        member_of_after, member_of,
+        "bump must not add member_of edges"
+    );
+    drop(conn);
+
+    // Unknown id errors in the JSON error shape.
+    let out = engrams(&db)
+        .args(["schema", "show", "999"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "unknown id must fail");
+    let json: Value = serde_json::from_slice(&out.stderr).unwrap();
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("no schema matches"),
+        "unexpected error body: {json}"
+    );
+}
 #[test]
 fn test_graph_densification_from_anchors() {
     let temp = TempDir::new().unwrap();

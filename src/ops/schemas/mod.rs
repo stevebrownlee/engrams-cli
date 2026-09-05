@@ -6,6 +6,7 @@
 //! apply, and the later list/show/refine surface.
 
 pub mod confirm;
+pub mod list;
 pub mod scan;
 
 use anyhow::Result;
@@ -16,7 +17,10 @@ use crate::cli::SchemaCmd;
 
 pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
     match cmd {
-        SchemaCmd::Scan => scan::scan(conn),
+        SchemaCmd::Scan { apply } => scan::scan(conn, apply),
         SchemaCmd::Confirm { target, name } => confirm::confirm(conn, &target, name.as_deref()),
+        SchemaCmd::List { status } => list::list(conn, status.as_deref()),
+        SchemaCmd::Show { target } => list::show(conn, &target),
+        SchemaCmd::Refine { target, summary } => list::refine(conn, &target, &summary),
     }
 }

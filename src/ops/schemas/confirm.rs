@@ -38,9 +38,9 @@ fn now() -> String {
 }
 
 /// One `kind:id` member reference from a candidate's member set.
-struct Member {
-    kind: String,
-    id: i64,
+pub(crate) struct Member {
+    pub(crate) kind: String,
+    pub(crate) id: i64,
 }
 
 impl Member {
@@ -105,17 +105,17 @@ pub(crate) fn confirmed_schemas(conn: &Connection) -> Result<Vec<Confirmed>> {
 }
 
 /// The staged candidate row to promote.
-struct Candidate {
-    members: Vec<String>,
+pub(crate) struct Candidate {
+    pub(crate) members: Vec<String>,
     density: f64,
     stability_count: i64,
     reward_hits: i64,
 }
 
-/// Resolve a candidate by exact signature or unique prefix. Ambiguous or
-/// missing signatures error with the match count so the caller can
-/// disambiguate via `engrams schema scan`.
-fn resolve_candidate(conn: &Connection, sig: &str) -> Result<Candidate> {
+/// Resolve a candidate by exact signature or unique prefix. Ambiguous
+/// prefixes error with the match count; a missing signature yields `None`
+/// so the caller can fall through to the existing-schema bump path.
+pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Option<Candidate>> {
     let mut stmt = conn.prepare(
         "SELECT cluster_sig, member_keys_json, density, stability_count, reward_hits \
          FROM schema_candidates WHERE cluster_sig LIKE ?1 ESCAPE '\\' ORDER BY cluster_sig",
@@ -145,15 +145,15 @@ fn resolve_candidate(conn: &Connection, sig: &str) -> Result<Candidate> {
         });
     }
     match matches.len() {
-        0 => bail!("no candidate matches '{sig}' (run `engrams schema scan`)"),
-        1 => Ok(matches.remove(0)),
+        0 => Ok(None),
+        1 => Ok(Some(matches.remove(0))),
         n => bail!("'{sig}' is ambiguous: {n} candidates share this prefix"),
     }
 }
 
 /// Parse and validate a candidate's member strings against the backing
 /// tables, so confirm never materializes ghost nodes in the graph.
-fn parse_members(conn: &Connection, members: &[String]) -> Result<Vec<Member>> {
+pub(crate) fn parse_members(conn: &Connection, members: &[String]) -> Result<Vec<Member>> {
     members
         .iter()
         .map(|m| {
@@ -192,14 +192,14 @@ fn dominant_tag(conn: &Connection, members: &[Member]) -> Result<Option<String>>
         if !matches!(table, Some("decisions") | Some("system_patterns")) {
             continue;
         }
-        let tags: Option<String> = conn
+        let tags: Option<Option<String>> = conn
             .query_row(
                 &format!("SELECT tags FROM {} WHERE id = ?1", table.unwrap()),
                 params![m.id],
                 |r| r.get(0),
             )
             .optional()?;
-        if let Some(t) = tags {
+        if let Some(Some(t)) = tags {
             for tag in crate::models::parse_tags(Some(&t)) {
                 *counts.entry(tag).or_insert(0) += 1;
             }
@@ -212,7 +212,7 @@ fn dominant_tag(conn: &Connection, members: &[Member]) -> Result<Option<String>>
 }
 
 /// First unused `base`, `base-2`, `base-3`, … against `schemas.name`.
-fn unique_name(conn: &Connection, base: &str) -> Result<String> {
+pub(crate) fn unique_name(conn: &Connection, base: &str) -> Result<String> {
     let taken = |name: &str| -> Result<bool> {
         Ok(conn
             .query_row(
@@ -327,7 +327,7 @@ fn centroid(conn: &Connection, members: &[Member]) -> Result<String> {
             kind_table(&m.kind),
             Some("decisions") | Some("system_patterns")
         ) {
-            let t: Option<String> = conn
+            let t: Option<Option<String>> = conn
                 .query_row(
                     &format!(
                         "SELECT tags FROM {} WHERE id = ?1",
@@ -337,7 +337,7 @@ fn centroid(conn: &Connection, members: &[Member]) -> Result<String> {
                     |r| r.get(0),
                 )
                 .optional()?;
-            if let Some(t) = t {
+            if let Some(Some(t)) = t {
                 for tag in crate::models::parse_tags(Some(&t)) {
                     *tags.entry(tag).or_insert(0) += 1;
                 }
@@ -361,12 +361,15 @@ fn centroid(conn: &Connection, members: &[Member]) -> Result<String> {
     }))?)
 }
 
-/// Promote a passing candidate into a confirmed schema: create the schema
-/// row with a mechanical draft, link every member with `member_of`
-/// (origin `manual`), and leave the candidate row and member rows
-/// untouched.
+/// Promote a staged candidate or re-confirm an existing schema (spec API
+/// surface). Resolution order: staged-candidate signature/prefix first, then
+/// existing schema numeric id or exact name — a hit there bumps
+/// `last_confirmed_at` only (no new promotion).
 pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value> {
-    let cand = resolve_candidate(conn, sig)?;
+    let cand = try_resolve_candidate(conn, sig)?;
+    let Some(cand) = cand else {
+        return bump_existing_schema(conn, sig);
+    };
     let members = parse_members(conn, &cand.members)?;
 
     // Compare knowledge-item members only: a candidate that already
@@ -406,22 +409,33 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
         );
     }
 
+    promote(conn, &cand, &members, name)
+}
+
+/// Create the schema row with a mechanical draft, link every member with
+/// `member_of`, and leave the candidate row and member rows untouched.
+pub(crate) fn promote(
+    conn: &Connection,
+    cand: &Candidate,
+    members: &[Member],
+    name: Option<&str>,
+) -> Result<Value> {
     let ts = now();
     let name = match name {
         Some(n) => unique_name(conn, n)?,
         None => {
-            let base = dominant_tag(conn, &members)?.unwrap_or_else(|| "schema".to_string());
+            let base = dominant_tag(conn, members)?.unwrap_or_else(|| "schema".to_string());
             unique_name(conn, &base)?
         }
     };
     let summary = draft_summary(
         conn,
-        &members,
+        members,
         cand.density,
         cand.stability_count,
         cand.reward_hits,
     )?;
-    let centroid_json = centroid(conn, &members)?;
+    let centroid_json = centroid(conn, members)?;
 
     let tx = conn.unchecked_transaction()?;
     tx.execute(
@@ -433,7 +447,7 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
     )
     .context("inserting schema row")?;
     let schema_id = tx.last_insert_rowid();
-    for m in &members {
+    for m in members {
         tx.execute(
             "INSERT INTO context_links \
              (source_item_type, source_item_id, target_item_type, target_item_id, \
@@ -457,6 +471,45 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
             "density": cand.density,
             "stability_count": cand.stability_count,
             "reward_hits": cand.reward_hits,
+        },
+    }))
+}
+
+/// The no-candidate-match arm of [`confirm`]: an existing schema id or
+/// exact name re-confirms in place — `last_confirmed_at` bumps, nothing
+/// else changes (spec API surface, line 195).
+fn bump_existing_schema(conn: &Connection, target: &str) -> Result<Value> {
+    let resolved: Option<(i64, String)> = match target.parse::<i64>() {
+        Ok(id) => conn
+            .query_row(
+                "SELECT id, name FROM schemas WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?,
+        Err(_) => conn
+            .query_row(
+                "SELECT id, name FROM schemas WHERE name = ?1",
+                params![target],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?,
+    };
+    let Some((id, name)) = resolved else {
+        bail!("no staged candidate or schema matches '{target}' (run `engrams schema scan`)");
+    };
+    let ts = now();
+    conn.execute(
+        "UPDATE schemas SET last_confirmed_at = ?1 WHERE id = ?2",
+        params![ts, id],
+    )?;
+    Ok(json!({
+        "status": "success",
+        "schema": {
+            "id": id,
+            "name": name,
+            "last_confirmed_at": ts,
+            "bumped": true,
         },
     }))
 }
@@ -513,7 +566,7 @@ mod tests {
         link(conn, 2, 3);
         link(conn, 1, 3);
         for _ in 0..3 {
-            super::super::scan::scan(conn).unwrap();
+            super::super::scan::scan(conn, false).unwrap();
         }
         let sig: String = conn
             .query_row("SELECT cluster_sig FROM schema_candidates", [], |r| {
@@ -596,7 +649,7 @@ mod tests {
         add_decision(&conn, 5, "epsilon export", "core");
         link(&conn, 4, 5);
         for _ in 0..3 {
-            super::super::scan::scan(&conn).unwrap();
+            super::super::scan::scan(&conn, false).unwrap();
         }
         let sig2: String = conn
             .query_row(
@@ -656,7 +709,7 @@ mod tests {
         link(&conn, 2, 3);
         link(&conn, 1, 3);
         // One scan only: density passes, stability (1 of 3) does not.
-        super::super::scan::scan(&conn).unwrap();
+        super::super::scan::scan(&conn, false).unwrap();
         let sig: String = conn
             .query_row("SELECT cluster_sig FROM schema_candidates", [], |r| {
                 r.get(0)
@@ -692,7 +745,7 @@ mod tests {
         confirm(&conn, &sig, Some("gateway design")).unwrap();
 
         // The confirmed candidate is no longer staged for promotion.
-        let out = super::super::scan::scan(&conn).unwrap();
+        let out = super::super::scan::scan(&conn, false).unwrap();
         let cands = out["candidates"].as_array().unwrap();
         assert!(
             !cands
@@ -730,7 +783,7 @@ mod tests {
         link(&conn, 2, 4);
         link(&conn, 3, 4);
         for _ in 0..3 {
-            super::super::scan::scan(&conn).unwrap();
+            super::super::scan::scan(&conn, false).unwrap();
         }
         let cands: Vec<String> = {
             let mut stmt = conn

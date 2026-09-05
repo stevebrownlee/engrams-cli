@@ -212,8 +212,10 @@ fn upsert(
 
 /// Run detection and staging; report candidates with gate detail. The
 /// output is a report, not promotion: no schema rows, links, or telemetry
-/// are written (AC-4).
-pub fn scan(conn: &Connection) -> Result<serde_json::Value> {
+/// are written (AC-4). With `apply`, passing candidates are promoted
+/// (schemas row + member_of edges) after staging commits — the explicit
+/// opt-in path of spec API line 195.
+pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
     let detected = louvain::clusters(conn, &OverlayWeights::default())?;
     let stored = load_stored(conn)?;
     let telemetry = telemetry_counts(conn)?;
@@ -275,11 +277,36 @@ pub fn scan(conn: &Connection) -> Result<serde_json::Value> {
             "gates_pass": density_pass && stability_pass && reward_pass,
         }));
     }
+
     tx.commit()?;
+
+    // --apply: promote every gate-passing candidate after staging commits,
+    // through the same confirm() covenant a manual `schema confirm` takes —
+    // the overlap guard runs here too, so re-applying an already-confirmed
+    // cluster can never duplicate a schema row. Failed gates stay stage-only.
+    let mut applied: Vec<serde_json::Value> = Vec::new();
+    let mut skipped: Vec<serde_json::Value> = Vec::new();
+    if apply {
+        for c in &candidates {
+            if c["gates_pass"].as_bool() != Some(true) {
+                continue;
+            }
+            let sig = c["cluster_sig"].as_str().expect("staged sig");
+            match super::confirm::confirm(conn, sig, None) {
+                Ok(out) => applied.push(out["schema"]["name"].clone()),
+                Err(e) => skipped.push(json!({
+                    "cluster_sig": sig,
+                    "reason": e.to_string(),
+                })),
+            }
+        }
+    }
 
     Ok(json!({
         "status": "success",
         "candidates": candidates,
+        "applied": applied,
+        "skipped": skipped,
     }))
 }
 
@@ -415,7 +442,7 @@ mod tests {
         surface(&conn, 1, "t2");
         surface(&conn, 2, "t3");
 
-        let first = scan(&conn).unwrap();
+        let first = scan(&conn, false).unwrap();
         let c = candidate(&first);
         assert_eq!(c["member_count"], 3);
         assert_eq!(c["stability_count"], 1);
@@ -425,7 +452,7 @@ mod tests {
         // Stability gate needs 3 sightings: not yet on scan one.
         assert_eq!(c["gates_pass"], false);
 
-        let second = scan(&conn).unwrap();
+        let second = scan(&conn, false).unwrap();
         let c2 = candidate(&second);
         assert_eq!(c2["cluster_sig"], c["cluster_sig"]);
         assert_eq!(c2["member_count"], c["member_count"]);
@@ -435,7 +462,7 @@ mod tests {
         assert_eq!(c2["drift_removed"], 0);
         assert_eq!(c2["drift_added"], 0);
         assert_eq!(c2["gates_pass"], false);
-        let third = scan(&conn).unwrap();
+        let third = scan(&conn, false).unwrap();
         let c3 = candidate(&third);
         assert_eq!(c3["stability_count"], 3);
         assert_eq!(c3["gates_pass"], true);
@@ -449,7 +476,7 @@ mod tests {
     fn member_growth_within_jaccard_budget_stays_same_row() {
         let conn = mem_db();
         dense_trio(&conn);
-        scan(&conn).unwrap();
+        scan(&conn, false).unwrap();
 
         add_decision(&conn, 4);
         anchor(&conn, 4, "src/a.rs");
@@ -457,7 +484,7 @@ mod tests {
         link(&conn, 2, 4);
         link(&conn, 3, 4);
 
-        let out = scan(&conn).unwrap();
+        let out = scan(&conn, false).unwrap();
         let c = candidate(&out);
         // Jaccard {1,2,3} → {1,2,3,4} is 3/4 = 0.75 ≥ 0.7: same identity,
         // refreshed membership, drift recorded.
@@ -484,7 +511,7 @@ mod tests {
         )
         .unwrap();
 
-        let out = scan(&conn).unwrap();
+        let out = scan(&conn, false).unwrap();
         let c = candidate(&out);
         assert_eq!(c["member_count"], 2);
         assert!((c["density"].as_f64().unwrap() - 0.2).abs() < 1e-9);
@@ -511,8 +538,8 @@ mod tests {
         let before = snapshot(&conn);
         assert!(before.iter().any(|(t, _)| t == "schema_candidates"));
 
-        scan(&conn).unwrap();
-        scan(&conn).unwrap();
+        scan(&conn, false).unwrap();
+        scan(&conn, false).unwrap();
 
         let after = snapshot(&conn);
         for ((t, before_rows), (_, after_rows)) in before.iter().zip(after.iter()) {
@@ -654,5 +681,49 @@ mod tests {
             .unwrap();
         assert_eq!(sig, "decision:1,decision:2,decision:3,decision:5");
         assert_eq!((drift_removed, drift_added, row_stability), (1, 1, 3));
+    }
+    #[test]
+    fn double_apply_never_duplicates_a_schema() {
+        let conn = mem_db();
+        dense_trio(&conn);
+        scan(&conn, false).unwrap();
+        scan(&conn, false).unwrap();
+
+        let first = scan(&conn, true).unwrap();
+        // applied carries promoted schema names (fixture has no tags, so the
+        // name falls back to the "schema" default).
+        assert_eq!(first["applied"], json!(["schema"]));
+        assert_eq!(first["skipped"], json!([]));
+
+        // Second apply: the same cluster is still staged and gate-passing,
+        // but the confirm covenant's overlap guard rejects the promotion.
+        let second = scan(&conn, true).unwrap();
+        assert_eq!(second["applied"], json!([]));
+        let skipped = second["skipped"].as_array().unwrap();
+        assert_eq!(skipped.len(), 1);
+        // The confirmed schema's own node now participates in the graph, so
+        // the re-staged signature includes it; the knowledge-member filter in
+        // confirm() strips it back out before comparing Jaccard.
+        assert_eq!(
+            skipped[0]["cluster_sig"],
+            "decision:1,decision:2,decision:3,schema:1"
+        );
+        assert!(skipped[0]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("already confirmed"));
+
+        let rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 1);
+        let edges: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(edges, 3);
     }
 }

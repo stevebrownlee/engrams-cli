@@ -112,3 +112,31 @@ Asymmetry note for future phases: the stored-vs-candidate overlap guard compares
 Verification: cargo fmt clean, clippy --all-targets 0 warnings, 145 passed / 0 failed.
 
 Counts: 8 findings = 0 severe, 3 moderate (all resolved-verified), 5 minor (2 resolved-verified, 2 remaining, 1 new noted).
+
+## 2026-09-05T06:00:52Z — phase 6 of spec 0002-schema-formation (list/show/refine + scan --apply)
+
+- severe / correctness — scan --apply double-promotes: apply loop (scan.rs:286-303) calls promote() directly, skipping confirm()'s Jaccard-vs-confirmed guard (confirm.rs:375-392). Reproduced with the CLI binary on a temp DB: dense trio, scan x2, scan --apply -> ["core"]; scan --apply again -> ["core-2"], 2 schema rows with identical members, silent unique_name suffix. scan.rs:283-285 comment and decision 81 rationale ("the covenant is not bypassed") cover only the gates half; the no-double-promotion half is bypassed. Fix direction: route the apply loop through the confirm() covenant (guard + skipped reporting), not a bespoke promote() call.
+- moderate / spec-conformance — schema list omits the spec's "blended score" field; rank_expr orders agent-first/recency/member_count with no usefulness score. Possible deliberate deferral to the scoring phase, but phase 6 spec_deviations is null so it is unrecorded.
+- minor / spec-conformance — CLI shapes drift from spec API lines 195-199: refine positional <target> vs spec's --id, missing optional --name rename; confirm <sig|prefix> vs spec <id>. Phase 6 spec_deviations null (jq-verified).
+- minor / process — files_touched omits tests/cli.rs (+142 lines this phase).
+
+Verified clean: AC-6 agent-first ranking (rank_expr primary key agent-authored; unit test agent wins despite OLDER timestamp — stronger than the claim); show/refine error contract (non-zero exit + {"error": ...} on stderr, CLI-test pinned); bump semantics documented (confirm.rs:364-367) and pinned (CLI: timestamp advances, no row/edge growth); bare scan read-only intact (phase-3 write-audit test still passes, scan(conn,false)); promote() extraction regressed nothing (full suite 150/0); decision 81 exists with forced-gate justification. Ladder this review: fmt clean, clippy --all-targets 0 warnings, 150 passed / 0 failed.
+
+Pattern carried forward (3rd occurrence): promote-path code bypasses or overstates confirm()'s covenant — confirm.rs:16-21 doc overclaim (phase 5), scan --apply bespoke promote (this phase), decision 81 rationale overclaim. The covenant enforcement should live in ONE function that all promoters call.
+
+Counts: 4 findings = 1 severe, 1 moderate, 2 minor.
+
+## 2026-09-05T06:28:40Z — re-review: phase 6 of spec 0002-schema-formation (retry 2 resolution check)
+
+- severe / correctness — resolved-verified: scan --apply routes every candidate through confirm() (scan.rs:287-317), restoring the Jaccard-vs-confirmed guard for batch promotion; skipped candidates report named reasons. Regression double_apply_never_duplicates_a_schema (scan.rs:683-729) + reviewer behavioral repro on temp DB: apply1 promotes 1 schema/3 edges, apply2 skips 'candidate already confirmed as schema 1', rows/edges unchanged. Name-fallback (dominant_tag NULL handling via Option<Option<String>> + shared parse_tags) verified in source.
+- moderate / spec-conformance — resolved-verified: blended-score deferral now recorded in phase 6 spec_deviations as deferred-to-phase-7.
+- minor / spec-conformance — resolved-verified: confirm id/name acceptance recorded (accepted); residual: refine positional target + absent --name rename still unrecorded.
+- minor / process — resolved-verified: files_touched now lists tests/cli.rs.
+
+Reviewer call on Main's pr: question — keep kind_table strict, no change: pr/commit nodes are link endpoints (URL string ids parse_members rejects at numeric parse, pre-write), member_of domain deliberately excludes pr (implemented_in owns that route), and per-candidate confirm() errors in the apply loop already surface as skipped-with-reason. The boundary is clean.
+
+Incident (disclosure): during verification I reproduced Main's ENGRAMS_DB mistake — the env var does not exist, the binary silently resolved the live workspace DB, and my scan --apply (on the then-unfixed tree path... actually retry-2 code) promoted 13 schemas live. Rolled back with Main's recipe (drop FTS-touching triggers, delete rows, recreate triggers from source DDL); post-state verified: schemas=0, member_of=0, schemas_fts=0, triggers byte-identical to source. Residue: schema_candidates stability counts bumped (29 rows), same precedent Main set. Root cause of both incidents: the CLI accepts no explicit DB override env at all, so "targeting a copy" silently means live. Recommended follow-up outside this spec: add ENGRAMS_DB env support or a loud warning when --db is absent and CWD contains context.db.
+
+Verification: cargo fmt clean, clippy --all-targets 0 warnings, 151 passed / 0 failed. Live-DB rollback state independently verified.
+
+Counts: 4 findings = 1 severe, 1 moderate, 2 minor; all 4 resolved-verified.
