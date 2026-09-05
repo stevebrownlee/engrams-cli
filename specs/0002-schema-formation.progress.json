@@ -144,7 +144,7 @@
       "id": 3,
       "title": "Add staging, gates, and schema scan command",
       "type": "standard",
-      "status": "reviewing",
+      "status": "complete",
       "depends_on": [
         2
       ],
@@ -233,7 +233,13 @@
           "resolution": "resolved-verified: cargo clippy --all-targets reports 0 warnings after retry 2 (re-run this re-review; was 1 bin + 3 test warnings)."
         }
       ],
-      "commit_sha": null
+      "commit_sha": "b74193e3fb63b7f34db89af4026dccfe90d66340",
+      "spec_deviations": [
+        {
+          "deviation": "UnionGraph.index field removed (declared in spec Architecture as an internal detail); field was never read in non-test code, tests now binary-search the sorted nodes vec — one canonical lookup path",
+          "resolution": "accepted"
+        }
+      ]
     },
     {
       "id": 4,
