@@ -37,7 +37,7 @@
       "started_at": "2026-09-05T01:56:00Z",
       "completed_at": "2026-09-05T02:30:00Z",
       "retry_count": 1,
-      "commit_sha": null,
+      "commit_sha": "ca2fe7d7dc5893cdc99d986dfb5395d025486afc",
       "blocked_reason": null,
       "review_findings": [
         {
