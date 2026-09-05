@@ -392,7 +392,7 @@
       "id": 6,
       "title": "Add schema list, show, refine, confirm commands",
       "type": "standard",
-      "status": "reviewing",
+      "status": "complete",
       "depends_on": [
         5
       ],
@@ -455,7 +455,7 @@
           "resolution": "resolved-verified: files_touched now includes tests/cli.rs, matching the actual phase diff."
         }
       ],
-      "commit_sha": null,
+      "commit_sha": "ce314a54e19da0d7518ef4bc6509198ce5163448",
       "spec_deviations": [
         {
           "deviation": "Spec line 195's blended score (agent-refined vs drafted ranking weight) is deferred to phase 7's scoring integration; list ranking uses summary_source class ordering now",
