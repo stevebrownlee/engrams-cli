@@ -553,7 +553,7 @@
       "id": 8,
       "title": "Add assimilation hooks to log commands",
       "type": "standard",
-      "status": "reviewing",
+      "status": "complete",
       "depends_on": [
         5
       ],
@@ -580,7 +580,7 @@
         "src/cli.rs"
       ],
       "started_at": null,
-      "completed_at": "2026-09-05T09:05:00Z",
+      "completed_at": "2026-09-05T09:06:18Z",
       "retry_count": 1,
       "blocked_reason": null,
       "review_findings": [
@@ -615,18 +615,17 @@
           "file": "src/ops/schemas/assimilate.rs",
           "line": 330,
           "resolution": "resolved-verified: suite count now matches the claim - reviewer ran the full suite this re-review: 166 passed / 0 failed across all 5 targets."
-        }
-        ,
+        },
         {
           "severity": "minor",
           "category": "missing-test",
           "message": "The guard's safe direction is unpinned: no test asserts that a candidate merely OVERLAPPING a confirmed schema's territory (some shared members, no containment either way, J<0.7) still promotes - the exact scenario where the new mirrored coverage clause could over-fire and silently strangle independent concepts. Reviewer binary repro verifies the behavior today (overlap {d1,d3,d4} over confirmed {d1,d2} promotes); the regression needs its own pin.",
           "file": "src/ops/schemas/confirm.rs",
           "line": 424,
-          "resolution": "noted"
+          "resolution": "resolved-verified (Gate 4 re-review 2026-09-05): noted"
         }
       ],
-      "commit_sha": null
+      "commit_sha": "be84fb0600629fd5a9961371ed7274ee9edbd9a1"
     },
     {
       "id": 9,
