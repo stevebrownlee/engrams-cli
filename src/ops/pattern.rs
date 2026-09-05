@@ -59,6 +59,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
             check_expr,
             severity,
             importance,
+            schema,
         } => {
             let mut resolved_prs = Vec::new();
             for pr in prs {
@@ -97,8 +98,24 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
 
             // Write-through (S7): keep any installed omp rulebook in sync.
             crate::ops::rules::write_through(conn, db_path);
+            // Schema assimilation (AC-8): explicit attach / decline wins;
+            // otherwise match the centroid and fire suggestions.
+            let schema_block = crate::ops::schemas::assimilate::at_log_time(
+                conn,
+                "pattern",
+                id,
+                &name,
+                &tags,
+                schema.as_deref(),
+            )?;
 
-            get_pattern(conn, id)
+            let mut pattern = get_pattern(conn, id)?;
+            if let (Value::Object(map), Value::Object(block)) = (&mut pattern, schema_block) {
+                for (k, v) in block {
+                    map.insert(k, v);
+                }
+            }
+            Ok(pattern)
         }
         PatternCmd::List { tags, limit } => {
             if tags.is_empty() {

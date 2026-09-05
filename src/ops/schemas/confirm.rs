@@ -112,10 +112,28 @@ pub(crate) struct Candidate {
     reward_hits: i64,
 }
 
-/// Resolve a candidate by exact signature or unique prefix. Ambiguous
-/// prefixes error with the match count; a missing signature yields `None`
-/// so the caller can fall through to the existing-schema bump path.
+/// Resolve a candidate by exact signature first — an exact match always
+/// wins even when the signature is also a prefix of longer signatures —
+/// then by unique prefix. Ambiguous prefixes error with the match count; a
+/// missing signature yields `None` so the caller can fall through to the
+/// existing-schema bump path.
 pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Option<Candidate>> {
+    let exact: Option<(String, f64, i64, i64)> = conn
+        .query_row(
+            "SELECT member_keys_json, density, stability_count, reward_hits \
+             FROM schema_candidates WHERE cluster_sig = ?1",
+            params![sig],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .optional()?;
+    if let Some((members_json, density, stability_count, reward_hits)) = exact {
+        return Ok(Some(Candidate {
+            members: serde_json::from_str(&members_json)?,
+            density,
+            stability_count,
+            reward_hits,
+        }));
+    }
     let mut stmt = conn.prepare(
         "SELECT cluster_sig, member_keys_json, density, stability_count, reward_hits \
          FROM schema_candidates WHERE cluster_sig LIKE ?1 ESCAPE '\\' ORDER BY cluster_sig",
@@ -382,7 +400,31 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
         .cloned()
         .collect();
     for s in confirmed_schemas(conn)? {
-        if jaccard(&knowledge_members, &s.members) >= JACCARD_IDENTITY {
+        // Territory checks: a candidate whose members sit inside — or fully
+        // cover — an existing schema's knowledge members IS that schema,
+        // not a new concept; both orientations dilute or tighten past the
+        // J >= 0.7 identity rule, so they are pinned explicitly here.
+        // Drifted/partial shapes (some overlap, some not) stay with Jaccard.
+        // Claimed territory frees only via prune/archive — the v0.14
+        // adaptation owns the retire path (decision 76); nothing in the
+        // confirm covenant un-claims it.
+        let s_knowledge: Vec<&String> = s
+            .members
+            .iter()
+            .filter(|m| !m.starts_with("schema:"))
+            .collect();
+        let covered = knowledge_members
+            .iter()
+            .filter(|m| s_knowledge.contains(m))
+            .count();
+        let covers = s_knowledge
+            .iter()
+            .filter(|k| knowledge_members.contains(k))
+            .count();
+        if covered == knowledge_members.len()
+            || (!s_knowledge.is_empty() && covers == s_knowledge.len())
+            || jaccard(&knowledge_members, &s.members) >= JACCARD_IDENTITY
+        {
             bail!(
                 "candidate already confirmed as schema {} ({})",
                 s.id,
@@ -508,8 +550,8 @@ fn bump_existing_schema(conn: &Connection, target: &str) -> Result<Value> {
         "schema": {
             "id": id,
             "name": name,
-            "last_confirmed_at": ts,
             "bumped": true,
+            "last_confirmed_at": ts,
         },
     }))
 }
@@ -536,9 +578,9 @@ mod tests {
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO decisions (uuid, timestamp, summary, tags) \
-             VALUES (?1, '2026-01-01T00:00:00Z', ?2, ?3)",
-            params![format!("u{id}"), summary, stored],
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags) \
+             VALUES (?1, ?2, '2026-01-01T00:00:00Z', ?3, ?4)",
+            params![id, format!("u{id}"), summary, stored],
         )
         .unwrap();
     }
@@ -805,5 +847,114 @@ mod tests {
             err.contains("already confirmed"),
             "overlapping candidate must be rejected: {err}"
         );
+    }
+
+    /// Stage a candidate row directly (no Louvain): members must reference
+    /// existing decision rows, gates pre-passed so only the covenant runs.
+    fn stage(conn: &Connection, members: &[i64], density: f64) -> String {
+        let keys: Vec<String> = members.iter().map(|id| format!("decision:{id}")).collect();
+        let sig = keys.join(",");
+        conn.execute(
+            "INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, \
+             stability_count, reward_hits, first_seen_at, last_seen_at) \
+             VALUES (?1, ?2, ?3, 3, 0, 't0', 't0')",
+            params![sig, serde_json::to_string(&keys).unwrap(), density],
+        )
+        .unwrap();
+        sig
+    }
+
+    #[test]
+    fn exact_signature_wins_over_ambiguous_prefix() {
+        let conn = mem_db();
+        for id in 1..=2 {
+            add_decision(&conn, id, &format!("d{id}"), "x");
+        }
+        // `abc` is an exact candidate AND a prefix of `abc,decision:2` — the
+        // exact match must resolve, not error ambiguous.
+        let sig = stage(&conn, &[1], 1.0);
+        stage(&conn, &[1, 2], 1.0);
+        assert_eq!(sig, "decision:1");
+        let got = try_resolve_candidate(&conn, &sig).unwrap().unwrap();
+        assert_eq!(got.members, vec!["decision:1".to_string()]);
+    }
+
+    #[test]
+    fn strict_subset_of_confirmed_bails_already_confirmed() {
+        let conn = mem_db();
+        for id in 1..=3 {
+            add_decision(&conn, id, &format!("d{id}"), "core");
+        }
+        link(&conn, 1, 2);
+        link(&conn, 2, 3);
+        link(&conn, 1, 3);
+        let whole = stage(&conn, &[1, 2, 3], 1.0);
+        confirm(&conn, &whole, Some("core")).unwrap();
+
+        // Strict subset {1,2}: every member already claimed by core. This is
+        // the branch Jaccard alone misses (J = 1/3 < 0.7) — the subset-bail
+        // is what pins members-already-claimed territory.
+        let part = stage(&conn, &[1, 2], 1.0);
+        let err = confirm(&conn, &part, None).unwrap_err().to_string();
+        assert!(
+            err.contains("already confirmed"),
+            "subset of a confirmed schema must bail: {err}"
+        );
+        let schemas: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(schemas, 1, "no second schema row may exist");
+    }
+
+    #[test]
+    fn strict_superset_of_confirmed_bails_already_confirmed() {
+        // Reviewer repro: core-2 {4,5} confirmed, then a candidate {4,5,7}
+        // escapes the J >= 0.7 rule by dilution (J = 2/3 < 0.7) and would
+        // swallow the smaller schema as a "new" cluster. The containment
+        // check mirrored onto the confirmed side rejects it.
+        let conn = mem_db();
+        for id in 4..=5 {
+            add_decision(&conn, id, &format!("d{id}"), "infra");
+        }
+        link(&conn, 4, 5);
+        let small = stage(&conn, &[4, 5], 1.0);
+        confirm(&conn, &small, Some("core-2")).unwrap();
+
+        add_decision(&conn, 7, "delta seven", "infra");
+        link(&conn, 4, 7);
+        link(&conn, 5, 7);
+        let big = stage(&conn, &[4, 5, 7], 1.0);
+        let err = confirm(&conn, &big, None).unwrap_err().to_string();
+        assert!(
+            err.contains("already confirmed"),
+            "superset must not swallow the confirmed schema: {err}"
+        );
+        let schemas: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(schemas, 1, "core-2 stays the only schema");
+    }
+
+    #[test]
+    fn overlap_without_containment_still_promotes() {
+        // Safe direction of the mirrored coverage clause: plain overlap is
+        // NOT territory — confirmed {1,2} vs candidate {1,3,4} has
+        // covered = 1/3, covers = 1/2, J = 1/4, so it promotes as its own
+        // schema. Over-firing here would strangle legitimate distinct
+        // concepts that share one member.
+        let conn = mem_db();
+        for id in 1..=4 {
+            add_decision(&conn, id, &format!("d{id}"), "x");
+        }
+        let first = stage(&conn, &[1, 2], 1.0);
+        confirm(&conn, &first, Some("core")).unwrap();
+
+        let second = stage(&conn, &[1, 3, 4], 1.0);
+        let out = confirm(&conn, &second, Some("adjacent")).unwrap();
+        assert_eq!(out["schema"]["name"], "adjacent");
+        let schemas: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(schemas, 2, "overlapping-but-distinct promotes");
     }
 }

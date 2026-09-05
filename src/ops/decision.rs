@@ -44,6 +44,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             supersedes,
             conflicts_with,
             contract,
+            schema,
         } => {
             let status = status.unwrap_or_else(|| "active".to_string());
             let status_overridden = crate::ops::status::check(
@@ -117,6 +118,18 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 Ok(id)
             })?;
 
+            // Schema assimilation (AC-8): explicit attach / decline wins;
+            // otherwise match the centroid and fire suggestions. Output
+            // merges into the decision object below.
+            let schema_block = crate::ops::schemas::assimilate::at_log_time(
+                conn,
+                "decision",
+                id,
+                &summary,
+                &tags,
+                schema.as_deref(),
+            )?;
+
             let mut decision = get_decision(conn, id)?;
             if let Value::Object(map) = &mut decision {
                 map.insert("inserted".into(), Value::Bool(true));
@@ -129,6 +142,11 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 }
                 if !conflicts_with.is_empty() {
                     map.insert("conflicts_with".into(), serde_json::json!(conflicts_with));
+                }
+                if let Value::Object(block) = schema_block {
+                    for (k, v) in block {
+                        map.insert(k, v);
+                    }
                 }
                 if contract.is_none() {
                     map.insert(

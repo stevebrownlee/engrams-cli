@@ -75,6 +75,7 @@ pub fn handle(
                             supersedes: None,
                             conflicts_with: Vec::new(),
                             contract: None,
+                            schema: None,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {
@@ -109,6 +110,7 @@ pub fn handle(
                             parent_id,
                             check_similar: false,
                             force: false,
+                            schema: None,
                         },
                     )?;
                     if let Value::Object(mut res_map) = res {
@@ -168,6 +170,7 @@ pub fn handle(
                             check_expr,
                             severity,
                             importance: None,
+                            schema: None,
                         },
                         db_path,
                     )?;

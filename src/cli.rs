@@ -543,6 +543,9 @@ pub enum DecisionCmd {
         /// (skips the similarity gate, writes symmetric conflicts_with links)
         #[arg(long = "conflicts-with")]
         conflicts_with: Vec<i64>,
+        /// Attach to a schema at write time (id or name) — `none` declines fired suggestions
+        #[arg(long)]
+        schema: Option<String>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -658,6 +661,9 @@ pub enum ProgressCmd {
         /// Bypass status_vocabulary validation
         #[arg(long)]
         force: bool,
+        /// Attach to a schema at write time (id or name) — `none` declines fired suggestions
+        #[arg(long)]
+        schema: Option<String>,
     },
     /// List progress entries
     List {
@@ -732,6 +738,9 @@ pub enum PatternCmd {
         /// Importance weight 0-10 for retrieval scoring (default: 5)
         #[arg(long)]
         importance: Option<i64>,
+        /// Attach to a schema at write time (id or name) — `none` declines fired suggestions
+        #[arg(long)]
+        schema: Option<String>,
     },
     /// Update a pattern (confidence, confirmation, description, importance)
     Update {

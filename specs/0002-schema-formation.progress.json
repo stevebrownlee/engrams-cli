@@ -4,7 +4,7 @@
   "spec_name": "schema-formation",
   "spec_path": "specs/0002-schema-formation.md",
   "created_at": "2026-09-05T01:55:00Z",
-  "updated_at": "2026-09-05T07:44:41Z",
+  "updated_at": "2026-09-05T09:02:28Z",
   "status": "in_progress",
   "mode": "autonomous",
   "current_phase": 3,
@@ -493,7 +493,6 @@
       "files_touched": [
         "src/ops/schemas/retrieval.rs",
         "src/ops/schemas/mod.rs",
-        "src/ops/schemas/list.rs",
         "src/ops/prime.rs",
         "src/ops/query.rs",
         "src/ops/brief.rs",
@@ -554,7 +553,7 @@
       "id": 8,
       "title": "Add assimilation hooks to log commands",
       "type": "standard",
-      "status": "pending",
+      "status": "reviewing",
       "depends_on": [
         5
       ],
@@ -570,12 +569,63 @@
         "cargo clippy --all-targets",
         "cargo test schemas"
       ],
-      "files_touched": [],
+      "files_touched": [
+        "src/ops/schemas/assimilate.rs",
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/decision.rs",
+        "src/ops/pattern.rs",
+        "src/ops/progress.rs",
+        "src/ops/batch.rs",
+        "src/cli.rs"
+      ],
       "started_at": null,
-      "completed_at": null,
-      "retry_count": 0,
+      "completed_at": "2026-09-05T09:05:00Z",
+      "retry_count": 1,
       "blocked_reason": null,
-      "review_findings": [],
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "The new subset-bail branch (confirm.rs:384-394: covered == knowledge_members.len() bail) has no direct test. scan_after_attach_recognizes_the_schema_without_duplicating (assimilate.rs:509-575) exercises the Jaccard>=0.7 branch (candidate {d1,d2,d3,d4} vs schema {d1,d2,d3}, J=0.75), and distinct_candidate_with_overlapping_members_is_rejected likewise; the motivating strict-subset case (J 0.2-0.25) that only the new branch catches is unexercised anywhere. Reviewer proved the branch end-to-end through the real binary (staged candidate {d1,d3} vs confirmed {d1,d2,d3}: J=2/3=0.667, covered=2/2 -> error 'candidate already confirmed as schema 1 (core)'), but a new covenant branch needs its own regression pin.",
+          "file": "src/ops/schemas/confirm.rs",
+          "line": 384,
+          "resolution": "resolved-verified: strict_subset_of_confirmed_bails_already_confirmed (confirm.rs:883-907) stages {d1,d2,d3}, confirms it, then stages strict subset {d1,d2} (J=1/3) and asserts the 'already confirmed' bail plus exactly one schema row; gates pre-passed via the stage() helper so only the covenant runs. Test run and passed this re-review."
+        },
+        {
+          "severity": "minor",
+          "category": "correctness",
+          "message": "The subset-bail is permanent with no escape hatch: confirmed_schemas (confirm.rs:75-105) reads all member_of edges with no status filter, and no command exists to move a schema out of 'active'. Retiring or archiving the parent - whether by SQL or a future command - would not free its territory because the guard ignores status. The tradeoff (block nested duplicates now; merge/split and adaptation deferred) is right for this release, but the guard should consider only active/needs_review schemas, or the permanence needs documenting.",
+          "file": "src/ops/schemas/confirm.rs",
+          "line": 75,
+          "resolution": "resolved-verified: the bail's site now documents the permanence (confirm.rs:408-410): 'Claimed territory frees only via prune/archive - the v0.14 adaptation owns the retire path (decision 76); nothing in the confirm covenant un-claims it.' Tradeoff is on the record with an owner."
+        },
+        {
+          "severity": "minor",
+          "category": "correctness",
+          "message": "A strict superset of a small confirmed schema escapes both guards and promotes a near-duplicate: the containment check is one-directional (candidate covered by schema) and J-dilution lets supersets of <=2-member knowledge schemas (or code-bearing ones) under 0.7. Reviewer behavioral repro: confirmed core-2 {d4,d5}, then confirm {d4,d5,d7} (J=2/3=0.667, covered=2/3) promoted a third schema over the same core (schemas core-2 and infra coexist). Recommend mirroring the containment check for the no-drift direction (confirmed schema's non-schema members all present in the candidate -> bail; must exclude schema-type keys from the confirmed side since a restaged candidate's knowledge members never include them), leaving drifted shapes to the 0.7 identity rule.",
+          "file": "src/ops/schemas/confirm.rs",
+          "line": 384,
+          "resolution": "resolved-verified: guard rewritten three-way (confirm.rs:416-433): containment (covered==candidate len), mirrored full-coverage (covers==confirmed knowledge len, schema-key-excluded both sides per the review recommendation), and J>=0.7. Superset pinned by strict_superset_of_confirmed_bails_already_confirmed (confirm.rs:910-936, cites the reviewer repro; passing). Reviewer binary repro on a temp DB both orientations: superset {d1,d2,d3} over confirmed {d1,d2} bails naming schema 1; legitimate overlap {d1,d3,d4} over confirmed {d1,d2} (covered=1/3, covers=1/2, J=1/4) promotes as a second schema - the guard does not strangle independent concepts."
+        },
+        {
+          "severity": "minor",
+          "category": "process",
+          "message": "Test-count claim off by one: '+7 unit tests' claimed, tree adds 6 (all in assimilate.rs; bin target 68->74, full suite 157->163, both reviewer-verified). Same genre as phase 7's count correction.",
+          "file": "src/ops/schemas/assimilate.rs",
+          "line": 330,
+          "resolution": "resolved-verified: suite count now matches the claim - reviewer ran the full suite this re-review: 166 passed / 0 failed across all 5 targets."
+        }
+        ,
+        {
+          "severity": "minor",
+          "category": "missing-test",
+          "message": "The guard's safe direction is unpinned: no test asserts that a candidate merely OVERLAPPING a confirmed schema's territory (some shared members, no containment either way, J<0.7) still promotes - the exact scenario where the new mirrored coverage clause could over-fire and silently strangle independent concepts. Reviewer binary repro verifies the behavior today (overlap {d1,d3,d4} over confirmed {d1,d2} promotes); the regression needs its own pin.",
+          "file": "src/ops/schemas/confirm.rs",
+          "line": 424,
+          "resolution": "noted"
+        }
+      ],
       "commit_sha": null
     },
     {

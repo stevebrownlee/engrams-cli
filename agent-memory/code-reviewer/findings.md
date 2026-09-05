@@ -163,3 +163,34 @@ All 4 resolved-verified.
 Ladder: fmt clean, clippy 0 warnings, full suite 157 passed / 0 failed (68+56+12+6+15).
 
 Counts: 4 findings = 0 severe, 1 moderate, 3 minor; all 4 resolved-verified.
+
+## 2026-09-05T08:43:31Z — phase 8 of spec 0002-schema-formation (assimilation hooks)
+
+- MOD missing-test — new subset-bail branch (confirm.rs:384-394, covered == knowledge_members.len()) untested; existing tests only hit the J>=0.7 branch. Reviewer proved the branch end-to-end via real binary: staged {d1,d3} vs confirmed {d1,d2,d3} (J=2/3=0.667, covered=2/2) -> "candidate already confirmed as schema 1".
+- MIN correctness — subset-bail is permanent: confirmed_schemas (confirm.rs:75-105) has no status filter and no retire/archive command exists; freeing territory is impossible by design accident. Guard should filter to active/needs_review or document permanence.
+- MIN correctness — strict superset of small schema escapes both guards (containment check one-directional; J-dilution under 0.7). Behavioral repro: core-2 {d4,d5} then infra {d4,d5,d7} both promoted (J=2/3). Fix direction: mirror containment on the confirmed side's non-schema members; leave drifted shapes to the 0.7 rule.
+- MIN process — claim "+7 unit tests", tree adds 6 (assimilate.rs only; bin 68->74, suite 157->163). Third count-type claim discrepancy this spec.
+
+Verified clean: token overlap 0.4 / top-2 match decision 78; decline-only-via---schema-none matches 79; suggestions persist without membership (B1a: fired fit=1.0, edges unchanged); batch is_autocommit joins outer tx; pattern.rs S7 write-through restored; fit=0.0 on explicit attach without a fired suggestion (expected: no suggestion row existed). All behavioral probes on temp DBs (--db flag, never live).
+
+Pre-existing observation (not a phase 8 finding, reported to Main): try_resolve_candidate (confirm.rs:114-140) is prefix-LIKE only despite its doc comment claiming "exact signature or unique prefix"; an exact match that is also another candidate's prefix errors as ambiguous. Lives in phase 6's extraction.
+
+Ladder: fmt clean, clippy --all-targets 0 warnings, full suite 163 passed / 0 failed (74+56+12+6+15).
+
+Incident note: an earlier review step in this session ran the binary without --db (and ENGRAMS_DB was created by commit 57a6d0b that day), promoting 13 schemas into the live workspace DB; rollback executed and verified (schemas/member_of/FTS=0, triggers byte-identical to source DDL, schema_candidates staging mutations left in place). Root cause both times: binary resolves the workspace DB when no explicit path is given; never run scan --apply without --db.
+
+Counts: 4 findings = 0 severe, 1 moderate, 3 minor.
+
+## 2026-09-05T09:02:28Z — re-review: phase 8 of spec 0002-schema-formation (retry 1 resolution check)
+
+All 4 findings resolved-verified:
+- MOD subset-bail: strict_subset_of_confirmed_bails_already_confirmed (confirm.rs:883-907) — stages {1,2,3}, confirms, stages {1,2} subset (J=1/3), asserts bail + 1 schema row. stage() helper pre-passes gates so only the covenant runs.
+- MIN permanence: bail site documents it (confirm.rs:408-410) — v0.14 adaptation owns the retire path (decision 76).
+- MIN superset: guard rewritten three-way (confirm.rs:416-433) — containment, mirrored full-coverage (schema-keys excluded both sides, per my recommendation), J>=0.7. Superset pinned (confirm.rs:910-936, cites my repro). Binary repro both orientations: superset {1,2,3} over {1,2} bails naming schema 1; legit overlap {1,3,4} over {1,2} (covered 1/3, covers 1/2, J=1/4) promotes as second schema.
+- MIN count: suite now 166/0 as claimed (reviewer-run).
+
+NEW minor noted: guard's safe direction unpinned — no test asserts overlap-without-containment still promotes (the over-fire risk of the new mirrored clause). Binary-repro-verified correct today; needs its own pin.
+
+Side note closed: try_resolve_candidate now exact-query-first (confirm.rs:121-136), doc updated, exact_signature_wins_over_ambiguous_prefix passes — my phase-8 prefix-LIKE observation resolved.
+
+Counts: 5 findings = 0 severe, 1 moderate, 4 minor; 4 resolved-verified, 1 new noted. Ladder: 3 new guard/resolver tests pass, full suite 166/0.

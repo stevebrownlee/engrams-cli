@@ -5,6 +5,7 @@
 //! command handlers. `src/ops/schemas/` stays the home for staging,
 //! apply, and the later list/show/refine surface.
 
+pub mod assimilate;
 pub mod confirm;
 pub mod list;
 pub mod retrieval;

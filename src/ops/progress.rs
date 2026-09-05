@@ -19,6 +19,7 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             parent_id,
             check_similar,
             force,
+            schema,
         } => {
             let status_overridden = crate::ops::status::check(
                 &status,
@@ -65,11 +66,28 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             )?;
 
             let id = conn.last_insert_rowid();
+
+            // Schema assimilation (AC-8): progress entries carry no tags, so
+            // the centroid match is summary-only.
+            let schema_block = crate::ops::schemas::assimilate::at_log_time(
+                conn,
+                "progress-entry",
+                id,
+                &description,
+                &[],
+                schema.as_deref(),
+            )?;
+
             let mut result = get_progress(conn, id)?;
             if let Value::Object(map) = &mut result {
                 map.insert("inserted".into(), Value::Bool(true));
                 if status_overridden {
                     map.insert("overrides".into(), serde_json::json!(["status_vocabulary"]));
+                }
+                if let Value::Object(block) = schema_block {
+                    for (k, v) in block {
+                        map.insert(k, v);
+                    }
                 }
             }
             Ok(result)
