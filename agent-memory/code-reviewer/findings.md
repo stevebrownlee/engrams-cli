@@ -80,3 +80,35 @@ All five requested claim checks verified TRUE against live state:
 - moderate / process — the recorded ladder jq (`jq -S 'map(.member_keys)'`) errors on the top-level output object; as written the gate diffs empty files (vacuous pass, same genre as phase 2's original 'cargo test schemas'). Correct filter: `.candidates | map(.member_keys)`. Claim still proven true: live DB stability=3 across all rows + this review's 3-scan rerun on a DB copy (member_keys byte-identical, every row matched every scan). Array also omits clippy/test despite the ladder-green claim including them. (specs/0002-schema-formation.progress.json:258, resolution noted)
 
 Counts: 1 finding = 0 severe, 1 moderate, 0 minor.
+
+## 2026-09-05T04:52:19Z — phase 5 of spec 0002-schema-formation (schema confirm promotion)
+
+Verified TRUE: sig resolution exact/prefix/ambiguous (test seeds rows directly, LIKE with escaped \\%_ and ESCAPE clause); gates check before promotion names failing gates and writes nothing (tested: schemas=0, member_of=0); single unchecked_transaction around schema row + member_of edges with ?-propagation rollback; name collision suffix (tested core -> core-2, lexicographic dominant-tag tiebreak); drafted name = dominant tag, summary_source=drafted; member immutability asserted (summary||tags before/after per member); direction member -> schema matches member_of ontology (range=schema, inverse has_member); JSON output {"status":"success","schema":{...}} and error path {"error": ...} (main.rs:14) per convention; 5 behavioral tests, all asserting persisted state. Ran: fmt clean, clippy --all-targets 0 warnings, cargo test schemas 14 passed (9 scan + 5 confirm), full suite 143/0.
+
+Findings (all "noted", status stays reviewing):
+- moderate / spec-conformance — member_of domain excludes `code` (rel.rs:170-177, spec line 188) but kind_table accepts code members and confirm writes those edges via direct SQL, bypassing link.rs domain validation; dogfood candidates are code-heavy so first real confirm persists ontology-invalid edges. Needs decision: amendment+domain extension or reject code members (confirm.rs:153).
+- moderate / missing-test — no test runs scan() after confirm() anywhere; skip-J-matching-confirmed, dormant candidate, drifted-new-sig-at-stability-1 all unpinned despite being the no-double-promotion mechanism (confirm.rs:378).
+- moderate / convention — parse_tags_raw (comma fallback) vs rebuild::parse_tags (JSON-only) despite "same intent" doc: legacy comma-tags rows weight name/centroid but not detection (confirm.rs:186, rebuild.rs:104-107).
+- minor / process — API-shape deviation unrecorded: spec says scan --apply promotes + confirm <id> bumps recency; implementation is confirm <sig|prefix> [--name] as promoter, draft summary format differs too; no phase 5 spec_deviations.
+- minor / missing-test — no binary-level CLI test (tests/cli.rs untouched); precedent test_schema_scan_stages_and_writes_nothing_else; should also cover AC-5 retrieval clause (decision get after confirm).
+- minor / missing-test — J-vs-confirmed guard exercised only via identical-sig re-confirm; no distinct candidate with J>=0.7 test.
+- minor / process — files_touched lists src/ops/mod.rs, untouched this phase (phase 3 leftover). Reported, not fixed (write mandate: review_findings + updated_at only).
+
+Counts: 7 findings = 0 severe, 3 moderate, 4 minor.
+
+## 2026-09-05T05:21:09Z — re-review: phase 5 of spec 0002-schema-formation (retry 1 resolution check)
+
+- MOD-1 resolved-verified: rel.rs:170-177 adds `code` to member_of domain; member_of_spec_and_normalization (rel.rs:329-349) asserts the six-type domain; spec ontology line amended with dogfood rationale.
+- MOD-2 resolved-verified: scan_after_confirm_excludes_confirmed_candidate_but_keeps_members (confirm.rs:685-714) - consumed sig does not re-stage; evolved cluster restages as decision:1,2,3,schema:1 at stability 1, matching the implemented semantics.
+- MOD-3 resolved-verified: parse_tags unified at src/models.rs:181-193 (JSON-first, comma fallback documented + unit-tested); rebuild.rs:117/525 rewired; confirm.rs:338 consumes; both private copies deleted. Comma fallback now feeds detection clustering too - deliberate alignment.
+- MOD-4 claim imprecise but substance delivered: "schema_assimilates_new_item (confirm.rs:717-746)" does not exist under that name anywhere; lines 717-746 are the distinct-J rejection test. The assimilation mechanism IS pinned, under two other names (scan_after_confirm... + distinct_candidate...). Resolved on substance.
+- MIN-4 distinct-J: resolved-verified via distinct_candidate_with_overlapping_members_is_rejected (confirm.rs:716-752), J=3/4=0.75 >= 0.7; candidate-side schema-key filter (confirm.rs:372-377) is load-bearing in the test (without it J=0.6, duplicate promotes).
+- MIN-6 files_touched: resolved-verified, now accurate (7 real files, src/ops/mod.rs removed).
+- REMAINING: phase 5 spec_deviations still null (confirm-as-promoter / no---apply unrecorded); REMAINING: no binary-level CLI confirm test (tests/cli.rs untouched).
+- NEW minor / documentation: confirm.rs:16-21 module doc claims scan skips J-matching confirmed clusters ("neither re-stages nor double-promotes") - false: scan never consults confirmed_schemas (sole call site confirm.rs:378) and the phase's own test proves the J-match restages under a new sig. Covenant lives entirely in confirm's J-guard; fix the comment.
+
+Asymmetry note for future phases: the stored-vs-candidate overlap guard compares candidate members against stored sets reconstructed from member_of edges. Today stored sets are knowledge-only in every reachable path (confirm only writes edges for the confirmed candidate's members), so the candidate-side filter alone is correct. The ontology now permits schema->schema member_of (nested schemas): if a future phase ever writes such edges, stored sets gain schema keys and comparisons become asymmetric - dilution errs toward ALLOWING near-duplicates. If nested schemas land, confirmed_schemas should filter schema-source edges to restore symmetry.
+
+Verification: cargo fmt clean, clippy --all-targets 0 warnings, 145 passed / 0 failed.
+
+Counts: 8 findings = 0 severe, 3 moderate (all resolved-verified), 5 minor (2 resolved-verified, 2 remaining, 1 new noted).

@@ -5,6 +5,7 @@
 //! command handlers. `src/ops/schemas/` stays the home for staging,
 //! apply, and the later list/show/refine surface.
 
+pub mod confirm;
 pub mod scan;
 
 use anyhow::Result;
@@ -16,5 +17,6 @@ use crate::cli::SchemaCmd;
 pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
     match cmd {
         SchemaCmd::Scan => scan::scan(conn),
+        SchemaCmd::Confirm { target, name } => confirm::confirm(conn, &target, name.as_deref()),
     }
 }

@@ -173,6 +173,7 @@ const RELS: &[RelSpec] = &[
             "system_pattern",
             "custom_data",
             "schema",
+            "code",
         ],
         range: &["schema"],
         same_type: false,
@@ -337,7 +338,8 @@ mod tests {
                 "progress_entry",
                 "system_pattern",
                 "custom_data",
-                "schema"
+                "schema",
+                "code"
             ]
         );
         assert_eq!(spec.range, ["schema"]);

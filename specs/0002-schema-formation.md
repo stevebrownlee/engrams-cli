@@ -185,7 +185,7 @@ CREATE INDEX idx_retrieval_surfaces_node ON retrieval_surfaces(node_kind, node_i
 
 - `schemas` mirrors the v0.10/v0.11 entity columns so scoring, decay, and prune reuse them as-is.
 - FTS index over `schemas(name, summary)` follows the existing FTS5 trigger pattern.
-- `member_of` joins the relationship ontology (`src/ops/graph/rel.rs`): any entity type — `decision`, `progress-entry`, `system-pattern`, `custom-data`, `schema` — to `schema`, many-to-many, stored as rows in the existing links machinery.
+- `member_of` joins the relationship ontology (`src/ops/graph/rel.rs`): any entity type — `decision`, `progress-entry`, `system-pattern`, `custom-data`, `schema`, `code` — to `schema`, many-to-many, stored as rows in the existing links machinery. The `code` domain extension is dogfood-forced: the live graph's strongest clusters are code-anchored (spec's own AC-1 matches cite `code` members at density 1.0).
 - `schema_suggestions` persists every fired suggestion and its resolution — the calibration corpus v0.14's decline-rate adaptation consumes. Day-one recording mirrors the co-retrieval count-ramp logic: adaptation lands with history instead of starting cold.
 
 ## API surface
@@ -212,7 +212,7 @@ Internal:
 - `src/ops/graph/rel.rs` — relationship ontology; `member_of` registration
 - `src/ops/scoring.rs` — blended scoring, confidence multiplication, reinforce-on-read
 - `src/ops/consolidate.rs` — precedent for mechanical drafts (slug, collision-free names)
-- `src/schema.rs` — migration to schema version 8
+- `src/schema.rs` — migration to schema version 12 (`MIGRATION_V12`; v8–v11 shipped with v0.12.0)
 - `tests/memory.rs` — S-numbered BDD precedent for the new suite
 
 External:

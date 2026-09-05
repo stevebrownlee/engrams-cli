@@ -10,12 +10,13 @@
 //! the upsert so a row's own refreshed stability counts toward readiness.
 
 use anyhow::Result;
-use chrono::SecondsFormat;
-use chrono::Utc;
+use chrono::{SecondsFormat, Utc};
 use rusqlite::Connection;
 use serde_json::json;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+#[cfg(test)]
+use std::fmt::Write as _;
 
 use super::super::graph::louvain::{self, OverlayWeights};
 use super::super::graph::model::NodeKey;
@@ -24,11 +25,11 @@ use super::super::graph::model::NodeKey;
 /// constants owned by the phase-8 dogfood gate; the reward floor of zero
 /// exists because `retrieval_surfaces` ships empty and any higher floor
 /// would block all formation until telemetry exists.
-const DENSITY_GATE: f64 = 0.5;
-const STABILITY_GATE: i64 = 3;
-const REWARD_GATE: i64 = 0;
+pub(super) const DENSITY_GATE: f64 = 0.5;
+pub(super) const STABILITY_GATE: i64 = 3;
+pub(super) const REWARD_GATE: i64 = 0;
 /// Jaccard threshold above which a cluster and a staged row share identity.
-const JACCARD_IDENTITY: f64 = 0.7;
+pub(super) const JACCARD_IDENTITY: f64 = 0.7;
 
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
@@ -52,7 +53,7 @@ fn signature(members: &[String]) -> String {
 }
 
 /// Jaccard similarity of two sorted member sets.
-fn jaccard(a: &[String], b: &[String]) -> f64 {
+pub(super) fn jaccard(a: &[String], b: &[String]) -> f64 {
     let inter = a.iter().filter(|m| b.contains(m)).count();
     let union = a.len() + b.len() - inter;
     if union == 0 {
@@ -283,10 +284,70 @@ pub fn scan(conn: &Connection) -> Result<serde_json::Value> {
 }
 
 #[cfg(test)]
+/// Full-content snapshot of every user table (all of them, including
+/// FTS shadow tables, enumerated from sqlite_master): rows rendered to
+/// strings in rowid order. The write-audit asserts these are identical
+/// before and after a scan for every table except schema_candidates.
+fn snapshot(conn: &Connection) -> Vec<(String, Vec<String>)> {
+    let tables: Vec<String> = conn
+        .prepare(
+            "SELECT name FROM sqlite_master \
+                 WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        )
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    tables
+        .into_iter()
+        .map(|t| {
+            // WITHOUT ROWID tables (FTS5 `%_config`, `%_idx` shadows)
+            // have no rowid to order by; natural scan order is their
+            // b-tree key order, which is deterministic for a fixed state.
+            let has_rowid = conn
+                .prepare(&format!("SELECT rowid FROM \"{t}\" LIMIT 0"))
+                .is_ok();
+            let mut stmt = conn
+                .prepare(&format!(
+                    "SELECT * FROM \"{t}\"{}",
+                    if has_rowid { " ORDER BY rowid" } else { "" }
+                ))
+                .unwrap();
+            let ncols = stmt.column_count();
+            let rows: Vec<String> = stmt
+                .query_map([], |row| {
+                    let mut parts = Vec::with_capacity(ncols);
+                    for i in 0..ncols {
+                        parts.push(match row.get_ref(i)? {
+                            rusqlite::types::ValueRef::Null => "null".to_string(),
+                            rusqlite::types::ValueRef::Integer(v) => v.to_string(),
+                            rusqlite::types::ValueRef::Real(v) => v.to_string(),
+                            rusqlite::types::ValueRef::Text(v) => {
+                                String::from_utf8_lossy(v).into_owned()
+                            }
+                            rusqlite::types::ValueRef::Blob(v) => {
+                                let mut hex = String::with_capacity(v.len() * 2);
+                                for b in v {
+                                    let _ = write!(hex, "{b:02x}");
+                                }
+                                hex
+                            }
+                        });
+                    }
+                    Ok(parts.join("\u{1f}"))
+                })
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .unwrap();
+            (t, rows)
+        })
+        .collect()
+}
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::schema::SCHEMA;
-    use std::fmt::Write as _;
 
     fn mem_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
@@ -439,67 +500,6 @@ mod tests {
         assert_eq!(gates["stability"]["value"], 1);
         assert_eq!(gates["stability"]["threshold"], STABILITY_GATE);
         assert_eq!(gates["reward"]["pass"], true);
-    }
-
-    /// Full-content snapshot of every user table (all of them, including
-    /// FTS shadow tables, enumerated from sqlite_master): rows rendered to
-    /// strings in rowid order. The write-audit asserts these are identical
-    /// before and after a scan for every table except schema_candidates.
-    fn snapshot(conn: &Connection) -> Vec<(String, Vec<String>)> {
-        let tables: Vec<String> = conn
-            .prepare(
-                "SELECT name FROM sqlite_master \
-                 WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-            )
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .map(|r| r.unwrap())
-            .collect();
-        tables
-            .into_iter()
-            .map(|t| {
-                // WITHOUT ROWID tables (FTS5 `%_config`, `%_idx` shadows)
-                // have no rowid to order by; natural scan order is their
-                // b-tree key order, which is deterministic for a fixed state.
-                let has_rowid = conn
-                    .prepare(&format!("SELECT rowid FROM \"{t}\" LIMIT 0"))
-                    .is_ok();
-                let mut stmt = conn
-                    .prepare(&format!(
-                        "SELECT * FROM \"{t}\"{}",
-                        if has_rowid { " ORDER BY rowid" } else { "" }
-                    ))
-                    .unwrap();
-                let ncols = stmt.column_count();
-                let rows: Vec<String> = stmt
-                    .query_map([], |row| {
-                        let mut parts = Vec::with_capacity(ncols);
-                        for i in 0..ncols {
-                            parts.push(match row.get_ref(i)? {
-                                rusqlite::types::ValueRef::Null => "null".to_string(),
-                                rusqlite::types::ValueRef::Integer(v) => v.to_string(),
-                                rusqlite::types::ValueRef::Real(v) => v.to_string(),
-                                rusqlite::types::ValueRef::Text(v) => {
-                                    String::from_utf8_lossy(v).into_owned()
-                                }
-                                rusqlite::types::ValueRef::Blob(v) => {
-                                    let mut hex = String::with_capacity(v.len() * 2);
-                                    for b in v {
-                                        let _ = write!(hex, "{b:02x}");
-                                    }
-                                    hex
-                                }
-                            });
-                        }
-                        Ok(parts.join("\u{1f}"))
-                    })
-                    .unwrap()
-                    .collect::<rusqlite::Result<Vec<_>>>()
-                    .unwrap();
-                (t, rows)
-            })
-            .collect()
     }
 
     #[test]

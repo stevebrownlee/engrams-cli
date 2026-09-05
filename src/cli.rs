@@ -401,6 +401,14 @@ pub enum GraphCmd {
 pub enum SchemaCmd {
     /// Run detection and staging upsert; report candidates with gate detail
     Scan,
+    /// Promote a passing candidate into a confirmed schema
+    Confirm {
+        /// Candidate id or unique signature prefix (`decision:1,dec…`)
+        target: String,
+        /// Schema name (defaults to the drafted lexical-centroid name)
+        #[arg(long)]
+        name: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
