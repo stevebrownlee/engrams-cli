@@ -23,6 +23,7 @@ pub mod prune;
 pub mod query;
 pub mod report;
 pub mod rules;
+pub mod schemas;
 pub mod scoring;
 pub mod session;
 pub mod status;
@@ -113,7 +114,7 @@ pub fn dispatch(
         } => prime::handle(conn, budget, paths, tags),
         Command::Doctor => doctor::handle(conn, db_path),
         Command::Graph { cmd } => graph::handle(conn, cmd, db_path),
-        Command::Instructions => unreachable!("handled in main before dispatch"),
+        Command::Schema { cmd } => schemas::handle(conn, cmd),
         Command::Query {
             query,
             types,
@@ -131,6 +132,7 @@ pub fn dispatch(
         } => usage::handle(conn, since, daily, misses),
         Command::Coverage { paths, diff } => coverage::handle(conn, paths, diff),
         Command::Session { cmd } => session::handle(conn, cmd),
+        Command::Instructions => unreachable!("handled in main before dispatch"),
     }
 }
 /// Split an identifier into word parts at identifier boundaries:

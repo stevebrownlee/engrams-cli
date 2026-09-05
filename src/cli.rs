@@ -145,6 +145,12 @@ pub enum Command {
         cmd: GraphCmd,
     },
 
+    /// Form and manage schemas (concepts over knowledge items)
+    Schema {
+        #[command(subcommand)]
+        cmd: SchemaCmd,
+    },
+
     /// Print onboarding instructions for LLM agents
     Instructions,
 
@@ -389,6 +395,12 @@ pub enum GraphCmd {
         #[arg(long)]
         down: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SchemaCmd {
+    /// Run detection and staging upsert; report candidates with gate detail
+    Scan,
 }
 
 #[derive(Subcommand, Debug)]

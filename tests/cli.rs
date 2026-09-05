@@ -2171,6 +2171,92 @@ fn test_migration_v11_to_v12() {
         .unwrap();
     assert_eq!(summary, "v11 decision");
 }
+
+#[test]
+fn test_schema_scan_stages_and_writes_nothing_else() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Seed a dense triangle through the CLI: three decisions anchored to one
+    // path and fully linked, so detection has a real cluster to find.
+    for summary in [
+        "Schema formation detection alpha",
+        "Schema formation detection beta",
+        "Schema formation detection gamma",
+    ] {
+        engrams(&db)
+            .args(["decision", "log", "--summary", summary, "--force"])
+            .assert()
+            .success();
+    }
+    // Anchor and link fixture rows go in by SQL: `anchor add` also
+    // materializes a code node plus derived anchored_to edges (pre-existing
+    // enrichment), which would join a fourth member to the cluster. The
+    // fixture under test is exactly the decision triangle.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        for id in 1..=3 {
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES ('decision', ?1, 'src/det.rs', '2026-01-01T00:00:00Z')",
+                rusqlite::params![id],
+            )
+            .unwrap();
+        }
+        for (a, b) in [(1, 2), (2, 3), (1, 3)] {
+            conn.execute(
+                "INSERT INTO context_links (source_item_type, source_item_id, \
+                 target_item_type, target_item_id, relationship_type, timestamp, origin) \
+                 VALUES ('decision', ?1, 'decision', ?2, 'relates_to', \
+                 '2026-01-01T00:00:00Z', 'manual')",
+                rusqlite::params![a, b],
+            )
+            .unwrap();
+        }
+    }
+
+    // Repeated scans surface one candidate with stable identity; stability
+    // advances per sighting and the gates only pass on the third.
+    let mut sigs = Vec::new();
+    for expected_stability in [1, 2, 3] {
+        let out = engrams(&db).args(["schema", "scan"]).output().unwrap();
+        assert!(out.status.success());
+        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let candidates = json["candidates"].as_array().unwrap();
+        assert_eq!(candidates.len(), 1, "expected one candidate: {json}");
+        let c = &candidates[0];
+        assert_eq!(c["member_count"], 3);
+        assert_eq!(c["stability_count"], expected_stability);
+        assert_eq!(c["gates_pass"], expected_stability == 3);
+        sigs.push(c["cluster_sig"].as_str().unwrap().to_string());
+    }
+    assert!(sigs.iter().all(|s| s == &sigs[0]), "sigs drifted: {sigs:?}");
+
+    // Scan wrote only schema_candidates: the seeded rows are all there is.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let counts: Vec<(String, i64)> = [
+            ("schema_candidates", 1),
+            ("decisions", 3),
+            ("context_links", 3),
+            ("item_anchors", 3),
+        ]
+        .into_iter()
+        .map(|(t, want)| {
+            let n: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {t}"), [], |r| r.get(0))
+                .unwrap();
+            (t.to_string(), n - want)
+        })
+        .collect();
+        assert!(
+            counts.iter().all(|(_, delta)| *delta == 0),
+            "unexpected row deltas: {counts:?}"
+        );
+    }
+}
 #[test]
 fn test_graph_densification_from_anchors() {
     let temp = TempDir::new().unwrap();

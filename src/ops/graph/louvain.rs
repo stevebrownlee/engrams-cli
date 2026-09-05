@@ -8,8 +8,6 @@
 //! fixed, tie-breaks go to the smallest community id, and no wall-clock, RNG,
 //! or hash-map iteration order influences any output.
 
-#![allow(dead_code)] // Engine seam: `engrams schema scan` (phase 3) is the caller; remove this then.
-
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 
@@ -62,7 +60,6 @@ pub fn co_weight(count: usize) -> f64 {
 /// duplicates and no zero-weight entries.
 pub struct UnionGraph {
     pub nodes: Vec<NodeKey>,
-    pub index: HashMap<NodeKey, usize>,
     pub adj: Vec<Vec<(usize, f64)>>,
 }
 
@@ -73,11 +70,6 @@ impl UnionGraph {
     pub fn build(mut nodes: Vec<NodeKey>, pairs: BTreeMap<(usize, usize), f64>) -> UnionGraph {
         nodes.sort();
         nodes.dedup();
-        let index: HashMap<NodeKey, usize> = nodes
-            .iter()
-            .enumerate()
-            .map(|(i, k)| (k.clone(), i))
-            .collect();
         let mut adj = vec![Vec::new(); nodes.len()];
         for ((a, b), w) in pairs {
             if w <= 0.0 || a >= nodes.len() || b >= nodes.len() || a == b {
@@ -89,7 +81,7 @@ impl UnionGraph {
         for nbrs in &mut adj {
             nbrs.sort_by_key(|(i, _)| *i);
         }
-        UnionGraph { nodes, index, adj }
+        UnionGraph { nodes, adj }
     }
 }
 
@@ -534,6 +526,12 @@ mod tests {
         ("decision".to_string(), id.to_string())
     }
 
+    /// Union position of a node key: `nodes` is sorted, so binary search is
+    /// exact.
+    fn gpos(g: &UnionGraph, key: &NodeKey) -> usize {
+        g.nodes.binary_search(key).unwrap()
+    }
+
     /// Clique on `ids` with unit weights plus optional weak bridge edge.
     fn two_cluster_graph() -> UnionGraph {
         let nodes: Vec<NodeKey> = (1..=8).map(dkey).collect();
@@ -585,11 +583,11 @@ mod tests {
 
         let base = load(&conn).unwrap();
         let g = union_graph(&conn, &base, &OverlayWeights::default()).unwrap();
-        let i1 = g.index[&dkey(1)];
-        let i2 = g.index[&dkey(2)];
-        let ip = g.index[&("progress_entry".to_string(), "1".to_string())];
         // declared 0.5 + co-commit 0.2 + co-anchor 0.2 + co-retrieval 0.2
         let expected = 0.5 + 3.0 * co_weight(1);
+        let i1 = gpos(&g, &dkey(1));
+        let i2 = gpos(&g, &dkey(2));
+        let ip = gpos(&g, &("progress_entry".to_string(), "1".to_string()));
         assert!((pair_strength(&g, i1, i2) - expected).abs() < 1e-9);
         // progress entry shares only the commit: co-commit alone.
         assert!((pair_strength(&g, i1, ip) - co_weight(1)).abs() < 1e-9);
@@ -603,8 +601,8 @@ mod tests {
         add_declared(&conn, 1, 2, 1.0);
         let base = load(&conn).unwrap();
         let g = union_graph(&conn, &base, &OverlayWeights::default()).unwrap();
-        let i1 = g.index[&dkey(1)];
-        let i2 = g.index[&dkey(2)];
+        let i1 = gpos(&g, &dkey(1));
+        let i2 = gpos(&g, &dkey(2));
         assert_eq!(pair_strength(&g, i1, i2), 1.0);
         // No overlay endpoints or phantom edges beyond the declared one.
         let edge_count: usize = g.adj.iter().map(|n| n.len()).sum();
@@ -627,8 +625,8 @@ mod tests {
         }
         let base = load(&conn).unwrap();
         let g = union_graph(&conn, &base, &OverlayWeights::default()).unwrap();
-        let i1 = g.index[&dkey(1)];
-        let i2 = g.index[&dkey(2)];
+        let i1 = gpos(&g, &dkey(1));
+        let i2 = gpos(&g, &dkey(2));
         assert!((pair_strength(&g, i1, i2) - co_weight(3)).abs() < 1e-9);
     }
 
@@ -675,7 +673,7 @@ mod tests {
         let base = load(&conn).unwrap();
         let g = union_graph(&conn, &base, &OverlayWeights::default()).unwrap();
         let key = |kind: &str, id: &str| (kind.to_string(), id.to_string());
-        let strength = |a: &NodeKey, b: &NodeKey| pair_strength(&g, g.index[a], g.index[b]);
+        let strength = |a: &NodeKey, b: &NodeKey| pair_strength(&g, gpos(&g, a), gpos(&g, b));
         // The true endpoint pairs carry the declared weights.
         assert!((strength(&key("decision", "1"), &key("system_pattern", "1")) - 1.0).abs() < 1e-9);
         assert!((strength(&key("decision", "2"), &key("custom_data", "1")) - 1.0).abs() < 1e-9);
@@ -708,7 +706,9 @@ mod tests {
         let base = load(&conn).unwrap();
         let g = union_graph(&conn, &base, &OverlayWeights::default()).unwrap();
         let expected = 1.0 + co_weight(1);
-        assert!((pair_strength(&g, g.index[&dkey(1)], g.index[&dkey(2)]) - expected).abs() < 1e-9);
+        assert!(
+            (pair_strength(&g, gpos(&g, &dkey(1)), gpos(&g, &dkey(2))) - expected).abs() < 1e-9
+        );
         assert!(!g
             .nodes
             .contains(&("decision".to_string(), "99".to_string())));

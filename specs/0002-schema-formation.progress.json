@@ -4,10 +4,10 @@
   "spec_name": "schema-formation",
   "spec_path": "specs/0002-schema-formation.md",
   "created_at": "2026-09-05T01:55:00Z",
-  "updated_at": "2026-09-05T03:12:00Z",
+  "updated_at": "2026-09-05T04:22:00Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 2,
+  "current_phase": 3,
   "phases": [
     {
       "id": 1,
@@ -144,7 +144,7 @@
       "id": 3,
       "title": "Add staging, gates, and schema scan command",
       "type": "standard",
-      "status": "pending",
+      "status": "reviewing",
       "depends_on": [
         2
       ],
@@ -163,12 +163,76 @@
         "cargo clippy --all-targets",
         "cargo test schemas"
       ],
-      "files_touched": [],
-      "started_at": null,
-      "completed_at": null,
-      "retry_count": 0,
+      "files_touched": [
+        "src/ops/schemas/scan.rs",
+        "src/ops/schemas/mod.rs",
+        "src/cli.rs",
+        "src/ops/mod.rs",
+        "src/ops/graph/louvain.rs",
+        "tests/cli.rs"
+      ],
+      "started_at": "2026-09-05T03:15:00Z",
+      "completed_at": "2026-09-05T04:03:25Z",
+      "retry_count": 2,
       "blocked_reason": null,
-      "review_findings": [],
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "spec-conformance",
+          "message": "AC-3's Then clause 'below-gate candidates appear as not-ready with the failed gate named' is unmet by the output contract: each candidate carries only a gates_pass boolean plus raw metrics (density, stability_count, reward_hits); no field names the failed gate, and the thresholds are private consts (DENSITY_GATE/STABILITY_GATE/REWARD_GATE), so a consumer cannot derive which gate failed from the JSON alone.",
+          "file": "src/ops/schemas/scan.rs",
+          "line": 242,
+          "resolution": "resolved-verified: scan output now carries per-gate gates objects {value, threshold, pass} plus a failed_gates name array (scan.rs:258-275), so AC-3's 'failed gate named' is met and thresholds are no longer private-only. Retry-2 caveat closed: failed_gates contents are pinned by sparse_cluster_stages_but_fails_density_gate (scan.rs:433 asserts [\"density\",\"stability\"]) with gate value/threshold/pass pinned at scan.rs:434-441. Note: the CLI test asserts gates_pass only, not failed_gates; the JSON-shape pinning is unit-level."
+        },
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "scan_writes_only_schema_candidates hardcodes an 11-table sample, not all tables: active_contexts, active_context_history, code_nodes, product_context, product_context_history, session_closes, and all four FTS tables are unchecked. code_nodes is in scan's own read path (model::load feeds the graph), so a regression mutating it would pass. Enumerate from sqlite_master (type='table', name != 'schema_candidates') for an exhaustive, rot-proof assertion.",
+          "file": "src/ops/schemas/scan.rs",
+          "line": 407,
+          "resolution": "resolved-verified: snapshot() (scan.rs:438-493) enumerates every table from sqlite_master, renders full row content for all storage classes (blob as hex), and falls back to natural order for WITHOUT ROWID FTS5 shadows; the audit compares before/after for all tables except schema_candidates, guarded by a presence assert. cargo test schemas: 7 passed."
+        },
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "The Jaccard identity's edge paths are implemented but untested: assign()'s greedy tie-break (Jaccard desc, then cluster member set asc, then stored sig asc), the one-row-one-cluster constraint (second cluster matching a taken row must insert a fresh row), and upsert's drift-removed path all lack tests. A future assign() refactor could break determinism or winner selection and every existing test would stay green. The implementation itself is correct and deterministic on read.",
+          "file": "src/ops/schemas/scan.rs",
+          "line": 132,
+          "resolution": "resolved-verified: assign_prefers_higher_jaccard_order_independently (higher-J row wins in both stored orders), assign_is_one_to_one_when_two_clusters_match_one_row (exact-J cluster wins, loser stages fresh, both orders), and upsert_records_removed_drift_against_previous_members (drift-removed asserted against the persisted row: sig refreshed, drift 1/1, stability 2->3) cover the requested cases. Retry-2 residual closed: assign_tiebreaks_equal_jaccard_distinct_clusters_by_member_set (scan.rs:608-626) constructs genuinely J-equal distinct sets (both 5/6 vs the row, verified by intersection/union math) and asserts the lexicographically smaller member set wins in both caller orders; comparator level 2 is clusters[a].cmp(&clusters[b]) (scan.rs:145), matching the test. cargo test schemas: 9 passed."
+        },
+        {
+          "severity": "minor",
+          "category": "missing-test",
+          "message": "No CLI-level test invokes 'engrams schema scan' \u2014 all 4 tests call scan(&conn) directly, so arg parsing, dispatch wiring (Command::Schema -> schemas::handle), and JSON serialization of the command output are unexercised; tests/cli.rs precedent covers every other command family at the binary level.",
+          "file": "src/ops/schemas/scan.rs",
+          "line": 215,
+          "resolution": "resolved-verified: test_schema_scan_stages_and_writes_nothing_else (tests/cli.rs:2176) drives the real binary (assert_cmd, stdout parsed as JSON), seeds a dense triangle via CLI + SQL fixture, asserts one candidate, stability 1->2->3 with gates_pass flipping only on the third sighting, stable cluster_sig across scans, and a write audit asserting zero row deltas outside schema_candidates. Quality notes: the CLI-level write audit is a 4-table delta count (schema_candidates/decisions/context_links/item_anchors), not the exhaustive snapshot - exhaustiveness remains in the unit-level scan_writes_only_schema_candidates; and the gates flip is asserted from gates_pass, not the failed_gates array (unit-level failed_gates pinning covers the shape). Fixture seeding anchors by SQL with a documented reason (anchor add would materialize code nodes and join a fourth member). Test run and passed."
+        },
+        {
+          "severity": "minor",
+          "category": "robustness",
+          "message": "Staging upserts run outside a transaction: a mid-scan failure leaves earlier rows advanced and later rows not, and the next scan advances the advanced rows again, inflating their stability_count by one sighting. Repo precedent (import.rs) wraps multi-row writes in a transaction; one unchecked_transaction around the upsert loop fixes it.",
+          "file": "src/ops/schemas/scan.rs",
+          "line": 227,
+          "resolution": "resolved-verified: one unchecked_transaction wraps the whole upsert loop with commit after (scan.rs:231-279); any upsert error propagates via ? and drops the tx, rolling back all staged rows."
+        },
+        {
+          "severity": "minor",
+          "category": "process",
+          "message": "spec_deviations is null for phase 3: the orchestrator-approved removal of UnionGraph.index (HashMap lookup replaced by binary search over the sorted nodes slice, tests migrated to a gpos helper) is a structural deviation from the phase-2-era detection design and must be recorded here with status approved-by-orchestrator, as was done for the detect.rs path deviation in phase 2.",
+          "file": "src/ops/graph/louvain.rs",
+          "line": 61,
+          "resolution": "remaining: spec_deviations still null for phase 3 after retry 2 (re-verified via jq); the approved UnionGraph.index removal remains unrecorded. Not claimed fixed by the implementer this retry."
+        },
+        {
+          "severity": "minor",
+          "category": "convention",
+          "message": "Retry 1 introduced clippy noise where the phase was previously clean: unused 'use std::fmt::Write as _;' in production scope (scan.rs:14, the only write! call lives in the test module, which gets the trait via use super::*), and three clippy::cloned_ref_to_slice_refs suggestions in the new tests (scan.rs:540, 541, 554). cargo clippy --all-targets now reports 1 warning on the bin and 3 on the test build.",
+          "file": "src/ops/schemas/scan.rs",
+          "line": 14,
+          "resolution": "resolved-verified: cargo clippy --all-targets reports 0 warnings after retry 2 (re-run this re-review; was 1 bin + 3 test warnings)."
+        }
+      ],
       "commit_sha": null
     },
     {

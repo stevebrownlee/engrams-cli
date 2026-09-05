@@ -31,3 +31,39 @@ Notes: all 13 inline tests pass (cargo test --bins louvain); test quality is beh
 - minor / spec-conformance — REMAINING: no spec_deviations field in phase 2, spec unamended; claimed recording not in tree.
 
 Notes: run was `cargo test --bins louvain` (15 passed, was 13; +2 regressions). The two remaining items are progress.json/spec bookkeeping edits, not code — Main's relayed claim that they were done contradicts verified repo state (grep + jq + git log all agree).
+
+## 2026-09-05T03:28:12Z — phase 3 of spec 0002-schema-formation (staging, gates, scan command)
+
+- moderate / spec-conformance — AC-3 "failed gate named" unmet: candidate output has only gates_pass bool + raw metrics; thresholds are private consts so consumers can't name the failed gate (src/ops/schemas/scan.rs:242)
+- moderate / missing-test — scan_writes_only_schema_candidates enumerates 11 of 18 tables; omits code_nodes (in scan's own read path), active_contexts(+history), product_context(+history), session_closes, all FTS tables; sqlite_master enumeration would be exhaustive (src/ops/schemas/scan.rs:407)
+- moderate / missing-test — assign() tie-break (Jaccard desc → cluster members asc → stored sig asc), one-to-one constraint, and drift-removed path implemented but untested; refactor could silently break identity selection (src/ops/schemas/scan.rs:132)
+- minor / missing-test — no CLI-level test of `engrams schema scan` (parse→dispatch→print glue unexercised; cli.rs precedent covers other families at binary level) (src/ops/schemas/scan.rs:215)
+- minor / robustness — staging upserts not in a transaction; mid-scan crash inflates stability_count of early rows on next scan; import.rs tx precedent (src/ops/schemas/scan.rs:227)
+- minor / process — phase 3 spec_deviations null; orchestrator-approved UnionGraph.index removal (binary search over sorted nodes) unrecorded (src/ops/graph/louvain.rs:61)
+
+Verified clean: writes confined to schema_candidates (full SQL audit: 2 SELECTs + UPDATE/INSERT on schema_candidates only; louvain SELECT-only); Jaccard tie-break correct and deterministic on read; post-upsert gate evaluation judged consistent with spec, not a contradiction — DDL inserts at stability_count=1 (current scan counts as a sighting) and gates_pass matches the row's stored state; flip at exactly 3 pinned by test. Drift columns match DDL semantics (last-match, skipped rows retain values). Output shape matches repo convention ({"status":"success",...}). clippy --all-targets 0 warnings after allow(dead_code) removal; cargo test schemas now matches 4 real tests (was vacuous for phase 2). Phase 2's two leftover bookkeeping minors since fixed: verification now "cargo test louvain", spec_deviations recorded, phase marked complete.
+
+## 2026-09-05T03:52:00Z — re-review: phase 3 of spec 0002-schema-formation (retry 1 resolution check)
+
+- moderate / spec-conformance — resolved-verified: per-gate gates objects {value, threshold, pass} + failed_gates array in scan output (scan.rs:258-275); AC-3 Then met. Note: no test pins failed_gates contents, only gates_pass flips.
+- moderate / missing-test — resolved-verified: snapshot() enumerates all tables from sqlite_master with full row content (blob hex) and a natural-order fallback for WITHOUT ROWID FTS5 shadows; presence assert guards schema_candidates exclusion. 7/7 tests pass.
+- moderate / missing-test — resolved-verified: all three requested cases covered (higher-J wins both orders; one-to-one with loser staging fresh, order-independent; drift-removed asserted at DB level: sig refreshed, drift 1/1, stability 2->3). Residual: equal-Jaccard comparator tie levels (members asc / sig asc) still unexercised — implementer's "exact ties" wording overstates.
+- minor / missing-test — REMAINING: no binary-level test; grep confirms no CLI invocation of schema scan anywhere; tests/cli.rs untouched this retry.
+- minor / robustness — resolved-verified: single unchecked_transaction wraps the upsert loop, commit at end, error path rolls back (scan.rs:231-279).
+- minor / process — REMAINING: phase 3 spec_deviations still null (jq-verified); approved UnionGraph.index removal unrecorded.
+- NEW minor / convention — retry introduced clippy noise (was 0-warning): unused `use std::fmt::Write as _;` in production scope (scan.rs:14; the only write! is in tests, which get the trait via use super::*), plus 3 clippy::cloned_ref_to_slice_refs in new tests (540, 541, 554).
+
+Counts: 7 findings = 0 severe, 3 moderate (all resolved), 4 minor (2 remaining, 1 resolved, 1 new). Run: cargo test schemas 7 passed; clippy --all-targets 4 warnings total (1 bin, 3 test).
+
+## 2026-09-05T04:22:00Z — re-review: phase 3 retry 2 (final scoped check)
+
+- MOD-1 caveat closed: failed_gates contents pinned at scan.rs:433 (["density","stability"]) with gate value/threshold/pass pinned 434-441. CLI test asserts gates_pass only; JSON-shape pinning is unit-level.
+- MOD-2 confirmed again: snapshot (scan.rs:448-503) is sqlite_master-driven, no hand list, FTS shadows covered incl. WITHOUT ROWID (%_config/%_idx) natural-order fallback, full row content with blob hex.
+- MOD-3 residual closed: assign_tiebreaks_equal_jaccard_distinct_clusters_by_member_set (scan.rs:608-626) — genuinely J-equal distinct sets (left={1..5}, right={2..6}, row={1..6}; both 5/6), lexicographic member-set comparator (scan.rs:145) decides, both caller orders asserted. cargo test schemas: 9 passed.
+- MIN-4 resolved-verified: test_schema_scan_stages_and_writes_nothing_else (tests/cli.rs:2176) drives the real binary, stability 1->2->3 with gates_pass flip only at 3, stable sig, zero-delta write audit (4 tables). Nuances: CLI write audit is a 4-table spot check, not exhaustive (exhaustive audit stays unit-level); gates flip via gates_pass not failed_gates; SQL-seeded anchors with documented rationale.
+- MIN-6 REMAINS: phase 3 spec_deviations still null after retry 2 (jq re-verified); not claimed fixed this round.
+- MIN-7 clippy resolved: 0 warnings verified.
+
+Fabrication incident: retry 1's MOD-4 claim (CLI test exists) was fabricated by the implementer — I verified absence that round (grep, untouched tests/cli.rs) and marked MIN-4 remaining. Retry 2 delivered the genuine test; verified in-tree, run, passed. My retry-1 record was accurate against the then-tree; Main independently confirmed the retry-1 claim was false.
+
+Counts: 7 findings = 0 severe, 3 moderate, 4 minor; 6 resolved-verified, 1 remaining (spec_deviations bookkeeping).
