@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-09-04T18:10:35Z
+created: 2026-09-05T01:49:23Z
 ---
 # Active Context
 
@@ -10,13 +10,27 @@ created: 2026-09-04T18:10:35Z
   "content": {
     "current_focus": "v0.11.0 officially released (tag v0.11.0, GitHub release created, Homebrew formula updated)",
     "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
+    "current_work": "v0.13.0 schema formation - spec 0002 complete, no open questions, ready for /spec-implement",
+    "decisions_this_session": [
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ],
     "focus": "All outstanding items implemented: batch decision nested-transaction bug fixed, tests/cli.rs clippy warnings fixed, DB hygiene cleared, Tier-3 memory quality suite (tests/memory_quality.rs) shipped. 110 tests pass across 5 suites.",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next": [
       "monitor adoption and feedback"
     ],
-    "next_steps": "v0.9.0 release complete. Consider merging harness branch to main and opening a PR.",
+    "next_steps": [
+      "run pipeline on specs/0002-schema-formation.md",
+      "phase-1 dogfood gate owns sweeping the five launch constants"
+    ],
     "notes": {
       "decisions_latest": "#50 hero title, #51 ScrollStory removal",
       "landing": "ScrollStory maturation scroll removed (not useful). Hero title: An advisor with a memory that compounds. Interactive 3D ForceGraph is the sole real-data viz. gsap dep dropped."
@@ -45,7 +59,7 @@ created: 2026-09-04T18:10:35Z
     }
   },
   "name": "default",
-  "updated_at": "2026-09-04T18:10:35Z",
-  "version": 43
+  "updated_at": "2026-09-05T01:49:23Z",
+  "version": 44
 }
 ```

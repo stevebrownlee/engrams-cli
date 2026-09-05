@@ -100,11 +100,11 @@ Schemas remain projections, never replacements: every underlying detail stays on
 
 ## Open questions
 
-- What are the promotion gate defaults — stability rebuild count, reward floor, density cutoff — and how long should dogfooding run before they are frozen?
-- How loose can the staging Jaccard threshold be before identity churn appears, and does 0.7 survive contact with the live graph?
-- Should the co-retrieval weight ramp from zero while retrieval-surfaces telemetry accumulates, and on what schedule?
-- How large is the prime schema block (top-K), and should K adapt to workspace size?
-- What token-overlap fit threshold qualifies an assimilation suggestion?
+None blocking. The five design-time questions (gate defaults, Jaccard identity
+threshold, co-retrieval ramp, prime block size, assimilation threshold) were
+resolved on 2026-09-04; their launch defaults are embedded in Architecture
+below. All remain sweep constants owned by the phase-1 dogfood gate (AC-1),
+which freezes them before phase 2 begins.
 
 ## Architecture
 
@@ -112,15 +112,15 @@ The feature lives in a new ops module `src/ops/schemas/` (`mod.rs` command handl
 
 Formation pipeline, run by `engrams schema scan`:
 
-1. **Union adjacency.** The existing in-memory graph projection (`src/ops/graph/model.rs`) contributes declared edges and anchor connections; behavioral overlays are computed at scan time — co-commit (shared commit references), co-retrieval (from `retrieval_surfaces` telemetry), and temporal proximity — each layer carrying a configurable weight.
+1. **Union adjacency.** The existing in-memory graph projection (`src/ops/graph/model.rs`) contributes declared edges and anchor connections; behavioral overlays are computed at scan time — co-commit (shared commit references), co-retrieval (from `retrieval_surfaces` telemetry, weight scaled by co-observation count through the same normalize-and-cap curve as co-commit — empty telemetry contributes zero edges by construction, so the ramp needs no schedule constant and puts no wall-clock in the deterministic scan), and temporal proximity — each layer carrying a configurable weight.
 2. **Deterministic community detection.** Hand-rolled Louvain modularity optimization with sorted node iteration and fixed pass order, over the weighted undirected adjacency. At the current scale (hundreds of nodes) this is milliseconds and roughly 150 lines.
-3. **Staging upsert.** Each cluster's member-set signature is matched against `schema_candidates` by Jaccard ≥ 0.7; matches advance stability and reward counters, misses insert fresh candidates. Staging is rebuilt state — cheap, self-healing, and carries no migration debt.
-4. **Gates.** A candidate is proposal-ready when density, stability across rebuilds, and reward hits all clear thresholds.
+3. **Staging upsert.** Each cluster's member-set signature is matched against `schema_candidates` by Jaccard ≥ 0.7; matches advance stability and reward counters, misses insert fresh candidates. Every match or miss records drift counts (members removed, members added) on the candidate, so dogfood stability resets are classified by drift type — boundary swaps, absorption growth, genuine churn — rather than guessed at. Staging is rebuilt state — cheap, self-healing, and carries no migration debt. At 0.7 the drift budgets are: additions ≤ 43% of cluster size, removals ≤ 30%, swaps ≤ ~18% per direction; growth (the dominant mode in an accumulating KB) is forgiving, boundary swaps are the fragile case.
+4. **Gates.** A candidate is proposal-ready when density, stability across rebuilds, and reward hits all clear thresholds. Launch defaults: density ≥ 0.5, stability ≥ 3, reward ≥ 0 — the zero reward floor exists because `retrieval_surfaces` ships empty and any higher floor would block all formation until telemetry exists; structure proposes first, reward takes over as telemetry accumulates.
 5. **Apply.** `--apply` creates the schema row, mechanical draft (name from dominant tag/anchor slug with collision handling, summary from centroid tags, top-central members, anchors, density — the `consolidate` precedent), and `member_of` edges through the existing links machinery.
 
-Assimilation hooks into `decision`/`pattern`/`progress` log commands: new items are matched against schema centroids lexically (token overlap plus FTS — convention-aware, no model); fit above threshold emits `schema_suggestions` in the output; `--schema <id>` attaches `member_of` at write time and bumps confirmation recency.
+Assimilation hooks into `decision`/`pattern`/`progress` log commands: new items are matched against schema centroids lexically (token overlap plus FTS — convention-aware, no model); fit ≥ 0.4 of the centroid's distinctive tokens fires a suggestion (top-2 matches, scores shown — early centroids are thin, so a stricter bar would rarely fire and would starve calibration); `--schema <id>` attaches `member_of` at write time and bumps confirmation recency. Every fired suggestion persists to `schema_suggestions` with status `suggested`; attach flips it to `accepted`; explicit `--schema none` flips it to `declined` — decline is observable only through opt-out, since a never-attached suggestion is ambiguous between declined, ignored, and session-ended, so unresolved rows stay `suggested`. The status history is the calibration corpus v0.14's decline-rate adaptation consumes.
 
-Retrieval tiering: `prime` leads with a schema block (top-K by blended score, agent-authored summaries first, drafts flagged and ranked below); `brief schema:<id>` composes summary, members by type, anchors, and schema neighborhood; `query` tries centroid match before today's FTS path, falling through unchanged on miss, with `miss_guidance` gaining schema centroids. Reinforce-on-read extends to schemas; `src/ops/scoring.rs`'s confidence multiplication applies unchanged.
+Retrieval tiering: `prime` leads with a schema block (K=3, one line each, ranked by reward hits then centrality; agent-authored summaries first, drafts flagged and ranked below); `brief schema:<id>` composes summary, members by type, anchors, and schema neighborhood; `query` tries centroid match before today's FTS path, falling through unchanged on miss, with `miss_guidance` gaining schema centroids. Reinforce-on-read extends to schemas; `src/ops/scoring.rs`'s confidence multiplication applies unchanged.
 
 Design choices:
 
@@ -158,6 +158,8 @@ CREATE TABLE schema_candidates (          -- staging; rebuilt by each scan
   density           REAL NOT NULL,
   stability_count   INTEGER NOT NULL DEFAULT 1,
   reward_hits       INTEGER NOT NULL DEFAULT 0,
+  last_drift_removed INTEGER NOT NULL DEFAULT 0, -- last match: members departed
+  last_drift_added   INTEGER NOT NULL DEFAULT 0, -- last match: members arrived
   first_seen_at     TEXT NOT NULL,
   last_seen_at      TEXT NOT NULL
 );
@@ -169,12 +171,22 @@ CREATE TABLE retrieval_surfaces (         -- telemetry; rolling-window pruned
   node_kind  TEXT NOT NULL,
   node_id    INTEGER NOT NULL
 );
+CREATE TABLE schema_suggestions (        -- fired-suggestion history; v0.14 calibration
+  ts         TEXT NOT NULL,
+  schema_id  INTEGER NOT NULL,
+  item_kind  TEXT NOT NULL,              -- 'decision' | 'pattern' | 'progress-entry'
+  item_id    INTEGER NOT NULL,
+  fit        REAL NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'suggested',  -- 'suggested'|'accepted'|'declined'
+  PRIMARY KEY (schema_id, item_kind, item_id)
+);
 CREATE INDEX idx_retrieval_surfaces_node ON retrieval_surfaces(node_kind, node_id, ts);
 ```
 
 - `schemas` mirrors the v0.10/v0.11 entity columns so scoring, decay, and prune reuse them as-is.
 - FTS index over `schemas(name, summary)` follows the existing FTS5 trigger pattern.
 - `member_of` joins the relationship ontology (`src/ops/graph/rel.rs`): any entity type — `decision`, `progress-entry`, `system-pattern`, `custom-data`, `schema` — to `schema`, many-to-many, stored as rows in the existing links machinery.
+- `schema_suggestions` persists every fired suggestion and its resolution — the calibration corpus v0.14's decline-rate adaptation consumes. Day-one recording mirrors the co-retrieval count-ramp logic: adaptation lands with history instead of starting cold.
 
 ## API surface
 
@@ -185,7 +197,7 @@ All output is JSON, per repo invariant.
 - `engrams schema show <id|name>` — summary, members grouped by type, anchors, schema neighborhood.
 - `engrams schema refine --id <n> --summary "..." [--name "..."]` — agent-authored update; sets `summary_source='agent'`.
 - `engrams schema confirm <id>` — bump `last_confirmed_at`.
-- `engrams decision|pattern|progress log ... [--schema <id>]` — output gains `schema_suggestions: [{id, name, fit}]` above threshold; `--schema` attaches `member_of` at write time.
+- `engrams decision|pattern|progress log ... [--schema <id>|none]` — output gains `schema_suggestions: [{id, name, fit}]` above threshold; `--schema <id>` attaches `member_of` at write time and marks the matching suggestion row accepted; `--schema none` marks fired suggestions declined.
 - `engrams prime` — gains a leading schema block (top-K blended score, agent-authored first, drafts flagged).
 - `engrams brief schema:<id>` and topic matches — schema composite read.
 - `engrams query <q>` — centroid-match tier before the existing FTS path; unchanged fall-through on miss; `miss_guidance` includes schema centroids.
