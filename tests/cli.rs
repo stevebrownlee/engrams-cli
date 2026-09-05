@@ -2399,6 +2399,77 @@ fn test_schema_list_show_refine_and_confirm_bump() {
         "unexpected error body: {json}"
     );
 }
+
+#[test]
+fn test_engrams_db_env_override() {
+    let temp = TempDir::new().unwrap();
+    let env_db = temp.path().join("env.db");
+    // A fake workspace: cwd discovery would target this DB, so any write
+    // landing here means the override was ignored.
+    let ws = TempDir::new().unwrap();
+    std::fs::create_dir_all(ws.path().join(".engrams")).unwrap();
+
+    // Precedence: --db beats ENGRAMS_DB. The --db path is created; the env
+    // path is not.
+    let flag_db = temp.path().join("flag.db");
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .arg("--db")
+        .arg(&flag_db)
+        .arg("init")
+        .assert()
+        .success();
+    assert!(flag_db.exists(), "--db must win over ENGRAMS_DB");
+    assert!(
+        !env_db.exists(),
+        "ENGRAMS_DB must not be used when --db is set"
+    );
+
+    // ENGRAMS_DB beats workspace/CWD discovery, and a nonexistent env path
+    // is created on first use exactly like --db.
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .current_dir(ws.path())
+        .arg("init")
+        .assert()
+        .success();
+    assert!(env_db.exists(), "ENGRAMS_DB must receive the writes");
+    assert!(
+        !ws.path().join("engrams").join("context.db").exists(),
+        "the discovered workspace DB must be untouched while ENGRAMS_DB is set"
+    );
+
+    // The override is real routing, not just file creation: a write through
+    // ENGRAMS_DB is readable through it.
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .current_dir(ws.path())
+        .args(["decision", "log", "--summary", "env routed", "--force"])
+        .assert()
+        .success();
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .current_dir(ws.path())
+        .args(["decision", "list"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let summaries: Vec<&str> = body
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|d| d["summary"].as_str())
+        .collect();
+    assert!(
+        summaries.contains(&"env routed"),
+        "decision must land in the ENGRAMS_DB database: {summaries:?}"
+    );
+}
 #[test]
 fn test_graph_densification_from_anchors() {
     let temp = TempDir::new().unwrap();

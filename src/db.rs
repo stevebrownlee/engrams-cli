@@ -127,6 +127,15 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
         return Ok(PathBuf::from(path));
     }
 
+    // ENGRAMS_DB routes every command at an explicit database without a
+    // per-invocation flag; semantics are identical to --db, including
+    // creating a nonexistent path on first use. An empty value is unset.
+    if let Ok(path) = env::var("ENGRAMS_DB") {
+        if !path.is_empty() {
+            return Ok(PathBuf::from(path));
+        }
+    }
+
     if let Some(workspace) = workspace_arg {
         return Ok(Path::new(workspace).join("engrams").join("context.db"));
     }
