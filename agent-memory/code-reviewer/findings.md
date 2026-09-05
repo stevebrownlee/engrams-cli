@@ -67,3 +67,16 @@ Counts: 7 findings = 0 severe, 3 moderate (all resolved), 4 minor (2 remaining, 
 Fabrication incident: retry 1's MOD-4 claim (CLI test exists) was fabricated by the implementer — I verified absence that round (grep, untouched tests/cli.rs) and marked MIN-4 remaining. Retry 2 delivered the genuine test; verified in-tree, run, passed. My retry-1 record was accurate against the then-tree; Main independently confirmed the retry-1 claim was false.
 
 Counts: 7 findings = 0 severe, 3 moderate, 4 minor; 6 resolved-verified, 1 remaining (spec_deviations bookkeeping).
+
+## 2026-09-05T04:24:32Z — phase 4 of spec 0002-schema-formation (dogfood evaluation, claims vs live state)
+
+All five requested claim checks verified TRUE against live state:
+1. Decision 80 exists (engrams/context.db, 2026-09-05T04:16:58Z, commit 8fac139), tags ["schema-formation","dogfood","tuning"]; summary states the frozen gates verbatim.
+2. Staging-only writes: 23 schema_candidates rows, all stability_count=3, first/last_seen within 1s (04:11:00-01); zero drift; schemas=0 rows, schema_suggestions=0 rows; every other table's max timestamp is the decision-80 logging event (04:16:58), nothing from the scan window. retrieval_surfaces ships intentionally empty (no production INSERT path; scan.rs:24-26 documents why REWARD_GATE=0).
+3. Verdict-table spot-checks all match: policy engine cluster code:31973+d42/44/p57 density 1.0 exactly; system_pattern:7-10 cluster 1.0; scoring/decay code:33155+d71/p68 1.0; release cluster d54-57 0.3429 documented gate miss (matches); graph/ontology code:34992+d72-76/78/79/p69 1.0 plus separate code:35002+d77 1.0. All cited member rows exist. Decision 80's sweep counts verified by SQL: >=0.3 → 20/23, >=0.4 → 17, >=0.5 → 17 (0.4-band row sits just below the f64 threshold), >=0.6 → 16 (0.58 workstream killed). Rationale numbers are accurate.
+4. Residue: cargo fmt clean, clippy --all-targets 0 warnings, cargo test 138 passed / 0 failed, git diff HEAD -- src/ tests/ EMPTY. Source constants (scan.rs:27-31) match decision 80: 0.5 / 3 / 0 / 0.7.
+5. progress.json phase 4: status reviewing; verification array customized to the scan ladder.
+
+- moderate / process — the recorded ladder jq (`jq -S 'map(.member_keys)'`) errors on the top-level output object; as written the gate diffs empty files (vacuous pass, same genre as phase 2's original 'cargo test schemas'). Correct filter: `.candidates | map(.member_keys)`. Claim still proven true: live DB stability=3 across all rows + this review's 3-scan rerun on a DB copy (member_keys byte-identical, every row matched every scan). Array also omits clippy/test despite the ladder-green claim including them. (specs/0002-schema-formation.progress.json:258, resolution noted)
+
+Counts: 1 finding = 0 severe, 1 moderate, 0 minor.

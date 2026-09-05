@@ -4,7 +4,7 @@
   "spec_name": "schema-formation",
   "spec_path": "specs/0002-schema-formation.md",
   "created_at": "2026-09-05T01:55:00Z",
-  "updated_at": "2026-09-05T04:22:00Z",
+  "updated_at": "2026-09-05T04:35:00Z",
   "status": "in_progress",
   "mode": "autonomous",
   "current_phase": 3,
@@ -203,7 +203,7 @@
         {
           "severity": "minor",
           "category": "missing-test",
-          "message": "No CLI-level test invokes 'engrams schema scan' \u2014 all 4 tests call scan(&conn) directly, so arg parsing, dispatch wiring (Command::Schema -> schemas::handle), and JSON serialization of the command output are unexercised; tests/cli.rs precedent covers every other command family at the binary level.",
+          "message": "No CLI-level test invokes 'engrams schema scan' — all 4 tests call scan(&conn) directly, so arg parsing, dispatch wiring (Command::Schema -> schemas::handle), and JSON serialization of the command output are unexercised; tests/cli.rs precedent covers every other command family at the binary level.",
           "file": "src/ops/schemas/scan.rs",
           "line": 215,
           "resolution": "resolved-verified: test_schema_scan_stages_and_writes_nothing_else (tests/cli.rs:2176) drives the real binary (assert_cmd, stdout parsed as JSON), seeds a dense triangle via CLI + SQL fixture, asserts one candidate, stability 1->2->3 with gates_pass flipping only on the third sighting, stable cluster_sig across scans, and a write audit asserting zero row deltas outside schema_candidates. Quality notes: the CLI-level write audit is a 4-table delta count (schema_candidates/decisions/context_links/item_anchors), not the exhaustive snapshot - exhaustiveness remains in the unit-level scan_writes_only_schema_candidates; and the gates flip is asserted from gates_pass, not the failed_gates array (unit-level failed_gates pinning covers the shape). Fixture seeding anchors by SQL with a documented reason (anchor add would materialize code nodes and join a fourth member). Test run and passed."
@@ -245,7 +245,7 @@
       "id": 4,
       "title": "Run dogfood evaluation and freeze weights",
       "type": "standard",
-      "status": "pending",
+      "status": "reviewing",
       "depends_on": [
         3
       ],
@@ -255,16 +255,27 @@
       ],
       "verification": [
         "cargo build",
-        "./target/debug/engrams schema scan | jq -S 'map(.member_keys)' > /tmp/scan1.json",
-        "./target/debug/engrams schema scan | jq -S 'map(.member_keys)' > /tmp/scan2.json",
-        "diff /tmp/scan1.json /tmp/scan2.json"
+        "./target/debug/engrams schema scan | jq -S '.candidates | map(.member_keys)' > /tmp/scan1.json",
+        "./target/debug/engrams schema scan | jq -S '.candidates | map(.member_keys)' > /tmp/scan2.json",
+        "diff /tmp/scan1.json /tmp/scan2.json",
+        "cargo clippy --all-targets",
+        "cargo test"
       ],
       "files_touched": [],
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2026-09-05T04:20:00Z",
+      "completed_at": "2026-09-05T04:40:00Z",
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": [],
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "process",
+          "message": "The phase's recorded verification commands are broken as written: `jq -S 'map(.member_keys)'` applied to the scan output's top-level object errors (Cannot index string with member_keys), so the two redirects capture empty stdout and the diff compares empty files — the gate would pass vacuously, the same defect genre as phase 2's original 'cargo test schemas'. The correct filter is `.candidates | map(.member_keys)`. The underlying claim is nonetheless true — independently evidenced by live-DB state (all 23 candidates stability_count=3, zero drift rows, one-second scan window) and confirmed behaviorally this review: 3 scans on a DB copy produced byte-identical member_keys with every row matching every scan. Also: the array omits 'cargo clippy --all-targets' and 'cargo test' although the reported ladder-green claim includes them (both re-run this review: 0 warnings, 138 passed / 0 failed). Fix the jq filter and append the two missing commands so the record matches what was actually verified.",
+          "file": "specs/0002-schema-formation.progress.json",
+          "line": 258,
+          "resolution": "resolved-verified: verification array corrected (jq .candidates filter + clippy + test); member_keys determinism independently re-verified on a DB copy during review"
+        }
+      ],
       "commit_sha": null
     },
     {
