@@ -1,6 +1,7 @@
 //! `graph` command family: rebuild/ingest plus in-memory analytics.
 
 pub mod code;
+pub mod louvain;
 pub mod model;
 pub mod rebuild;
 pub mod rel;

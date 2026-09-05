@@ -4,10 +4,10 @@
   "spec_name": "schema-formation",
   "spec_path": "specs/0002-schema-formation.md",
   "created_at": "2026-09-05T01:55:00Z",
-  "updated_at": "2026-09-05T02:18:00Z",
+  "updated_at": "2026-09-05T03:10:00Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 1,
+  "current_phase": 2,
   "phases": [
     {
       "id": 1,
@@ -28,11 +28,16 @@
         "cargo clippy --all-targets",
         "cargo test"
       ],
-      "files_touched": ["src/schema.rs", "src/db.rs", "src/ops/graph/rel.rs", "tests/cli.rs"],
+      "files_touched": [
+        "src/schema.rs",
+        "src/db.rs",
+        "src/ops/graph/rel.rs",
+        "tests/cli.rs"
+      ],
       "started_at": "2026-09-05T01:56:00Z",
       "completed_at": "2026-09-05T02:30:00Z",
       "retry_count": 1,
-      "commit_sha": "ca2fe7d7dc5893cdc99d986dfb5395d025486afc",
+      "commit_sha": null,
       "blocked_reason": null,
       "review_findings": [
         {
@@ -51,14 +56,13 @@
           "line": 88,
           "resolution": "resolved-verified: test_migration_v11_to_v12 (tests/cli.rs:2106) rewinds a real DB to v11, migrates, asserts objects restored and seeded decision row survives; test run and passed"
         }
-      ],
-      "commit_sha": null
+      ]
     },
     {
       "id": 2,
       "title": "Implement detection core: overlays, Louvain, cluster density",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
       "depends_on": [
         1
       ],
@@ -73,15 +77,68 @@
         "cargo build",
         "cargo fmt --check",
         "cargo clippy --all-targets",
-        "cargo test schemas"
+        "cargo test louvain"
       ],
-      "files_touched": [],
-      "started_at": null,
-      "completed_at": null,
-      "retry_count": 0,
+      "files_touched": [
+        "src/ops/graph/louvain.rs",
+        "src/ops/graph/mod.rs",
+        "src/ops/graph/model.rs"
+      ],
+      "started_at": "2026-09-05T02:28:00Z",
+      "completed_at": "2026-09-05T03:07:40Z",
+      "retry_count": 1,
       "blocked_reason": null,
-      "review_findings": [],
-      "commit_sha": null
+      "review_findings": [
+        {
+          "severity": "severe",
+          "category": "correctness",
+          "message": "Declared edges are keyed by base-node insertion indices but consumed as sorted-union positions: model::load interns nodes in table order (decisions, system_patterns, progress_entries, custom_data, code_nodes, then link endpoints), union_graph sorts the key universe (louvain.rs:113-125), yet base.edges are mapped by raw e.src/e.tgt (louvain.rs:132-134). Whenever insertion order differs from sort order -- any workspace containing custom_data or code_nodes rows, or link endpoints of a kind sorting before 'decision' -- every declared edge lands on the wrong node pair (trace: nodes [d1,d2,cd1] sort to [cd1,d1,d2], so edge (0,1) attaches cd1-d1 instead of d1-d2). Overlay pairs are translated through the NodeKey index (louvain.rs:157) and are unaffected. Existing tests pass only because their decision+progress_entry universes coincide. Fix: resolve e.src/e.tgt via base.nodes through the union index before keying pairs, and add a mixed-kind regression (decision+custom_data with a declared edge, asserting pair_strength lands on the right NodeKeys).",
+          "file": "src/ops/graph/louvain.rs",
+          "line": 132,
+          "resolution": "resolved-verified: union_graph now translates both declared-edge endpoints through the NodeKey-to-union index (louvain.rs:137-146, the only raw-index consumption site); regression test declared_edges_attach_to_true_endpoints_when_orders_diverge (louvain.rs:636) builds an order-divergent universe and asserts true endpoint pairs carry the weights while raw-reuse pairs stay 0.0; test run and passed (15/15 louvain tests)"
+        },
+        {
+          "severity": "moderate",
+          "category": "correctness",
+          "message": "Collapse self-loops are pushed twice: for a==b both super_adj[a].push((b,w)) and super_adj[b].push((a,w)) execute (louvain.rs:335-338), so a community's internal mass enters k, tot, comm_w[own], and m2 at 4*W_int instead of the 2*W_int the symmetric-replication convention yields. With a single push, super-level gains would be exactly 2x node-level gains (uniform doubling, sign-preserving), i.e. the textbook two-level objective; as written the objective is distorted -- internal cohesion is overweighted, making dense communities stickier and merge decisions biased relative to the spec's 'Louvain modularity optimization' (spec line 116). Still deterministic and monotone (it is a consistent delta-Q for a fixed, well-defined super-graph), so AC-2 holds. Fix: skip the second push when a==b.",
+          "file": "src/ops/graph/louvain.rs",
+          "line": 336,
+          "resolution": "resolved-verified: super_adj now pushes once for a==b behind an `if a != b` guard with an explanatory comment (louvain.rs:348-352), yielding the textbook two-level objective; 15/15 louvain tests pass including identical_clusters_on_repeated_db_runs"
+        },
+        {
+          "severity": "minor",
+          "category": "verification",
+          "message": "Phase 2's recorded verification command 'cargo test schemas' matches zero tests anywhere in the repo (tests/schemas.rs is phase 3's suite; phase 2's tests are inline ops::graph::louvain::tests under the binary target). Verified: all targets report 0 passed with the filter, so this gate is vacuously green. Should read e.g. 'cargo test --bins louvain' (13 tests) until tests/schemas.rs exists.",
+          "file": "specs/0002-schema-formation.progress.json",
+          "line": 80,
+          "resolution": "remaining: phase 2 verification still reads 'cargo test schemas' (progress.json:80) and the filter matches zero tests across all targets (verified: every target reports 0 passed); no test name containing 'schemas' exists yet and tests/schemas.rs is phase 3's suite. Claimed fix is not in the tree. Should read 'cargo test --bins louvain' (15 tests) until then"
+        },
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "Spec Architecture names the detection core src/ops/schemas/detect.rs (spec line 111); it landed as src/ops/graph/louvain.rs with no spec amendment and no deviation note in progress.json. Placement beside model.rs is defensible, but per the v12-correction precedent the spec text should be amended (or the module relocated) so the architecture section matches the shipped tree before phase 3 builds src/ops/schemas/ around it.",
+          "file": "src/ops/graph/louvain.rs",
+          "line": 1,
+          "resolution": "remaining: no spec_deviations field exists in phase 2 and specs/0002-schema-formation.md is unamended (absent from the 6ec2eda diff); claimed recording is not in the tree. Spec Architecture still names src/ops/schemas/detect.rs"
+        },
+        {
+          "severity": "minor",
+          "category": "robustness",
+          "message": "co_retrieval groups grow the node universe with nodes absent from the base graph (union_graph extends keys from overlay groups, louvain.rs:113-118): retrieval_surfaces has no FK or uniqueness (schema.rs:205-211), so surfaces referencing deleted items persist as ghost nodes until phase 3 pruning, and a double-written event row double-counts a pair's ramp. The deliberate inclusion of overlay-only real items is correct and tested; the ghost-endpoint and double-write exposure should be an explicit decision (dedup per (ts,cmd,arg) group and/or skip unknown nodes) before phase 3 feeds real telemetry in.",
+          "file": "src/ops/graph/louvain.rs",
+          "line": 113,
+          "resolution": "resolved-verified: union_graph filters every overlay group member through base.contains(k) before extending the key universe (louvain.rs:113-123), so ghosts produce no node and no edges while real pairs still count the event; regression test surface_ghosts_do_not_extend_the_universe (louvain.rs:691) asserts decision-99 vanishes and pair strength equals 1.0 + co_weight(1); test run and passed"
+        }
+      ],
+      "commit_sha": "40f96c167a5990b732a06a6b925df26552ffd05e",
+      "spec_deviations": [
+        {
+          "spec": "Architecture names src/ops/schemas/detect.rs",
+          "actual": "src/ops/graph/louvain.rs",
+          "reason": "Detection is graph machinery; lives beside model.rs/code.rs/rel.rs under src/ops/graph/. src/ops/schemas/ remains the home for phase 3+ scan/apply/commands.",
+          "status": "approved-by-orchestrator"
+        }
+      ]
     },
     {
       "id": 3,
