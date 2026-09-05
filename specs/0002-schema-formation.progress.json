@@ -538,7 +538,7 @@
           "resolution": "resolved-verified: test_prime_leads_with_schemas_block (tests/cli.rs:2403-2450) drives the real binary via assert_cmd, seeds a confirmed schema plus a competing drafted one, and asserts the first key of prime's parsed object is \"schemas\" and the block is non-empty \u2014 exactly the pin this finding asked for; passing in the full-suite run."
         }
       ],
-      "commit_sha": null,
+      "commit_sha": "5994ca53d954ee094730ff381609db2d956ffbe3",
       "spec_deviations": [
         {
           "deviation": "serde_json now compiled with preserve_order (Cargo.toml): global behavior change \u2014 all JSON object key order becomes insertion-ordered instead of alphabetically sorted",
