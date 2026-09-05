@@ -2062,6 +2062,116 @@ fn test_migration_v2_to_v3() {
 }
 
 #[test]
+fn test_fresh_db_has_schema_formation_objects() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // AC-11: fresh databases only run SCHEMA, never migrations, so every
+    // object the schema-formation feature defines must already exist there.
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, parsed["version"].as_i64().unwrap() as i32);
+    assert!(
+        version >= 12,
+        "expected schema-formation schema, got v{}",
+        version
+    );
+
+    for name in [
+        "schemas",
+        "schema_candidates",
+        "retrieval_surfaces",
+        "schema_suggestions",
+        "schemas_fts",
+        "idx_retrieval_surfaces_node",
+    ] {
+        let n: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name = ?1",
+                rusqlite::params![name],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1, "fresh db missing object {}", name);
+    }
+}
+
+#[test]
+fn test_migration_v11_to_v12() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Rewind to the pre-v12 shape: MIGRATION_V12 is purely additive, so a
+    // v11 database is exactly the current shape minus the schema-formation
+    // objects. Seed a row the upgrade must preserve.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "DROP TRIGGER IF EXISTS schemas_ai;
+             DROP TRIGGER IF EXISTS schemas_au;
+             DROP TRIGGER IF EXISTS schemas_ad;
+             DROP TABLE IF EXISTS schemas_fts;
+             DROP TABLE IF EXISTS retrieval_surfaces;
+             DROP TABLE IF EXISTS schema_candidates;
+             DROP TABLE IF EXISTS schema_suggestions;
+             DROP TABLE IF EXISTS schemas;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO decisions (uuid, timestamp, summary)
+             VALUES ('u1', '2026-01-01T00:00:00Z', 'v11 decision')",
+            [],
+        )
+        .unwrap();
+        conn.execute("PRAGMA user_version = 11", []).unwrap();
+    }
+
+    // On-disk version must match migrate's self-reported latest (self-maintaining
+    // pin — derived from command output, not a hardcoded number).
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, parsed["version"].as_i64().unwrap() as i32);
+
+    // The schema-formation objects exist again post-migration.
+    for name in [
+        "schemas",
+        "schema_candidates",
+        "retrieval_surfaces",
+        "schema_suggestions",
+        "schemas_fts",
+        "idx_retrieval_surfaces_node",
+    ] {
+        let n: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name = ?1",
+                rusqlite::params![name],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1, "migrated db missing object {}", name);
+    }
+
+    // Pre-existing row survived the upgrade.
+    let summary: String = conn
+        .query_row("SELECT summary FROM decisions WHERE uuid = 'u1'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(summary, "v11 decision");
+}
+#[test]
 fn test_graph_densification_from_anchors() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");

@@ -175,6 +175,68 @@ CREATE TRIGGER IF NOT EXISTS system_patterns_au AFTER UPDATE ON system_patterns 
   INSERT INTO system_patterns_fts(rowid, name, description, tags)
   VALUES (new.id, new.name, new.description, new.tags);
 END;
+CREATE TABLE IF NOT EXISTS schemas (
+  id                INTEGER PRIMARY KEY,
+  uuid              TEXT NOT NULL UNIQUE,
+  name              TEXT NOT NULL UNIQUE,
+  summary           TEXT NOT NULL,
+  summary_source    TEXT NOT NULL DEFAULT 'drafted',  -- 'drafted' | 'agent'
+  status            TEXT NOT NULL DEFAULT 'active',   -- 'proposed' | 'active' | 'needs_review' | 'archived'
+  centroid_json     TEXT NOT NULL,                    -- tag/anchor/token centroid for matching
+  confidence        REAL NOT NULL DEFAULT 0.0,        -- scoring.rs multiplication extends here
+  importance        REAL NOT NULL DEFAULT 0.0,
+  access_count      INTEGER NOT NULL DEFAULT 0,
+  last_accessed_at  TEXT,
+  last_confirmed_at TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schema_candidates (
+  cluster_sig        TEXT PRIMARY KEY,    -- sorted member-key signature
+  member_keys_json   TEXT NOT NULL,
+  density            REAL NOT NULL,
+  stability_count    INTEGER NOT NULL DEFAULT 1,
+  reward_hits        INTEGER NOT NULL DEFAULT 0,
+  last_drift_removed INTEGER NOT NULL DEFAULT 0, -- last match: members departed
+  last_drift_added   INTEGER NOT NULL DEFAULT 0, -- last match: members arrived
+  first_seen_at      TEXT NOT NULL,
+  last_seen_at       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS retrieval_surfaces (
+  ts        TEXT NOT NULL,
+  cmd       TEXT NOT NULL,
+  arg       TEXT,
+  node_kind TEXT NOT NULL,
+  node_id   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schema_suggestions (
+  ts        TEXT NOT NULL,
+  schema_id INTEGER NOT NULL,
+  item_kind TEXT NOT NULL,              -- 'decision' | 'pattern' | 'progress-entry'
+  item_id   INTEGER NOT NULL,
+  fit       REAL NOT NULL,
+  status    TEXT NOT NULL DEFAULT 'suggested', -- 'suggested' | 'accepted' | 'declined'
+  PRIMARY KEY (schema_id, item_kind, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_retrieval_surfaces_node ON retrieval_surfaces(node_kind, node_id, ts);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS schemas_fts USING fts5(
+  name, summary, content='schemas', content_rowid='id'
+);
+CREATE TRIGGER IF NOT EXISTS schemas_ai AFTER INSERT ON schemas BEGIN
+  INSERT INTO schemas_fts(rowid, name, summary)
+  VALUES (new.id, new.name, new.summary);
+END;
+CREATE TRIGGER IF NOT EXISTS schemas_ad AFTER DELETE ON schemas BEGIN
+  INSERT INTO schemas_fts(schemas_fts, rowid, name, summary)
+  VALUES ('delete', old.id, old.name, old.summary);
+END;
+CREATE TRIGGER IF NOT EXISTS schemas_au AFTER UPDATE ON schemas BEGIN
+  INSERT INTO schemas_fts(schemas_fts, rowid, name, summary)
+  VALUES ('delete', old.id, old.name, old.summary);
+  INSERT INTO schemas_fts(rowid, name, summary)
+  VALUES (new.id, new.name, new.summary);
+END;
 "#;
 pub const MIGRATION_V2: &str = r#"
 ALTER TABLE decisions ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
@@ -336,4 +398,75 @@ pub const MIGRATION_V11: &str = r#"
 -- v0.12.0 perf: cached graph summary. Rebuild stores its PageRank top_central
 -- here so hot-path readers (query miss_guidance) skip recomputing PageRank.
 ALTER TABLE graph_meta ADD COLUMN summary_json TEXT;
+"#;
+
+pub const MIGRATION_V12: &str = r#"
+-- Spec 0002 (schema formation): schemas become first-class graph meta-nodes.
+-- schemas mirrors the entity columns (importance/access_count/confidence) so
+-- scoring, decay, and prune reuse them as-is; schemas_fts mirrors name+summary
+-- with the standard trigger pattern. schema_candidates is scan-rebuilt staging;
+-- retrieval_surfaces is co-retrieval telemetry (rolling-window pruned);
+-- schema_suggestions persists fired suggestions and their resolution.
+CREATE TABLE IF NOT EXISTS schemas (
+  id                INTEGER PRIMARY KEY,
+  uuid              TEXT NOT NULL UNIQUE,
+  name              TEXT NOT NULL UNIQUE,
+  summary           TEXT NOT NULL,
+  summary_source    TEXT NOT NULL DEFAULT 'drafted',  -- 'drafted' | 'agent'
+  status            TEXT NOT NULL DEFAULT 'active',   -- 'proposed' | 'active' | 'needs_review' | 'archived'
+  centroid_json     TEXT NOT NULL,                    -- tag/anchor/token centroid for matching
+  confidence        REAL NOT NULL DEFAULT 0.0,        -- scoring.rs multiplication extends here
+  importance        REAL NOT NULL DEFAULT 0.0,
+  access_count      INTEGER NOT NULL DEFAULT 0,
+  last_accessed_at  TEXT,
+  last_confirmed_at TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schema_candidates (
+  cluster_sig        TEXT PRIMARY KEY,    -- sorted member-key signature
+  member_keys_json   TEXT NOT NULL,
+  density            REAL NOT NULL,
+  stability_count    INTEGER NOT NULL DEFAULT 1,
+  reward_hits        INTEGER NOT NULL DEFAULT 0,
+  last_drift_removed INTEGER NOT NULL DEFAULT 0, -- last match: members departed
+  last_drift_added   INTEGER NOT NULL DEFAULT 0, -- last match: members arrived
+  first_seen_at      TEXT NOT NULL,
+  last_seen_at       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS retrieval_surfaces (
+  ts        TEXT NOT NULL,
+  cmd       TEXT NOT NULL,
+  arg       TEXT,
+  node_kind TEXT NOT NULL,
+  node_id   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schema_suggestions (
+  ts        TEXT NOT NULL,
+  schema_id INTEGER NOT NULL,
+  item_kind TEXT NOT NULL,              -- 'decision' | 'pattern' | 'progress-entry'
+  item_id   INTEGER NOT NULL,
+  fit       REAL NOT NULL,
+  status    TEXT NOT NULL DEFAULT 'suggested', -- 'suggested' | 'accepted' | 'declined'
+  PRIMARY KEY (schema_id, item_kind, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_retrieval_surfaces_node ON retrieval_surfaces(node_kind, node_id, ts);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS schemas_fts USING fts5(
+  name, summary, content='schemas', content_rowid='id'
+);
+CREATE TRIGGER IF NOT EXISTS schemas_ai AFTER INSERT ON schemas BEGIN
+  INSERT INTO schemas_fts(rowid, name, summary)
+  VALUES (new.id, new.name, new.summary);
+END;
+CREATE TRIGGER IF NOT EXISTS schemas_ad AFTER DELETE ON schemas BEGIN
+  INSERT INTO schemas_fts(schemas_fts, rowid, name, summary)
+  VALUES ('delete', old.id, old.name, old.summary);
+END;
+CREATE TRIGGER IF NOT EXISTS schemas_au AFTER UPDATE ON schemas BEGIN
+  INSERT INTO schemas_fts(schemas_fts, rowid, name, summary)
+  VALUES ('delete', old.id, old.name, old.summary);
+  INSERT INTO schemas_fts(rowid, name, summary)
+  VALUES (new.id, new.name, new.summary);
+END;
 "#;

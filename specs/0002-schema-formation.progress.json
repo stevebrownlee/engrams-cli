@@ -1,0 +1,290 @@
+{
+  "schema_version": "1",
+  "spec_id": "0002",
+  "spec_name": "schema-formation",
+  "spec_path": "specs/0002-schema-formation.md",
+  "created_at": "2026-09-05T01:55:00Z",
+  "updated_at": "2026-09-05T02:18:00Z",
+  "status": "in_progress",
+  "mode": "autonomous",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Add schema migration v12 and member_of ontology",
+      "type": "standard",
+      "status": "reviewing",
+      "depends_on": [],
+      "exemplars": [
+        "src/schema.rs",
+        "src/ops/graph/rel.rs"
+      ],
+      "acceptance": [
+        "AC-11"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test"
+      ],
+      "files_touched": ["src/schema.rs", "src/db.rs", "src/ops/graph/rel.rs", "tests/cli.rs"],
+      "started_at": "2026-09-05T01:56:00Z",
+      "completed_at": "2026-09-05T02:30:00Z",
+      "retry_count": 1,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "severe",
+          "category": "missing-test",
+          "message": "AC-11's Then clause \"the fresh database contains every table this feature defines\" has no test in this diff: nothing asserts that a fresh init (SCHEMA) or the v11-to-v12 migration actually produces schemas, schema_candidates, retrieval_surfaces, schema_suggestions, and schemas_fts.",
+          "file": "src/schema.rs",
+          "line": 403,
+          "resolution": "resolved-verified: test_fresh_db_has_schema_formation_objects (tests/cli.rs:2065) asserts all five objects plus idx_retrieval_surfaces_node present after fresh init; test run and passed"
+        },
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "No test exercises the v11-to-v12 upgrade path, breaking the repo's per-migration precedent (tests/cli.rs test_migration_v2_to_v3 asserts post-migration schema additions and data preservation), so the AGENTS.md lossless-upgrade discipline for existing databases is unverified for MIGRATION_V12.",
+          "file": "src/db.rs",
+          "line": 88,
+          "resolution": "resolved-verified: test_migration_v11_to_v12 (tests/cli.rs:2106) rewinds a real DB to v11, migrates, asserts objects restored and seeded decision row survives; test run and passed"
+        }
+      ],
+      "commit_sha": null
+    },
+    {
+      "id": 2,
+      "title": "Implement detection core: overlays, Louvain, cluster density",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        1
+      ],
+      "exemplars": [
+        "src/ops/graph/model.rs",
+        "src/ops/consolidate.rs"
+      ],
+      "acceptance": [
+        "AC-2"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test schemas"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 3,
+      "title": "Add staging, gates, and schema scan command",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        2
+      ],
+      "exemplars": [
+        "src/ops/consolidate.rs",
+        "tests/memory.rs"
+      ],
+      "acceptance": [
+        "AC-3",
+        "AC-4",
+        "AC-9"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test schemas"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 4,
+      "title": "Run dogfood evaluation and freeze weights",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        3
+      ],
+      "exemplars": [],
+      "acceptance": [
+        "AC-1"
+      ],
+      "verification": [
+        "cargo build",
+        "./target/debug/engrams schema scan | jq -S 'map(.member_keys)' > /tmp/scan1.json",
+        "./target/debug/engrams schema scan | jq -S 'map(.member_keys)' > /tmp/scan2.json",
+        "diff /tmp/scan1.json /tmp/scan2.json"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 5,
+      "title": "Implement apply: schema rows, drafts, member_of edges",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        4
+      ],
+      "exemplars": [
+        "src/ops/consolidate.rs",
+        "src/ops/link.rs"
+      ],
+      "acceptance": [
+        "AC-5"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test schemas"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 6,
+      "title": "Add schema list, show, refine, confirm commands",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        5
+      ],
+      "exemplars": [
+        "src/ops/pattern.rs",
+        "src/cli.rs"
+      ],
+      "acceptance": [
+        "AC-6"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test schemas"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 7,
+      "title": "Add retrieval tiering and surfacing telemetry",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        5
+      ],
+      "exemplars": [
+        "src/ops/prime.rs",
+        "src/ops/query.rs"
+      ],
+      "acceptance": [
+        "AC-7",
+        "AC-10"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test schemas"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 8,
+      "title": "Add assimilation hooks to log commands",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        5
+      ],
+      "exemplars": [
+        "src/ops/decision.rs"
+      ],
+      "acceptance": [
+        "AC-8"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test schemas"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 9,
+      "title": "Round-trip schemas through export, import, and fresh DB",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        6,
+        7,
+        8
+      ],
+      "exemplars": [
+        "src/ops/transfer/export.rs",
+        "tests/memory.rs"
+      ],
+      "acceptance": [
+        "AC-11"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test"
+      ],
+      "files_touched": [],
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    }
+  ]
+}

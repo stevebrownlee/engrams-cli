@@ -132,7 +132,7 @@ Design choices:
 
 ## Data model
 
-Migration to schema version 8 in `src/schema.rs`:
+Migration to schema version 12 in `src/schema.rs` (v8–v11 shipped with v0.12.0; this feature's tables land as `MIGRATION_V12`):
 
 ```sql
 CREATE TABLE schemas (

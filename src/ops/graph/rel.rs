@@ -162,6 +162,23 @@ const RELS: &[RelSpec] = &[
         functional_to: false,
         disjoint_with: &[],
     },
+    RelSpec {
+        canonical: "member_of",
+        symmetry: Symmetry::Directed,
+        transitive: false,
+        inverse: Some("has_member"),
+        domain: &[
+            "decision",
+            "progress_entry",
+            "system_pattern",
+            "custom_data",
+            "schema",
+        ],
+        range: &["schema"],
+        same_type: false,
+        functional_to: false,
+        disjoint_with: &[],
+    },
 ];
 
 /// Look up a canonical relationship spec by its canonical name.
@@ -305,5 +322,27 @@ mod tests {
         assert_eq!(spec.range, ["progress_entry"]);
         assert_eq!(spec.inverse, Some("derives"));
         assert_eq!(normalize("derives"), ("derived_from".to_string(), true));
+    }
+
+    #[test]
+    fn member_of_spec_and_normalization() {
+        let spec = lookup("member_of").unwrap();
+        assert!(!spec.transitive);
+        assert!(!spec.same_type);
+        assert!(!spec.functional_to);
+        assert_eq!(
+            spec.domain,
+            [
+                "decision",
+                "progress_entry",
+                "system_pattern",
+                "custom_data",
+                "schema"
+            ]
+        );
+        assert_eq!(spec.range, ["schema"]);
+        assert_eq!(spec.inverse, Some("has_member"));
+        assert_eq!(normalize("has_member"), ("member_of".to_string(), true));
+        assert_eq!(normalize("member_of"), ("member_of".to_string(), false));
     }
 }
