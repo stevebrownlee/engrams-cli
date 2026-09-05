@@ -194,3 +194,18 @@ NEW minor noted: guard's safe direction unpinned — no test asserts overlap-wit
 Side note closed: try_resolve_candidate now exact-query-first (confirm.rs:121-136), doc updated, exact_signature_wins_over_ambiguous_prefix passes — my phase-8 prefix-LIKE observation resolved.
 
 Counts: 5 findings = 0 severe, 1 moderate, 4 minor; 4 resolved-verified, 1 new noted. Ladder: 3 new guard/resolver tests pass, full suite 166/0.
+
+## 2026-09-05T10:05:00Z — phase 9 of spec 0002-schema-formation (export/import round-trip)
+
+- minor / correctness — member_of provenance lost on round-trip: confirm edges are origin='manual' + source='schema_confirm', but no export SELECT or import INSERT carries context_links.source, so post-import source=NULL (verified: pre-export markers schema_confirm x3 + one manual NULL; post-import all NULL). Compounding it, the export.rs comment misstates the dedup design ("links export excludes confirm edges by design" is false — origin='manual' passes the filter; the members-array NOT EXISTS guard is the dedup and is load-bearing). No reader of source exists today, hence minor.
+- minor / correctness — retrieval_surfaces import not idempotent: plain INSERT doubles rows on re-import (4→8 verified), unlike the rest of the importer (OR REPLACE + explicit ids + members guard). Natural-key WHERE NOT EXISTS is the fix shape.
+
+Verified clean (no findings): s14 passes and asserts member_count==3 not 6, declined suggestion, FTS MATCH, list/show on target, post-import scan no-duplicate; both-exports overlap dedup proven with a hand-made manual member_of edge (4 edges after double import, not 8); populated-target id clash stays inside the established INSERT OR REPLACE convention and FTS external-content stayed consistent (zombie purged, core indexed, uuid preserved); schema_candidates exclusion matches spec line 131 and is re-staged soundly.
+
+Ladder: fmt clean, clippy --all-targets 0 warnings, full suite 168 passed / 0 failed (78+56+13+6+15).
+
+Counts: 2 findings = 0 severe, 0 moderate, 2 minor.
+
+## 2026-09-05T10:01:54Z — re-review: phase 9 of spec 0002-schema-formation (retry 1 resolution check)
+
+Both findings resolved-verified. Provenance: links files + members array now carry source, import writes it back; repro confirms 3/3 member_of edges on target with source='schema_confirm'. Comment corrected to name the real dedup mechanism. Idempotency: natural-key NOT EXISTS with null-safe `arg IS ?`; my original 4-to-8 repro now stays 5-to-5 (including a NULL-arg row I added to exercise the null path). s14 pins idempotency + dedup counts; residual: no assertion yet pins the source column on the target (noted in resolution). Ladder: fmt clean, clippy 0, 168/0. PASS — 0 remaining.

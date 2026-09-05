@@ -4,7 +4,7 @@
   "spec_name": "schema-formation",
   "spec_path": "specs/0002-schema-formation.md",
   "created_at": "2026-09-05T01:55:00Z",
-  "updated_at": "2026-09-05T09:02:28Z",
+  "updated_at": "2026-09-05T10:01:54Z",
   "status": "in_progress",
   "mode": "autonomous",
   "current_phase": 3,
@@ -631,7 +631,7 @@
       "id": 9,
       "title": "Round-trip schemas through export, import, and fresh DB",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
       "depends_on": [
         6,
         7,
@@ -650,13 +650,38 @@
         "cargo clippy --all-targets",
         "cargo test"
       ],
-      "files_touched": [],
+      "files_touched": [
+        "src/ops/transfer/export.rs",
+        "src/ops/transfer/import.rs",
+        "tests/memory.rs"
+      ],
       "started_at": null,
-      "completed_at": null,
-      "retry_count": 0,
+      "completed_at": "2026-09-05T10:05:00Z",
+      "retry_count": 1,
       "blocked_reason": null,
-      "review_findings": [],
-      "commit_sha": null
+      "review_findings": [
+        {
+          "severity": "minor",
+          "category": "correctness",
+          "message": "member_of provenance does not survive the round-trip: confirm writes origin='manual' with source='schema_confirm', but no export SELECT carries the source column (links export and the per-schema members array both omit it) and neither import INSERT restores it - after import every confirm-created edge has source=NULL. Also the export.rs comment rationalizing the dedup design is factually wrong: it says the generic links export excludes confirm edges because they use origin 'schema_confirm'; in reality confirm edges carry origin='manual' and links/ carries them, which is exactly why the members-array NOT EXISTS guard is load-bearing. No code reads context_links.source today, so nothing misbehaves now; the column is the only durable distinction between human-made and confirm-made member_of edges, and the round-trip silently erases it.",
+          "file": "src/ops/transfer/export.rs",
+          "line": 380,
+          "resolution": "resolved-verified: export now carries source on both paths (links files include confirm edges with origin manual + source schema_confirm; members array gained the source column) and import writes it back; reviewer round-trip repro shows 3/3 member_of edges on the target with source='schema_confirm', and the corrected comment states the real dedup mechanism. Residual note: no test asserts the source column on the target - s14 pins idempotency and dedup only; provenance verified behaviorally by this review."
+        },
+        {
+          "severity": "minor",
+          "category": "correctness",
+          "message": "retrieval_surfaces import is not idempotent: the plain-INSERT loop duplicates every telemetry row on re-import (reviewer repro: 4 rows after first import, 8 after second), while every other entity in the importer is idempotent by construction (INSERT OR REPLACE with exported ids, members guard). Importing the same export twice - or overlapping exports - inflates the reward telemetry that gates and ranking consume. A WHERE NOT EXISTS on the natural key (ts, cmd, arg, node_kind, node_id) restores parity with the rest of the importer.",
+          "file": "src/ops/transfer/import.rs",
+          "line": 255,
+          "resolution": "resolved-verified: re-import guard on the natural key with null-safe arg IS ? binding. Reviewer repro (the original 4-to-8): after retry the same double-import yields surfaces unchanged (5 -> 5, including one NULL-arg row) and member_of unchanged at 3. s14 (tests/memory.rs:928-953) pins both counts across re-import and passes."
+        }
+      ],
+      "commit_sha": "f45e5f266e382f1375845a4123dedcd41272d48a",
+      "review_findings_resolved": [
+        "member_of provenance now survives the round-trip: links export SELECT already carried `source`; members export SELECT gained it (`source_item_type, source_item_id, origin, source`), links import INSERT writes `source` back (import.rs:302-305), and the members NOT-EXISTS guard writes origin + source (import.rs:399-423). Wrong comment in export.rs replaced with the accurate one: links/ carries confirm edges (origin='manual', source='schema_confirm'); the members-array NOT EXISTS guard is the actual dedup and is load-bearing.",
+        "retrieval_surfaces import is now idempotent via the natural key (ts, cmd, arg, node_kind, node_id) with a null-safe `arg IS ?` guard, matching the importer's WHERE-NOT-EXISTS convention (import.rs:447-468). Pinned in S14: re-importing the same export leaves retrieval_surfaces count and member_of edge count unchanged (tests/memory.rs:928-953)."
+      ]
     }
   ]
 }
