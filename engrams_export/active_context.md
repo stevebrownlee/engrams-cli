@@ -1,14 +1,15 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-09-05T01:49:23Z
+created: 2026-09-05T10:07:48Z
 ---
 # Active Context
 
 ```json
 {
+  "name": "default",
   "content": {
-    "current_focus": "v0.11.0 officially released (tag v0.11.0, GitHub release created, Homebrew formula updated)",
+    "current_focus": "schema formation v0.13.0 shipped via PR #3; v0.14 adaptation (drift hook, merge/split, needs_review surfacing) is next frontier",
     "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
     "current_work": "v0.13.0 schema formation - spec 0002 complete, no open questions, ready for /spec-implement",
     "decisions_this_session": [
@@ -56,10 +57,22 @@ created: 2026-09-05T01:49:23Z
     "v0.10.0": {
       "status": "Done",
       "summary": "Retrieval scoring, prune-decay, read-observability implemented. 85 tests pass."
-    }
+    },
+    "recent_decisions": [
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82
+    ]
   },
-  "name": "default",
-  "updated_at": "2026-09-05T01:49:23Z",
-  "version": 44
+  "version": 45,
+  "updated_at": "2026-09-05T10:07:48Z"
 }
 ```
