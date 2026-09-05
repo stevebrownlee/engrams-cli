@@ -777,3 +777,190 @@ fn s13_doctor_flags_stale_and_never_confirmed_patterns() {
     assert!(ids.contains(&2), "never-confirmed flagged: {ids:?}");
     assert_eq!(doctor["ok"].as_bool(), Some(false));
 }
+
+// --- S14: schema round-trip through export / import (spec 0002, AC-11) ------
+
+#[test]
+fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Full schema lifecycle on one database: a dense fully-linked trio
+    // seeded by SQL (same rationale as the CLI schema tests — `anchor add`
+    // would materialize a code node into the cluster), scanned to stability,
+    // promoted with the drafted name, then refined as agent-authored.
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision','1','src/a.rs','2026-01-01T00:00:00Z'),
+             ('decision','2','src/a.rs','2026-01-01T00:00:00Z'),
+             ('decision','3','src/a.rs','2026-01-01T00:00:00Z');
+             INSERT INTO context_links (source_item_type, source_item_id, target_item_type,
+              target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+    engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "--summary",
+            "Gateway architecture: how requests route",
+            "core",
+        ])
+        .assert()
+        .success();
+    // A fired suggestion with a user resolution: a lexically matching item
+    // that explicitly declined (the decision-79 opt-out leaves an audit row).
+    engrams(&db)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "core graph export conventions",
+            "--schema",
+            "none",
+        ])
+        .assert()
+        .success();
+    // Reward telemetry: surface the schema so retrieval_surfaces has a row.
+    // "core" overlaps the centroid tag vocabulary, so the query fires a
+    // surfacing event (an overlapping query is what records telemetry).
+    engrams(&db).args(["query", "core"]).assert().success();
+
+    let mut out = engrams(&db)
+        .args(["export", "--path"])
+        .arg(temp.path().join("export"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "export failed: {out:?}");
+
+    let fresh = temp.path().join("fresh.db");
+    engrams(&fresh).arg("init").assert().success();
+    out = engrams(&fresh)
+        .args(["import", "--path"])
+        .arg(temp.path().join("export"))
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "import failed: {out:?}");
+
+    // Identity, membership, summaries, and telemetry intact on the target.
+    let show = json(engrams(&fresh).args(["schema", "show", "core"]));
+    let schema = &show["schema"];
+    assert_eq!(schema["name"], "core");
+    assert_eq!(schema["summary_source"], "agent");
+    assert_eq!(
+        schema["summary"],
+        "Gateway architecture: how requests route"
+    );
+    assert_eq!(schema["member_count"], 3);
+    let members = schema["members"].as_array().unwrap();
+    let keys: Vec<&str> = members.iter().map(|m| m.as_str().unwrap()).collect();
+    assert_eq!(
+        keys,
+        vec!["decision:1", "decision:2", "decision:3"],
+        "members restored with original ids: {members:?}"
+    );
+
+    let first_surfaces;
+    {
+        let conn = Connection::open(&fresh).unwrap();
+        // The uuid is the identity anchor across the move.
+        let (src_uuid, tgt_uuid): (String, String) = {
+            let s = Connection::open(&db).unwrap();
+            (
+                s.query_row("SELECT uuid FROM schemas WHERE id = 1", [], |r| r.get(0))
+                    .unwrap(),
+                conn.query_row("SELECT uuid FROM schemas WHERE id = 1", [], |r| r.get(0))
+                    .unwrap(),
+            )
+        };
+        assert_eq!(src_uuid, tgt_uuid, "schema identity survives the move");
+
+        // Fired-suggestion resolution traveled.
+        let (status, n): (String, i64) = conn
+            .query_row(
+                "SELECT status, COUNT(*) FROM schema_suggestions \
+                 WHERE item_kind = 'decision' AND item_id = 4",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((status.as_str(), n), ("declined", 1), "{status} x{n}");
+
+        // Reward telemetry (retrieval_surfaces) traveled.
+        let surfaces: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM retrieval_surfaces WHERE node_kind = 'schema'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+
+        assert!(surfaces >= 1, "surfaces traveled: {surfaces}");
+        first_surfaces = surfaces;
+        let fts: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM schemas_fts WHERE schemas_fts MATCH 'core'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(fts, 1, "schemas_fts hit after import");
+
+        // No surprise writes on the source (AC-4 still holds): scan on the
+        // target does not create a second schema.
+    }
+    // Pin (retry-1 review): re-importing the same export must be
+    // idempotent — no duplicate links, no duplicate telemetry.
+    engrams(&fresh)
+        .args(["import", "--path"])
+        .arg(temp.path().join("export"))
+        .assert()
+        .success();
+    {
+        let conn = Connection::open(&fresh).unwrap();
+        let surfaces: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM retrieval_surfaces WHERE node_kind = 'schema'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            surfaces, first_surfaces,
+            "double import duplicated telemetry"
+        );
+        let member_edges: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(member_edges, 3, "double import duplicated member_of edges");
+    }
+    engrams(&fresh).args(["schema", "scan"]).assert().success();
+    {
+        let conn = Connection::open(&fresh).unwrap();
+        let schemas: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(schemas, 1, "post-import scan must not duplicate");
+    }
+}

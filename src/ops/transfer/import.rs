@@ -299,9 +299,10 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .and_then(|v| v.as_str())
             .unwrap_or("manual");
 
+        let source = json.get("source").and_then(|v| v.as_str());
         tx.execute(
-            "INSERT OR REPLACE INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin],
+            "INSERT OR REPLACE INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, source],
         )?;
         Ok(())
     })?;
@@ -333,6 +334,139 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         )?;
         Ok(())
     })?;
+    // Schemas (spec 0002, AC-11): identity rows, restored with their
+    // original ids — knowledge items import with original ids above, so
+    // member_of endpoints need no remapping. Plain INSERTs fire the
+    // schemas_fts sync triggers (S14 asserts the index works post-import).
+    process_dir("schemas", "schemas", "schemas", &|json| {
+        let id = json
+            .get("id")
+            .and_then(|v| v.as_i64())
+            .ok_or_else(|| anyhow::anyhow!("missing id"))?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schemas (id, uuid, name, summary, summary_source, \
+             status, centroid_json, confidence, importance, access_count, \
+             last_accessed_at, last_confirmed_at, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            params![
+                id,
+                json.get("uuid")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("missing uuid"))?,
+                json.get("name")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("missing name"))?,
+                json.get("summary").and_then(|v| v.as_str()).unwrap_or(""),
+                json.get("summary_source")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("drafted"),
+                json.get("status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("active"),
+                json.get("centroid_json")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("{}"),
+                json.get("confidence")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0),
+                json.get("importance")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0),
+                json.get("access_count")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0),
+                json.get("last_accessed_at").and_then(|v| v.as_str()),
+                json.get("last_confirmed_at").and_then(|v| v.as_str()),
+                json.get("created_at")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""),
+                json.get("updated_at")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""),
+            ],
+        )?;
+        // Membership travels with the schema (the generic links export only
+        // carries manual edges).
+        if let Some(members) = json.get("members").and_then(|v| v.as_array()) {
+            for m in members {
+                let kind = m
+                    .get("kind")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("missing member kind"))?;
+                let mid = m
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("missing member id"))?;
+                let origin = m
+                    .get("origin")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("schema_confirm");
+                let provenance = m.get("source").and_then(|v| v.as_str());
+                // The generic links export already carries manual-origin
+                // member_of edges (confirm writes origin='manual') — insert
+                // only when the membership is genuinely absent.
+                tx.execute(
+                    "INSERT INTO context_links (source_item_type, source_item_id, \
+                     target_item_type, target_item_id, relationship_type, timestamp, origin, source, weight) \
+                     SELECT ?1, ?2, 'schema', ?3, 'member_of', ?4, ?5, ?6, 1.0 \
+                     WHERE NOT EXISTS (\
+                       SELECT 1 FROM context_links WHERE relationship_type = 'member_of' \
+                       AND target_item_type = 'schema' AND target_item_id = ?3 \
+                       AND source_item_type = ?1 AND source_item_id = ?2)",
+                    params![
+                        kind,
+                        mid,
+                        id,
+                        json.get("created_at").and_then(|v| v.as_str()).unwrap_or(""),
+                        origin,
+                        provenance,
+                    ],
+                )?;
+            }
+        }
+        // Fired-suggestion resolutions (accepted/declined are user intent,
+        // not recomputable).
+        if let Some(suggestions) = json.get("suggestions").and_then(|v| v.as_array()) {
+            for s in suggestions {
+                tx.execute(
+                    "INSERT OR REPLACE INTO schema_suggestions (ts, schema_id, item_kind, item_id, fit, status) \
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![
+                        s.get("ts").and_then(|v| v.as_str()).unwrap_or(""),
+                        id,
+                        s.get("item_kind").and_then(|v| v.as_str()).unwrap_or("decision"),
+                        s.get("item_id").and_then(|v| v.as_i64()),
+                        s.get("fit").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                        s.get("status").and_then(|v| v.as_str()).unwrap_or("suggested"),
+                    ],
+                )?;
+            }
+        }
+        Ok(())
+    })?;
+    // Reward telemetry (AC-11): restored wholesale — bounded rolling window.
+    let surfaces_path = path.join("schemas").join("retrieval_surfaces.json");
+    if surfaces_path.exists() {
+        let content = fs::read_to_string(&surfaces_path)?;
+        let rows: Vec<Value> = serde_json::from_str(&content)?;
+        for r in rows {
+            // No unique key on this table; the natural key (ts, cmd, arg,
+            // node_kind, node_id) guards against double-import duplication.
+            tx.execute(
+                "INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) \
+                 SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (\
+                   SELECT 1 FROM retrieval_surfaces WHERE ts = ?1 AND cmd = ?2 \
+                   AND arg IS ?3 AND node_kind = ?4 AND node_id = ?5)",
+                params![
+                    r.get("ts").and_then(|v| v.as_str()).unwrap_or(""),
+                    r.get("cmd").and_then(|v| v.as_str()).unwrap_or(""),
+                    r.get("arg").and_then(|v| v.as_str()),
+                    r.get("node_kind").and_then(|v| v.as_str()).unwrap_or(""),
+                    r.get("node_id").and_then(|v| v.as_i64()).unwrap_or(0),
+                ],
+            )?;
+        }
+    }
 
     tx.commit()?;
 
