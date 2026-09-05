@@ -22,7 +22,7 @@ pub(crate) fn rank_expr() -> &'static str {
 }
 
 /// Member count per schema id, from the `member_of` link table.
-fn member_counts(conn: &Connection) -> Result<std::collections::HashMap<i64, i64>> {
+pub(crate) fn member_counts(conn: &Connection) -> Result<std::collections::HashMap<i64, i64>> {
     let mut stmt = conn.prepare(
         "SELECT target_item_id, COUNT(*) FROM context_links \
          WHERE relationship_type = 'member_of' AND target_item_type = 'schema' \

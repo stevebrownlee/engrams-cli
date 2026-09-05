@@ -6,7 +6,7 @@ pub mod model;
 pub mod rebuild;
 pub mod rel;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::Result;
@@ -81,12 +81,15 @@ fn stats(conn: &Connection) -> Result<Value> {
     let g = model::load(conn)?;
     let deg = g.degree();
 
-    let mut nodes_by_type: HashMap<&str, usize> = HashMap::new();
+    // BTreeMap, not HashMap: these serialize into the JSON output and the
+    // repo's byte-determinism standard (scan-twice-identical) forbids
+    // per-process hash ordering.
+    let mut nodes_by_type: BTreeMap<&str, usize> = BTreeMap::new();
     for (kind, _) in &g.nodes {
         *nodes_by_type.entry(kind.as_str()).or_insert(0) += 1;
     }
-    let mut edges_by_rel: HashMap<&str, usize> = HashMap::new();
-    let mut edges_by_origin: HashMap<&str, usize> = HashMap::new();
+    let mut edges_by_rel: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut edges_by_origin: BTreeMap<&str, usize> = BTreeMap::new();
     for e in &g.edges {
         *edges_by_rel.entry(e.rel.as_str()).or_insert(0) += 1;
         *edges_by_origin.entry(e.origin.as_str()).or_insert(0) += 1;

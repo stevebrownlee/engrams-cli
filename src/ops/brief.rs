@@ -69,6 +69,27 @@ pub fn handle(conn: &Connection, target: &str, depth: i64) -> Result<Value> {
         }
         _ => {}
     }
+    // Surfacing telemetry (AC-10): a schema brief is a schema retrieval, and
+    // its hop-1 neighbors are the co-surfaced set for this event.
+    if key.0 == "schema" {
+        if let Ok(id) = key.1.parse::<i64>() {
+            let co: Vec<(&str, i64)> = neighbors
+                .iter()
+                .filter_map(|n| {
+                    let kind = n["kind"].as_str()?;
+                    let nid = n["id"].as_str()?.parse::<i64>().ok()?;
+                    Some((kind, nid))
+                })
+                .collect();
+            crate::ops::schemas::retrieval::record_surface(
+                conn,
+                "brief",
+                Some(target),
+                &[id],
+                &co,
+            )?;
+        }
+    }
 
     Ok(json!({
         "node": format!("{}:{}", key.0, key.1),
@@ -140,6 +161,13 @@ fn node_exists(conn: &Connection, key: &(String, String)) -> Result<bool> {
         "code" => conn
             .query_row(
                 "SELECT path FROM code_nodes WHERE id = ?1",
+                [&key.1],
+                |r| r.get(0),
+            )
+            .ok(),
+        "schema" => conn
+            .query_row(
+                "SELECT name FROM schemas WHERE id = ?1",
                 [&key.1],
                 |r| r.get(0),
             )
@@ -303,6 +331,9 @@ fn node_payload(conn: &Connection, key: &(String, String)) -> Result<Value> {
             }))
         }
         "pr" => Ok(json!({ "url": id })),
+        "schema" => {
+            crate::ops::schemas::retrieval::node_payload(conn, id.parse().context("bad schema id")?)
+        }
         other => anyhow::bail!("brief does not support node type '{}'", other),
     }
 }

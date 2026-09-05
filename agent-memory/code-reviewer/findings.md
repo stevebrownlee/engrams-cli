@@ -140,3 +140,26 @@ Incident (disclosure): during verification I reproduced Main's ENGRAMS_DB mistak
 Verification: cargo fmt clean, clippy --all-targets 0 warnings, 151 passed / 0 failed. Live-DB rollback state independently verified.
 
 Counts: 4 findings = 1 severe, 1 moderate, 2 minor; all 4 resolved-verified.
+
+## 2026-09-05T07:23:21Z — phase 7 of spec 0002-schema-formation (retrieval tiering + surfacing telemetry)
+
+- moderate / correctness — serde_json preserve_order is global; graph stats (graph/mod.rs:92-96) serializes std HashMaps into json!, so by_type/by_relationship/by_origin key order went alphabetical -> per-process random (SipHash). Nothing in-repo byte-compares that output (grep-verified), so no break today, but cross-run byte determinism of that command is lost and any future HashMap->json! site inherits the hazard. Fix: sort keys at the stats site.
+- minor / spec-conformance — AC-7 "no schema match -> exactly what it would have before": zero-hit response gains always-present schema_matches: [] (query.rs:222-227) and miss_guidance gains always-present schema_centroids: [] (query.rs:328-334). Fix: conditional keys.
+- minor / process — "8 new unit tests" claim vs 4 actual #[test] in retrieval.rs (suite delta +4, 5 green full-suite runs, 156 passed).
+- minor / missing-test — prime's schemas-block-leads emission (prime.rs:534-537, relies on preserve_order) unpinned; prime.rs has no tests; agent_rank ordering IS unit-tested.
+
+Verified true: centroid tier leads hits array with FTS fall-through byte-equal on miss (mapped on non-empty only); reinforce extended to schemas (validate_table guards); record_surface confined to retrieval_surfaces in one transaction with +90d prune; brief schema node_payload + co-surfaced telemetry capped at 20 (documented); no migration needed (schema.rs untouched; v12 DDL covers). Reported flake: not reproduced — 5 full-suite runs + 2 extra cli-only runs all green. Ladder: fmt clean, clippy 0 warnings, 156 passed / 0 failed. spec_deviations null for phase 7 (no deviation identified; preserve_order is an implementation choice, not a spec conflict).
+
+Counts: 4 findings = 0 severe, 1 moderate, 3 minor.
+
+## 2026-09-05T07:44:41Z — re-review: phase 7 of spec 0002-schema-formation (retry 1 resolution check)
+
+All 4 resolved-verified.
+- MOD graph-stats ordering: BTreeMaps at graph/mod.rs:84-96; 3-run byte-identical live run, alphabetical keys.
+- MIN empty-key compat: conditional inserts (query.rs:222-231, 334-341); no-schema DB and non-overlap DB both lack the keys; overlap case = tier-led array (schema first), retrieval_surfaces rows + schemas reinforce observed.
+- MIN test count: corrected 4 matches tree; all behavioral, 157/0.
+- MIN prime pin: test_prime_leads_with_schemas_block (tests/cli.rs:2403) asserts first key == "schemas" via real binary.
+
+Ladder: fmt clean, clippy 0 warnings, full suite 157 passed / 0 failed (68+56+12+6+15).
+
+Counts: 4 findings = 0 severe, 1 moderate, 3 minor; all 4 resolved-verified.

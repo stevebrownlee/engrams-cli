@@ -2401,6 +2401,56 @@ fn test_schema_list_show_refine_and_confirm_bump() {
 }
 
 #[test]
+fn test_prime_leads_with_schemas_block() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    // prime requires an active-context track (same setup as test_prime).
+    engrams(&db)
+        .args(["active-context", "update", "--content", "{\"tasks\": []}"])
+        .assert()
+        .success();
+    // Seed and confirm one schema (dense fully-linked trio; SQL seeding for
+    // the same reasons as test_schema_list_show_refine_and_confirm_bump).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+
+    // The pin: `schemas` is the FIRST key of prime's payload, ahead of the
+    // pre-existing blocks (serde_json preserve_order makes key order load-
+    // bearing; a HashMap regression here reorders it).
+    let out = engrams(&db).arg("prime").output().unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let map = json.as_object().expect("prime payload is an object");
+    assert_eq!(
+        map.keys().next(),
+        Some(&"schemas".to_string()),
+        "schemas block must lead prime's payload; keys: {:?}",
+        map.keys().collect::<Vec<_>>()
+    );
+    assert!(!map["schemas"].as_array().unwrap().is_empty());
+}
+
+#[test]
 fn test_engrams_db_env_override() {
     let temp = TempDir::new().unwrap();
     let env_db = temp.path().join("env.db");

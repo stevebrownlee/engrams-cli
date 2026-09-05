@@ -10,6 +10,10 @@ pub fn handle(
 ) -> Result<Value> {
     let product_context = crate::ops::report::query_context_doc(conn, "product_context")?;
     let active_context_val = load_active_context(conn, &paths, &tags)?;
+    let schema_block = crate::ops::schemas::retrieval::prime_block(
+        conn,
+        crate::ops::schemas::retrieval::PRIME_SCHEMA_K,
+    )?;
 
     let is_scoped = !paths.is_empty() || !tags.is_empty();
     let limit = if is_scoped { 50 } else { 10 };
@@ -327,6 +331,7 @@ pub fn handle(
             graph: graph_val.as_ref(),
             budget_info: None,
             superseded_by: &superseded_by,
+            schemas: &schema_block,
         }));
         while total > budget {
             if graph_val.is_some() {
@@ -363,6 +368,7 @@ pub fn handle(
             graph: graph_val.as_ref(),
             budget_info: None,
             superseded_by: &superseded_by,
+            schemas: &schema_block,
         });
         let m = tok_cost(&temp_payload);
         build_payload(PayloadParts {
@@ -377,6 +383,7 @@ pub fn handle(
                 "estimated_tokens": m
             })),
             superseded_by: &superseded_by,
+            schemas: &schema_block,
         })
     } else {
         build_payload(PayloadParts {
@@ -388,8 +395,25 @@ pub fn handle(
             graph: graph_val.as_ref(),
             budget_info: None,
             superseded_by: &superseded_by,
+            schemas: &schema_block,
         })
     };
+
+    // Surfacing telemetry (AC-10): prime surfaces schemas alongside the
+    // regular payload — one event, co-surfaced set bounded by the cap.
+    let schema_ids: Vec<i64> = schema_block
+        .iter()
+        .filter_map(|s| s["id"].as_i64())
+        .collect();
+    if !schema_ids.is_empty() {
+        let co: Vec<(&str, i64)> = decisions
+            .iter()
+            .map(|d| ("decision", d.id))
+            .chain(patterns.iter().map(|p| ("system_pattern", p.id)))
+            .chain(progress.iter().map(|p| ("progress_entry", p.id)))
+            .collect();
+        crate::ops::schemas::retrieval::record_surface(conn, "prime", None, &schema_ids, &co)?;
+    }
 
     Ok(payload)
 }
@@ -492,6 +516,7 @@ struct PayloadParts<'a> {
     graph: Option<&'a Value>,
     budget_info: Option<Value>,
     superseded_by: &'a std::collections::HashMap<i64, i64>,
+    schemas: &'a [Value],
 }
 
 fn build_payload(parts: PayloadParts) -> Value {
@@ -504,8 +529,11 @@ fn build_payload(parts: PayloadParts) -> Value {
         graph,
         budget_info,
         superseded_by,
+        schemas,
     } = parts;
     let mut map = serde_json::Map::new();
+    // The schemas block leads: concepts prime individual facts (spec 0002).
+    map.insert("schemas".to_string(), Value::Array(schemas.to_vec()));
     map.insert("product_context".to_string(), product_context.clone());
     map.insert("active_context".to_string(), active_context.clone());
     let decisions_json: Vec<Value> = decisions

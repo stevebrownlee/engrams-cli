@@ -7,6 +7,7 @@
 
 pub mod confirm;
 pub mod list;
+pub mod retrieval;
 pub mod scan;
 
 use anyhow::Result;
