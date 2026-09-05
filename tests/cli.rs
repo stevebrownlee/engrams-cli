@@ -2062,6 +2062,465 @@ fn test_migration_v2_to_v3() {
 }
 
 #[test]
+fn test_fresh_db_has_schema_formation_objects() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // AC-11: fresh databases only run SCHEMA, never migrations, so every
+    // object the schema-formation feature defines must already exist there.
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, parsed["version"].as_i64().unwrap() as i32);
+    assert!(
+        version >= 12,
+        "expected schema-formation schema, got v{}",
+        version
+    );
+
+    for name in [
+        "schemas",
+        "schema_candidates",
+        "retrieval_surfaces",
+        "schema_suggestions",
+        "schemas_fts",
+        "idx_retrieval_surfaces_node",
+    ] {
+        let n: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name = ?1",
+                rusqlite::params![name],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1, "fresh db missing object {}", name);
+    }
+}
+
+#[test]
+fn test_migration_v11_to_v12() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Rewind to the pre-v12 shape: MIGRATION_V12 is purely additive, so a
+    // v11 database is exactly the current shape minus the schema-formation
+    // objects. Seed a row the upgrade must preserve.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "DROP TRIGGER IF EXISTS schemas_ai;
+             DROP TRIGGER IF EXISTS schemas_au;
+             DROP TRIGGER IF EXISTS schemas_ad;
+             DROP TABLE IF EXISTS schemas_fts;
+             DROP TABLE IF EXISTS retrieval_surfaces;
+             DROP TABLE IF EXISTS schema_candidates;
+             DROP TABLE IF EXISTS schema_suggestions;
+             DROP TABLE IF EXISTS schemas;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO decisions (uuid, timestamp, summary)
+             VALUES ('u1', '2026-01-01T00:00:00Z', 'v11 decision')",
+            [],
+        )
+        .unwrap();
+        conn.execute("PRAGMA user_version = 11", []).unwrap();
+    }
+
+    // On-disk version must match migrate's self-reported latest (self-maintaining
+    // pin — derived from command output, not a hardcoded number).
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, parsed["version"].as_i64().unwrap() as i32);
+
+    // The schema-formation objects exist again post-migration.
+    for name in [
+        "schemas",
+        "schema_candidates",
+        "retrieval_surfaces",
+        "schema_suggestions",
+        "schemas_fts",
+        "idx_retrieval_surfaces_node",
+    ] {
+        let n: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name = ?1",
+                rusqlite::params![name],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1, "migrated db missing object {}", name);
+    }
+
+    // Pre-existing row survived the upgrade.
+    let summary: String = conn
+        .query_row("SELECT summary FROM decisions WHERE uuid = 'u1'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(summary, "v11 decision");
+}
+
+#[test]
+fn test_schema_scan_stages_and_writes_nothing_else() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Seed a dense triangle through the CLI: three decisions anchored to one
+    // path and fully linked, so detection has a real cluster to find.
+    for summary in [
+        "Schema formation detection alpha",
+        "Schema formation detection beta",
+        "Schema formation detection gamma",
+    ] {
+        engrams(&db)
+            .args(["decision", "log", "--summary", summary, "--force"])
+            .assert()
+            .success();
+    }
+    // Anchor and link fixture rows go in by SQL: `anchor add` also
+    // materializes a code node plus derived anchored_to edges (pre-existing
+    // enrichment), which would join a fourth member to the cluster. The
+    // fixture under test is exactly the decision triangle.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        for id in 1..=3 {
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES ('decision', ?1, 'src/det.rs', '2026-01-01T00:00:00Z')",
+                rusqlite::params![id],
+            )
+            .unwrap();
+        }
+        for (a, b) in [(1, 2), (2, 3), (1, 3)] {
+            conn.execute(
+                "INSERT INTO context_links (source_item_type, source_item_id, \
+                 target_item_type, target_item_id, relationship_type, timestamp, origin) \
+                 VALUES ('decision', ?1, 'decision', ?2, 'relates_to', \
+                 '2026-01-01T00:00:00Z', 'manual')",
+                rusqlite::params![a, b],
+            )
+            .unwrap();
+        }
+    }
+
+    // Repeated scans surface one candidate with stable identity; stability
+    // advances per sighting and the gates only pass on the third.
+    let mut sigs = Vec::new();
+    for expected_stability in [1, 2, 3] {
+        let out = engrams(&db).args(["schema", "scan"]).output().unwrap();
+        assert!(out.status.success());
+        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        let candidates = json["candidates"].as_array().unwrap();
+        assert_eq!(candidates.len(), 1, "expected one candidate: {json}");
+        let c = &candidates[0];
+        assert_eq!(c["member_count"], 3);
+        assert_eq!(c["stability_count"], expected_stability);
+        assert_eq!(c["gates_pass"], expected_stability == 3);
+        sigs.push(c["cluster_sig"].as_str().unwrap().to_string());
+    }
+    assert!(sigs.iter().all(|s| s == &sigs[0]), "sigs drifted: {sigs:?}");
+
+    // Scan wrote only schema_candidates: the seeded rows are all there is.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let counts: Vec<(String, i64)> = [
+            ("schema_candidates", 1),
+            ("decisions", 3),
+            ("context_links", 3),
+            ("item_anchors", 3),
+        ]
+        .into_iter()
+        .map(|(t, want)| {
+            let n: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {t}"), [], |r| r.get(0))
+                .unwrap();
+            (t.to_string(), n - want)
+        })
+        .collect();
+        assert!(
+            counts.iter().all(|(_, delta)| *delta == 0),
+            "unexpected row deltas: {counts:?}"
+        );
+    }
+}
+
+#[test]
+fn test_schema_list_show_refine_and_confirm_bump() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Seed a dense fully-linked trio by SQL: `anchor add` would materialize
+    // a code node into the cluster, and a real CLI decision log would hit
+    // the similarity gate on near-identical summaries.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','t','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','t','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','t','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','t','manual'),
+             ('decision','2','decision','3','relates_to','t','manual'),
+             ('decision','1','decision','3','relates_to','t','manual');",
+        )
+        .unwrap();
+    }
+
+    // Stability ramps per sighting; gates pass on the third, so --apply
+    // promotes exactly then.
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    let out = engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let applied = json["applied"].as_array().unwrap();
+    assert_eq!(applied.len(), 1, "expected one promotion: {json}");
+    assert_eq!(applied[0], "core");
+
+    // list: the draft exists with its member count.
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schemas = json["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(schemas[0]["name"], "core");
+    assert_eq!(schemas[0]["summary_source"], "drafted");
+    assert_eq!(schemas[0]["member_count"], 3);
+
+    // show resolves by name and lists members.
+    let out = engrams(&db)
+        .args(["schema", "show", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schema = &json["schema"];
+    assert_eq!(schema["name"], "core");
+    assert_eq!(schema["members"].as_array().unwrap().len(), 3);
+
+    // refine rewrites the summary as agent-authored and re-ranks.
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "core",
+            "--summary",
+            "Gateway architecture: how requests route",
+        ])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schema"]["summary_source"], "agent");
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schemas"][0]["summary_source"], "agent");
+
+    // Confirm by name is a bump: timestamp advances, no new row or edges.
+    // last_confirmed_at is second-granularity; wait out the rollover.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let before: String = conn
+        .query_row(
+            "SELECT last_confirmed_at FROM schemas WHERE name = 'core'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let member_of: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    drop(conn);
+    let out = engrams(&db)
+        .args(["schema", "confirm", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schema"]["bumped"], true, "expected bump: {json}");
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let after: String = conn
+        .query_row(
+            "SELECT last_confirmed_at FROM schemas WHERE name = 'core'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let member_of_after: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+        .unwrap();
+    assert_ne!(before, after, "last_confirmed_at must advance");
+    assert_eq!(rows, 1, "bump must not create a schema row");
+    assert_eq!(
+        member_of_after, member_of,
+        "bump must not add member_of edges"
+    );
+    drop(conn);
+
+    // Unknown id errors in the JSON error shape.
+    let out = engrams(&db)
+        .args(["schema", "show", "999"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "unknown id must fail");
+    let json: Value = serde_json::from_slice(&out.stderr).unwrap();
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("no schema matches"),
+        "unexpected error body: {json}"
+    );
+}
+
+#[test]
+fn test_prime_leads_with_schemas_block() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    // prime requires an active-context track (same setup as test_prime).
+    engrams(&db)
+        .args(["active-context", "update", "--content", "{\"tasks\": []}"])
+        .assert()
+        .success();
+    // Seed and confirm one schema (dense fully-linked trio; SQL seeding for
+    // the same reasons as test_schema_list_show_refine_and_confirm_bump).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+
+    // The pin: `schemas` is the FIRST key of prime's payload, ahead of the
+    // pre-existing blocks (serde_json preserve_order makes key order load-
+    // bearing; a HashMap regression here reorders it).
+    let out = engrams(&db).arg("prime").output().unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let map = json.as_object().expect("prime payload is an object");
+    assert_eq!(
+        map.keys().next(),
+        Some(&"schemas".to_string()),
+        "schemas block must lead prime's payload; keys: {:?}",
+        map.keys().collect::<Vec<_>>()
+    );
+    assert!(!map["schemas"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn test_engrams_db_env_override() {
+    let temp = TempDir::new().unwrap();
+    let env_db = temp.path().join("env.db");
+    // A fake workspace: cwd discovery would target this DB, so any write
+    // landing here means the override was ignored.
+    let ws = TempDir::new().unwrap();
+    std::fs::create_dir_all(ws.path().join(".engrams")).unwrap();
+
+    // Precedence: --db beats ENGRAMS_DB. The --db path is created; the env
+    // path is not.
+    let flag_db = temp.path().join("flag.db");
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .arg("--db")
+        .arg(&flag_db)
+        .arg("init")
+        .assert()
+        .success();
+    assert!(flag_db.exists(), "--db must win over ENGRAMS_DB");
+    assert!(
+        !env_db.exists(),
+        "ENGRAMS_DB must not be used when --db is set"
+    );
+
+    // ENGRAMS_DB beats workspace/CWD discovery, and a nonexistent env path
+    // is created on first use exactly like --db.
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .current_dir(ws.path())
+        .arg("init")
+        .assert()
+        .success();
+    assert!(env_db.exists(), "ENGRAMS_DB must receive the writes");
+    assert!(
+        !ws.path().join("engrams").join("context.db").exists(),
+        "the discovered workspace DB must be untouched while ENGRAMS_DB is set"
+    );
+
+    // The override is real routing, not just file creation: a write through
+    // ENGRAMS_DB is readable through it.
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .current_dir(ws.path())
+        .args(["decision", "log", "--summary", "env routed", "--force"])
+        .assert()
+        .success();
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_DB", &env_db)
+        .current_dir(ws.path())
+        .args(["decision", "list"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let summaries: Vec<&str> = body
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|d| d["summary"].as_str())
+        .collect();
+    assert!(
+        summaries.contains(&"env routed"),
+        "decision must land in the ENGRAMS_DB database: {summaries:?}"
+    );
+}
+#[test]
 fn test_graph_densification_from_anchors() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");

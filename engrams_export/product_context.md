@@ -35,7 +35,7 @@ created: 2026-07-10T12:35:13Z
       "uuid": "uuid v4"
     }
   },
-  "updated_at": "2026-07-10T12:35:13Z",
-  "version": 1
+  "version": 1,
+  "updated_at": "2026-07-10T12:35:13Z"
 }
 ```
