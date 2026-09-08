@@ -172,33 +172,39 @@ pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Opti
 /// Parse and validate a candidate's member strings against the backing
 /// tables, so confirm never materializes ghost nodes in the graph.
 pub(crate) fn parse_members(conn: &Connection, members: &[String]) -> Result<Vec<Member>> {
-    members
-        .iter()
-        .map(|m| {
-            let (kind, id) = m
-                .split_once(':')
-                .with_context(|| format!("malformed member key '{m}'"))?;
-            let id: i64 = id
-                .parse()
-                .with_context(|| format!("malformed member key '{m}'"))?;
-            let table =
-                kind_table(kind).with_context(|| format!("unknown member kind '{kind}'"))?;
-            let exists: Option<i64> = conn
-                .query_row(
-                    &format!("SELECT 1 FROM {table} WHERE id = ?1"),
-                    params![id],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            if exists.is_none() {
-                bail!("member {m} has no backing row");
-            }
-            Ok(Member {
-                kind: kind.to_string(),
-                id,
-            })
-        })
-        .collect()
+    let mut out = Vec::with_capacity(members.len());
+    for m in members {
+        let (kind, id_str) = m
+            .split_once(':')
+            .with_context(|| format!("malformed member key '{m}'"))?;
+        let Some(table) = kind_table(kind) else {
+            // Non-entity nodes (e.g. pull request nodes `pr:https://...`) are
+            // external graph anchors that do not have integer-keyed entity backing
+            // tables in SQLite. Skip them so external references never block promotion.
+            continue;
+        };
+        let id: i64 = id_str
+            .parse()
+            .with_context(|| format!("malformed integer id in member key '{m}'"))?;
+        let exists: Option<i64> = conn
+            .query_row(
+                &format!("SELECT 1 FROM {table} WHERE id = ?1"),
+                params![id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if exists.is_none() {
+            bail!("member {m} has no backing row");
+        }
+        out.push(Member {
+            kind: kind.to_string(),
+            id,
+        });
+    }
+    if out.is_empty() && !members.is_empty() {
+        bail!("candidate has no database entity members to promote");
+    }
+    Ok(out)
 }
 
 /// Most frequent tag across member decisions/patterns (highest count,
@@ -408,6 +414,9 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
         // Claimed territory frees only via prune/archive — the v0.14
         // adaptation owns the retire path (decision 76); nothing in the
         // confirm covenant un-claims it.
+        // NOTE: Strict subset rejection (Item 3) is intentionally active in v0.13.0
+        // to prevent duplicate promotion; hierarchical sub-schemas (permitting
+        // child concepts inside parent territories) remain pending for v0.14.0.
         let s_knowledge: Vec<&String> = s
             .members
             .iter()
@@ -956,5 +965,24 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
             .unwrap();
         assert_eq!(schemas, 2, "overlapping-but-distinct promotes");
+    }
+
+    #[test]
+    fn parse_members_skips_external_pr_nodes_cleanly() {
+        let conn = mem_db();
+        add_decision(&conn, 1, "d1", "core");
+        add_decision(&conn, 2, "d2", "core");
+
+        // Candidate member set containing real entity decisions and an external PR node URL.
+        let members = vec![
+            "decision:1".to_string(),
+            "decision:2".to_string(),
+            "pr:https://github.com/stevebrownlee/engrams-cli/pull/3".to_string(),
+        ];
+
+        let parsed = parse_members(&conn, &members).unwrap();
+        assert_eq!(parsed.len(), 2, "PR node is safely skipped without bailing");
+        assert_eq!(parsed[0].id, 1);
+        assert_eq!(parsed[1].id, 2);
     }
 }

@@ -219,6 +219,7 @@ CREATE TABLE IF NOT EXISTS schema_suggestions (
   PRIMARY KEY (schema_id, item_kind, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_retrieval_surfaces_node ON retrieval_surfaces(node_kind, node_id, ts);
+CREATE INDEX IF NOT EXISTS idx_retrieval_surfaces_ts ON retrieval_surfaces(ts);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS schemas_fts USING fts5(
   name, summary, content='schemas', content_rowid='id'
@@ -451,6 +452,7 @@ CREATE TABLE IF NOT EXISTS schema_suggestions (
   PRIMARY KEY (schema_id, item_kind, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_retrieval_surfaces_node ON retrieval_surfaces(node_kind, node_id, ts);
+CREATE INDEX IF NOT EXISTS idx_retrieval_surfaces_ts ON retrieval_surfaces(ts);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS schemas_fts USING fts5(
   name, summary, content='schemas', content_rowid='id'

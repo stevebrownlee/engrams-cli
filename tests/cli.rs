@@ -2090,6 +2090,7 @@ fn test_fresh_db_has_schema_formation_objects() {
         "schema_suggestions",
         "schemas_fts",
         "idx_retrieval_surfaces_node",
+        "idx_retrieval_surfaces_ts",
     ] {
         let n: i64 = conn
             .query_row(
@@ -2152,6 +2153,7 @@ fn test_migration_v11_to_v12() {
         "schema_suggestions",
         "schemas_fts",
         "idx_retrieval_surfaces_node",
+        "idx_retrieval_surfaces_ts",
     ] {
         let n: i64 = conn
             .query_row(

@@ -51,8 +51,10 @@ fn item_tokens(summary: &str, tags: &[String]) -> BTreeSet<String> {
 }
 
 /// Match one item's lexical surface against all active schemas' centroids.
-/// Fit = matched centroid tags / total centroid tags; only schemas at or
-/// above [`FIT_GATE`] return, best fit first, capped at [`TOP_SUGGESTIONS`].
+/// Fit is normalized against the query basis (item tags if provided, or a
+/// 2-3 topic footprint) rather than the raw centroid size, so mature schemas
+/// with 10+ tags are not penalized. Only schemas at or above [`FIT_GATE`]
+/// return, best fit first, capped at [`TOP_SUGGESTIONS`].
 /// Read-only: firing happens in [`record_suggestions`].
 pub fn match_schemas(conn: &Connection, summary: &str, tags: &[String]) -> Result<Vec<Suggestion>> {
     let query_parts = item_tokens(summary, tags);
@@ -79,8 +81,7 @@ pub fn match_schemas(conn: &Connection, summary: &str, tags: &[String]) -> Resul
         let Some(tag_keys) = centroid["tags"].as_object() else {
             continue;
         };
-        let total = tag_keys.len();
-        if total == 0 {
+        if tag_keys.is_empty() {
             continue;
         }
         let matched = tag_keys
@@ -91,7 +92,15 @@ pub fn match_schemas(conn: &Connection, summary: &str, tags: &[String]) -> Resul
                     .any(|p| query_parts.contains(p))
             })
             .count();
-        let fit = matched as f64 / total as f64;
+        // Avoid the maturity penalty: normalize against the item's tag basis
+        // if supplied, or a typical 2-3 topic summary footprint (capped by
+        // actual centroid tags) when untagged, so mature schemas remain matchable.
+        let basis = if !tags.is_empty() {
+            tags.len()
+        } else {
+            tag_keys.len().clamp(1, 3)
+        };
+        let fit = (matched as f64 / basis as f64).min(1.0);
         if fit >= FIT_GATE {
             hits.push(Suggestion {
                 schema_id: id,
@@ -572,5 +581,41 @@ mod tests {
             )
             .unwrap();
         assert_eq!(members, 4, "attached member survives scan untouched");
+    }
+
+    #[test]
+    fn mature_schema_with_many_tags_matches_focused_item() {
+        let conn = mem_db();
+        // Centroid with 12 tags representing a mature, well-developed schema.
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, summary_source, status, centroid_json, \
+             last_confirmed_at, created_at, updated_at) \
+             VALUES ('u-mature', 'mature-infra', 's', 'agent', 'active', \
+             '{\"tags\": {\"api\": 5, \"gateway\": 4, \"routing\": 6, \"proxy\": 3, \"auth\": 2, \
+                         \"rate_limit\": 2, \"tls\": 1, \"cors\": 1, \"dns\": 1, \"http\": 4, \
+                         \"grpc\": 2, \"mesh\": 1}, \"anchors\": {}}', \
+             '2026-01-01T00:00:00Z', 't0', 't0')",
+            [],
+        )
+        .unwrap();
+        let id = conn.last_insert_rowid();
+
+        // A decision tagged with 2 matching tags should match with 1.0 fit,
+        // not 2/12 = 0.16.
+        let hits = match_schemas(
+            &conn,
+            "Update gateway routes",
+            &["api".to_string(), "gateway".to_string()],
+        )
+        .unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].schema_id, id);
+        assert!((hits[0].fit - 1.0).abs() < 1e-6);
+
+        // An untagged summary mentioning 2 distinctive tags should match at 2/3 = 0.67 >= 0.40.
+        let hits_untagged = match_schemas(&conn, "Rewire api gateway configuration", &[]).unwrap();
+        assert_eq!(hits_untagged.len(), 1);
+        assert_eq!(hits_untagged[0].schema_id, id);
+        assert!((hits_untagged[0].fit - (2.0 / 3.0)).abs() < 1e-6);
     }
 }
