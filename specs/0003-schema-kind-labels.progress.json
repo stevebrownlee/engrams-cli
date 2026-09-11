@@ -4,10 +4,10 @@
   "spec_name": "schema-kind-labels",
   "spec_path": "specs/0003-schema-kind-labels.md",
   "created_at": "2026-09-11T16:19:46Z",
-  "updated_at": "2026-09-11T17:10:14Z",
+  "updated_at": "2026-09-11T17:17:59Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 3,
+  "current_phase": 4,
   "phases": [
     {
       "id": 1,
@@ -73,7 +73,7 @@
       "id": 3,
       "title": "Wire kind labels into schema scan output and staging",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
       "depends_on": [
         2
       ],
@@ -94,13 +94,16 @@
       ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [],
+      "commit_sha": "a6863d7bbd21ce00db7325447c31ed5aa858a628",
+      "started_at": "2026-09-11T16:45:00Z",
+      "completed_at": "2026-09-11T17:17:59Z"
     },
     {
       "id": 4,
       "title": "Hold scan apply back from non-schema kinds",
       "type": "standard",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         3
       ],
@@ -119,7 +122,8 @@
       ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [],
+      "started_at": "2026-09-11T17:17:59Z"
     }
   ]
 }
