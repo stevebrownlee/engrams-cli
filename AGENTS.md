@@ -141,4 +141,23 @@ Override discovery by passing global flags **before** the subcommand:
 
 ---
 
+## Architecture invariants
+
+Refuse to write code that breaks these:
+
+- **Frozen migrations:** baseline `SCHEMA` carries final column shapes; published `MIGRATION_V*` consts are never edited — changes are a new ALTER-only const + baseline update + `LATEST_VERSION` bump.
+- **JSON-only output:** every command emits JSON on success and `{"error": ...}` on failure; never human-readable success output.
+- **Workspace discovery is upward-only;** `--workspace`/`--db` (before the subcommand) force a target. Automation aiming at a database copy passes `--db` explicitly — never env or CWD reliance.
+- **`#[allow(dead_code)]` is a documented seam only:** the attribute comment must cite the named future phase that wires the symbol (e.g. `src/ops/schemas/mod.rs`).
+
+## Commit exclusions
+
+Never stage:
+
+- `engrams/context.db` and all `engrams/context.db*` siblings (live database and backups)
+- `release_cache.json` (local release scratch), `target/` (build output)
+- Scratch generators (e.g. `/tmp` scripts); the committed artifact — fixture or export — is the deliverable
+
+---
+
 For the full command reference — Store/Link/Retrieve tables, `graph` queries, the relationship ontology, and status vocabularies — read [`docs/memory/engrams.md`](docs/memory/engrams.md).
