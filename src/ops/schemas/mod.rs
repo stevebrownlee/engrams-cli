@@ -7,8 +7,6 @@
 
 pub mod assimilate;
 pub mod confirm;
-#[allow(dead_code)]
-// labeler core; scan wiring lands in phase 3, after the phase-2 replay gate (spec 0003 design choice 4)
 pub mod kind;
 pub mod list;
 pub mod retrieval;
