@@ -13,7 +13,7 @@
       "id": 1,
       "title": "Add migration v13 and kind labeler core in schemas/kind.rs",
       "type": "standard",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [],
       "exemplars": [
         "src/schema.rs",
@@ -32,9 +32,10 @@
         "cargo test schemas"
       ],
       "retry_count": 0,
+      "commit_sha": "f55cb1b0374721701e8b832c671776d8aa2289af",
       "blocked_reason": null,
-      "review_findings": [],
-      "started_at": "2026-09-11T16:21:00Z"
+      "started_at": "2026-09-11T16:21:00Z",
+      "completed_at": "2026-09-11T16:39:00Z"
     },
     {
       "id": 2,
