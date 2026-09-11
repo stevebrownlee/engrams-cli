@@ -1,0 +1,1479 @@
+{
+  "provenance": {
+    "source": "engrams/context.db @ 2026-09-11 (v12, read-only snapshot)",
+    "gates": "density >= 0.5 AND stability_count >= 3 AND reward_hits >= 0",
+    "excluded": "gate-passing drift rows overlapping a confirmed schema member_of set (frac >= 0.7); labels on confirmed schemas are out of scope (spec 0003)",
+    "hand_labels": "developer dogfood judgment over member timelines, 2026-09-11"
+  },
+  "groups": [
+    {
+      "id": "pile-49",
+      "members": [
+        "code:1",
+        "code:140",
+        "code:144",
+        "code:145",
+        "code:146",
+        "code:147",
+        "code:148",
+        "code:149",
+        "code:150",
+        "code:151",
+        "code:152",
+        "code:154",
+        "code:157",
+        "code:159",
+        "code:160",
+        "code:161",
+        "code:162",
+        "code:168",
+        "code:2",
+        "code:20492",
+        "code:20495",
+        "code:20497",
+        "code:267",
+        "code:270",
+        "code:277",
+        "code:31046",
+        "code:31376",
+        "code:31965",
+        "code:32007",
+        "code:32008",
+        "code:32011",
+        "code:32012",
+        "code:32017",
+        "code:32037",
+        "code:32039",
+        "code:32045",
+        "code:32164",
+        "code:32175",
+        "code:32176",
+        "code:32190",
+        "code:32202",
+        "code:32601",
+        "code:33263",
+        "code:84",
+        "code:85",
+        "code:89",
+        "code:9",
+        "code:91",
+        "code:93"
+      ],
+      "expected": "inventory",
+      "note": "whole-repo file pile; no decisions or rules among 49 file nodes"
+    },
+    {
+      "id": "pile-26",
+      "members": [
+        "code:135",
+        "code:136",
+        "code:137",
+        "code:141",
+        "code:290",
+        "code:3",
+        "code:31041",
+        "code:31948",
+        "code:31995",
+        "code:33295",
+        "code:33296",
+        "code:33297",
+        "code:33298",
+        "code:33299",
+        "code:33300",
+        "code:33301",
+        "code:343",
+        "code:345",
+        "code:346",
+        "code:355",
+        "code:357",
+        "code:359",
+        "code:361",
+        "code:7",
+        "code:86",
+        "code:87"
+      ],
+      "expected": "inventory",
+      "note": "file pile, ingest-window activity only"
+    },
+    {
+      "id": "agents-campaign",
+      "members": [
+        "code:31953",
+        "decision:31",
+        "decision:32",
+        "decision:33",
+        "decision:34",
+        "decision:35",
+        "decision:43",
+        "progress_entry:39",
+        "progress_entry:40",
+        "progress_entry:41",
+        "progress_entry:42",
+        "progress_entry:43"
+      ],
+      "expected": "story",
+      "note": "AGENTS.md/rules rewrite burst 2026-08-03/04, never re-activated"
+    },
+    {
+      "id": "policy-decisions",
+      "members": [
+        "code:31973",
+        "decision:42",
+        "decision:44",
+        "progress_entry:57"
+      ],
+      "expected": "story",
+      "note": "policy engine burst 2026-08-03..05 (cli hook, Path A ratification, implementation); one contiguous stretch, closed; enforcement life lives in patterns 7-10 which sit in confirmed schema 5"
+    },
+    {
+      "id": "workspace-semantics",
+      "members": [
+        "code:31991",
+        "decision:15",
+        "decision:45",
+        "pr:https://github.com/stevebrownlee/engrams-cli/pull/44"
+      ],
+      "expected": "story",
+      "note": "cwd-git-resolution 2026-07-12 then workspace-isolation 2026-08-05; two stretches, no trigger surface, topic closed by the later decision"
+    },
+    {
+      "id": "docs-v090",
+      "members": [
+        "code:31993",
+        "decision:46",
+        "decision:47",
+        "decision:48",
+        "decision:49",
+        "decision:50",
+        "decision:51",
+        "decision:52",
+        "progress_entry:54",
+        "progress_entry:55",
+        "progress_entry:56",
+        "progress_entry:58",
+        "progress_entry:59",
+        "progress_entry:60"
+      ],
+      "expected": "story",
+      "note": "docs v0.9.0 campaign 2026-08-05/08, shipped and closed"
+    },
+    {
+      "id": "advisor-files",
+      "members": [
+        "code:32216",
+        "code:32217"
+      ],
+      "expected": "inventory",
+      "note": "two advisor integration files, no ideas among them"
+    },
+    {
+      "id": "batch-fix",
+      "members": [
+        "code:33155",
+        "decision:71",
+        "progress_entry:68"
+      ],
+      "expected": "story",
+      "note": "one-day fix 2026-09-04, closed"
+    },
+    {
+      "id": "formation",
+      "members": [
+        "code:34992",
+        "decision:72",
+        "decision:73",
+        "decision:74",
+        "decision:75",
+        "decision:76",
+        "decision:78",
+        "decision:79",
+        "decision:80",
+        "decision:81",
+        "progress_entry:69"
+      ],
+      "expected": "unclear",
+      "note": "the living paradigm practice per developer knowledge (this very session), but the snapshot shows a single 2026-09-04/05 burst with a strong shared-anchor trigger — indistinguishable from a fresh campaign from stored data alone; unclear routes it to human confirmation, the designed conservative path; flips to schema once later sessions re-touch its members"
+    },
+    {
+      "id": "pilot",
+      "members": [
+        "code:35002",
+        "decision:77"
+      ],
+      "expected": "story",
+      "note": "schema-pilot decision and its spec file, 2026-09-04/05; pilot concluded by its own recorded decision (folded into spec 0002)"
+    },
+    {
+      "id": "dashboard-trio",
+      "members": [
+        "decision:1",
+        "decision:11",
+        "decision:9"
+      ],
+      "expected": "story",
+      "note": "dashboard/report decisions 2026-07-10/12, quiet since"
+    },
+    {
+      "id": "output-trio",
+      "members": [
+        "decision:10",
+        "decision:2",
+        "system_pattern:1"
+      ],
+      "expected": "unclear",
+      "note": "JSON-output discipline records 2026-07-10/12 plus one 2026-09-10 retrieval of pattern 1; developer believes the practice is alive as a covenant but the recurrence evidence of this group is a single retrieval with no shared anchor and no checkable member — honestly mixed signals"
+    },
+    {
+      "id": "instructions-provenance",
+      "members": [
+        "decision:12",
+        "decision:14",
+        "decision:40",
+        "progress_entry:24",
+        "progress_entry:50"
+      ],
+      "expected": "story",
+      "note": "instructions/pr-provenance shaping 2026-07-12 then rewrite 2026-08-04; settled since"
+    },
+    {
+      "id": "homepage",
+      "members": [
+        "decision:36",
+        "decision:37",
+        "decision:38",
+        "decision:39",
+        "decision:69",
+        "progress_entry:44",
+        "progress_entry:46",
+        "progress_entry:47",
+        "progress_entry:49"
+      ],
+      "expected": "schema",
+      "note": "redesign 2026-08-03/04 then headline return 2026-08-29: came back after 25 days of silence with all five decisions anchored to docs/src/pages/index.astro"
+    },
+    {
+      "id": "release-triggers",
+      "members": [
+        "decision:4",
+        "decision:7"
+      ],
+      "expected": "story",
+      "note": "release-channel choices 2026-07-10/12 (Homebrew priority, on-demand triggers); never re-activated since"
+    }
+  ],
+  "facts": {
+    "decisions": [
+      {
+        "id": 1,
+        "timestamp": "2026-07-10T12:35:17Z",
+        "summary": "Use SQLite for context database",
+        "tags": "[\"database\",\"sqlite\",\"storage\"]"
+      },
+      {
+        "id": 2,
+        "timestamp": "2026-07-10T12:35:17Z",
+        "summary": "Support both JSON and human-readable plain text outputs",
+        "tags": "[\"cli\",\"output\",\"json\"]"
+      },
+      {
+        "id": 4,
+        "timestamp": "2026-07-10T12:39:38Z",
+        "summary": "Prioritize GitHub Releases and Homebrew for initial distribution",
+        "tags": "[\"release\",\"distribution\",\"homebrew\",\"github\"]"
+      },
+      {
+        "id": 7,
+        "timestamp": "2026-07-10T12:42:05Z",
+        "summary": "Use on-demand, feature-driven release triggers",
+        "tags": "[\"release\",\"cadence\",\"github\",\"workflow\"]"
+      },
+      {
+        "id": 9,
+        "timestamp": "2026-07-12T00:56:40Z",
+        "summary": "Support project knowledge reports via engrams report",
+        "tags": "[\"report\",\"cli\",\"features\"]"
+      },
+      {
+        "id": 10,
+        "timestamp": "2026-07-12T18:55:30Z",
+        "summary": "JSON-only CLI output",
+        "tags": null
+      },
+      {
+        "id": 11,
+        "timestamp": "2026-07-12T18:55:30Z",
+        "summary": "Static self-contained HTML dashboard via report open with vendored Cytoscape",
+        "tags": null
+      },
+      {
+        "id": 12,
+        "timestamp": "2026-07-12T23:23:15Z",
+        "summary": "PR provenance via context_links 'pr' target type",
+        "tags": "[\"pr\",\"provenance\",\"links\"]"
+      },
+      {
+        "id": 14,
+        "timestamp": "2026-07-12T23:23:15Z",
+        "summary": "Raw markdown output for instructions command",
+        "tags": "[\"instructions\",\"markdown\",\"cli\"]"
+      },
+      {
+        "id": 15,
+        "timestamp": "2026-07-12T23:23:16Z",
+        "summary": "CWD-based git resolution",
+        "tags": "[\"git\",\"cwd\",\"resolution\"]"
+      },
+      {
+        "id": 31,
+        "timestamp": "2026-08-03T04:24:58Z",
+        "summary": "Documented v0.8.0 in docs + changelog; grounded all claims against source",
+        "tags": "[\"docs\",\"changelog\",\"v0.8.0\",\"accuracy\"]"
+      },
+      {
+        "id": 32,
+        "timestamp": "2026-08-03T04:34:25Z",
+        "summary": "Rewrite AGENTS.md with v0.8.0-accurate Store/Link/Retrieve quick references",
+        "tags": "[\"docs\",\"agents-md\",\"v0.8.0\",\"reference\"]"
+      },
+      {
+        "id": 33,
+        "timestamp": "2026-08-03T11:06:55Z",
+        "summary": "Split AGENTS.md: slim every-session guide + docs/memory/engrams.md full reference",
+        "tags": "[\"docs\",\"agents-md\",\"reference\",\"token-efficiency\"]"
+      },
+      {
+        "id": 34,
+        "timestamp": "2026-08-03T11:19:50Z",
+        "summary": "Slim AGENTS.md Operating Loop into a goals/command table; tighten Core Rules",
+        "tags": "[\"docs\",\"agents-md\",\"token-efficiency\"]"
+      },
+      {
+        "id": 35,
+        "timestamp": "2026-08-03T11:36:08Z",
+        "summary": "Introduce .agents/rules/ system; rule 001 requires engrams prime first",
+        "tags": "[\"docs\",\"agents-md\",\"rules\",\"governance\"]"
+      },
+      {
+        "id": 36,
+        "timestamp": "2026-08-03T22:00:46Z",
+        "summary": "Redesign homepage from docs-style to full marketing landing page",
+        "tags": "[\"docs\",\"marketing\",\"homepage\",\"ui\"]"
+      },
+      {
+        "id": 37,
+        "timestamp": "2026-08-03T22:24:18Z",
+        "summary": "Pivot homepage hero framing from memory to decision-visibility risk",
+        "tags": "[\"docs\",\"marketing\",\"hero\",\"messaging\"]"
+      },
+      {
+        "id": 38,
+        "timestamp": "2026-08-03T23:58:50Z",
+        "summary": "Replace fake terminal demo with real engrams prime JSON output on homepage",
+        "tags": "[\"docs\",\"marketing\",\"homepage\",\"terminal\"]"
+      },
+      {
+        "id": 39,
+        "timestamp": "2026-08-04T02:52:51Z",
+        "summary": "Reframe how-it-works section: 3-command walkthrough → 4-step LLM workflow loop",
+        "tags": "[\"docs\",\"marketing\",\"homepage\",\"workflow\"]"
+      },
+      {
+        "id": 40,
+        "timestamp": "2026-08-04T03:11:11Z",
+        "summary": "instructions output tracks AGENTS.md operating loop, scoped to distribution-portable content",
+        "tags": "[\"instructions\",\"markdown\",\"cli\",\"docs\"]"
+      },
+      {
+        "id": 42,
+        "timestamp": "2026-08-05T04:30:32Z",
+        "summary": "Ship omp integration from CLI: engrams install --harness omp",
+        "tags": "[\"omp\",\"hooks\",\"integration\",\"guidance\"]"
+      },
+      {
+        "id": 43,
+        "timestamp": "2026-08-05T04:30:32Z",
+        "summary": "Selective rule reading: AGENTS.md directive scopes .agents/rules consumption",
+        "tags": "[\"agents-md\",\"rules\",\"governance\",\"token-efficiency\"]"
+      },
+      {
+        "id": 44,
+        "timestamp": "2026-08-05T04:43:41Z",
+        "summary": "Path A ratified: TTSR-export-led policy engine; Path B demoted to prose-tier delivery",
+        "tags": "[\"architecture\",\"guidance\",\"omp\",\"ttsr\",\"policy-engine\"]"
+      },
+      {
+        "id": 45,
+        "timestamp": "2026-08-05T15:26:18Z",
+        "summary": "Workspace isolation: implicit write-through/staleness anchored to db_path only, never CWD",
+        "tags": "[\"policy-engine\",\"workspace-isolation\",\"write-through\",\"bug-fix\"]"
+      },
+      {
+        "id": 46,
+        "timestamp": "2026-08-08T15:44:03Z",
+        "summary": "Docs v0.9.0: three.js hero particles + 3d-force-graph interactive viz + GSAP ScrollTrigger scroll-driven maturation story on landing page",
+        "tags": "[\"docs\",\"v0.9.0\",\"threejs\",\"3d-force-graph\",\"gsap\"]"
+      },
+      {
+        "id": 47,
+        "timestamp": "2026-08-08T15:44:03Z",
+        "summary": "Docs v0.9.0: feature-filtered real graph data (71 nodes/29 links) from engrams own SQLite DB, excluding 12 meta decisions (docs/agents-md/instructions) and 25 docs/marketing progress entries",
+        "tags": "[\"docs\",\"v0.9.0\",\"graph\",\"real-data\"]"
+      },
+      {
+        "id": 48,
+        "timestamp": "2026-08-08T15:44:03Z",
+        "summary": "Docs v0.9.0 revamp: three-pillar IA restructure (Advisor / For You / For Your Agent), advisor-first narrative replacing 14 command-centric feature pages",
+        "tags": "[\"docs\",\"v0.9.0\",\"ia\",\"advisor\"]"
+      },
+      {
+        "id": 49,
+        "timestamp": "2026-08-08T15:44:04Z",
+        "summary": "Fix: .reveal CSS hidden by default (opacity:0) but IntersectionObserver existed only in index.astro. Moved shared reveal+stagger observer into DocsLayout so all 12 pillar pages animate correctly.",
+        "tags": "[\"docs\",\"v0.9.0\",\"bugfix\",\"css\"]"
+      },
+      {
+        "id": 50,
+        "timestamp": "2026-08-08T17:18:04Z",
+        "summary": "Hero title changed to 'An advisor with a memory that compounds' — combines advisor + memory/brain concepts",
+        "tags": "[\"docs\",\"landing\",\"messaging\",\"hero\",\"v0.9.0\"]"
+      },
+      {
+        "id": 51,
+        "timestamp": "2026-08-08T17:18:04Z",
+        "summary": "Removed ScrollStory maturation scroll animation from landing — did not convey useful information",
+        "tags": "[\"docs\",\"landing\",\"ux\",\"gsap\",\"v0.9.0\"]"
+      },
+      {
+        "id": 52,
+        "timestamp": "2026-08-08T17:32:14Z",
+        "summary": "Released v0.9.0 — Policy Engine + Docs Revamp 'The Active Advisor'",
+        "tags": "[\"release\",\"v0.9.0\",\"policy-engine\",\"docs\",\"homebrew\"]"
+      },
+      {
+        "id": 69,
+        "timestamp": "2026-08-29T22:38:09Z",
+        "summary": "Hero headline updated: 'The self-sufficient architecture graph your AI agent actually trusts'",
+        "tags": "[\"docs\",\"landing\",\"hero\",\"positioning\",\"v0.12.0\"]"
+      },
+      {
+        "id": 71,
+        "timestamp": "2026-09-04T18:10:09Z",
+        "summary": "Fix batch decision nested transactions and ship Tier-3 memory quality suite",
+        "tags": "[\"batch\",\"bugfix\",\"testing\",\"tier-3\",\"memory-quality\"]"
+      },
+      {
+        "id": 72,
+        "timestamp": "2026-09-04T19:52:34Z",
+        "summary": "Community detection is hand-rolled deterministic Louvain, not label propagation or a crate",
+        "tags": "[\"schema-formation\",\"clustering\",\"determinism\"]"
+      },
+      {
+        "id": 73,
+        "timestamp": "2026-09-04T19:54:37Z",
+        "summary": "Schema clustering signal is behavioral co-activation, not declared links",
+        "tags": "[\"schema-formation\",\"clustering\",\"graph\"]"
+      },
+      {
+        "id": 74,
+        "timestamp": "2026-09-04T19:54:37Z",
+        "summary": "Schemas are first-class graph entities, not a virtual cluster layer",
+        "tags": "[\"schema-formation\",\"data-model\",\"graph\"]"
+      },
+      {
+        "id": 75,
+        "timestamp": "2026-09-04T19:54:37Z",
+        "summary": "Schema summaries are mechanically drafted, agent-refined, and drafts rank below refinements",
+        "tags": "[\"schema-formation\",\"summaries\",\"retrieval\"]"
+      },
+      {
+        "id": 76,
+        "timestamp": "2026-09-04T19:54:37Z",
+        "summary": "v0.13.0 ships schema formation and assimilation; adaptation deferred to v0.14.0",
+        "tags": "[\"schema-formation\",\"scope\",\"versioning\"]"
+      },
+      {
+        "id": 77,
+        "timestamp": "2026-09-04T19:54:37Z",
+        "summary": "Cluster-quality pilot folded into the feature spec as a dogfood gate; detection lives inside the binary",
+        "tags": "[\"schema-formation\",\"specs\",\"strategy\"]"
+      },
+      {
+        "id": 78,
+        "timestamp": "2026-09-05T01:34:56Z",
+        "summary": "Schema formation launch defaults resolved: gates density>=0.5/stability>=3/reward>=0; staging Jaccard 0.7 with drift-count logging; co-retrieval weight ramps by co-observation count; prime schema block K=3; assimilation fires at 0.4 token overlap, top-2",
+        "tags": "[\"schema-formation\",\"launch-defaults\",\"tuning\",\"v0.13.0\"]"
+      },
+      {
+        "id": 79,
+        "timestamp": "2026-09-05T01:44:45Z",
+        "summary": "Suggestion tracking is a persisted schema_suggestions table in migration v8; decline is observable only through explicit --schema none opt-out",
+        "tags": "[\"schema-formation\",\"assimilation\",\"correction\",\"v0.13.0\"]"
+      },
+      {
+        "id": 80,
+        "timestamp": "2026-09-05T04:16:58Z",
+        "summary": "Schema formation launch gates frozen: density>=0.5, stability>=3, reward>=0, identity Jaccard 0.7",
+        "tags": "[\"schema-formation\",\"dogfood\",\"tuning\"]"
+      },
+      {
+        "id": 81,
+        "timestamp": "2026-09-05T05:54:27Z",
+        "summary": "scan --apply is the explicit opt-in batch promotion; bare scan remains read-only staging",
+        "tags": "[\"schema-formation\"]"
+      }
+    ],
+    "patterns": [
+      {
+        "id": 1,
+        "timestamp": "2026-07-10T12:35:21Z",
+        "name": "JSON Error Outputs on Failure",
+        "description": "All CLI errors caught in main.rs are formatted and printed to stderr as a JSON object {\"error\": \"...\"} and exit with code 1. This ensures that callers expecting JSON can parse failures structurally.",
+        "check_kind": null
+      }
+    ],
+    "progress": [
+      {
+        "id": 24,
+        "timestamp": "2026-07-12T23:23:20Z",
+        "description": "Released v0.5.0 with PR provenance, budgeted briefing, file anchors, supersede lifecycle, compact/projected output, instructions generator, git awareness/doctor, and unified cross-type query."
+      },
+      {
+        "id": 39,
+        "timestamp": "2026-08-03T04:25:18Z",
+        "description": "Updated all v0.8.0 docs (cli reference, changelog/releases, knowledge-graph, structured-context, doctor, prime) and bumped docs package to 0.8.0. All claims grounded against source; fabricated content removed. 24/24 Astro pages build; rendered HTML verified. Decision #31."
+      },
+      {
+        "id": 40,
+        "timestamp": "2026-08-03T04:37:14Z",
+        "description": "Rewrote AGENTS.md: added comprehensive Store/Link/Retrieve quick-reference covering all 24 top-level commands (incl. batch, history, init, import), verified Relationship Ontology (10 canonical rels) and Status Vocabularies tables, and an accuracy-discipline rule. Every command/flag verified against live CLI help and src."
+      },
+      {
+        "id": 41,
+        "timestamp": "2026-08-03T11:05:17Z",
+        "description": "Split AGENTS.md (189->94 lines): kept Purpose, Operating Loop, Core Rules, project/tech meta, DB discovery, developer commands, UI verification + bottom pointer. Moved Store/Link/Retrieve tables, graph queries, relationship ontology, and status vocabularies to new docs/memory/engrams.md (101 lines). Fixed the moved Relationship Ontology anchor link. Verified against live --help; no command text changed."
+      },
+      {
+        "id": 42,
+        "timestamp": "2026-08-03T11:20:09Z",
+        "description": "Slimmed AGENTS.md: replaced verbose 10-step Operating Loop with a 12-row goals/command table; tightened Core Rules 18->6 bullets (all rules preserved). 94->86 lines. No command/flag text changed."
+      },
+      {
+        "id": 43,
+        "timestamp": "2026-08-03T11:36:34Z",
+        "description": "Created .agents/rules/001-memory.md (prime-first rule). Verified .agents/rules/ NOT auto-loaded; rule:// is a separate lint-rules mechanism. Wired AGENTS.md with a Mandatory Rules directive pointing to .agents/rules/ so the rule is actually followed."
+      },
+      {
+        "id": 44,
+        "timestamp": "2026-08-03T22:01:00Z",
+        "description": "Redesigned docs homepage (index.astro) from documentation-style to full marketing landing page. PAS framework with 10 sections: amnesia hero, hidden tax (problem agitation), payoff benefits (4 cards), before/after shift, dead-simple 3-command walkthrough, token economics (12k vs 1k comparison), knowledge graph spotlight with animated SVG, ecosystem tools, final CTA. Polished chip badges. Production build passes (24 pages, 0 errors). Verified via agent-browser."
+      },
+      {
+        "id": 46,
+        "timestamp": "2026-08-03T22:24:30Z",
+        "description": "Pivoted homepage hero messaging from memory/recording framing to decision-visibility risk framing per user feedback. Hero: 'Your AI can see your code. It can't see your decisions.' Subtitle anchors reasoning to code as knowledge graph. Meta description updated to match. Commits: 567e84e (hero), abf5f2d (meta). Build passes, agent-browser verified."
+      },
+      {
+        "id": 47,
+        "timestamp": "2026-08-03T23:58:56Z",
+        "description": "Replaced homepage terminal demo with real engrams prime --budget 1500 JSON output from this project (active context, product context, decisions #35-37, patterns, graph stats). Build passes, agent-browser verified. Committed 115677b."
+      },
+      {
+        "id": 49,
+        "timestamp": "2026-08-04T02:52:51Z",
+        "description": "Reframed homepage how-it-works section from misleading '3 commands' to 4-step LLM workflow loop (log decisions, retrieve relevant, prime, track progress+handoff). Fixed active-context update command syntax to include --content argument. Escaped JSON braces with HTML entities for Astro. Build passes, agent-browser verified. Committed 8e18db9, pushed."
+      },
+      {
+        "id": 50,
+        "timestamp": "2026-08-04T03:11:32Z",
+        "description": "Rewrote src/assets/instructions.md (engrams instructions output) to track the updated AGENTS.md: operating-loop command table, real status enum, link/doctor/migrate/export, 6-step session-end protocol, distribution-portable omissions (TTS, .agents/rules, source map, cargo), public docs URL. Verified test_instructions passes and output renders. Decision #40."
+      },
+      {
+        "id": 54,
+        "timestamp": "2026-08-05T03:58:32Z",
+        "description": "Added .agents/rules/002-006: zero-allocation Rust rules from persona-grounded code audit"
+      },
+      {
+        "id": 55,
+        "timestamp": "2026-08-05T04:30:32Z",
+        "description": "Pattern audit (2 patterns, both prose-level) + AGENTS.md selective-read rewording + decisions logged for omp hook packaging and rule scoping"
+      },
+      {
+        "id": 56,
+        "timestamp": "2026-08-05T04:48:15Z",
+        "description": "Ratified Path A (decision 44) and wrote specs/policy-engine.md: 12 scope items, 9 risks, 5 phases, 13 BDD scenarios; TTSR export-led build order"
+      },
+      {
+        "id": 57,
+        "timestamp": "2026-08-05T15:22:43Z",
+        "description": "Implemented Policy Engine (Path A) per spec specs/policy-engine.md. Schema v5 (check_kind/check_expr/severity columns on system_patterns). New commands: pattern log --check-kind/--check/--severity, rules export --harness omp, install --harness omp, check (--staged/--paths, exit 1 on violations). Rules module exports omp-compatible TTSR rule files with frontmatter, deterministic manifest, write-through on pattern log/delete, doctor staleness check. Check runner: regex engine (in-process) + ast-grep shell-out. Dogfooded: rules 002-005 registered as patterns 7-10, exported to .omp/rules/. 50 tests green (35 cli + 15 policy). Fixed CWD-fallback bug in write_through/staleness that could corrupt cross-workspace rule files."
+      },
+      {
+        "id": 58,
+        "timestamp": "2026-08-08T15:44:28Z",
+        "description": "Docs v0.9.0 revamp complete: three-pillar IA (Advisor/For You/For Your Agent) replacing 14 feature pages. three.js hero, 3d-force-graph interactive viz, GSAP scroll-driven maturation story on landing — all real data (71 nodes/29 links from engrams own DB, meta excluded). 22 pages build clean, all 3D/motion browser-verified. Sidebar restructured, reveal-observer fixed in DocsLayout, dangling links repointed, orphaned pages removed. Decisions #46-49."
+      },
+      {
+        "id": 59,
+        "timestamp": "2026-08-08T17:18:34Z",
+        "description": "Refined docs v0.9.0 landing: removed ScrollStory maturation animation (not useful per user), dropped gsap dep, repointed hero CTA to interactive graph. Changed hero title to 'An advisor with a memory that compounds' (advisor+brain/memory concepts). Verified via agent-browser: balanced two-line break, no overflow. Decisions #50-51."
+      },
+      {
+        "id": 60,
+        "timestamp": "2026-08-08T17:32:41Z",
+        "description": "Released v0.9.0: tagged v0.9.0, CI built all 4 targets (aarch64/x86_64 apple-darwin + linux-musl), GitHub release published with comprehensive notes (Policy Engine + Docs Revamp). Formula updated to v0.9.0 with verified sha256 hashes for all 4 artifacts. Decision #52."
+      },
+      {
+        "id": 68,
+        "timestamp": "2026-09-04T18:10:30Z",
+        "description": "Implemented all 3 outstanding items: fixed batch --type decision nested transactions with with_transaction helper, eliminated 158 test clippy warnings in tests/cli.rs and resolved stale progress 18 + dead doctor anchor, and implemented Tier-3 memory quality test suite (tests/memory_quality.rs). 110 tests pass across 5 suites, 0 clippy warnings."
+      },
+      {
+        "id": 69,
+        "timestamp": "2026-09-05T01:49:23Z",
+        "description": "Spec 0002 schema-formation authored via PILOT spec-compose; five open questions resolved with launch defaults (gates dens>=0.5/stab>=3/reward>=0, Jaccard 0.7 + drift logging, co-retrieval count ramp, prime K=3, assimilation 0.4/top-2); schema_suggestions persistence table added after premise correction; decisions 72-79 logged and linked"
+      }
+    ],
+    "custom": null,
+    "code": [
+      {
+        "id": 1,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-05T06:31:30Z",
+        "path": "src/db.rs",
+        "symbol": ""
+      },
+      {
+        "id": 2,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/prime.rs",
+        "symbol": ""
+      },
+      {
+        "id": 3,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/index.astro",
+        "symbol": ""
+      },
+      {
+        "id": 7,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": ".gitignore",
+        "symbol": ""
+      },
+      {
+        "id": 9,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "AGENTS.md",
+        "symbol": ""
+      },
+      {
+        "id": 84,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "Cargo.toml",
+        "symbol": ""
+      },
+      {
+        "id": 85,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "Formula/engrams.rb",
+        "symbol": ""
+      },
+      {
+        "id": 86,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/package.json",
+        "symbol": ""
+      },
+      {
+        "id": 87,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/components/Sidebar.astro",
+        "symbol": ""
+      },
+      {
+        "id": 89,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/cli.rs",
+        "symbol": ""
+      },
+      {
+        "id": 91,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/mod.rs",
+        "symbol": ""
+      },
+      {
+        "id": 93,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "tests/cli.rs",
+        "symbol": ""
+      },
+      {
+        "id": 135,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/getting-started.astro",
+        "symbol": ""
+      },
+      {
+        "id": 136,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/quick-start.astro",
+        "symbol": ""
+      },
+      {
+        "id": 137,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/reference/cli.astro",
+        "symbol": ""
+      },
+      {
+        "id": 140,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/assets/report/app.js",
+        "symbol": ""
+      },
+      {
+        "id": 141,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/assets/report/template.html",
+        "symbol": ""
+      },
+      {
+        "id": 144,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/main.rs",
+        "symbol": ""
+      },
+      {
+        "id": 145,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/models.rs",
+        "symbol": ""
+      },
+      {
+        "id": 146,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/activity.rs",
+        "symbol": ""
+      },
+      {
+        "id": 147,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/anchor.rs",
+        "symbol": ""
+      },
+      {
+        "id": 148,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/batch.rs",
+        "symbol": ""
+      },
+      {
+        "id": 149,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/custom.rs",
+        "symbol": ""
+      },
+      {
+        "id": 150,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/decision.rs",
+        "symbol": ""
+      },
+      {
+        "id": 151,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/doctor.rs",
+        "symbol": ""
+      },
+      {
+        "id": 152,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/git.rs",
+        "symbol": ""
+      },
+      {
+        "id": 154,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/pattern.rs",
+        "symbol": ""
+      },
+      {
+        "id": 157,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/progress.rs",
+        "symbol": ""
+      },
+      {
+        "id": 159,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/report.rs",
+        "symbol": ""
+      },
+      {
+        "id": 160,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/transfer/export.rs",
+        "symbol": ""
+      },
+      {
+        "id": 161,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/transfer/import.rs",
+        "symbol": ""
+      },
+      {
+        "id": 162,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/schema.rs",
+        "symbol": ""
+      },
+      {
+        "id": 168,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "README.md",
+        "symbol": ""
+      },
+      {
+        "id": 267,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/context.rs",
+        "symbol": ""
+      },
+      {
+        "id": 270,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/link.rs",
+        "symbol": ""
+      },
+      {
+        "id": 277,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/transfer/mod.rs",
+        "symbol": ""
+      },
+      {
+        "id": 290,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/astro.config.mjs",
+        "symbol": ""
+      },
+      {
+        "id": 343,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/components/Header.astro",
+        "symbol": ""
+      },
+      {
+        "id": 345,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/layouts/DocsLayout.astro",
+        "symbol": ""
+      },
+      {
+        "id": 346,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/contributing.astro",
+        "symbol": ""
+      },
+      {
+        "id": 355,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/installation.astro",
+        "symbol": ""
+      },
+      {
+        "id": 357,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/reference/ai-tool-setup.astro",
+        "symbol": ""
+      },
+      {
+        "id": 359,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/reference/security-model.astro",
+        "symbol": ""
+      },
+      {
+        "id": 361,
+        "first_seen": "2026-07-17T03:02:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/styles/global.css",
+        "symbol": ""
+      },
+      {
+        "id": 20492,
+        "first_seen": "2026-07-17T03:28:10Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/graph/rel.rs",
+        "symbol": ""
+      },
+      {
+        "id": 20495,
+        "first_seen": "2026-07-17T03:28:40Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/graph/rebuild.rs",
+        "symbol": ""
+      },
+      {
+        "id": 20497,
+        "first_seen": "2026-07-17T03:28:40Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/graph/model.rs",
+        "symbol": ""
+      },
+      {
+        "id": 31041,
+        "first_seen": "2026-07-17T23:17:53Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/reference/releases.astro",
+        "symbol": ""
+      },
+      {
+        "id": 31046,
+        "first_seen": "2026-07-17T23:17:53Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/graph/code.rs",
+        "symbol": ""
+      },
+      {
+        "id": 31376,
+        "first_seen": "2026-08-03T03:36:03Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/graph/mod.rs",
+        "symbol": ""
+      },
+      {
+        "id": 31948,
+        "first_seen": "2026-08-03T11:06:55Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/memory/engrams.md",
+        "symbol": ""
+      },
+      {
+        "id": 31953,
+        "first_seen": "2026-08-03T11:36:08Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": ".agents/rules/001-memory.md",
+        "symbol": ""
+      },
+      {
+        "id": 31965,
+        "first_seen": "2026-08-04T03:11:11Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/assets/instructions.md",
+        "symbol": ""
+      },
+      {
+        "id": 31973,
+        "first_seen": "2026-08-05T04:43:41Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "specs/policy-engine.md",
+        "symbol": ""
+      },
+      {
+        "id": 31991,
+        "first_seen": "2026-08-05T15:26:18Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/rules/mod.rs",
+        "symbol": ""
+      },
+      {
+        "id": 31993,
+        "first_seen": "2026-08-08T15:44:03Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/components",
+        "symbol": ""
+      },
+      {
+        "id": 31995,
+        "first_seen": "2026-08-08T15:44:03Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/public/graph-data.json",
+        "symbol": ""
+      },
+      {
+        "id": 32007,
+        "first_seen": "2026-08-09T03:38:45Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/scoring.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32008,
+        "first_seen": "2026-08-09T03:38:45Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/prune.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32011,
+        "first_seen": "2026-08-10T01:12:21Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/advise.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32012,
+        "first_seen": "2026-08-10T01:12:21Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/install.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32017,
+        "first_seen": "2026-08-16T20:54:20Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/consolidate.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32037,
+        "first_seen": "2026-08-29T07:10:29Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/brief.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32039,
+        "first_seen": "2026-08-29T07:10:29Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/query.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32045,
+        "first_seen": "2026-08-29T07:10:29Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/drift.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32164,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/pr.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32175,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "tests/memory.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32176,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "tests/policy.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32190,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/check.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32202,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/rules/export.rs",
+        "symbol": ""
+      },
+      {
+        "id": 32216,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": ".omp/extensions/engrams-advisor/index.ts",
+        "symbol": ""
+      },
+      {
+        "id": 32217,
+        "first_seen": "2026-08-29T15:03:48Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/assets/engrams-advisor.ts",
+        "symbol": ""
+      },
+      {
+        "id": 32601,
+        "first_seen": "2026-08-29T15:04:50Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "src/ops/coverage.rs",
+        "symbol": ""
+      },
+      {
+        "id": 33155,
+        "first_seen": "2026-09-04T18:10:09Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "tests/memory_quality.rs",
+        "symbol": ""
+      },
+      {
+        "id": 33263,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": ".omp/rules/.engrams-manifest.json",
+        "symbol": ""
+      },
+      {
+        "id": 33295,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/advisor/maturity.astro",
+        "symbol": ""
+      },
+      {
+        "id": 33296,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/advisor/overview.astro",
+        "symbol": ""
+      },
+      {
+        "id": 33297,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/for-agent/maintaining.astro",
+        "symbol": ""
+      },
+      {
+        "id": 33298,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/for-agent/retrieving.astro",
+        "symbol": ""
+      },
+      {
+        "id": 33299,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/for-agent/storing.astro",
+        "symbol": ""
+      },
+      {
+        "id": 33300,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/for-you/briefing.astro",
+        "symbol": ""
+      },
+      {
+        "id": 33301,
+        "first_seen": "2026-09-04T18:23:30Z",
+        "last_seen": "2026-09-04T18:26:30Z",
+        "path": "docs/src/pages/docs/for-you/enforcement.astro",
+        "symbol": ""
+      },
+      {
+        "id": 34992,
+        "first_seen": "2026-09-04T19:52:34Z",
+        "last_seen": "2026-09-05T05:54:27Z",
+        "path": "specs/0002-schema-formation.md",
+        "symbol": ""
+      },
+      {
+        "id": 35002,
+        "first_seen": "2026-09-04T19:54:37Z",
+        "last_seen": "2026-09-04T19:54:37Z",
+        "path": "specs/0001-schema-pilot.md",
+        "symbol": ""
+      }
+    ],
+    "anchors": [
+      {
+        "item_type": "decision",
+        "item_id": 31,
+        "path": "docs/src/pages/docs/reference/cli.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 31,
+        "path": "docs/src/pages/docs/reference/releases.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 32,
+        "path": "AGENTS.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 33,
+        "path": "AGENTS.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 33,
+        "path": "docs/memory/engrams.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 34,
+        "path": "AGENTS.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 35,
+        "path": ".agents/rules/001-memory.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 35,
+        "path": "AGENTS.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 36,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 37,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 38,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 39,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 40,
+        "path": "src/assets/instructions.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 42,
+        "path": "src/cli.rs"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 43,
+        "path": "AGENTS.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 44,
+        "path": "specs/policy-engine.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 45,
+        "path": "src/ops/rules/mod.rs"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 46,
+        "path": "docs/src/components"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 47,
+        "path": "docs/public/graph-data.json"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 48,
+        "path": "docs/src/components/Sidebar.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 49,
+        "path": "docs/src/layouts/DocsLayout.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 50,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 51,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 52,
+        "path": "Formula/engrams.rb"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 69,
+        "path": "docs/src/pages/index.astro"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 71,
+        "path": "src/ops/decision.rs"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 71,
+        "path": "tests/cli.rs"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 71,
+        "path": "tests/memory_quality.rs"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 72,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 73,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 74,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 75,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 76,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 77,
+        "path": "specs/0001-schema-pilot.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 78,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 79,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 80,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "decision",
+        "item_id": 81,
+        "path": "specs/0002-schema-formation.md"
+      },
+      {
+        "item_type": "progress_entry",
+        "item_id": 68,
+        "path": "src/ops/decision.rs"
+      },
+      {
+        "item_type": "progress_entry",
+        "item_id": 68,
+        "path": "tests/cli.rs"
+      },
+      {
+        "item_type": "progress_entry",
+        "item_id": 68,
+        "path": "tests/memory_quality.rs"
+      }
+    ],
+    "retrievals": [
+      {
+        "node_kind": "decision",
+        "node_id": 81,
+        "ts": "2026-09-10T14:21:03Z",
+        "cmd": "prime",
+        "arg": null
+      },
+      {
+        "node_kind": "decision",
+        "node_id": 80,
+        "ts": "2026-09-10T14:21:03Z",
+        "cmd": "prime",
+        "arg": null
+      },
+      {
+        "node_kind": "decision",
+        "node_id": 79,
+        "ts": "2026-09-10T14:21:03Z",
+        "cmd": "prime",
+        "arg": null
+      },
+      {
+        "node_kind": "decision",
+        "node_id": 78,
+        "ts": "2026-09-10T14:21:03Z",
+        "cmd": "prime",
+        "arg": null
+      },
+      {
+        "node_kind": "decision",
+        "node_id": 77,
+        "ts": "2026-09-10T14:21:03Z",
+        "cmd": "prime",
+        "arg": null
+      },
+      {
+        "node_kind": "system_pattern",
+        "node_id": 1,
+        "ts": "2026-09-10T14:21:03Z",
+        "cmd": "prime",
+        "arg": null
+      }
+    ]
+  }
+}

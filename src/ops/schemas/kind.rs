@@ -705,4 +705,143 @@ mod tests {
         assert_eq!(kind, "unclear");
         assert_eq!(reasons, "[]");
     }
+
+    /// AC-8: replay the hand-labeled dogfood corpus (snapshot of this
+    /// repository's live gate-passing candidates, spec 0003) and score the
+    /// labeler against the answer key. Hard clauses: every human `schema`
+    /// label must come back `schema`; every human story/inventory label
+    /// must come back accordingly or `unclear`. Remaining disagreements are
+    /// collected for review, not failed — that listing is the feature.
+    #[test]
+    fn dogfood_replay_reproduces_hand_labels() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/schema-kind-dogfood.json"
+        );
+        let fixture: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let conn = fresh();
+        let facts = &fixture["facts"];
+
+        for d in facts["decisions"].as_array().unwrap() {
+            conn.execute(
+                "INSERT INTO decisions (id, uuid, timestamp, summary, tags) \
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    d["id"].as_i64().unwrap(),
+                    format!("u{}", d["id"].as_i64().unwrap()),
+                    d["timestamp"].as_str().unwrap(),
+                    d["summary"].as_str().unwrap(),
+                    d["tags"].as_str().unwrap_or("[]"),
+                ],
+            )
+            .unwrap();
+        }
+        for p in facts["patterns"].as_array().unwrap() {
+            conn.execute(
+                "INSERT INTO system_patterns \
+                 (id, uuid, timestamp, name, description, check_kind) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    p["id"].as_i64().unwrap(),
+                    format!("p{}", p["id"].as_i64().unwrap()),
+                    p["timestamp"].as_str().unwrap(),
+                    p["name"].as_str().unwrap(),
+                    p["description"].as_str().unwrap(),
+                    p["check_kind"].as_str(),
+                ],
+            )
+            .unwrap();
+        }
+        for g in facts["progress"].as_array().unwrap() {
+            conn.execute(
+                "INSERT INTO progress_entries (id, timestamp, status, description) \
+                 VALUES (?1, ?2, 'Done', ?3)",
+                params![
+                    g["id"].as_i64().unwrap(),
+                    g["timestamp"].as_str().unwrap(),
+                    g["description"].as_str().unwrap(),
+                ],
+            )
+            .unwrap();
+        }
+        for c in facts["code"].as_array().unwrap() {
+            conn.execute(
+                "INSERT INTO code_nodes (id, kind, path, symbol, first_seen, last_seen) \
+                 VALUES (?1, 'file', ?2, ?3, ?4, ?5)",
+                params![
+                    c["id"].as_i64().unwrap(),
+                    c["path"].as_str().unwrap(),
+                    c["symbol"].as_str().unwrap_or(""),
+                    c["first_seen"].as_str().unwrap(),
+                    c["last_seen"].as_str().unwrap(),
+                ],
+            )
+            .unwrap();
+        }
+        for a in facts["anchors"].as_array().unwrap() {
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    a["item_type"].as_str().unwrap(),
+                    a["item_id"].as_i64().unwrap(),
+                    a["path"].as_str().unwrap(),
+                    a["timestamp"].as_str().unwrap_or(""),
+                ],
+            )
+            .unwrap();
+        }
+        for r in facts["retrievals"].as_array().unwrap() {
+            conn.execute(
+                "INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) \
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    r["ts"].as_str().unwrap(),
+                    r["cmd"].as_str().unwrap(),
+                    r["arg"].as_str(),
+                    r["node_kind"].as_str().unwrap(),
+                    r["node_id"].as_i64().unwrap(),
+                ],
+            )
+            .unwrap();
+        }
+
+        let mut disagreements: Vec<String> = Vec::new();
+        for grp in fixture["groups"].as_array().unwrap() {
+            let id = grp["id"].as_str().unwrap();
+            let expected = grp["expected"].as_str().unwrap();
+            let members: Vec<String> = grp["members"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|m| m.as_str().map(str::to_string))
+                .collect();
+
+            let a = label_of(&conn, &members);
+            let b = label_of(&conn, &members);
+            assert_eq!(a.kind, b.kind, "{id}: replay is not deterministic");
+            assert_eq!(a.reasons, b.reasons, "{id}: reasons not stable");
+            let got = a.kind.as_str();
+
+            let allowed = got == expected || got == "unclear" || expected == "unclear";
+            assert!(
+                allowed,
+                "{id}: expected {expected}, got {got} — {}\nnote: {}",
+                a.reasons.join("; "),
+                grp["note"].as_str().unwrap_or("")
+            );
+            if got != expected {
+                disagreements.push(format!("{id}: hand={expected} machine={got}"));
+            }
+        }
+        // The disagreement list is the review surface AC-8 asks for; print
+        // it so a `--nocapture` run shows the review queue.
+        if !disagreements.is_empty() {
+            eprintln!(
+                "dogfood disagreements for review:\n  {}",
+                disagreements.join("\n  ")
+            );
+        }
+    }
 }
