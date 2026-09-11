@@ -200,7 +200,9 @@ CREATE TABLE IF NOT EXISTS schema_candidates (
   last_drift_removed INTEGER NOT NULL DEFAULT 0, -- last match: members departed
   last_drift_added   INTEGER NOT NULL DEFAULT 0, -- last match: members arrived
   first_seen_at      TEXT NOT NULL,
-  last_seen_at       TEXT NOT NULL
+  last_seen_at      TEXT NOT NULL,
+  kind               TEXT NOT NULL DEFAULT 'unclear',  -- spec 0003: 'schema'|'story'|'inventory'|'unclear'
+  kind_reasons_json  TEXT NOT NULL DEFAULT '[]'        -- labeler's plain-language reasons
 );
 CREATE TABLE IF NOT EXISTS retrieval_surfaces (
   ts        TEXT NOT NULL,
@@ -471,4 +473,15 @@ CREATE TRIGGER IF NOT EXISTS schemas_au AFTER UPDATE ON schemas BEGIN
   INSERT INTO schemas_fts(rowid, name, summary)
   VALUES (new.id, new.name, new.summary);
 END;
+"#;
+
+pub const MIGRATION_V13: &str = r#"
+-- Spec 0003 (schema kind labels): staging rows carry the labeler's verdict.
+-- kind: 'schema' | 'story' | 'inventory' | 'unclear' (rows default to
+-- 'unclear' until a scan labels them); kind_reasons_json: the labeler's
+-- plain-language reasons. Additive columns only — labels live on staging
+-- rows and die with the staging rebuild they belong to; confirmed schemas
+-- are untouched.
+ALTER TABLE schema_candidates ADD COLUMN kind TEXT NOT NULL DEFAULT 'unclear';
+ALTER TABLE schema_candidates ADD COLUMN kind_reasons_json TEXT NOT NULL DEFAULT '[]';
 "#;

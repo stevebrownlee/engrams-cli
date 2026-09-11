@@ -39,7 +39,7 @@ impl Suggestion {
 
 /// Convention-aware token set for an item's lexical surface: ident parts of
 /// the summary words plus every tag (snake/kebab/camel variants collapse).
-fn item_tokens(summary: &str, tags: &[String]) -> BTreeSet<String> {
+pub(super) fn item_tokens(summary: &str, tags: &[String]) -> BTreeSet<String> {
     let mut parts = BTreeSet::new();
     for word in summary.split_whitespace() {
         parts.extend(crate::ops::ident_parts(word));
