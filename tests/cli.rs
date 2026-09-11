@@ -2274,14 +2274,25 @@ fn test_schema_list_show_refine_and_confirm_bump() {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch(
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
-             ('u1','t','alpha gateway routing','[\"core\",\"graph\"]','abc'),
-             ('u2','t','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','t','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO context_links (source_item_type, source_item_id, \
               target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
-             ('decision','1','decision','2','relates_to','t','manual'),
-             ('decision','2','decision','3','relates_to','t','manual'),
-             ('decision','1','decision','3','relates_to','t','manual');",
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             -- Spec 0003: apply now promotes only schema-kind candidates, so
+             -- the trio gets a shared anchor (trigger) and a re-activation
+             -- 45 days later (second awake stretch).
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',3,'src/gateway.rs','2026-01-02T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','gateway','decision',1),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',2),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',3);",
         )
         .unwrap();
     }
@@ -2415,6 +2426,8 @@ fn test_prime_leads_with_schemas_block() {
         .success();
     // Seed and confirm one schema (dense fully-linked trio; SQL seeding for
     // the same reasons as test_schema_list_show_refine_and_confirm_bump).
+    // Spec 0003: shared anchor + re-activation make this trio a schema-kind
+    // candidate so apply promotes it.
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch(
@@ -2426,7 +2439,15 @@ fn test_prime_leads_with_schemas_block() {
               target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
              ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
              ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
-             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');",
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',3,'src/gateway.rs','2026-01-02T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','gateway','decision',1),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',2),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',3);",
         )
         .unwrap();
     }

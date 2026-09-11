@@ -323,10 +323,14 @@ pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
     // identical. Unlabeled (gate-failing) rows sort last.
     candidates.sort_by_key(|c| kind_rank(c["kind"].as_str().unwrap_or("")));
 
-    // --apply: promote every gate-passing candidate after staging commits,
-    // through the same confirm() covenant a manual `schema confirm` takes —
-    // the overlap guard runs here too, so re-applying an already-confirmed
-    // cluster can never duplicate a schema row. Failed gates stay stage-only.
+    // --apply: promote only schema-kind candidates (spec 0003 AC-6).
+    // Staging commits first, then each promotion goes through the same
+    // confirm() covenant a manual `schema confirm` takes — the overlap
+    // guard runs here too, so re-applying an already-confirmed cluster
+    // can never duplicate a schema row. Non-schema kinds are held back
+    // into the skipped list with the kind named: a human confirming
+    // explicitly outranks the machine's label (design choice 1), and a
+    // heuristic mislabel must never make a candidate silently vanish.
     let mut applied: Vec<serde_json::Value> = Vec::new();
     let mut skipped: Vec<serde_json::Value> = Vec::new();
     if apply {
@@ -335,6 +339,19 @@ pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
                 continue;
             }
             let sig = c["cluster_sig"].as_str().expect("staged sig");
+            let kind = c["kind"].as_str().unwrap_or("");
+            if kind != super::kind::Kind::Schema.as_str() {
+                skipped.push(json!({
+                    "cluster_sig": sig,
+                    "kind": kind,
+                    "reason": format!(
+                        "held back: kind is {kind}, not schema — apply promotes \
+                         only schema-kind candidates (spec 0003 AC-6); confirm \
+                         explicitly to promote anyway"
+                    ),
+                }));
+                continue;
+            }
             match super::confirm::confirm(conn, sig, None) {
                 Ok(out) => applied.push(out["schema"]["name"].clone()),
                 Err(e) => skipped.push(json!({
@@ -592,6 +609,142 @@ mod tests {
         }
     }
 
+    /// Spec 0003 phase 4 (AC-6): apply promotes only schema-kind
+    /// candidates; story, inventory, and unclear are held back into the
+    /// skipped list with their kind named, and no schema rows or
+    /// membership edges appear for held-back groups — they stay staged
+    /// for an explicit confirm, where a human outranks the label.
+    #[test]
+    fn apply_holds_back_non_schema_kinds() {
+        let conn = mem_db();
+        // Cluster A — schema: dense, anchored, re-activated 45 days later.
+        for id in 1..=3 {
+            conn.execute(
+                "INSERT INTO decisions (uuid, timestamp, summary) \
+                 VALUES (?1, '2026-01-01T00:00:00Z', 'alpha bravo charlie')",
+                rusqlite::params![format!("u{id}")],
+            )
+            .unwrap();
+            anchor(&conn, id, "src/a.rs");
+            surface(&conn, id, "2026-02-15T00:00:00Z");
+        }
+        link(&conn, 1, 2);
+        link(&conn, 1, 3);
+        link(&conn, 2, 3);
+        // Cluster B — story: one burst, no anchors, vocabulary overlap
+        // below FIT_GATE (1 shared token of 5).
+        for (id, summary) in [
+            (4, "kilo lima mike"),
+            (5, "kilo november oscar"),
+            (6, "kilo papa quebec"),
+        ] {
+            conn.execute(
+                "INSERT INTO decisions (uuid, timestamp, summary) \
+                 VALUES (?1, '2026-01-01T00:00:00Z', ?2)",
+                rusqlite::params![format!("u{id}"), summary],
+            )
+            .unwrap();
+        }
+        link(&conn, 4, 5);
+        link(&conn, 4, 6);
+        link(&conn, 5, 6);
+        // Cluster C — unclear: single burst but anchored, so a trigger
+        // surface exists the timeline cannot yet confirm recurrence for.
+        for id in 7..=9 {
+            conn.execute(
+                "INSERT INTO decisions (uuid, timestamp, summary) \
+                 VALUES (?1, '2026-01-01T00:00:00Z', 'romeo sierra tango')",
+                rusqlite::params![format!("u{id}")],
+            )
+            .unwrap();
+            anchor(&conn, id, "src/c.rs");
+        }
+        link(&conn, 7, 8);
+        link(&conn, 7, 9);
+        link(&conn, 8, 9);
+        // Cluster D — inventory: a pile of file nodes.
+        for i in 1..=3 {
+            conn.execute(
+                "INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen) \
+                 VALUES ('file', ?1, '', '2026-01-05T00:00:00Z', '2026-01-05T00:00:00Z')",
+                rusqlite::params![format!("docs/campaign-{i}.md")],
+            )
+            .unwrap();
+        }
+        for (a, b) in [(1, 2), (1, 3), (2, 3)] {
+            conn.execute(
+                "INSERT INTO context_links (source_item_type, source_item_id, \
+                 target_item_type, target_item_id, relationship_type, timestamp) \
+                 VALUES ('code', ?1, 'code', ?2, 'relates_to', '2026-01-05T00:00:00Z')",
+                rusqlite::params![a, b],
+            )
+            .unwrap();
+        }
+
+        // Three scans clear the stability gate for all four clusters.
+        scan(&conn, false).unwrap();
+        scan(&conn, false).unwrap();
+        let staged = scan(&conn, false).unwrap();
+        let kinds: Vec<String> = staged["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["kind"].as_str().unwrap_or("").to_string())
+            .collect();
+        for expect in ["schema", "story", "unclear", "inventory"] {
+            assert!(kinds.contains(&expect.to_string()), "kinds: {kinds:?}");
+        }
+
+        let out = scan(&conn, true).unwrap();
+        // Only the schema kind promotes.
+        let applied = out["applied"].as_array().unwrap();
+        assert_eq!(applied.len(), 1, "applied: {applied:?}");
+        // Held-back candidates appear in skipped with their kind named.
+        let held_kinds: Vec<String> = out["skipped"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["kind"].as_str().is_some())
+            .map(|s| s["kind"].as_str().unwrap().to_string())
+            .collect();
+        for expect in ["story", "unclear", "inventory"] {
+            assert!(
+                held_kinds.contains(&expect.to_string()),
+                "skipped kinds: {held_kinds:?}"
+            );
+        }
+        // Exactly one schema row — the promoted one — and its membership
+        // edges cover only the schema cluster's members.
+        let schemas: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(schemas, 1);
+        let member_of: Vec<String> = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT source_item_id FROM context_links \
+                     WHERE relationship_type = 'member_of' ORDER BY source_item_id",
+                )
+                .unwrap();
+            stmt.query_map([], |r| r.get::<_, String>(0))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap()
+        };
+        assert_eq!(member_of, ["1", "2", "3"]);
+        // Held-back candidates stay staged for explicit confirm.
+        let staged_kinds: Vec<String> = {
+            let mut stmt = conn
+                .prepare("SELECT kind FROM schema_candidates WHERE kind != '' ORDER BY kind")
+                .unwrap();
+            stmt.query_map([], |r| r.get::<_, String>(0))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap()
+        };
+        assert_eq!(staged_kinds, ["inventory", "schema", "story", "unclear"]);
+    }
+
     #[test]
     fn member_growth_within_jaccard_budget_stays_same_row() {
         let conn = mem_db();
@@ -806,6 +959,13 @@ mod tests {
     fn double_apply_never_duplicates_a_schema() {
         let conn = mem_db();
         dense_trio(&conn);
+        // Re-activation 45 days after creation: the trio is a recurring
+        // practice (schema kind), so apply's kind restraint (spec 0003
+        // AC-6) lets it promote and this test still reaches the
+        // double-apply overlap guard it exists for.
+        for id in 1..=3 {
+            surface(&conn, id, "2026-02-15T00:00:00Z");
+        }
         scan(&conn, false).unwrap();
         scan(&conn, false).unwrap();
 
