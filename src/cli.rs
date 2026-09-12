@@ -401,7 +401,7 @@ pub enum GraphCmd {
 pub enum SchemaCmd {
     /// Run detection and staging upsert; report candidates with gate detail
     Scan {
-        /// Promote every gate-passing candidate after staging
+        /// Promote gate-passing, schema-kind candidates after staging; other kinds await `schema confirm`
         #[arg(long)]
         apply: bool,
     },

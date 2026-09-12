@@ -8,6 +8,33 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.13.0</h2>
+  <div class="release-block">
+    <h3>What was added</h3>
+    <ul>
+      <li>
+        <strong>Schema formation:</strong> <code>schema scan</code> analyzes behavioral co-activation across decisions, patterns, progress entries, custom data, and code nodes, then stages recurring groups as schema candidates behind density, stability, and reward gates. <code>schema list</code>, <code>schema show</code>, and <code>schema confirm</code> manage them, and confirmed schemas surface in <code>prime</code>&rsquo;s opening block.
+      </li>
+      <li>
+        <strong>Kind labels:</strong> every gate-passing candidate carries a kind &mdash; <code>schema</code> (living recurring practice), <code>story</code> (one-time effort), <code>inventory</code> (file pile), or <code>unclear</code> (mixed signals) &mdash; with plain-language reason sentences explaining the call.
+      </li>
+      <li>
+        <strong>Deterministic labeling:</strong> kind is a pure function of stored timestamps and member metadata, never wall-clock time, so labels are reproducible and diff-stable across scans.
+      </li>
+      <li>
+        <strong>Advisory ordering, restrained apply:</strong> <code>schema scan</code> lists schema-kind candidates first, and <code>schema scan --apply</code> promotes only schema-kind rows &mdash; stories, inventories, and unclear groups stay staged for explicit human confirmation via <code>schema confirm</code>.
+      </li>
+      <li>
+        <strong>Dogfood replay gate:</strong> the labeler is pinned to a hand-labeled answer key derived from this repository&rsquo;s own corpus (15 groups), replayed in the test suite on every run.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <p>
+      Recurring concepts existed only as implicit co-activation in the graph &mdash; invisible until someone re-derived them by hand. Formation makes them first-class, and kind labels tell a session which practices are alive and worth consulting versus one-time efforts or plain file piles. Automation stays conservative: only unambiguous living practices are promoted automatically; everything else waits for a human.
+    </p>
+  </div>
+
   <h2>v0.12.1</h2>
   <div class="release-block">
     <h3>What was fixed</h3>
