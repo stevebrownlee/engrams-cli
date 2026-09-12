@@ -7,6 +7,7 @@
 
 pub mod assimilate;
 pub mod confirm;
+pub mod kind;
 pub mod list;
 pub mod retrieval;
 pub mod scan;

@@ -805,7 +805,11 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
               target_item_id, relationship_type, timestamp, origin) VALUES
              ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
              ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
-             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');",
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','core','decision',1),
+             ('2026-02-15T00:00:00Z','query','core','decision',2),
+             ('2026-02-15T00:00:00Z','query','core','decision',3);",
         )
         .unwrap();
     }

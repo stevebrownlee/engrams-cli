@@ -50,7 +50,7 @@ impl Member {
 }
 
 /// Database table backing each member kind (the graph's node universe).
-fn kind_table(kind: &str) -> Option<&'static str> {
+pub(super) fn kind_table(kind: &str) -> Option<&'static str> {
     match kind {
         "decision" => Some("decisions"),
         "system_pattern" => Some("system_patterns"),

@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-09-05T10:07:48Z
+created: 2026-09-11T17:39:38Z
 ---
 # Active Context
 
@@ -22,7 +22,7 @@ created: 2026-09-05T10:07:48Z
       78,
       79
     ],
-    "focus": "All outstanding items implemented: batch decision nested-transaction bug fixed, tests/cli.rs clippy warnings fixed, DB hygiene cleared, Tier-3 memory quality suite (tests/memory_quality.rs) shipped. 110 tests pass across 5 suites.",
+    "focus": "spec 0003 schema kind labels implemented; stacked branch spec-0003-schema-kind-labels pushed, PR pending user decision",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next": [
@@ -36,7 +36,10 @@ created: 2026-09-05T10:07:48Z
       "decisions_latest": "#50 hero title, #51 ScrollStory removal",
       "landing": "ScrollStory maturation scroll removed (not useful). Hero title: An advisor with a memory that compounds. Interactive 3D ForceGraph is the sole real-data viz. gsap dep dropped."
     },
-    "open_items": [],
+    "open_items": [
+      "open stacked PR for spec-0003-schema-kind-labels (base schemas)",
+      "run engrams session close --pr <n> once PR number exists"
+    ],
     "policy_engine": {
       "commands": [
         "pattern log --check-kind/--check/--severity",
@@ -72,7 +75,7 @@ created: 2026-09-05T10:07:48Z
       82
     ]
   },
-  "version": 45,
-  "updated_at": "2026-09-05T10:07:48Z"
+  "version": 46,
+  "updated_at": "2026-09-11T17:39:38Z"
 }
 ```

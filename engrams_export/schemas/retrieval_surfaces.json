@@ -1,1 +1,156 @@
-[]
+[
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 59
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 56
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 55
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 54
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 82
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 81
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 80
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 79
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 78
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 77
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 58
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 12
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 11
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 10
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 9
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-09-10T14:21:03Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "progress_entry",
+    "node_id": 70
+  }
+]

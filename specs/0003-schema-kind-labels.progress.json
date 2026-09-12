@@ -1,0 +1,131 @@
+{
+  "schema_version": "1",
+  "spec_id": "0003",
+  "spec_name": "schema-kind-labels",
+  "spec_path": "specs/0003-schema-kind-labels.md",
+  "created_at": "2026-09-11T16:19:46Z",
+  "updated_at": "2026-09-11T17:38:01Z",
+  "status": "complete",
+  "mode": "autonomous",
+  "current_phase": 4,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Add migration v13 and kind labeler core in schemas/kind.rs",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [],
+      "exemplars": [
+        "src/schema.rs",
+        "src/ops/schemas/scan.rs",
+        "src/ops/schemas/assimilate.rs"
+      ],
+      "acceptance": [
+        "AC-3",
+        "AC-4",
+        "AC-5"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo fmt --check",
+        "cargo test schemas"
+      ],
+      "retry_count": 0,
+      "commit_sha": "f55cb1b0374721701e8b832c671776d8aa2289af",
+      "blocked_reason": null,
+      "review_findings": [],
+      "started_at": "2026-09-11T16:21:00Z",
+      "completed_at": "2026-09-11T16:39:00Z"
+    },
+    {
+      "id": 2,
+      "title": "Replay dogfood corpus against hand-labeled answer key",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [
+        1
+      ],
+      "exemplars": [
+        "tests/cli.rs",
+        "specs/0002-schema-formation.md"
+      ],
+      "acceptance": [
+        "AC-8"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo fmt --check",
+        "cargo test (180 passed: 90 unit incl. dogfood replay, 56 cli, 13 schemas-e2e, 6 policy-schemas, 15 policy)"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [
+        "AC-8 hard clauses hold: the one human schema label (homepage) reproduces exactly; all story/inventory labels are exact or unclear",
+        "5 story groups label unclear (trigger surface present, single awake stretch): agents-campaign, workspace-semantics, docs-v090, batch-fix, instructions-provenance - printed as the review queue by the test, per AC-8"
+      ],
+      "started_at": "2026-09-11T16:50:00Z",
+      "commit_sha": "42489a902f56bc2e3eb4a403bda7fb094f14eeea",
+      "completed_at": "2026-09-11T17:10:14Z"
+    },
+    {
+      "id": 3,
+      "title": "Wire kind labels into schema scan output and staging",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [
+        2
+      ],
+      "exemplars": [
+        "src/ops/schemas/scan.rs",
+        "src/ops/schemas/list.rs"
+      ],
+      "acceptance": [
+        "AC-1",
+        "AC-2",
+        "AC-7"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo fmt --check",
+        "cargo test schemas"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": "a6863d7bbd21ce00db7325447c31ed5aa858a628",
+      "started_at": "2026-09-11T16:45:00Z",
+      "completed_at": "2026-09-11T17:17:59Z"
+    },
+    {
+      "id": 4,
+      "title": "Hold scan apply back from non-schema kinds",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [
+        3
+      ],
+      "exemplars": [
+        "src/ops/schemas/scan.rs",
+        "src/ops/schemas/confirm.rs"
+      ],
+      "acceptance": [
+        "AC-6"
+      ],
+      "verification": [
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo fmt --check",
+        "cargo test schemas"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "started_at": "2026-09-11T17:17:59Z",
+      "commit_sha": "a8984a316784209b312dc23ce5ca62ceee533245",
+      "completed_at": "2026-09-11T17:33:41Z"
+    }
+  ]
+}
