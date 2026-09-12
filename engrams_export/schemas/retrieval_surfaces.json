@@ -152,5 +152,19 @@
     "arg": null,
     "node_kind": "progress_entry",
     "node_id": 70
+  },
+  {
+    "ts": "2026-09-11T20:07:09Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-09-11T20:07:09Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
   }
 ]
