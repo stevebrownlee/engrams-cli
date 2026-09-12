@@ -97,8 +97,8 @@ pub fn confidence_expr(conf_col: &str, confirmed_col: &str, ts_col: &str) -> Str
     )
 }
 
-/// Reinforce-on-read: bump `access_count` and set `last_accessed_at` for the given
-/// item IDs in `table` (one of `decisions` / `system_patterns`). No-op on an empty list.
+/// Reinforce access stats for the given row ids. `table` is one of
+/// decisions / system_patterns / schemas (any scored row type).
 pub fn reinforce(conn: &Connection, table: &str, ids: &[i64]) -> Result<()> {
     if ids.is_empty() {
         return Ok(());

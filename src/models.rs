@@ -171,3 +171,39 @@ fn is_default_importance(n: &i64) -> bool {
 fn is_zero(n: &i64) -> bool {
     *n == 0
 }
+
+/// Parse the `tags` column as stored by `decision log` / `pattern add`: a
+/// JSON array is the canonical format. Rows written before tags became
+/// structured (and hand-seeded fixtures) may carry plain comma text, so a
+/// comma split is the documented fallback; JSON parsing wins whenever it
+/// applies. Single shared source: `graph::rebuild` and `schemas::confirm`
+/// must not drift on tag semantics.
+pub(crate) fn parse_tags(raw: Option<&str>) -> Vec<String> {
+    let Some(raw) = raw else {
+        return Vec::new();
+    };
+    if let Ok(tags) = serde_json::from_str::<Vec<String>>(raw) {
+        return tags;
+    }
+    raw.split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(String::from)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_tags;
+
+    #[test]
+    fn parse_tags_handles_json_and_plain_text() {
+        assert_eq!(
+            parse_tags(Some(r#"["core","graph"]"#)),
+            vec!["core", "graph"]
+        );
+        assert_eq!(parse_tags(Some("core, graph")), vec!["core", "graph"]);
+        assert_eq!(parse_tags(Some("")), Vec::<String>::new());
+        assert_eq!(parse_tags(None), Vec::<String>::new());
+    }
+}

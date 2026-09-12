@@ -116,6 +116,8 @@ pub fn load(conn: &Connection) -> Result<Graph> {
 }
 
 impl Graph {
+    /// Membership probe for the overlay ghost filter: true when `key` is
+    /// in this graph's node universe.
     pub fn contains(&self, key: &NodeKey) -> bool {
         self.index.contains_key(key)
     }

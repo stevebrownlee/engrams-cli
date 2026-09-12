@@ -145,6 +145,12 @@ pub enum Command {
         cmd: GraphCmd,
     },
 
+    /// Form and manage schemas (concepts over knowledge items)
+    Schema {
+        #[command(subcommand)]
+        cmd: SchemaCmd,
+    },
+
     /// Print onboarding instructions for LLM agents
     Instructions,
 
@@ -392,6 +398,43 @@ pub enum GraphCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum SchemaCmd {
+    /// Run detection and staging upsert; report candidates with gate detail
+    Scan {
+        /// Promote every gate-passing candidate after staging
+        #[arg(long)]
+        apply: bool,
+    },
+    /// Promote a passing candidate into a confirmed schema
+    Confirm {
+        /// Candidate id or unique signature prefix (`decision:1,dec…`)
+        target: String,
+        /// Schema name (defaults to the drafted lexical-centroid name)
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// List confirmed schemas, agent-authored above drafted
+    List {
+        /// Filter by status (active, needs_review, retired)
+        #[arg(long)]
+        status: Option<String>,
+    },
+    /// Show one schema's summary, members, and centroid
+    Show {
+        /// Schema id or exact name
+        target: String,
+    },
+    /// Refine a schema's summary as agent-authored (ranks above drafts)
+    Refine {
+        /// Schema id or exact name
+        target: String,
+        /// The agent-refined summary text
+        #[arg(long)]
+        summary: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum ReportCmd {
     /// Generate and open a browser-based HTML dashboard with the knowledge graph
     Open {
@@ -500,6 +543,9 @@ pub enum DecisionCmd {
         /// (skips the similarity gate, writes symmetric conflicts_with links)
         #[arg(long = "conflicts-with")]
         conflicts_with: Vec<i64>,
+        /// Attach to a schema at write time (id or name) — `none` declines fired suggestions
+        #[arg(long)]
+        schema: Option<String>,
     },
     /// List decisions, optionally filtering by tags
     List {
@@ -615,6 +661,9 @@ pub enum ProgressCmd {
         /// Bypass status_vocabulary validation
         #[arg(long)]
         force: bool,
+        /// Attach to a schema at write time (id or name) — `none` declines fired suggestions
+        #[arg(long)]
+        schema: Option<String>,
     },
     /// List progress entries
     List {
@@ -689,6 +738,9 @@ pub enum PatternCmd {
         /// Importance weight 0-10 for retrieval scoring (default: 5)
         #[arg(long)]
         importance: Option<i64>,
+        /// Attach to a schema at write time (id or name) — `none` declines fired suggestions
+        #[arg(long)]
+        schema: Option<String>,
     },
     /// Update a pattern (confidence, confirmation, description, importance)
     Update {

@@ -28,6 +28,9 @@ pub fn handle(
         anyhow::bail!("search query cannot be empty");
     }
     let match_expr = crate::ops::fts_match_expr(&query);
+    // Centroid tier (AC-7): schemas whose lexical centroid overlaps the query
+    // surface before the FTS tiers. No overlap → unchanged fall-through.
+    let centroid_hits = crate::ops::schemas::retrieval::centroid_match(conn, &query, 3)?;
     let mut results = Vec::new();
 
     // 1. Query Decisions
@@ -188,11 +191,44 @@ pub fn handle(
     // Tier-4 telemetry: one usage row per retrieval call (zero-hit rows feed
     // `engrams usage --misses`).
     crate::ops::usage::record(conn, "query", &query, results.len(), results.is_empty());
+    // Schema surfacing telemetry (AC-10): schemas in the result set are the
+    // surfaced set; every other result row is co-surfaced in this event.
+    if !centroid_hits.is_empty() {
+        let schema_ids: Vec<i64> = centroid_hits
+            .iter()
+            .filter_map(|h| h["id"].as_i64())
+            .collect();
+        let co: Vec<(&str, i64)> = results
+            .iter()
+            .filter_map(|r| {
+                let kind = match r.r#type.as_str() {
+                    "decision" => "decision",
+                    "system_pattern" => "system_pattern",
+                    "custom_data" => "custom_data",
+                    _ => return None,
+                };
+                Some((kind, r.id))
+            })
+            .collect();
+        crate::ops::schemas::retrieval::record_surface(
+            conn,
+            "query",
+            Some(&query),
+            &schema_ids,
+            &co,
+        )?;
+        crate::ops::scoring::reinforce(conn, "schemas", &schema_ids)?;
+    }
     if results.is_empty() {
-        return Ok(json!({
-            "results": [],
-            "miss_guidance": miss_guidance(conn, &query)?,
-        }));
+        // Byte-equal to the pre-schema-feature zero-hit shape: schema_matches
+        // exists only when the centroid tier actually hit (AC-7 conformance).
+        let mut out = serde_json::Map::new();
+        out.insert("results".to_string(), json!([]));
+        if !centroid_hits.is_empty() {
+            out.insert("schema_matches".to_string(), Value::Array(centroid_hits));
+        }
+        out.insert("miss_guidance".to_string(), miss_guidance(conn, &query)?);
+        return Ok(Value::Object(out));
     }
     // Reinforce-on-read (v0.10.0).
     let dec_ids: Vec<i64> = results
@@ -200,15 +236,15 @@ pub fn handle(
         .filter(|r| r.r#type == "decision")
         .map(|r| r.id)
         .collect();
-    crate::ops::scoring::reinforce(conn, "decisions", &dec_ids)?;
     let pat_ids: Vec<i64> = results
         .iter()
         .filter(|r| r.r#type == "system_pattern")
         .map(|r| r.id)
         .collect();
+    crate::ops::scoring::reinforce(conn, "decisions", &dec_ids)?;
     crate::ops::scoring::reinforce(conn, "system_patterns", &pat_ids)?;
 
-    let output: Vec<Value> = results
+    let output_from_fts: Vec<Value> = results
         .into_iter()
         .map(|r| {
             let mut hit = serde_json::json!({
@@ -230,6 +266,9 @@ pub fn handle(
         })
         .collect();
 
+    // The centroid tier leads the array: schemas first, then FTS results.
+    let mut output = centroid_hits;
+    output.extend(output_from_fts);
     Ok(Value::Array(output))
 }
 
@@ -292,13 +331,20 @@ fn miss_guidance(conn: &Connection, query: &str) -> Result<Value> {
             .unwrap_or_else(|| json!([])),
     };
 
-    Ok(json!({
+    let mut out = json!({
         "hint": "query matched nothing; nearest clusters below — retry with one of these terms, tags, or nodes",
         "top_tags": tag_counts.iter().map(|(t, n)| json!({"tag": t, "count": n})).collect::<Vec<_>>(),
         "token_hits": token_counts,
         "recent_decisions": recent,
         "graph_hubs": hubs,
-    }))
+    });
+    // Only when the centroid tier hit: absence keeps miss_guidance
+    // byte-identical to its pre-schema-feature shape.
+    let centroids = crate::ops::schemas::retrieval::centroid_match(conn, query, 3)?;
+    if !centroids.is_empty() {
+        out["schema_centroids"] = Value::Array(centroids);
+    }
+    Ok(out)
 }
 
 /// `top_central` from the rebuild-written graph summary, when present and

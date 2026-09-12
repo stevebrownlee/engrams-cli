@@ -101,13 +101,6 @@ struct KnowledgeItem {
     tags: HashSet<String>,
 }
 
-fn parse_tags(raw: Option<String>) -> HashSet<String> {
-    raw.and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
-        .unwrap_or_default()
-        .into_iter()
-        .collect()
-}
-
 fn load_knowledge_items(conn: &Connection) -> Result<Vec<KnowledgeItem>> {
     let mut items: Vec<KnowledgeItem> = Vec::new();
     for (kind, table) in [
@@ -124,7 +117,9 @@ fn load_knowledge_items(conn: &Connection) -> Result<Vec<KnowledgeItem>> {
                 kind,
                 id,
                 anchors: HashSet::new(),
-                tags: parse_tags(tags),
+                tags: crate::models::parse_tags(tags.as_deref())
+                    .into_iter()
+                    .collect(),
             });
         }
     }
@@ -530,7 +525,9 @@ pub fn touch_item(conn: &Connection, item_type: &str, id: i64) -> Result<()> {
             )
             .optional()?
             .flatten();
-        parse_tags(raw)
+        crate::models::parse_tags(raw.as_deref())
+            .into_iter()
+            .collect()
     };
     let kind: &'static str = if item_type == "decision" {
         "decision"
