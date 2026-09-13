@@ -54,15 +54,52 @@ fn signature(members: &[String]) -> String {
     members.join(",")
 }
 
-/// Jaccard similarity of two sorted member sets.
-pub(super) fn jaccard(a: &[String], b: &[String]) -> f64 {
-    let inter = a.iter().filter(|m| b.contains(m)).count();
+/// Jaccard similarity of two ascending-sorted member sets (merge
+/// intersection). Sortedness is a precondition enforced by every caller —
+/// `member_strings` sorts, stored members round-trip that order, and
+/// `BTreeSet` iteration is ordered.
+pub(super) fn jaccard(a: &[&str], b: &[&str]) -> f64 {
+    let (mut i, mut j, mut inter) = (0usize, 0usize, 0usize);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp(b[j]) {
+            Ordering::Less => i += 1,
+            Ordering::Greater => j += 1,
+            Ordering::Equal => {
+                inter += 1;
+                i += 1;
+                j += 1;
+            }
+        }
+    }
     let union = a.len() + b.len() - inter;
     if union == 0 {
         0.0
     } else {
         inter as f64 / union as f64
     }
+}
+
+/// Count of `a`'s members absent from `b`; both ascending-sorted. The same
+/// merge walk as [`jaccard`], feeding the staging drift columns.
+fn absent_count(a: &[String], b: &[String]) -> usize {
+    let (mut i, mut j, mut miss) = (0usize, 0usize, 0usize);
+    while i < a.len() {
+        if j == b.len() {
+            return miss + a.len() - i;
+        }
+        match a[i].as_str().cmp(b[j].as_str()) {
+            Ordering::Less => {
+                miss += 1;
+                i += 1;
+            }
+            Ordering::Greater => j += 1,
+            Ordering::Equal => {
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    miss
 }
 
 /// A staged row as read from `schema_candidates`.
@@ -102,24 +139,27 @@ fn load_stored(conn: &Connection) -> Result<Vec<Stored>> {
 /// Rows of retrieval telemetry per touched node, read once: the store is
 /// rolling-window pruned, so this is bounded. Reward hits for a candidate
 /// are the sum over its members — read-only against telemetry.
-fn telemetry_counts(conn: &Connection) -> Result<HashMap<NodeKey, i64>> {
+fn telemetry_counts(conn: &Connection) -> Result<HashMap<String, HashMap<i64, i64>>> {
     let mut stmt = conn.prepare("SELECT node_kind, node_id FROM retrieval_surfaces")?;
     let rows = stmt.query_map([], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
     })?;
-    let mut counts: HashMap<NodeKey, i64> = HashMap::new();
+    let mut counts: HashMap<String, HashMap<i64, i64>> = HashMap::new();
     for r in rows {
         let (kind, id) = r?;
-        *counts.entry((kind, id.to_string())).or_insert(0) += 1;
+        *counts.entry(kind).or_default().entry(id).or_insert(0) += 1;
     }
     Ok(counts)
 }
 
-fn reward_hits(members: &[String], telemetry: &HashMap<NodeKey, i64>) -> i64 {
+fn reward_hits(members: &[String], telemetry: &HashMap<String, HashMap<i64, i64>>) -> i64 {
     members
         .iter()
         .filter_map(|m| m.split_once(':'))
-        .filter_map(|(kind, id)| telemetry.get(&(kind.to_string(), id.to_string())))
+        .filter_map(|(kind, id)| {
+            let ids = telemetry.get(kind)?;
+            id.parse::<i64>().ok().and_then(|i| ids.get(&i).copied())
+        })
         .sum()
 }
 
@@ -145,10 +185,20 @@ fn kind_rank(kind: &str) -> u8 {
 /// lexicographically smaller member set. Each cluster pairs with at most
 /// one row and each row with at most one cluster.
 fn assign(clusters: &[Vec<String>], stored: &[Stored]) -> Vec<Option<usize>> {
-    let mut pairs: Vec<(usize, usize, f64)> = Vec::new();
-    for (ci, members) in clusters.iter().enumerate() {
-        for (si, s) in stored.iter().enumerate() {
-            let j = jaccard(members, &s.members);
+    // Borrowed member views built once: the pair loop never re-collects
+    // and never copies strings.
+    let crefs: Vec<Vec<&str>> = clusters
+        .iter()
+        .map(|m| m.iter().map(String::as_str).collect())
+        .collect();
+    let srefs: Vec<Vec<&str>> = stored
+        .iter()
+        .map(|s| s.members.iter().map(String::as_str).collect())
+        .collect();
+    let mut pairs: Vec<(usize, usize, f64)> = Vec::with_capacity(clusters.len() * stored.len());
+    for (ci, cref) in crefs.iter().enumerate() {
+        for (si, sref) in srefs.iter().enumerate() {
+            let j = jaccard(cref, sref);
             if j >= JACCARD_IDENTITY {
                 pairs.push((ci, si, j));
             }
@@ -189,8 +239,8 @@ fn upsert(
     let members_json = serde_json::to_string(members)?;
     match matched {
         Some(s) => {
-            let removed = s.members.iter().filter(|m| !members.contains(m)).count() as i64;
-            let added = members.iter().filter(|m| !s.members.contains(m)).count() as i64;
+            let removed = absent_count(&s.members, members) as i64;
+            let added = absent_count(members, &s.members) as i64;
             let stability = s.stability_count + 1;
             conn.execute(
                 "UPDATE schema_candidates SET cluster_sig = ?1, member_keys_json = ?2, \

@@ -105,6 +105,12 @@ pub(super) fn signals(conn: &Connection, members: &[String]) -> Result<Signals> 
     // Lexical surface per member for the vocabulary trigger.
     let mut tokens: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
+    // Loop-invariant statements, prepared once for all members.
+    let mut surface_stmt =
+        conn.prepare("SELECT ts FROM retrieval_surfaces WHERE node_kind = ?1 AND node_id = ?2")?;
+    let mut anchor_stmt =
+        conn.prepare("SELECT path FROM item_anchors WHERE item_type = ?1 AND item_id = ?2")?;
+
     for m in &members {
         let key = format!("{}:{}", m.kind, m.id);
         match m.kind.as_str() {
@@ -134,10 +140,7 @@ pub(super) fn signals(conn: &Connection, members: &[String]) -> Result<Signals> 
             }
         }
         {
-            let mut stmt = conn.prepare(
-                "SELECT ts FROM retrieval_surfaces WHERE node_kind = ?1 AND node_id = ?2",
-            )?;
-            let rows = stmt.query_map(params![m.kind, m.id], |r| r.get::<_, String>(0))?;
+            let rows = surface_stmt.query_map(params![m.kind, m.id], |r| r.get::<_, String>(0))?;
             for ts in rows {
                 if let Ok(parsed) = DateTime::parse_from_rfc3339(&ts?) {
                     instants.push(parsed.with_timezone(&Utc));
@@ -193,9 +196,7 @@ pub(super) fn signals(conn: &Connection, members: &[String]) -> Result<Signals> 
             m.kind.as_str(),
             "decision" | "system_pattern" | "progress_entry"
         ) {
-            let mut stmt = conn
-                .prepare("SELECT path FROM item_anchors WHERE item_type = ?1 AND item_id = ?2")?;
-            let paths = stmt.query_map(params![m.kind, m.id], |r| r.get::<_, String>(0))?;
+            let paths = anchor_stmt.query_map(params![m.kind, m.id], |r| r.get::<_, String>(0))?;
             for p in paths {
                 anchors.entry(p?).or_default().insert(key.clone());
             }
@@ -211,25 +212,28 @@ pub(super) fn signals(conn: &Connection, members: &[String]) -> Result<Signals> 
         ));
     }
     if trigger.is_none() {
-        if let Some((path, keys)) = anchors
-            .iter()
-            .find(|(_, keys)| keys.len() >= 2)
-            .map(|(p, k)| (p.clone(), k.iter().cloned().collect::<Vec<_>>()))
-        {
+        // The map dies here — move the winner out instead of cloning it.
+        if let Some((path, keys)) = anchors.into_iter().find(|(_, keys)| keys.len() >= 2) {
+            // BTree order is ascending: the two smallest keys are exactly
+            // the pair the previous Vec-indexed form printed.
+            let mut it = keys.iter();
             trigger = Some(format!(
                 "members {} and {} share file anchor {path}",
-                keys[0], keys[1]
+                it.next().unwrap(),
+                it.next().unwrap()
             ));
         }
     }
     if trigger.is_none() {
-        let keys: Vec<&String> = tokens.keys().collect();
+        // Borrowed token views built once; the pair walk never copies.
+        let sets: Vec<(&String, Vec<&str>)> = tokens
+            .iter()
+            .map(|(k, v)| (k, v.iter().map(String::as_str).collect()))
+            .collect();
         let mut best: Option<((usize, usize), f64)> = None;
-        for i in 0..keys.len() {
-            for j in (i + 1)..keys.len() {
-                let a: Vec<String> = tokens[keys[i]].iter().cloned().collect();
-                let b: Vec<String> = tokens[keys[j]].iter().cloned().collect();
-                let fit = jaccard(&a, &b);
+        for i in 0..sets.len() {
+            for j in (i + 1)..sets.len() {
+                let fit = jaccard(&sets[i].1, &sets[j].1);
                 if fit >= FIT_GATE && best.is_none_or(|(_, f)| fit > f) {
                     best = Some(((i, j), fit));
                 }
@@ -238,7 +242,7 @@ pub(super) fn signals(conn: &Connection, members: &[String]) -> Result<Signals> 
         if let Some(((i, j), fit)) = best {
             trigger = Some(format!(
                 "members {} and {} share vocabulary (overlap {fit:.2} ≥ {FIT_GATE})",
-                keys[i], keys[j]
+                sets[i].0, sets[j].0
             ));
         }
     }
