@@ -105,15 +105,13 @@ pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
             status: r.get(4)?,
         })
     })?;
-    let mut ranked: Vec<(i64, i64, RankedSchema)> = rows
-        .collect::<std::result::Result<Vec<_>, _>>()?
-        .into_iter()
-        .map(|s| {
-            let hits = reward.get(&s.id).copied().unwrap_or(0);
-            let centrality = members.get(&s.id).copied().unwrap_or(0);
-            (hits, centrality, s)
-        })
-        .collect();
+    let mut ranked: Vec<(i64, i64, RankedSchema)> = Vec::new();
+    for r in rows {
+        let s: RankedSchema = r?;
+        let hits = reward.get(&s.id).copied().unwrap_or(0);
+        let centrality = members.get(&s.id).copied().unwrap_or(0);
+        ranked.push((hits, centrality, s));
+    }
     ranked.sort_by(|a, b| {
         b.0.cmp(&a.0)
             .then_with(|| b.1.cmp(&a.1))

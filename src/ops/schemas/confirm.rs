@@ -72,6 +72,9 @@ pub(crate) struct Confirmed {
 }
 
 /// All confirmed schemas with their member sets, ordered by schema id.
+/// Members arrive ascending-sorted — the binary-collation ORDER BY over
+/// (kind, id) equals key-string order for the fixed kind vocabulary —
+/// which is the sortedness `jaccard`'s merge walk requires.
 pub(crate) fn confirmed_schemas(conn: &Connection) -> Result<Vec<Confirmed>> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.name, l.source_item_type, l.source_item_id \
@@ -231,7 +234,7 @@ fn dominant_tag(conn: &Connection, members: &[Member]) -> Result<Option<String>>
     }
     Ok(counts
         .into_iter()
-        .max_by_key(|(tag, n)| (*n, std::cmp::Reverse(tag.clone())))
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.as_str().cmp(a.0.as_str())))
         .map(|(t, _)| t))
 }
 
@@ -432,7 +435,13 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
             .count();
         if covered == knowledge_members.len()
             || (!s_knowledge.is_empty() && covers == s_knowledge.len())
-            || jaccard(&knowledge_members, &s.members) >= JACCARD_IDENTITY
+            || jaccard(
+                &knowledge_members
+                    .iter()
+                    .map(|m| m.as_str())
+                    .collect::<Vec<_>>(),
+                &s.members.iter().map(String::as_str).collect::<Vec<_>>(),
+            ) >= JACCARD_IDENTITY
         {
             bail!(
                 "candidate already confirmed as schema {} ({})",
