@@ -467,7 +467,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     let mut stmt = conn.prepare(
         "SELECT id, uuid, name, summary, summary_source, status, centroid_json, \
          confidence, importance, access_count, last_accessed_at, last_confirmed_at, \
-         created_at, updated_at FROM schemas ORDER BY id",
+         created_at, updated_at, kind, kind_reasons_json FROM schemas ORDER BY id",
     )?;
     let schema_rows = stmt.query_map([], |row| {
         Ok(serde_json::json!({
@@ -485,6 +485,8 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "last_confirmed_at": row.get::<_, Option<String>>(11)?,
             "created_at": row.get::<_, String>(12)?,
             "updated_at": row.get::<_, String>(13)?,
+            "kind": row.get::<_, String>(14)?,
+            "kind_reasons_json": row.get::<_, String>(15)?,
         }))
     })?;
     let mut schemas_count = 0;

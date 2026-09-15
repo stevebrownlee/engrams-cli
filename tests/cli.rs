@@ -3595,6 +3595,91 @@ fn test_export_import_preserves_importance() {
 }
 
 #[test]
+fn test_export_emits_schema_kind_columns() {
+    // spec 0004 AC-6: every schema row exports kind and kind_reasons_json
+    // verbatim, including legacy rows that never left the column defaults.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // One labeled row and one pre-0004 row, seeded by SQL: the export
+    // contract is about emitting stored columns, not about how confirm
+    // produced them.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, \
+             updated_at, kind, kind_reasons_json) VALUES
+             ('uuid-labeled', 'core', 'labeled pack', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'schema',
+              '[\"dense cluster\",\"anchors agree\"]'),
+             ('uuid-legacy', 'legacy-pack', 'pre-0004 pack', '{}',
+              '2025-06-01T00:00:00Z', '2025-06-01T00:00:00Z', 'unclear', '[]');",
+        )
+        .unwrap();
+    }
+
+    let exp_dir = temp.path().join("exp");
+    engrams(&db)
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let labeled = std::fs::read_to_string(exp_dir.join("schemas/1.md")).unwrap();
+    assert!(
+        labeled.contains("\"kind\": \"schema\""),
+        "labeled row exports its kind: {labeled}"
+    );
+    assert!(
+        labeled.contains("\"kind_reasons_json\": \"[\\\"dense cluster\\\",\\\"anchors agree\\\"]\""),
+        "reasons snapshot exported verbatim: {labeled}"
+    );
+    let legacy = std::fs::read_to_string(exp_dir.join("schemas/2.md")).unwrap();
+    assert!(
+        legacy.contains("\"kind\": \"unclear\"")
+            && legacy.contains("\"kind_reasons_json\": \"[]\""),
+        "legacy row exports its defaults verbatim: {legacy}"
+    );
+}
+
+#[test]
+fn test_import_schema_kind_falls_back_for_older_exports() {
+    // An export predating the kind columns carries neither field; import
+    // must land the row on the column defaults without error and without
+    // re-labeling.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    let exp_dir = temp.path().join("old-export");
+    std::fs::create_dir_all(exp_dir.join("schemas")).unwrap();
+    std::fs::write(
+        exp_dir.join("schemas/7.md"),
+        "---\nidentifier: \"7\"\ntitle: \"legacy-pack\"\n---\n\n# legacy-pack\n\n```json\n{\n  \"id\": 7,\n  \"uuid\": \"uuid-old-7\",\n  \"name\": \"legacy-pack\",\n  \"summary\": \"written before schema v14\",\n  \"centroid_json\": \"{}\",\n  \"created_at\": \"2025-01-01T00:00:00Z\",\n  \"updated_at\": \"2025-01-01T00:00:00Z\"\n}\n```\n",
+    )
+    .unwrap();
+
+    engrams(&db)
+        .args(["import", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let (kind, reasons): (String, String) = conn
+        .query_row(
+            "SELECT kind, kind_reasons_json FROM schemas WHERE id = 7",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        (kind.as_str(), reasons.as_str()),
+        ("unclear", "[]"),
+        "missing kind fields fall back to the column defaults"
+    );
+}
+
+#[test]
 fn test_batch_decision() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");
