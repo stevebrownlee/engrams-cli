@@ -13,6 +13,11 @@
 //! deterministic template over the member set, and `centroid_json` records
 //! tag/anchor frequencies for the phase-6 lexical assimilation matcher.
 //!
+//! The candidate's kind label rides along as a snapshot (spec 0004): the
+//! resolved candidate's `kind` and `kind_reasons_json` are copied as-is
+//! into the new schema row — staged rows are mutable and prunable, so the
+//! confirmed pack keeps the label it was confirmed with.
+//!
 //! Coherence with staging: a confirmed schema's membership lives in its
 //! `member_of` edges (no duplicated snapshot column). [`confirmed_schemas`]
 //! exposes those member sets, and this command rejects any candidate whose
@@ -113,6 +118,8 @@ pub(crate) struct Candidate {
     density: f64,
     stability_count: i64,
     reward_hits: i64,
+    kind: String,
+    kind_reasons_json: String,
 }
 
 /// Resolve a candidate by exact signature first — an exact match always
@@ -121,24 +128,39 @@ pub(crate) struct Candidate {
 /// missing signature yields `None` so the caller can fall through to the
 /// existing-schema bump path.
 pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Option<Candidate>> {
-    let exact: Option<(String, f64, i64, i64)> = conn
+    let exact: Option<(String, f64, i64, i64, String, String)> = conn
         .query_row(
-            "SELECT member_keys_json, density, stability_count, reward_hits \
+            "SELECT member_keys_json, density, stability_count, reward_hits, \
+             kind, kind_reasons_json \
              FROM schema_candidates WHERE cluster_sig = ?1",
             params![sig],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                ))
+            },
         )
         .optional()?;
-    if let Some((members_json, density, stability_count, reward_hits)) = exact {
+    if let Some((members_json, density, stability_count, reward_hits, kind, kind_reasons_json)) =
+        exact
+    {
         return Ok(Some(Candidate {
             members: serde_json::from_str(&members_json)?,
             density,
             stability_count,
             reward_hits,
+            kind,
+            kind_reasons_json,
         }));
     }
     let mut stmt = conn.prepare(
-        "SELECT cluster_sig, member_keys_json, density, stability_count, reward_hits \
+        "SELECT cluster_sig, member_keys_json, density, stability_count, reward_hits, \
+         kind, kind_reasons_json \
          FROM schema_candidates WHERE cluster_sig LIKE ?1 ESCAPE '\\' ORDER BY cluster_sig",
     )?;
     let pattern = format!(
@@ -153,16 +175,20 @@ pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Opti
             row.get::<_, f64>(2)?,
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
+            row.get::<_, String>(5)?,
+            row.get::<_, String>(6)?,
         ))
     })?;
     let mut matches: Vec<Candidate> = Vec::new();
     for r in rows {
-        let (members_json, density, stability_count, reward_hits) = r?;
+        let (members_json, density, stability_count, reward_hits, kind, kind_reasons_json) = r?;
         matches.push(Candidate {
             members: serde_json::from_str(&members_json)?,
             density,
             stability_count,
             reward_hits,
+            kind,
+            kind_reasons_json,
         });
     }
     match matches.len() {
@@ -472,8 +498,9 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
     promote(conn, &cand, &members, name)
 }
 
-/// Create the schema row with a mechanical draft, link every member with
-/// `member_of`, and leave the candidate row and member rows untouched.
+/// Create the schema row with a mechanical draft and the candidate's kind
+/// snapshot (spec 0004), link every member with `member_of`, and leave the
+/// candidate row and member rows untouched.
 pub(crate) fn promote(
     conn: &Connection,
     cand: &Candidate,
@@ -501,9 +528,17 @@ pub(crate) fn promote(
     tx.execute(
         "INSERT INTO schemas \
          (uuid, name, summary, summary_source, status, centroid_json, last_confirmed_at, \
-          created_at, updated_at) \
-         VALUES (?1, ?2, ?3, 'drafted', 'active', ?4, ?5, ?5, ?5)",
-        params![Uuid::new_v4().to_string(), name, summary, centroid_json, ts],
+          created_at, updated_at, kind, kind_reasons_json) \
+         VALUES (?1, ?2, ?3, 'drafted', 'active', ?4, ?5, ?5, ?5, ?6, ?7)",
+        params![
+            Uuid::new_v4().to_string(),
+            name,
+            summary,
+            centroid_json,
+            ts,
+            cand.kind,
+            cand.kind_reasons_json
+        ],
     )
     .context("inserting schema row")?;
     let schema_id = tx.last_insert_rowid();
@@ -974,6 +1009,69 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
             .unwrap();
         assert_eq!(schemas, 2, "overlapping-but-distinct promotes");
+    }
+
+    #[test]
+    fn confirm_copies_candidate_kind_and_reasons_into_schema_row() {
+        let conn = mem_db();
+        for id in 1..=3 {
+            add_decision(&conn, id, &format!("d{id}"), "core");
+        }
+        let sig = stage(&conn, &[1, 2, 3], 1.0);
+
+        // The scan's kind pass (spec 0003) stamps gate-passing candidates
+        // with this same UPDATE; seed a distinct label so the copy into the
+        // schema row is provably verbatim — no remap, no re-derivation.
+        let reasons_json = serde_json::to_string(&[
+            "One awake stretch: a single burst of activity.",
+            "No shared file anchors and no checkable rules.",
+        ])
+        .unwrap();
+        conn.execute(
+            "UPDATE schema_candidates SET kind = 'story', kind_reasons_json = ?1 \
+             WHERE cluster_sig = ?2",
+            params![reasons_json, sig],
+        )
+        .unwrap();
+
+        confirm(&conn, &sig, Some("campaign notes")).unwrap();
+        let (kind, reasons): (String, String) = conn
+            .query_row("SELECT kind, kind_reasons_json FROM schemas", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(kind, "story");
+        assert_eq!(reasons, reasons_json);
+    }
+
+    #[test]
+    fn confirm_of_unlabeled_candidate_defaults_to_unclear() {
+        let conn = mem_db();
+        for id in 1..=2 {
+            add_decision(&conn, id, &format!("d{id}"), "core");
+        }
+        // stage() writes only the pre-kind columns, so the candidate row
+        // keeps the DDL defaults — the unlabeled-candidate state. Confirm
+        // has no error path here; the schema row carries the same defaults.
+        let sig = stage(&conn, &[1, 2], 1.0);
+        let staged: (String, String) = conn
+            .query_row(
+                "SELECT kind, kind_reasons_json FROM schema_candidates WHERE cluster_sig = ?1",
+                params![sig],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(staged.0, "unclear");
+        assert_eq!(staged.1, "[]");
+
+        confirm(&conn, &sig, Some("core")).unwrap();
+        let (kind, reasons): (String, String) = conn
+            .query_row("SELECT kind, kind_reasons_json FROM schemas", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(kind, "unclear");
+        assert_eq!(reasons, "[]");
     }
 
     #[test]
