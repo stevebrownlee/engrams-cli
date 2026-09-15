@@ -387,7 +387,9 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
                 // spec 0004 AC-6: kind/kind_reasons_json are the exported
                 // confirm-time snapshot — written verbatim, never re-derived.
                 // Exports older than the columns fall back to the defaults.
-                json.get("kind").and_then(|v| v.as_str()).unwrap_or("unclear"),
+                json.get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unclear"),
                 json.get("kind_reasons_json")
                     .and_then(|v| v.as_str())
                     .unwrap_or("[]"),

@@ -3631,7 +3631,8 @@ fn test_export_emits_schema_kind_columns() {
         "labeled row exports its kind: {labeled}"
     );
     assert!(
-        labeled.contains("\"kind_reasons_json\": \"[\\\"dense cluster\\\",\\\"anchors agree\\\"]\""),
+        labeled
+            .contains("\"kind_reasons_json\": \"[\\\"dense cluster\\\",\\\"anchors agree\\\"]\""),
         "reasons snapshot exported verbatim: {labeled}"
     );
     let legacy = std::fs::read_to_string(exp_dir.join("schemas/2.md")).unwrap();

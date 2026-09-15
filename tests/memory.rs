@@ -1174,15 +1174,17 @@ fn s16_export_import_round_trips_schema_kind() {
                 .prepare("SELECT kind, kind_reasons_json FROM schemas ORDER BY id")
                 .unwrap();
             let rows = stmt
-                .query_map([], |r| {
-                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-                })
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
                 .unwrap();
             rows.map(|r| r.unwrap()).collect()
         };
         let source_pairs = dump(&Connection::open(&db).unwrap());
         let target_pairs = dump(&Connection::open(&fresh).unwrap());
-        assert_eq!(source_pairs.len(), 2, "both rows exported: {source_pairs:?}");
+        assert_eq!(
+            source_pairs.len(),
+            2,
+            "both rows exported: {source_pairs:?}"
+        );
         assert_eq!(
             source_pairs, target_pairs,
             "kind snapshots reproduced identically"
