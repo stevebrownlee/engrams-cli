@@ -88,10 +88,10 @@ pub fn reward_hits(conn: &Connection) -> Result<HashMap<i64, i64>> {
 /// Prime's leading schema block: top-K (K = [`PRIME_SCHEMA_K`]) confirmed
 /// schemas, ranked by reward hits, then member centrality, then agent-authored
 /// above drafts, then id. One flat line each — agent drafts are flagged via
-/// `summary_source`, never hidden.
+/// `summary_source`, never hidden. Each entry reports its `kind` (spec 0004).
 pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
     let mut stmt = conn.prepare(
-        "SELECT s.id, s.name, s.summary, s.summary_source, s.status \
+        "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.kind \
          FROM schemas s WHERE s.status = 'active'",
     )?;
     let reward = reward_hits(conn)?;
@@ -103,6 +103,7 @@ pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
             summary: r.get(2)?,
             summary_source: r.get(3)?,
             status: r.get(4)?,
+            kind: r.get(5)?,
         })
     })?;
     let mut ranked: Vec<(i64, i64, RankedSchema)> = Vec::new();
@@ -128,6 +129,7 @@ pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
                 "summary": s.summary,
                 "summary_source": s.summary_source,
                 "status": s.status,
+                "kind": s.kind,
                 "reward_hits": hits,
                 "member_count": centrality,
             })
@@ -141,6 +143,7 @@ struct RankedSchema {
     summary: String,
     summary_source: String,
     status: String,
+    kind: String,
 }
 
 fn agent_rank(s: &RankedSchema) -> i32 {
@@ -423,6 +426,26 @@ mod tests {
         );
         assert_eq!(block[0]["reward_hits"], 2);
         assert_eq!(block[0]["summary_source"], "agent");
+    }
+
+    #[test]
+    fn prime_block_surfaces_kind_from_schemas_table() {
+        let conn = mem_db();
+        schema_with_tags(&conn, 1, "routine", "drafted", &["routine"]);
+        schema_with_tags(&conn, 2, "pile", "drafted", &["pile"]);
+        // The scan's kind pass + confirm copy stamp labeled rows; a row that
+        // predates a relabel keeps the v14 default and must display as-is.
+        conn.execute(
+            "UPDATE schemas SET kind = 'story', kind_reasons_json = ?1 \
+             WHERE name = 'routine'",
+            rusqlite::params![serde_json::to_string(&["One awake stretch."]).unwrap()],
+        )
+        .unwrap();
+
+        let block = prime_block(&conn, 3).unwrap();
+        let by_name = |name: &str| block.iter().find(|s| s["name"] == name).unwrap().clone();
+        assert_eq!(by_name("routine")["kind"], "story");
+        assert_eq!(by_name("pile")["kind"], "unclear");
     }
 
     #[test]

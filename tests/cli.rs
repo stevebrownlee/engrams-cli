@@ -2404,6 +2404,10 @@ fn test_schema_list_show_refine_and_confirm_bump() {
     assert_eq!(schemas[0]["name"], "core");
     assert_eq!(schemas[0]["summary_source"], "drafted");
     assert_eq!(schemas[0]["member_count"], 3);
+    assert_eq!(
+        schemas[0]["kind"], "schema",
+        "list shows kind next to status: {json}"
+    );
 
     // show resolves by name and lists members.
     let out = engrams(&db)
@@ -2414,6 +2418,15 @@ fn test_schema_list_show_refine_and_confirm_bump() {
     let schema = &json["schema"];
     assert_eq!(schema["name"], "core");
     assert_eq!(schema["members"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        schema["kind"], "schema",
+        "show reports the confirm-time kind"
+    );
+    assert_eq!(
+        schema["reasons"].as_array().map(Vec::len),
+        Some(2),
+        "show parses kind_reasons_json into sentence strings: {json}"
+    );
 
     // refine rewrites the summary as agent-authored and re-ranks.
     let out = engrams(&db)
@@ -2457,6 +2470,10 @@ fn test_schema_list_show_refine_and_confirm_bump() {
         .unwrap();
     let json: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["schema"]["bumped"], true, "expected bump: {json}");
+    assert_eq!(
+        json["schema"]["kind"], "schema",
+        "bump payload also carries the row's kind: {json}"
+    );
     let conn = rusqlite::Connection::open(&db).unwrap();
     let after: String = conn
         .query_row(
@@ -2557,6 +2574,88 @@ fn test_prime_leads_with_schemas_block() {
         map.keys().collect::<Vec<_>>()
     );
     assert!(!map["schemas"].as_array().unwrap().is_empty());
+    assert_eq!(
+        map["schemas"][0]["kind"], "schema",
+        "prime schemas entries carry the confirm-time kind"
+    );
+}
+
+#[test]
+fn test_schema_confirm_payload_carries_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    // Dense fully-linked trio (same SQL seed as the list/show test): the
+    // scan's kind pass stamps the candidate `schema` — shared trigger
+    // anchor plus a second awake stretch — and confirm's promote payload
+    // must echo that snapshot (spec 0004: confirm gains kind, no reasons).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',3,'src/gateway.rs','2026-01-02T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','gateway','decision',1),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',2),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',3);",
+        )
+        .unwrap();
+    }
+    // Three sightings: stability ramps per scan and the gates pass on the
+    // third, stamping the staged candidate `schema` (plain scan, no --apply,
+    // so nothing is auto-promoted). `confirm` then resolves it by signature
+    // prefix and takes the promote arm.
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    let sig: String = {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.query_row("SELECT cluster_sig FROM schema_candidates", [], |r| {
+            r.get(0)
+        })
+        .unwrap()
+    };
+    let out = engrams(&db)
+        .args(["schema", "confirm", &sig, "--name", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(
+        json["schema"].get("bumped").is_none(),
+        "expected the promote arm, got a bump: {json}"
+    );
+    assert_eq!(
+        json["schema"]["kind"], "schema",
+        "promote payload carries the copied kind: {json}"
+    );
+    assert!(
+        json["schema"].get("reasons").is_none(),
+        "confirm reports kind only; reason sentences live on schema show"
+    );
+
+    // The copied row feeds the read paths: show parses the reasons array.
+    let out = engrams(&db)
+        .args(["schema", "show", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schema"]["kind"], "schema");
+    assert!(
+        !json["schema"]["reasons"].as_array().unwrap().is_empty(),
+        "show renders the stored reason sentences: {json}"
+    );
 }
 
 #[test]

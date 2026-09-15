@@ -561,6 +561,7 @@ pub(crate) fn promote(
             "name": name,
             "summary": summary,
             "summary_source": "drafted",
+            "kind": cand.kind.as_str(),
             "member_count": members.len(),
             "members": members.iter().map(|m| m.key()).collect::<Vec<_>>(),
             "density": cand.density,
@@ -574,23 +575,23 @@ pub(crate) fn promote(
 /// exact name re-confirms in place — `last_confirmed_at` bumps, nothing
 /// else changes (spec API surface, line 195).
 fn bump_existing_schema(conn: &Connection, target: &str) -> Result<Value> {
-    let resolved: Option<(i64, String)> = match target.parse::<i64>() {
+    let resolved: Option<(i64, String, String)> = match target.parse::<i64>() {
         Ok(id) => conn
             .query_row(
-                "SELECT id, name FROM schemas WHERE id = ?1",
+                "SELECT id, name, kind FROM schemas WHERE id = ?1",
                 params![id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()?,
         Err(_) => conn
             .query_row(
-                "SELECT id, name FROM schemas WHERE name = ?1",
+                "SELECT id, name, kind FROM schemas WHERE name = ?1",
                 params![target],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()?,
     };
-    let Some((id, name)) = resolved else {
+    let Some((id, name, kind_b)) = resolved else {
         bail!("no staged candidate or schema matches '{target}' (run `engrams schema scan`)");
     };
     let ts = now();
@@ -603,6 +604,7 @@ fn bump_existing_schema(conn: &Connection, target: &str) -> Result<Value> {
         "schema": {
             "id": id,
             "name": name,
+            "kind": kind_b,
             "bumped": true,
             "last_confirmed_at": ts,
         },
@@ -1034,7 +1036,7 @@ mod tests {
         )
         .unwrap();
 
-        confirm(&conn, &sig, Some("campaign notes")).unwrap();
+        let out = confirm(&conn, &sig, Some("campaign notes")).unwrap();
         let (kind, reasons): (String, String) = conn
             .query_row("SELECT kind, kind_reasons_json FROM schemas", [], |r| {
                 Ok((r.get(0)?, r.get(1)?))
@@ -1042,6 +1044,14 @@ mod tests {
             .unwrap();
         assert_eq!(kind, "story");
         assert_eq!(reasons, reasons_json);
+        assert_eq!(
+            out["schema"]["kind"], "story",
+            "payload echoes the copied kind"
+        );
+        assert!(
+            out["schema"].get("reasons").is_none(),
+            "confirm reports kind only; reason sentences live on schema show"
+        );
     }
 
     #[test]
@@ -1064,7 +1074,7 @@ mod tests {
         assert_eq!(staged.0, "unclear");
         assert_eq!(staged.1, "[]");
 
-        confirm(&conn, &sig, Some("core")).unwrap();
+        let out = confirm(&conn, &sig, Some("core")).unwrap();
         let (kind, reasons): (String, String) = conn
             .query_row("SELECT kind, kind_reasons_json FROM schemas", [], |r| {
                 Ok((r.get(0)?, r.get(1)?))
@@ -1072,6 +1082,10 @@ mod tests {
             .unwrap();
         assert_eq!(kind, "unclear");
         assert_eq!(reasons, "[]");
+        assert_eq!(
+            out["schema"]["kind"], "unclear",
+            "payload echoes the default kind"
+        );
     }
 
     #[test]
