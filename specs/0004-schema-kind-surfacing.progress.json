@@ -97,7 +97,7 @@
       "id": 3,
       "title": "Project kind through prime, list, and show outputs",
       "type": "standard",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         2
       ],
@@ -117,13 +117,19 @@
         "cargo test --bin engrams schemas",
         "cargo test --test cli schemas"
       ],
-      "files_touched": null,
+      "files_touched": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/list.rs",
+        "src/ops/schemas/confirm.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ],
       "started_at": "2026-09-15T14:13:09Z",
-      "completed_at": null,
+      "completed_at": "2026-09-15T10:41:59-04:00",
       "retry_count": 0,
       "blocked_reason": null,
       "review_findings": [],
-      "commit_sha": null
+      "commit_sha": "b9e18fa"
     },
     {
       "id": 4,
