@@ -4,10 +4,10 @@
   "spec_name": "schema-kind-surfacing",
   "spec_path": "specs/0004-schema-kind-surfacing.md",
   "created_at": "2026-09-15T13:45:00Z",
-  "updated_at": "2026-09-15T14:13:09Z",
+  "updated_at": "2026-09-15T15:08:18Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 3,
+  "current_phase": 4,
   "phases": [
     {
       "id": 1,
@@ -115,7 +115,7 @@
         "cargo build",
         "cargo clippy --all-targets",
         "cargo test --bin engrams schemas",
-        "cargo test --test cli schemas"
+        "cargo test --test cli schema"
       ],
       "files_touched": [
         "src/ops/schemas/retrieval.rs",
@@ -128,14 +128,31 @@
       "completed_at": "2026-09-15T10:41:59-04:00",
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": [],
+      "review_findings": [
+        {
+          "severity": "minor",
+          "category": "verification",
+          "message": "Recorded Gate 3 command 'cargo test --test cli schemas' executes only test_prime_leads_with_schemas_block (verified by running: 1 passed, 57 filtered out) — 'schemas' is not a substring of this phase's new test_schema_confirm_payload_carries_kind (tests/cli.rs:2584) nor of test_schema_list_show_refine_and_confirm_bump, whose new kind/bump assertions therefore run in no recorded phase-3 gate. Both pass when invoked by exact name, and the bin gate 'cargo test --bin engrams schemas' covers the same contract at unit level (confirm tests assert out[\"schema\"][\"kind\"]; prime_block/list unit tests assert entry kind), so real coverage exists — but the recorded CLI gate is green while exercising only the prime entry assertion. Same genre as this spec's phase-1 vacuous 'migrate' filter, which phase 3 was explicitly told to avoid.",
+          "file": "specs/0004-schema-kind-surfacing.progress.json",
+          "line": 118,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "verification",
+          "message": "No recorded phase-3 verification command targets the memory integration target, so s15_prime_list_show_surface_kind (tests/memory.rs:975) — the only end-to-end test of the pre-0004 'unclear'/'[]' as-is invariant across prime, list, and show — runs in zero recorded gates; even the natural 'cargo test --test memory schemas' filter would miss it by name (verified: matches only s14_export_import_preserves_schemas_with_identity_and_telemetry, 13 filtered out). The test passes when invoked by exact name, and the bin gate covers the invariant at unit level (show_includes_kind_and_parsed_reasons asserts the empty-array fallback), so this is a gate-recording gap, not missing coverage.",
+          "file": "specs/0004-schema-kind-surfacing.progress.json",
+          "line": 118,
+          "resolution": "noted"
+        }
+      ],
       "commit_sha": "b9e18fa"
     },
     {
       "id": 4,
       "title": "Preserve kind and reasons through export and import round-trips",
       "type": "standard",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         2
       ],
@@ -155,7 +172,7 @@
         "cargo test --test cli export"
       ],
       "files_touched": null,
-      "started_at": null,
+      "started_at": "2026-09-15T15:08:18Z",
       "completed_at": null,
       "retry_count": 0,
       "blocked_reason": null,
