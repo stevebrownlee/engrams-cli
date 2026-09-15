@@ -4,10 +4,10 @@
   "spec_name": "schema-kind-surfacing",
   "spec_path": "specs/0004-schema-kind-surfacing.md",
   "created_at": "2026-09-15T13:45:00Z",
-  "updated_at": "2026-09-15T13:50:50Z",
+  "updated_at": "2026-09-15T14:13:09Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 2,
+  "current_phase": 3,
   "phases": [
     {
       "id": 1,
@@ -28,7 +28,7 @@
         "cargo build",
         "cargo clippy --all-targets",
         "cargo test --bin engrams upgrade",
-        "cargo test --test cli migrate"
+        "cargo test --test cli migration"
       ],
       "files_touched": [
         "src/schema.rs",
@@ -40,7 +40,16 @@
       "completed_at": "2026-09-15T09:37:46-04:00",
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": [],
+      "review_findings": [
+        {
+          "severity": "minor",
+          "category": "verification",
+          "message": "Recorded Gate 3 command 'cargo test --test cli migrate' does not execute this phase's new test_migration_v13_to_v14: 'migrate' is not a substring of 'migration' (verified by running: the filter matches only test_migrate_command — 1 passed, 56 filtered out). The new CLI test passes when invoked by exact name, and the bin-side gate 'cargo test --bin engrams upgrade' does cover the unit v13-to-v14 test, so real coverage exists; but the recorded CLI gate reports green without ever running the phase's headline CLI addition. Same genre as spec-0002 phase 2's vacuous 'cargo test schemas' gate.",
+          "file": "specs/0004-schema-kind-surfacing.progress.json",
+          "line": 32,
+          "resolution": "noted"
+        }
+      ],
       "commit_sha": "5d607ce"
     },
     {
@@ -72,14 +81,23 @@
       "completed_at": "2026-09-15T09:50:16-04:00",
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": [],
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "spec-conformance",
+          "message": "Spec 0004 API surface announces 'schema confirm success payload: the schema object gains kind', but promote()'s schema JSON (confirm.rs:559-569) still omits kind, and no remaining phase owns confirm output (phase 3 covers prime/list/show, phase 4 export/import), so the announced contract item is currently orphaned. AC-1 itself — the stored row copies kind and reasons as-is — is met and tested. Same genre as spec-0002 phase 6's missing blended-score field.",
+          "file": "src/ops/schemas/confirm.rs",
+          "line": 559,
+          "resolution": "noted"
+        }
+      ],
       "commit_sha": "7414be2"
     },
     {
       "id": 3,
       "title": "Project kind through prime, list, and show outputs",
       "type": "standard",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         2
       ],
@@ -100,7 +118,7 @@
         "cargo test --test cli schemas"
       ],
       "files_touched": null,
-      "started_at": null,
+      "started_at": "2026-09-15T14:13:09Z",
       "completed_at": null,
       "retry_count": 0,
       "blocked_reason": null,
