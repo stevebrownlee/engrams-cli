@@ -189,7 +189,9 @@ CREATE TABLE IF NOT EXISTS schemas (
   last_accessed_at  TEXT,
   last_confirmed_at TEXT,
   created_at        TEXT NOT NULL,
-  updated_at        TEXT NOT NULL
+  updated_at        TEXT NOT NULL,
+  kind              TEXT NOT NULL DEFAULT 'unclear',  -- spec 0004: 'schema'|'story'|'inventory'|'unclear'
+  kind_reasons_json TEXT NOT NULL DEFAULT '[]'        -- reasons copied from the candidate at confirm
 );
 CREATE TABLE IF NOT EXISTS schema_candidates (
   cluster_sig        TEXT PRIMARY KEY,    -- sorted member-key signature
@@ -484,4 +486,15 @@ pub const MIGRATION_V13: &str = r#"
 -- are untouched.
 ALTER TABLE schema_candidates ADD COLUMN kind TEXT NOT NULL DEFAULT 'unclear';
 ALTER TABLE schema_candidates ADD COLUMN kind_reasons_json TEXT NOT NULL DEFAULT '[]';
+"#;
+
+pub const MIGRATION_V14: &str = r#"
+-- Spec 0004 (schema kind surfacing): confirmed schemas carry their kind.
+-- kind: 'schema' | 'story' | 'inventory' | 'unclear' (pre-existing rows
+-- backfill to 'unclear' — the stored evidence for an already-confirmed pack
+-- does not retroactively decide a kind); kind_reasons_json: the reason
+-- sentences copied from the candidate at confirm time. Additive columns
+-- only — no existing column data changes.
+ALTER TABLE schemas ADD COLUMN kind TEXT NOT NULL DEFAULT 'unclear';
+ALTER TABLE schemas ADD COLUMN kind_reasons_json TEXT NOT NULL DEFAULT '[]';
 "#;

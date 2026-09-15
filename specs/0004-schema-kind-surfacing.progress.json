@@ -1,0 +1,140 @@
+{
+  "schema_version": "1",
+  "spec_id": "0004",
+  "spec_name": "schema-kind-surfacing",
+  "spec_path": "specs/0004-schema-kind-surfacing.md",
+  "created_at": "2026-09-15T13:45:00Z",
+  "updated_at": "2026-09-15T13:37:06Z",
+  "status": "in_progress",
+  "mode": "autonomous",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Add v14 migration with kind columns to schemas table",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [],
+      "exemplars": [
+        "src/schema.rs",
+        "src/db.rs",
+        "src/ops/schemas/kind.rs"
+      ],
+      "acceptance": [
+        "AC-3"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams upgrade",
+        "cargo test --test cli migrate"
+      ],
+      "files_touched": [
+        "src/schema.rs",
+        "src/db.rs",
+        "src/ops/schemas/kind.rs",
+        "tests/cli.rs"
+      ],
+      "started_at": "2026-09-15T13:21:54Z",
+      "completed_at": "2026-09-15T13:37:06Z",
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 2,
+      "title": "Confirm copies kind and reasons from candidate into schema row",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        1
+      ],
+      "exemplars": [
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/kind.rs"
+      ],
+      "acceptance": [
+        "AC-1"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams confirm",
+        "cargo test --test cli confirm"
+      ],
+      "files_touched": null,
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 3,
+      "title": "Project kind through prime, list, and show outputs",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        2
+      ],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/list.rs"
+      ],
+      "acceptance": [
+        "AC-2",
+        "AC-4",
+        "AC-5"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schemas"
+      ],
+      "files_touched": null,
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    },
+    {
+      "id": 4,
+      "title": "Preserve kind and reasons through export and import round-trips",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        2
+      ],
+      "exemplars": [
+        "src/ops/transfer/export.rs",
+        "src/ops/transfer/import.rs",
+        "tests/memory.rs"
+      ],
+      "acceptance": [
+        "AC-6"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo build",
+        "cargo clippy --all-targets",
+        "cargo test --test memory schemas",
+        "cargo test --test cli export"
+      ],
+      "files_touched": null,
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": null
+    }
+  ]
+}

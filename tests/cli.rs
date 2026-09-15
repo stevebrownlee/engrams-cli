@@ -2175,6 +2175,92 @@ fn test_migration_v11_to_v12() {
 }
 
 #[test]
+fn test_migration_v13_to_v14() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Rewind to the pre-v14 shape: MIGRATION_V14 is purely additive, so a
+    // v13 database is exactly the current shape minus the schemas kind
+    // columns. Seed a confirmed schema the upgrade must preserve.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "ALTER TABLE schemas DROP COLUMN kind;
+             ALTER TABLE schemas DROP COLUMN kind_reasons_json;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) \
+             VALUES ('u-schema', 'release routine', 'shipping checklist', '{}', \
+                     '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute("PRAGMA user_version = 13", []).unwrap();
+    }
+
+    // On-disk version must match migrate's self-reported latest (self-maintaining
+    // pin — derived from command output), which this contract pins at 14.
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(parsed["version"].as_i64().unwrap(), 14);
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, 14);
+
+    // The kind columns exist post-migration.
+    let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
+    let cols: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .flatten()
+        .collect();
+    assert!(cols.contains(&"kind".to_string()));
+    assert!(cols.contains(&"kind_reasons_json".to_string()));
+
+    // The pre-existing row backfilled via the column defaults (a successful
+    // NOT NULL backfill proves the DEFAULT clauses landed), and every prior
+    // column kept its data.
+    let (kind, reasons, name, summary, status, created_at, updated_at): (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = conn
+        .query_row(
+            "SELECT kind, kind_reasons_json, name, summary, status, created_at, updated_at \
+             FROM schemas WHERE uuid = 'u-schema'",
+            [],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert_eq!(kind, "unclear");
+    assert_eq!(reasons, "[]");
+    assert_eq!(name, "release routine");
+    assert_eq!(summary, "shipping checklist");
+    assert_eq!(status, "active");
+    assert_eq!(created_at, "2026-01-01T00:00:00Z");
+    assert_eq!(updated_at, "2026-01-02T00:00:00Z");
+}
+
+#[test]
 fn test_schema_scan_stages_and_writes_nothing_else() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");
