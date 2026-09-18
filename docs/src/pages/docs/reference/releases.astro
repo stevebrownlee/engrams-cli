@@ -8,6 +8,27 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.14.0</h2>
+  <div class="release-block">
+    <h3>What was added</h3>
+    <ul>
+      <li>
+        <strong>Kind on confirmed schemas:</strong> promotion copies the candidate&rsquo;s kind verdict &mdash; <code>schema</code> (living recurring practice), <code>story</code> (one-time effort), <code>inventory</code> (file pile), or <code>unclear</code> &mdash; and its plain-language reasons into the confirmed schema row, so the label outlives the staging pipeline that produced it. Migration v14 adds the columns (ALTER-only; pre-existing confirmed schemas read <code>unclear</code>).
+      </li>
+      <li>
+        <strong>Kind across read surfaces:</strong> <code>prime</code>&rsquo;s opening schemas block, <code>schema list</code> entries, and <code>schema show</code> detail (kind plus the reason sentences) all carry the label; <code>schema confirm</code>&rsquo;s success payload includes it in the schema object.
+      </li>
+      <li>
+        <strong>Round-trip through transfer:</strong> <code>export</code> emits kind and reasons for every schema; <code>import</code> writes the stored snapshot verbatim &mdash; the labeler never re-runs on import, and older export files without the fields import with <code>unclear</code>/<code>[]</code> defaults.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <p>
+      The kind label explained what a proposed group was, but stayed behind in the proposal pipeline: every new session saw confirmed packs as unlabeled fact piles. Snapshotting at confirm time keeps the human-confirmed verdict stable against scan drift and lossy transfer &mdash; a derived view would silently change or disappear, while a copied column migrates and round-trips intact.
+    </p>
+  </div>
+
   <h2>v0.13.0</h2>
   <div class="release-block">
     <h3>What was added</h3>
