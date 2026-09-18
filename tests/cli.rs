@@ -2175,6 +2175,92 @@ fn test_migration_v11_to_v12() {
 }
 
 #[test]
+fn test_migration_v13_to_v14() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Rewind to the pre-v14 shape: MIGRATION_V14 is purely additive, so a
+    // v13 database is exactly the current shape minus the schemas kind
+    // columns. Seed a confirmed schema the upgrade must preserve.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "ALTER TABLE schemas DROP COLUMN kind;
+             ALTER TABLE schemas DROP COLUMN kind_reasons_json;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) \
+             VALUES ('u-schema', 'release routine', 'shipping checklist', '{}', \
+                     '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute("PRAGMA user_version = 13", []).unwrap();
+    }
+
+    // On-disk version must match migrate's self-reported latest (self-maintaining
+    // pin — derived from command output), which this contract pins at 14.
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(parsed["version"].as_i64().unwrap(), 14);
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let version: i32 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(version, 14);
+
+    // The kind columns exist post-migration.
+    let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
+    let cols: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .flatten()
+        .collect();
+    assert!(cols.contains(&"kind".to_string()));
+    assert!(cols.contains(&"kind_reasons_json".to_string()));
+
+    // The pre-existing row backfilled via the column defaults (a successful
+    // NOT NULL backfill proves the DEFAULT clauses landed), and every prior
+    // column kept its data.
+    let (kind, reasons, name, summary, status, created_at, updated_at): (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = conn
+        .query_row(
+            "SELECT kind, kind_reasons_json, name, summary, status, created_at, updated_at \
+             FROM schemas WHERE uuid = 'u-schema'",
+            [],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert_eq!(kind, "unclear");
+    assert_eq!(reasons, "[]");
+    assert_eq!(name, "release routine");
+    assert_eq!(summary, "shipping checklist");
+    assert_eq!(status, "active");
+    assert_eq!(created_at, "2026-01-01T00:00:00Z");
+    assert_eq!(updated_at, "2026-01-02T00:00:00Z");
+}
+
+#[test]
 fn test_schema_scan_stages_and_writes_nothing_else() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");
@@ -2318,6 +2404,10 @@ fn test_schema_list_show_refine_and_confirm_bump() {
     assert_eq!(schemas[0]["name"], "core");
     assert_eq!(schemas[0]["summary_source"], "drafted");
     assert_eq!(schemas[0]["member_count"], 3);
+    assert_eq!(
+        schemas[0]["kind"], "schema",
+        "list shows kind next to status: {json}"
+    );
 
     // show resolves by name and lists members.
     let out = engrams(&db)
@@ -2328,6 +2418,15 @@ fn test_schema_list_show_refine_and_confirm_bump() {
     let schema = &json["schema"];
     assert_eq!(schema["name"], "core");
     assert_eq!(schema["members"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        schema["kind"], "schema",
+        "show reports the confirm-time kind"
+    );
+    assert_eq!(
+        schema["reasons"].as_array().map(Vec::len),
+        Some(2),
+        "show parses kind_reasons_json into sentence strings: {json}"
+    );
 
     // refine rewrites the summary as agent-authored and re-ranks.
     let out = engrams(&db)
@@ -2371,6 +2470,10 @@ fn test_schema_list_show_refine_and_confirm_bump() {
         .unwrap();
     let json: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["schema"]["bumped"], true, "expected bump: {json}");
+    assert_eq!(
+        json["schema"]["kind"], "schema",
+        "bump payload also carries the row's kind: {json}"
+    );
     let conn = rusqlite::Connection::open(&db).unwrap();
     let after: String = conn
         .query_row(
@@ -2471,6 +2574,88 @@ fn test_prime_leads_with_schemas_block() {
         map.keys().collect::<Vec<_>>()
     );
     assert!(!map["schemas"].as_array().unwrap().is_empty());
+    assert_eq!(
+        map["schemas"][0]["kind"], "schema",
+        "prime schemas entries carry the confirm-time kind"
+    );
+}
+
+#[test]
+fn test_schema_confirm_payload_carries_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    // Dense fully-linked trio (same SQL seed as the list/show test): the
+    // scan's kind pass stamps the candidate `schema` — shared trigger
+    // anchor plus a second awake stretch — and confirm's promote payload
+    // must echo that snapshot (spec 0004: confirm gains kind, no reasons).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',3,'src/gateway.rs','2026-01-02T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','gateway','decision',1),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',2),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',3);",
+        )
+        .unwrap();
+    }
+    // Three sightings: stability ramps per scan and the gates pass on the
+    // third, stamping the staged candidate `schema` (plain scan, no --apply,
+    // so nothing is auto-promoted). `confirm` then resolves it by signature
+    // prefix and takes the promote arm.
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    let sig: String = {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.query_row("SELECT cluster_sig FROM schema_candidates", [], |r| {
+            r.get(0)
+        })
+        .unwrap()
+    };
+    let out = engrams(&db)
+        .args(["schema", "confirm", &sig, "--name", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(
+        json["schema"].get("bumped").is_none(),
+        "expected the promote arm, got a bump: {json}"
+    );
+    assert_eq!(
+        json["schema"]["kind"], "schema",
+        "promote payload carries the copied kind: {json}"
+    );
+    assert!(
+        json["schema"].get("reasons").is_none(),
+        "confirm reports kind only; reason sentences live on schema show"
+    );
+
+    // The copied row feeds the read paths: show parses the reasons array.
+    let out = engrams(&db)
+        .args(["schema", "show", "core"])
+        .output()
+        .unwrap();
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["schema"]["kind"], "schema");
+    assert!(
+        !json["schema"]["reasons"].as_array().unwrap().is_empty(),
+        "show renders the stored reason sentences: {json}"
+    );
 }
 
 #[test]
@@ -3407,6 +3592,92 @@ fn test_export_import_preserves_importance() {
         })
         .unwrap();
     assert_eq!(imp, 9, "imported decision must have importance 9");
+}
+
+#[test]
+fn test_export_emits_schema_kind_columns() {
+    // spec 0004 AC-6: every schema row exports kind and kind_reasons_json
+    // verbatim, including legacy rows that never left the column defaults.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // One labeled row and one pre-0004 row, seeded by SQL: the export
+    // contract is about emitting stored columns, not about how confirm
+    // produced them.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, \
+             updated_at, kind, kind_reasons_json) VALUES
+             ('uuid-labeled', 'core', 'labeled pack', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'schema',
+              '[\"dense cluster\",\"anchors agree\"]'),
+             ('uuid-legacy', 'legacy-pack', 'pre-0004 pack', '{}',
+              '2025-06-01T00:00:00Z', '2025-06-01T00:00:00Z', 'unclear', '[]');",
+        )
+        .unwrap();
+    }
+
+    let exp_dir = temp.path().join("exp");
+    engrams(&db)
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let labeled = std::fs::read_to_string(exp_dir.join("schemas/1.md")).unwrap();
+    assert!(
+        labeled.contains("\"kind\": \"schema\""),
+        "labeled row exports its kind: {labeled}"
+    );
+    assert!(
+        labeled
+            .contains("\"kind_reasons_json\": \"[\\\"dense cluster\\\",\\\"anchors agree\\\"]\""),
+        "reasons snapshot exported verbatim: {labeled}"
+    );
+    let legacy = std::fs::read_to_string(exp_dir.join("schemas/2.md")).unwrap();
+    assert!(
+        legacy.contains("\"kind\": \"unclear\"")
+            && legacy.contains("\"kind_reasons_json\": \"[]\""),
+        "legacy row exports its defaults verbatim: {legacy}"
+    );
+}
+
+#[test]
+fn test_import_schema_kind_falls_back_for_older_exports() {
+    // An export predating the kind columns carries neither field; import
+    // must land the row on the column defaults without error and without
+    // re-labeling.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    let exp_dir = temp.path().join("old-export");
+    std::fs::create_dir_all(exp_dir.join("schemas")).unwrap();
+    std::fs::write(
+        exp_dir.join("schemas/7.md"),
+        "---\nidentifier: \"7\"\ntitle: \"legacy-pack\"\n---\n\n# legacy-pack\n\n```json\n{\n  \"id\": 7,\n  \"uuid\": \"uuid-old-7\",\n  \"name\": \"legacy-pack\",\n  \"summary\": \"written before schema v14\",\n  \"centroid_json\": \"{}\",\n  \"created_at\": \"2025-01-01T00:00:00Z\",\n  \"updated_at\": \"2025-01-01T00:00:00Z\"\n}\n```\n",
+    )
+    .unwrap();
+
+    engrams(&db)
+        .args(["import", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let (kind, reasons): (String, String) = conn
+        .query_row(
+            "SELECT kind, kind_reasons_json FROM schemas WHERE id = 7",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        (kind.as_str(), reasons.as_str()),
+        ("unclear", "[]"),
+        "missing kind fields fall back to the column defaults"
+    );
 }
 
 #[test]

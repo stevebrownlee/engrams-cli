@@ -50,6 +50,8 @@ struct Row {
     summary: String,
     summary_source: String,
     status: String,
+    kind: String,
+    kind_reasons_json: String,
     updated_at: String,
     last_confirmed_at: Option<String>,
     centroid_json: String,
@@ -63,6 +65,7 @@ fn row_json(counts: &std::collections::HashMap<i64, i64>, r: &Row) -> Value {
         "summary": r.summary,
         "summary_source": r.summary_source,
         "status": r.status,
+        "kind": r.kind,
         "member_count": counts.get(&r.id).copied().unwrap_or(0),
         "updated_at": r.updated_at,
         "last_confirmed_at": r.last_confirmed_at,
@@ -74,7 +77,8 @@ fn row_json(counts: &std::collections::HashMap<i64, i64>, r: &Row) -> Value {
 pub fn list(conn: &Connection, status: Option<&str>) -> Result<Value> {
     let counts = member_counts(conn)?;
     let mut stmt = conn.prepare(&format!(
-        "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.updated_at, \
+        "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.kind, \
+         s.kind_reasons_json, s.updated_at, \
          s.last_confirmed_at, s.centroid_json \
          FROM schemas s {} ORDER BY {}",
         match status {
@@ -90,9 +94,11 @@ pub fn list(conn: &Connection, status: Option<&str>) -> Result<Value> {
             summary: r.get(2)?,
             summary_source: r.get(3)?,
             status: r.get(4)?,
-            updated_at: r.get(5)?,
-            last_confirmed_at: r.get(6)?,
-            centroid_json: r.get(7)?,
+            kind: r.get(5)?,
+            kind_reasons_json: r.get(6)?,
+            updated_at: r.get(7)?,
+            last_confirmed_at: r.get(8)?,
+            centroid_json: r.get(9)?,
         })
     };
     let rows: Vec<_> = match status {
@@ -134,7 +140,8 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
         .ok_or_else(|| anyhow::anyhow!("no schema matches '{target}'"))?;
     let counts = member_counts(conn)?;
     let row: Row = conn.query_row(
-        "SELECT name, summary, summary_source, status, updated_at, last_confirmed_at, \
+        "SELECT name, summary, summary_source, status, kind, kind_reasons_json, \
+         updated_at, last_confirmed_at, \
          centroid_json, id FROM schemas WHERE id = ?1",
         [id],
         |r| {
@@ -143,10 +150,12 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
                 summary: r.get(1)?,
                 summary_source: r.get(2)?,
                 status: r.get(3)?,
-                updated_at: r.get(4)?,
-                last_confirmed_at: r.get(5)?,
-                centroid_json: r.get(6)?,
-                id: r.get(7)?,
+                kind: r.get(4)?,
+                kind_reasons_json: r.get(5)?,
+                updated_at: r.get(6)?,
+                last_confirmed_at: r.get(7)?,
+                centroid_json: r.get(8)?,
+                id: r.get(9)?,
             })
         },
     )?;
@@ -166,6 +175,9 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let mut out = row_json(&counts, &row);
     out["members"] = json!(members);
+    // Confirm-time reason sentences, projected as a JSON array; the v14
+    // default '[]' reads as an empty array (spec 0004 AC-5).
+    out["reasons"] = serde_json::from_str(&row.kind_reasons_json).unwrap_or(json!([]));
     Ok(json!({
         "status": "success",
         "schema": out,
@@ -261,6 +273,60 @@ mod tests {
         assert_eq!(by_id["schema"]["name"], "core");
         let err = show(&conn, "nope").unwrap_err().to_string();
         assert!(err.contains("no schema matches"), "{err}");
+    }
+
+    #[test]
+    fn list_surfaces_kind_next_to_status() {
+        let conn = mem_db();
+        seed(&conn, "routine", "drafted", "2026-09-05T10:00:00Z");
+        seed(&conn, "pile", "agent", "2026-09-05T09:00:00Z");
+        // A row labeled by the 0003 kind pass; the other keeps the v14
+        // default and must read as `unclear` (spec 0004 AC-4).
+        conn.execute(
+            "UPDATE schemas SET kind = 'inventory' WHERE name = 'routine'",
+            [],
+        )
+        .unwrap();
+
+        let out = list(&conn, None).unwrap();
+        let schemas = out["schemas"].as_array().unwrap();
+        let by_name = |name: &str| schemas.iter().find(|s| s["name"] == name).unwrap();
+        assert_eq!(by_name("routine")["kind"], "inventory");
+        assert_eq!(by_name("routine")["status"], "active");
+        assert_eq!(by_name("pile")["kind"], "unclear");
+    }
+
+    #[test]
+    fn show_includes_kind_and_parsed_reasons() {
+        let conn = mem_db();
+        seed(&conn, "routine", "drafted", "2026-09-05T10:00:00Z");
+        let reasons = serde_json::to_string(&[
+            "Recurring awake stretches.",
+            "A checkable rule fires on its members.",
+        ])
+        .unwrap();
+        conn.execute(
+            "UPDATE schemas SET kind = 'schema', kind_reasons_json = ?1 \
+             WHERE name = 'routine'",
+            rusqlite::params![reasons],
+        )
+        .unwrap();
+
+        let out = show(&conn, "routine").unwrap();
+        assert_eq!(out["schema"]["kind"], "schema");
+        assert_eq!(
+            out["schema"]["reasons"],
+            json!([
+                "Recurring awake stretches.",
+                "A checkable rule fires on its members."
+            ])
+        );
+
+        // The unlabeled v14 default: kind `unclear`, reasons an empty array.
+        seed(&conn, "bare", "drafted", "2026-09-05T08:00:00Z");
+        let out = show(&conn, "bare").unwrap();
+        assert_eq!(out["schema"]["kind"], "unclear");
+        assert_eq!(out["schema"]["reasons"], json!([]));
     }
 
     #[test]

@@ -968,3 +968,240 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
         assert_eq!(schemas, 1, "post-import scan must not duplicate");
     }
 }
+
+// --- S15: read-path kind surfacing ------------------------------------------
+
+#[test]
+fn s15_prime_list_show_surface_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // The dense fully-linked trio, seeded by SQL (s14's rationale): the
+    // scan's kind pass labels the candidate `schema`, confirm copies that
+    // snapshot into the schemas row, and every read path must surface it
+    // (spec 0004 AC-2/4/5).
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision','1','src/a.rs','2026-01-01T00:00:00Z'),
+             ('decision','2','src/a.rs','2026-01-01T00:00:00Z'),
+             ('decision','3','src/a.rs','2026-01-01T00:00:00Z');
+             INSERT INTO context_links (source_item_type, source_item_id, target_item_type,
+              target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','core','decision',1),
+             ('2026-02-15T00:00:00Z','query','core','decision',2),
+             ('2026-02-15T00:00:00Z','query','core','decision',3);",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+
+    // AC-2: prime schemas[] entries carry kind.
+    engrams(&db)
+        .args(["active-context", "update", "--content", "{\"tasks\": []}"])
+        .assert()
+        .success();
+    let res = json(engrams(&db).arg("prime"));
+    let schemas = res["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1, "prime leads with the schema: {res}");
+    assert_eq!(schemas[0]["kind"], "schema");
+
+    // AC-4: list shows kind next to status.
+    let res = json(engrams(&db).args(["schema", "list"]));
+    let entry = &res["schemas"][0];
+    assert_eq!(entry["kind"], "schema", "list kind: {res}");
+    assert_eq!(entry["status"], "active");
+
+    // AC-5: show parses the confirm-time reasons into sentence strings.
+    let res = json(engrams(&db).args(["schema", "show", "core"]));
+    let schema = &res["schema"];
+    assert_eq!(schema["kind"], "schema");
+    let reasons = schema["reasons"].as_array().unwrap();
+    assert!(!reasons.is_empty(), "reasons rendered: {schema}");
+    assert!(
+        reasons.iter().all(|r| r.is_string()),
+        "reasons are sentences: {reasons:?}"
+    );
+
+    // Pre-0004 rows (kind `unclear`, reasons `[]`) display as-is on every
+    // path — no error, no filtering.
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute(
+            "UPDATE schemas SET kind = 'unclear', kind_reasons_json = '[]'",
+            [],
+        )
+        .unwrap();
+    }
+    let res = json(engrams(&db).arg("prime"));
+    assert_eq!(res["schemas"][0]["kind"], "unclear");
+    let res = json(engrams(&db).args(["schema", "list"]));
+    assert_eq!(res["schemas"][0]["kind"], "unclear");
+    let res = json(engrams(&db).args(["schema", "show", "core"]));
+    assert_eq!(res["schema"]["kind"], "unclear");
+    assert_eq!(
+        res["schema"]["reasons"].as_array().unwrap().len(),
+        0,
+        "empty reasons render as []: {res}"
+    );
+}
+
+// --- S16: export/import round-trips schema kind (spec 0004 AC-6) -----------
+
+#[test]
+fn s16_export_import_round_trips_schema_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // A dense fully-linked trio (s14's seed) beside a legacy pre-0004 schema
+    // row that stays on the column defaults (`unclear` / `[]`).
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision','1','src/a.rs','2026-01-01T00:00:00Z'),
+             ('decision','2','src/a.rs','2026-01-01T00:00:00Z'),
+             ('decision','3','src/a.rs','2026-01-01T00:00:00Z');
+             INSERT INTO context_links (source_item_type, source_item_id,
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','core','decision',1),
+             ('2026-02-15T00:00:00Z','query','core','decision',2),
+             ('2026-02-15T00:00:00Z','query','core','decision',3);
+             -- Legacy pre-0004 row: never labeled, on the column defaults.
+             INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('legacy-uuid','legacy-pack','pre-0004 pack never labeled','{}',
+              '2025-06-01T00:00:00Z','2025-06-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+    {
+        let conn = Connection::open(&db).unwrap();
+        let (kind, reasons): (String, String) = conn
+            .query_row(
+                "SELECT kind, kind_reasons_json FROM schemas WHERE name = 'core'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(kind, "schema", "confirm-time snapshot: {kind}");
+        let parsed: Vec<String> = serde_json::from_str(&reasons).unwrap();
+        assert!(!parsed.is_empty(), "reasons snapshot copied: {reasons}");
+        let (kind, reasons): (String, String) = conn
+            .query_row(
+                "SELECT kind, kind_reasons_json FROM schemas WHERE name = 'legacy-pack'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (kind.as_str(), reasons.as_str()),
+            ("unclear", "[]"),
+            "legacy row untouched by the labeler"
+        );
+    }
+
+    let exp_dir = temp.path().join("export");
+    engrams(&db)
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    // The export files themselves carry both columns verbatim (AC-6 emission).
+    let mut exported: Vec<String> = std::fs::read_dir(exp_dir.join("schemas"))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        // retrieval_surfaces.json shares the dir but is not a schema row;
+        // import's process_dir likewise reads only .md files.
+        .filter(|p| p.extension().is_some_and(|x| x == "md"))
+        .map(|p| std::fs::read_to_string(p).unwrap())
+        .collect();
+    exported.sort();
+    assert_eq!(exported.len(), 2, "both schema rows exported: {exported:?}");
+    assert!(
+        exported.iter().any(|c| c.contains("\"kind\": \"schema\"")),
+        "labeled row exports its kind: {exported:?}"
+    );
+    assert!(
+        exported
+            .iter()
+            .any(|c| c.contains("\"kind\": \"unclear\"")
+                && c.contains("\"kind_reasons_json\": \"[]\"")),
+        "legacy row exports its defaults verbatim: {exported:?}"
+    );
+
+    let fresh = temp.path().join("fresh.db");
+    engrams(&fresh).arg("init").assert().success();
+    engrams(&fresh)
+        .args(["import", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    // Round-trip identity: every row's (kind, kind_reasons_json) pair is
+    // reproduced identically — verbatim snapshot, nothing re-derived.
+    {
+        let dump = |conn: &Connection| -> Vec<(String, String)> {
+            let mut stmt = conn
+                .prepare("SELECT kind, kind_reasons_json FROM schemas ORDER BY id")
+                .unwrap();
+            let rows = stmt
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+                .unwrap();
+            rows.map(|r| r.unwrap()).collect()
+        };
+        let source_pairs = dump(&Connection::open(&db).unwrap());
+        let target_pairs = dump(&Connection::open(&fresh).unwrap());
+        assert_eq!(
+            source_pairs.len(),
+            2,
+            "both rows exported: {source_pairs:?}"
+        );
+        assert_eq!(
+            source_pairs, target_pairs,
+            "kind snapshots reproduced identically"
+        );
+        assert!(
+            target_pairs
+                .iter()
+                .any(|(k, rs)| k == "schema" && rs != "[]"),
+            "labeled snapshot survives the move: {target_pairs:?}"
+        );
+    }
+
+    // Read path surfaces the transported label (AC-2 payload intact).
+    let res = json(engrams(&fresh).args(["schema", "show", "core"]));
+    assert_eq!(res["schema"]["kind"], "schema");
+    assert!(
+        !res["schema"]["reasons"].as_array().unwrap().is_empty(),
+        "reasons snapshot arrived: {res}"
+    );
+}

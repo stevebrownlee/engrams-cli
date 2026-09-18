@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-09-11T17:39:38Z
+created: 2026-09-17T19:24:56Z
 ---
 # Active Context
 
@@ -9,7 +9,7 @@ created: 2026-09-11T17:39:38Z
 {
   "name": "default",
   "content": {
-    "current_focus": "schema formation v0.13.0 shipped via PR #3; v0.14 adaptation (drift hook, merge/split, needs_review surfacing) is next frontier",
+    "current_focus": "spec 0004 complete - PR 6 awaiting merge",
     "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
     "current_work": "v0.13.0 schema formation - spec 0002 complete, no open questions, ready for /spec-implement",
     "decisions_this_session": [
@@ -62,20 +62,15 @@ created: 2026-09-11T17:39:38Z
       "summary": "Retrieval scoring, prune-decay, read-observability implemented. 85 tests pass."
     },
     "recent_decisions": [
-      72,
-      73,
-      74,
-      75,
-      76,
-      77,
-      78,
-      79,
-      80,
-      81,
-      82
+      88,
+      89
+    ],
+    "open_threads": [
+      "PR 6 merge",
+      "orchestrator must create feature branch BEFORE first spec commit - main was reset once this session to fix direct-land"
     ]
   },
-  "version": 46,
-  "updated_at": "2026-09-11T17:39:38Z"
+  "version": 47,
+  "updated_at": "2026-09-17T19:24:56Z"
 }
 ```

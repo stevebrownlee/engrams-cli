@@ -346,8 +346,9 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         tx.execute(
             "INSERT OR REPLACE INTO schemas (id, uuid, name, summary, summary_source, \
              status, centroid_json, confidence, importance, access_count, \
-             last_accessed_at, last_confirmed_at, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+             last_accessed_at, last_confirmed_at, created_at, updated_at, \
+             kind, kind_reasons_json) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 id,
                 json.get("uuid")
@@ -383,6 +384,15 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
                 json.get("updated_at")
                     .and_then(|v| v.as_str())
                     .unwrap_or(""),
+                // spec 0004 AC-6: kind/kind_reasons_json are the exported
+                // confirm-time snapshot — written verbatim, never re-derived.
+                // Exports older than the columns fall back to the defaults.
+                json.get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unclear"),
+                json.get("kind_reasons_json")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("[]"),
             ],
         )?;
         // Membership travels with the schema (the generic links export only

@@ -673,9 +673,13 @@ mod tests {
     #[test]
     fn upgrade_v12_to_v13_adds_kind_columns() {
         let mut conn = Connection::open_in_memory().unwrap();
+        // run_migrations always climbs to LATEST_VERSION, so the seed must
+        // carry every table later steps ALTER — v14 adds kind columns to
+        // schemas.
         conn.execute_batch(
             "CREATE TABLE schema_candidates (id INTEGER PRIMARY KEY AUTOINCREMENT, \
              cluster_sig TEXT NOT NULL, member_keys_json TEXT NOT NULL); \
+             CREATE TABLE schemas (id INTEGER PRIMARY KEY); \
              PRAGMA user_version = 12;",
         )
         .unwrap();
@@ -686,7 +690,8 @@ mod tests {
         .unwrap();
         crate::db::run_migrations(&mut conn).unwrap();
 
-        assert_eq!(crate::db::get_user_version(&conn).unwrap(), 13);
+        // run_migrations climbs past v13 to LATEST_VERSION.
+        assert_eq!(crate::db::get_user_version(&conn).unwrap(), 14);
         let mut stmt = conn
             .prepare("PRAGMA table_info(schema_candidates)")
             .unwrap();
@@ -708,6 +713,99 @@ mod tests {
             .unwrap();
         assert_eq!(kind, "unclear");
         assert_eq!(reasons, "[]");
+    }
+
+    /// AC-3: pre-existing schemas predate kinds; the v14 ALTER-only
+    /// migration backfills them via column defaults without touching any
+    /// other column.
+    #[test]
+    fn upgrade_v13_to_v14_adds_kind_columns_to_schemas() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE schemas (
+               id                INTEGER PRIMARY KEY,
+               uuid              TEXT NOT NULL UNIQUE,
+               name              TEXT NOT NULL UNIQUE,
+               summary           TEXT NOT NULL,
+               summary_source    TEXT NOT NULL DEFAULT 'drafted',
+               status            TEXT NOT NULL DEFAULT 'active',
+               centroid_json     TEXT NOT NULL,
+               confidence        REAL NOT NULL DEFAULT 0.0,
+               importance        REAL NOT NULL DEFAULT 0.0,
+               access_count      INTEGER NOT NULL DEFAULT 0,
+               last_accessed_at  TEXT,
+               last_confirmed_at TEXT,
+               created_at        TEXT NOT NULL,
+               updated_at        TEXT NOT NULL
+             ); \
+             PRAGMA user_version = 13;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) \
+             VALUES ('s1', 'release routine', 'shipping checklist', '{}', \
+                     '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        crate::db::run_migrations(&mut conn).unwrap();
+
+        assert_eq!(crate::db::get_user_version(&conn).unwrap(), 14);
+        let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
+        let cols: Vec<String> = stmt
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .flatten()
+            .collect();
+        assert!(cols.contains(&"kind".to_string()));
+        assert!(cols.contains(&"kind_reasons_json".to_string()));
+        // New columns are appended last — the same order the baseline
+        // CREATE uses, so fresh and migrated databases match.
+        assert_eq!(
+            cols[cols.len() - 2..].to_vec(),
+            ["kind", "kind_reasons_json"]
+        );
+
+        // Defaults backfill; prior columns keep their data.
+        let (kind, reasons): (String, String) = conn
+            .query_row(
+                "SELECT kind, kind_reasons_json FROM schemas WHERE uuid = 's1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(kind, "unclear");
+        assert_eq!(reasons, "[]");
+        let (name, summary, status, confidence, importance, access_count): (
+            String,
+            String,
+            String,
+            f64,
+            f64,
+            i64,
+        ) = conn
+            .query_row(
+                "SELECT name, summary, status, confidence, importance, access_count \
+                 FROM schemas WHERE uuid = 's1'",
+                [],
+                |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(name, "release routine");
+        assert_eq!(summary, "shipping checklist");
+        assert_eq!(status, "active");
+        assert_eq!(confidence, 0.0);
+        assert_eq!(importance, 0.0);
+        assert_eq!(access_count, 0);
     }
 
     /// AC-8: replay the hand-labeled dogfood corpus (snapshot of this
