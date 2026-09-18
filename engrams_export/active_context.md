@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-09-17T19:24:56Z
+created: 2026-09-18T05:05:49Z
 ---
 # Active Context
 
@@ -22,7 +22,7 @@ created: 2026-09-17T19:24:56Z
       78,
       79
     ],
-    "focus": "spec 0003 schema kind labels implemented; stacked branch spec-0003-schema-kind-labels pushed, PR pending user decision",
+    "focus": "v0.14.0 released (PR 6 merged, spec 0004 shipped); next: none queued",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next": [
@@ -68,9 +68,11 @@ created: 2026-09-17T19:24:56Z
     "open_threads": [
       "PR 6 merge",
       "orchestrator must create feature branch BEFORE first spec commit - main was reset once this session to fix direct-land"
-    ]
+    ],
+    "last_release": "v0.14.0",
+    "schema_kind_surfacing": "shipped in v0.14.0"
   },
-  "version": 47,
-  "updated_at": "2026-09-17T19:24:56Z"
+  "version": 48,
+  "updated_at": "2026-09-18T05:05:49Z"
 }
 ```
