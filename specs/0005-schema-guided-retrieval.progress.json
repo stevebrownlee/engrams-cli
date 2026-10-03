@@ -4,10 +4,10 @@
   "spec_name": "schema-guided-retrieval",
   "spec_path": "specs/0005-schema-guided-retrieval.md",
   "created_at": "2026-10-03T00:00:00Z",
-  "updated_at": "2026-10-03T21:44:00Z",
+  "updated_at": "2026-10-03T22:26:00Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 2,
+  "current_phase": 3,
   "phases": [
     {
       "id": 1,
@@ -22,7 +22,9 @@
         "src/ops/brief.rs",
         "tests/cli.rs"
       ],
-      "acceptance": ["AC-1"],
+      "acceptance": [
+        "AC-1"
+      ],
       "verification": [
         "cargo fmt --check",
         "cargo clippy --all-targets",
@@ -52,15 +54,21 @@
       "id": 2,
       "title": "Enrich brief schema:<id> member payload with the same per-kind details",
       "type": "standard",
-      "status": "pending",
-      "depends_on": [1],
+      "status": "complete",
+      "started_at": "2026-10-03T21:45:00Z",
+      "completed_at": "2026-10-03T22:07:32Z",
+      "depends_on": [
+        1
+      ],
       "exemplars": [
         "src/ops/schemas/retrieval.rs",
         "src/ops/schemas/confirm.rs",
         "src/ops/brief.rs",
         "tests/cli.rs"
       ],
-      "acceptance": ["AC-2"],
+      "acceptance": [
+        "AC-2"
+      ],
       "verification": [
         "cargo fmt --check",
         "cargo clippy --all-targets",
@@ -69,7 +77,47 @@
       ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "acceptance-gap",
+          "message": "AC-2's 'the response includes the schema summary and kind' is met only via the envelope's kind:\"schema\" node marker plus payload summary: node_payload does not select the schema's v14 classification kind that spec 0004 surfaced on list/show/prime/confirm (show selects it at list.rs:190), so if AC-2's kind means that classification, brief is the one read path not carrying it and no test disambiguates the reading.",
+          "file": "src/ops/schemas/retrieval.rs",
+          "line": 234,
+          "resolution": "noted"
+        },
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "resolve_schema's doc comment promises an exact name is never shadowed by a slug collision and the scan comment promises first-fold-match-wins on colliding folds, but no test seeds a slug collision or an exact-name-vs-slug-shadow case (the slug test seeds a single schema), so a reorder of the id/name/slug arms or a slug_fold change would pass silently.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 128,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "resolve_schema is shared with schema show (list.rs:186) and schema refine (list.rs:234), so the new slug fallback quietly widens both commands' target acceptance beyond the spec API line 'schema ID or exact name'; the phase records no spec_deviations entry for the extension.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 130,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "convention-drift",
+          "message": "The slug scan collects the full Vec<(i64, String)> only to iterate it once with early return; rule 005 (no throwaway intermediate collections) favors driving the loop directly off query_map, which also short-circuits without materializing the tail.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 156,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "aa93d9173b76081e230236c148d1feaf415653bb",
+      "files_touched": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/list.rs",
+        "src/ops/brief.rs",
+        "tests/cli.rs"
+      ]
     },
     {
       "id": 3,
@@ -82,7 +130,10 @@
         "src/ops/schemas/kind.rs",
         "tests/cli.rs"
       ],
-      "acceptance": ["AC-3", "AC-4"],
+      "acceptance": [
+        "AC-3",
+        "AC-4"
+      ],
       "verification": [
         "cargo fmt --check",
         "cargo clippy --all-targets",
@@ -104,7 +155,9 @@
         "src/ops/schemas/scan.rs",
         "tests/cli.rs"
       ],
-      "acceptance": ["AC-5"],
+      "acceptance": [
+        "AC-5"
+      ],
       "verification": [
         "cargo fmt --check",
         "cargo clippy --all-targets",
@@ -126,7 +179,9 @@
         "src/ops/prime.rs",
         "tests/cli.rs"
       ],
-      "acceptance": ["AC-6"],
+      "acceptance": [
+        "AC-6"
+      ],
       "verification": [
         "cargo fmt --check",
         "cargo clippy --all-targets",
@@ -147,7 +202,9 @@
         "docs/src/pages/docs/for-agent/retrieving.astro",
         "docs/src/components/Sidebar.astro"
       ],
-      "acceptance": ["AC-7"],
+      "acceptance": [
+        "AC-7"
+      ],
       "verification": [
         "npm --prefix docs run build",
         "test -f docs/dist/docs/guide/cognitive-schemas/index.html"
