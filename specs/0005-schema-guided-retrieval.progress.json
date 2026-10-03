@@ -4,16 +4,16 @@
   "spec_name": "schema-guided-retrieval",
   "spec_path": "specs/0005-schema-guided-retrieval.md",
   "created_at": "2026-10-03T00:00:00Z",
-  "updated_at": "2026-10-03T21:07:17Z",
+  "updated_at": "2026-10-03T21:44:00Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 1,
+  "current_phase": 2,
   "phases": [
     {
       "id": 1,
       "title": "Enrich schema show members with per-kind details and 20-member truncation",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
       "depends_on": [],
       "exemplars": [
         "src/ops/schemas/confirm.rs",
@@ -31,7 +31,22 @@
       ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "custom_data member payload emits `key` plus the full parsed `value` where spec 0005 Architecture item 1 enumerates `id`, `schema`, and `value_preview` for that kind; the custom_data table has no `schema` column (src/schema.rs:57-61), so the spec list is unsatisfiable as written and the substitution (brief's key/value shape, full value rather than a bounded preview) is unrecorded anywhere.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 314,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "c4bf4baeb5aaabc58b08c16a8aea1f7585908e9f",
+      "files_touched": [
+        "src/ops/schemas/list.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ]
     },
     {
       "id": 2,
