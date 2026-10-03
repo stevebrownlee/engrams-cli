@@ -1,0 +1,145 @@
+{
+  "schema_version": "1",
+  "spec_id": "0005",
+  "spec_name": "schema-guided-retrieval",
+  "spec_path": "specs/0005-schema-guided-retrieval.md",
+  "created_at": "2026-10-03T00:00:00Z",
+  "updated_at": "2026-10-03T21:07:17Z",
+  "status": "in_progress",
+  "mode": "autonomous",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Enrich schema show members with per-kind details and 20-member truncation",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/kind.rs",
+        "src/ops/schemas/scan.rs",
+        "src/ops/brief.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": ["AC-1"],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 2,
+      "title": "Enrich brief schema:<id> member payload with the same per-kind details",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [1],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/confirm.rs",
+        "src/ops/brief.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": ["AC-2"],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 3,
+      "title": "Add refine trigger and rule flags with summary trigger validation",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/list.rs",
+        "src/ops/schemas/kind.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": ["AC-3", "AC-4"],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 4,
+      "title": "Surface matching schemas in advise output above constraints",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/scan.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": ["AC-5"],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli advise"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 5,
+      "title": "Rank context-matching schemas in prime block by paths and tags",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/prime.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": ["AC-6"],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams prime_block",
+        "cargo test --test cli prime"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 6,
+      "title": "Add cognitive schemas guide page and register sidebar navigation",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [],
+      "exemplars": [
+        "docs/src/pages/docs/for-agent/retrieving.astro",
+        "docs/src/components/Sidebar.astro"
+      ],
+      "acceptance": ["AC-7"],
+      "verification": [
+        "npm --prefix docs run build",
+        "test -f docs/dist/docs/guide/cognitive-schemas/index.html"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    }
+  ]
+}
