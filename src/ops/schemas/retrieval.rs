@@ -548,6 +548,41 @@ pub fn neighborhood(conn: &Connection, schema_id: i64) -> Result<Vec<Value>> {
         .map_err(Into::into)
 }
 
+/// Active schemas whose member nodes anchor to the advised paths, given the
+/// (item_type, item_id) pairs [`crate::ops::anchor::query_relevant_ids`]
+/// resolved for those paths (AC-5). Each entry carries the schema's
+/// trigger-and-rule summary so guidance reads before low-level constraints.
+pub fn active_for_members(conn: &Connection, members: &[(String, i64)]) -> Result<Vec<Value>> {
+    if members.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut conditions = Vec::with_capacity(members.len());
+    let mut params_vec = Vec::<&dyn rusqlite::ToSql>::with_capacity(members.len() * 2);
+    for (item_type, item_id) in members {
+        conditions.push("(l.source_item_type = ? AND l.source_item_id = CAST(? AS TEXT))");
+        params_vec.push(item_type);
+        params_vec.push(item_id);
+    }
+    let sql = format!(
+        "SELECT DISTINCT s.id, s.name, s.summary, s.kind FROM schemas s \
+         JOIN context_links l ON l.relationship_type = 'member_of' \
+          AND l.target_item_type = 'schema' AND l.target_item_id = s.id \
+         WHERE s.status = 'active' AND ({}) ORDER BY s.id",
+        conditions.join(" OR ")
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |r| {
+        Ok(json!({
+            "id": r.get::<_, i64>(0)?,
+            "name": r.get::<_, String>(1)?,
+            "summary": r.get::<_, String>(2)?,
+            "kind": r.get::<_, String>(3)?,
+        }))
+    })?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

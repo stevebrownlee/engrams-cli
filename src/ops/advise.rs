@@ -3,7 +3,9 @@
 //! Distinct from `relevant` (which returns full structs, scores, and reinforces
 //! on read): `advise` returns ONLY actionable constraints — patterns with check
 //! expressions and decisions anchored to the given paths — plus any current
-//! violations from `engrams check`. No scores, no progress, no reinforcement.
+//! violations from `engrams check`. Active schemas whose members anchor to
+//! the given paths surface first with their trigger-and-rule summaries
+//! (0005 AC-5). No scores, no progress, no reinforcement.
 //! Designed for automatic harness injection: compact, fast, machine-readable.
 //!
 //! When output is empty, the caller can proceed with no constraints to respect.
@@ -29,7 +31,7 @@ pub fn handle(
 
     if query_paths.is_empty() {
         if staged {
-            return Ok(json!({ "constraints": [], "violations": [] }));
+            return Ok(json!({ "schemas": [], "constraints": [], "violations": [] }));
         }
         anyhow::bail!("provide at least one path or --staged");
     }
@@ -131,7 +133,12 @@ pub fn handle(
     crate::ops::scoring::reinforce(conn, "decisions", &surfaced)?;
     crate::ops::usage::record(conn, "advise", &cleaned.join(","), constraints.len(), false);
 
+    // AC-5: schema-level guidance above the low-level constraints. The
+    // matched member pairs were already resolved by query_relevant_ids, so
+    // this is one composed lookup — no second anchor walk.
+    let schemas = crate::ops::schemas::retrieval::active_for_members(conn, &matched)?;
     Ok(json!({
+        "schemas": schemas,
         "constraints": constraints,
         "violations": violations,
     }))

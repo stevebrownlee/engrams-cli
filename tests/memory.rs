@@ -824,7 +824,7 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
             "schema",
             "refine",
             "--summary",
-            "Gateway architecture: how requests route",
+            "When requests hit the gateway, they route through the shared routing table",
             "core",
         ])
         .assert()
@@ -870,7 +870,7 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
     assert_eq!(schema["summary_source"], "agent");
     assert_eq!(
         schema["summary"],
-        "Gateway architecture: how requests route"
+        "When requests hit the gateway, they route through the shared routing table"
     );
     assert_eq!(schema["member_count"], 3);
     let members = schema["members"].as_array().unwrap();

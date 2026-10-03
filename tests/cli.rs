@@ -3913,6 +3913,111 @@ fn test_batch_decision() {
     );
 }
 
+#[test]
+fn test_advise_surfaces_matching_schemas() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Seeded by SQL because the contract under test is schema resolution
+    // against anchors, not member production: an active schema over a
+    // decision anchored to the advised path, an active schema anchored
+    // elsewhere, and a proposed schema over the same decision.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha, status, contract) VALUES
+             ('d1', '2026-01-01T00:00:00Z', 'Advise returns only actionable constraints', '[\"advise\"]', 'abc', 'active',
+              'No scores, no progress, no reinforcement'),
+             ('d2', '2026-01-01T00:00:00Z', 'Docs use problem-first messaging', '[\"docs\"]', 'def', 'active',
+              'Lead with the reader risk');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at, kind) VALUES
+             ('match-uuid', 'pre-edit-gating',
+              'Fires when editing the advise pipeline: keep output constraints-only and machine-readable',
+              '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'schema'),
+             ('elsewhere-uuid', 'docs-voice',
+              'Fires when writing docs: use problem-first messaging',
+              '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'story');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('proposed-uuid', 'not-yet-active',
+              'Fires when editing the advise pipeline: still proposed',
+              '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            UPDATE schemas SET status = 'proposed' WHERE uuid = 'proposed-uuid';
+            INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'src/ops/advise.rs', '2026-01-01T00:00:00Z'),
+             ('decision', 2, 'docs/guide.md', '2026-01-01T00:00:00Z');
+            INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id,
+                                       relationship_type, description, timestamp) VALUES
+             ('decision', '1', 'schema', '1', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '1', 'schema', '3', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '2', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["advise", "src/ops/advise.rs"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+
+    // AC-5 clause 1: the schema whose member anchors to the advised path
+    // appears with its trigger-and-rule summary; non-anchored and
+    // non-active schemas stay out.
+    let schemas = parsed["schemas"].as_array().unwrap();
+    assert_eq!(
+        schemas.len(),
+        1,
+        "exactly the anchored active schema: {:?}",
+        schemas,
+    );
+    let entry = &schemas[0];
+    assert_eq!(entry["id"], 1);
+    assert_eq!(entry["name"], "pre-edit-gating");
+    assert_eq!(entry["kind"], "schema");
+    let summary = entry["summary"].as_str().unwrap();
+    assert!(
+        summary.starts_with("Fires when") && summary.contains(':'),
+        "summary carries trigger and rule: {summary}"
+    );
+
+    // AC-5 clause 2: schemas sit above the low-level constraints in the
+    // serialized output (serde_json preserve_order keeps insertion order).
+    let s_pos = stdout.find("\"schemas\"").unwrap();
+    let c_pos = stdout.find("\"constraints\"").unwrap();
+    let v_pos = stdout.find("\"violations\"").unwrap();
+    assert!(s_pos < c_pos && c_pos < v_pos);
+
+    // The low-level machinery keeps working alongside: the anchored
+    // decision still surfaces as a constraint.
+    let constraints = parsed["constraints"].as_array().unwrap();
+    assert_eq!(constraints.len(), 1);
+    assert_eq!(constraints[0]["type"], "decision");
+    assert_eq!(constraints[0]["id"], 1);
+}
+
+#[test]
+fn test_advise_schemas_empty_without_anchored_schemas() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    let out = engrams(&db)
+        .args(["advise", "src/nothing/here.rs"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schemas"], serde_json::json!([]));
+    assert_eq!(parsed["constraints"], serde_json::json!([]));
+    let s_pos = stdout.find("\"schemas\"").unwrap();
+    let c_pos = stdout.find("\"constraints\"").unwrap();
+    assert!(s_pos < c_pos, "schemas key stays above constraints");
+}
+
 // spec 0005 Architecture item 1: `schema show` members gain the per-kind
 // details `brief` surfaces, capped at 20 with truncation metadata.
 #[test]
