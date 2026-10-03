@@ -262,3 +262,19 @@ Counts: 1 finding = 0 severe, 0 moderate, 1 minor.
 Verified clean (no findings): the enrichment move is verbatim — enrichable_kind, enrich_members, fetch_details, MEMBER_ENRICHMENT_CAP bodies byte-identical between the list.rs deletion and retrieval.rs addition; show's member SQL and cap/truncation logic unchanged (member_refs is the phase-1 inline query, same text ORDER BY), so schema show behavior is preserved and phase-1 tests untouched. Cross-boundary confirmed: brief.rs:342 dispatches kind "schema" to retrieval::node_payload, node_exists has the schema arm (brief.rs:176), and record_surface consumes the new resolve output. F-5 stored kind `code` preserved with code_nodes.kind deliberately unprojected; F-7 member_count stays the true total with total_members only when the cap bites (pinned 25-vs-20); F-4 binding — brief caps at 20 with truncated flag (pinned); bare-number targets stay FTS/decision-first (pinned by test_brief_schema_unknown_target_errors). members_by_type removal is a true clean cutover: zero consumers in src/, tests/, docs/ (grep), and no docs assert the old grouped shape. Slug fold is exact-name-first, id-first, slug-last with documented first-fold-wins; ASCII-only fold matches the doc comment's intent. Rules: 002 borrowed params (Vec<&i64> + params_from_iter), 004 get_mut+remove out of the dying detail maps, 006 enrichable_kind returns &'static str — all honored in the moved code. No DDL, JSON-only output, no new allow(dead_code). Recorded gates genuinely select the new tests: bin filter "schemas" matches via the ops::schemas module path (incl. composite_helpers_return_members_anchors_and_neighborhood), CLI filter "schema" matches all four new tests by name. started_at is implementer-disclosed [INFERENCE]; treated as metadata hygiene, not a finding.
 
 Counts: 4 findings = 0 severe, 2 moderate, 2 minor.
+
+## 2026-10-03 — phase 3 of spec 0005-schema-guided-retrieval
+
+- moderate / missing-test — no-flags arm of refine_text ("nothing to refine")
+  is the only new error branch without a unit or CLI test; the implementer's
+  no-flag-bail judgment call is unpinned while all sibling arms are pinned
+  (src/ops/schemas/list.rs:273)
+- minor / spec-conformance — starts_with byte-prefix match admits openings
+  beyond the four enumerated phrases ("Whenever...", "Whence..." pass via
+  "When"); accepted vocabulary is a superset of spec 0005:97's list,
+  proven live (src/ops/schemas/list.rs:247)
+- minor / unstated-assumption — synthesized path never checks non-empty
+  --trigger/--rule, so empty condition stores the degenerate summary
+  "Fires when : run tests"; codebase convention bails on empty user text
+  at command boundaries (custom.rs:81, decision.rs:290)
+  (src/ops/schemas/list.rs:255)

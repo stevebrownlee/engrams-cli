@@ -4,10 +4,10 @@
   "spec_name": "schema-guided-retrieval",
   "spec_path": "specs/0005-schema-guided-retrieval.md",
   "created_at": "2026-10-03T00:00:00Z",
-  "updated_at": "2026-10-03T22:26:00Z",
+  "updated_at": "2026-10-03T22:50:00Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 3,
+  "current_phase": 4,
   "phases": [
     {
       "id": 1,
@@ -123,7 +123,7 @@
       "id": 3,
       "title": "Add refine trigger and rule flags with summary trigger validation",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
       "depends_on": [],
       "exemplars": [
         "src/ops/schemas/list.rs",
@@ -140,9 +140,43 @@
         "cargo test --bin engrams schemas",
         "cargo test --test cli schema"
       ],
-      "retry_count": 0,
+      "retry_count": 3,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "The no-flags arm of refine_text ('nothing to refine: pass --summary, or --trigger with --rule') is the only new error branch without a unit or CLI test, so the implementer's documented no-flag-bail judgment call could be dropped or reworded silently while every sibling arm (synthesis, prefix acceptance, rejection guidance, half-pair, mixed flags) stays pinned.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 273,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "starts_with byte-prefix matching admits openings outside spec 0005:97's four enumerated phrases \u2014 'Whenever builds fail: ...' and 'Whence ...' pass validation because they byte-start with 'When' (proven live against a temp DB) \u2014 so the accepted vocabulary is a superset of the canonical list.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 247,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "unstated-assumption",
+          "message": "The synthesized path assumes --trigger/--rule are non-empty: '--trigger \"\" --rule \"run tests\"' stores the degenerate agent-authored summary 'Fires when : run tests' (proven live), while the codebase's own boundary convention rejects empty user text (custom.rs:81 'search query cannot be empty', decision.rs:290).",
+          "file": "src/ops/schemas/list.rs",
+          "line": 255,
+          "resolution": "noted"
+        }
+      ],
+      "started_at": "2026-10-03T22:25:30Z",
+      "completed_at": "2026-10-03T22:34:53Z",
+      "commit_sha": "19e576c2bba8085a23832ce863f3f34367e2a607",
+      "files_touched": [
+        "src/cli.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/list.rs",
+        "tests/cli.rs"
+      ]
     },
     {
       "id": 4,
