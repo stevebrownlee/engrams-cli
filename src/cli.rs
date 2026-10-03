@@ -428,9 +428,17 @@ pub enum SchemaCmd {
     Refine {
         /// Schema id or exact name
         target: String,
-        /// The agent-refined summary text
+        /// Manual summary text; must open with a conditional trigger phrase
+        /// ("Fires when", "When", "Applies if", "Activates when")
         #[arg(long)]
-        summary: String,
+        summary: Option<String>,
+        /// Activation condition; pairs with --rule to synthesize
+        /// "Fires when <CONDITION>: <DIRECTIVE>"
+        #[arg(long)]
+        trigger: Option<String>,
+        /// Operational directive; pairs with --trigger to synthesize the summary
+        #[arg(long)]
+        rule: Option<String>,
     },
 }
 

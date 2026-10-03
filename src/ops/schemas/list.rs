@@ -10,6 +10,7 @@
 //! exactly one schema row.
 use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
+use std::borrow::Cow;
 
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -228,16 +229,73 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
     }))
 }
 
+/// Accepted opening phrases for a manual `--summary` (spec 0005 AC-4).
+/// Canonical vocabulary — `&'static str`, never `String` (rule 006).
+const TRIGGER_PREFIXES: [&str; 4] = ["Fires when", "When", "Applies if", "Activates when"];
+
+/// Resolve the two refine modes (spec 0005 AC-3/AC-4): a manual `--summary`
+/// must open with a conditional trigger phrase, or `--trigger` + `--rule`
+/// together synthesize `"Fires when <CONDITION>: <DIRECTIVE>"`. Every other
+/// flag combination is an error. The manual form stays borrowed; only the
+/// synthesized form allocates, once, at this ownership boundary.
+fn refine_text<'a>(
+    summary: Option<&'a str>,
+    trigger: Option<&str>,
+    rule: Option<&str>,
+) -> Result<Cow<'a, str>> {
+    match (summary, trigger, rule) {
+        (Some(s), None, None) => {
+            if TRIGGER_PREFIXES.iter().any(|phrase| s.starts_with(phrase)) {
+                Ok(Cow::Borrowed(s))
+            } else {
+                Err(anyhow::anyhow!(
+                    "summary must begin with a conditional trigger phrase \
+                     (e.g., 'Fires when...', 'When...', 'Applies if...', \
+                     'Activates when...')"
+                ))
+            }
+        }
+        (None, Some(condition), Some(directive)) => {
+            Ok(Cow::Owned(format!("Fires when {condition}: {directive}")))
+        }
+        (None, Some(_), None) => Err(anyhow::anyhow!(
+            "--trigger requires --rule: pass both together to synthesize \
+             'Fires when <CONDITION>: <DIRECTIVE>'"
+        )),
+        (None, None, Some(_)) => Err(anyhow::anyhow!(
+            "--rule requires --trigger: pass both together to synthesize \
+             'Fires when <CONDITION>: <DIRECTIVE>'"
+        )),
+        (Some(_), _, _) => Err(anyhow::anyhow!(
+            "--summary cannot be combined with --trigger/--rule: pass either \
+             --summary alone or --trigger with --rule"
+        )),
+        (None, None, None) => Err(anyhow::anyhow!(
+            "nothing to refine: pass --summary, or --trigger with --rule"
+        )),
+    }
+}
+
 /// Replace a schema's summary as agent-authored (`summary_source = 'agent'`),
 /// bumping `updated_at` so the refinement re-ranks immediately (AC-6).
-pub fn refine(conn: &Connection, target: &str, summary: &str) -> Result<Value> {
+/// The summary is either a validated manual `--summary` (AC-4) or synthesized
+/// from `--trigger` + `--rule` (AC-3); validation precedes the single-row
+/// write, so a rejected summary never reaches the database.
+pub fn refine(
+    conn: &Connection,
+    target: &str,
+    summary: Option<&str>,
+    trigger: Option<&str>,
+    rule: Option<&str>,
+) -> Result<Value> {
     let id = resolve_schema(conn, target)?
         .ok_or_else(|| anyhow::anyhow!("no schema matches '{target}'"))?;
+    let text = refine_text(summary, trigger, rule)?;
     let ts = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     let n = conn.execute(
         "UPDATE schemas SET summary = ?1, summary_source = 'agent', \
          updated_at = ?2 WHERE id = ?3",
-        rusqlite::params![summary, ts, id],
+        rusqlite::params![text.as_ref(), ts, id],
     )?;
     if n == 0 {
         anyhow::bail!("no schema matches '{target}'");
@@ -246,7 +304,7 @@ pub fn refine(conn: &Connection, target: &str, summary: &str) -> Result<Value> {
         conn.query_row("SELECT name FROM schemas WHERE id = ?1", [id], |r| r.get(0))?;
     Ok(json!({
         "status": "success",
-        "schema": { "id": id, "name": name, "summary": summary,
+        "schema": { "id": id, "name": name, "summary": text,
                     "summary_source": "agent", "updated_at": ts },
     }))
 }
@@ -377,7 +435,14 @@ mod tests {
     fn refine_marks_agent_and_updates_timestamp() {
         let conn = mem_db();
         let id = seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
-        let out = refine(&conn, "core", "better summary").unwrap();
+        let out = refine(
+            &conn,
+            "core",
+            Some("Fires when gateway requests route: consult the routing decisions"),
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(out["schema"]["summary_source"], "agent");
         let (source, summary): (String, String) = conn
             .query_row(
@@ -387,8 +452,105 @@ mod tests {
             )
             .unwrap();
         assert_eq!(source, "agent");
-        assert_eq!(summary, "better summary");
-        let err = refine(&conn, "ghost", "x").unwrap_err().to_string();
+        assert_eq!(
+            summary,
+            "Fires when gateway requests route: consult the routing decisions"
+        );
+        let err = refine(&conn, "ghost", Some("x"), None, None)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("no schema matches"), "{err}");
+    }
+
+    #[test]
+    fn refine_synthesizes_summary_from_trigger_and_rule() {
+        // AC-3: --trigger + --rule become "Fires when <CONDITION>: <DIRECTIVE>"
+        // recorded as agent-authored.
+        let conn = mem_db();
+        let id = seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
+        let out = refine(
+            &conn,
+            "core",
+            None,
+            Some("editing documentation"),
+            Some("apply marketing framing"),
+        )
+        .unwrap();
+        assert_eq!(
+            out["schema"]["summary"],
+            "Fires when editing documentation: apply marketing framing"
+        );
+        let (source, summary): (String, String) = conn
+            .query_row(
+                "SELECT summary_source, summary FROM schemas WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(source, "agent");
+        assert_eq!(
+            summary,
+            "Fires when editing documentation: apply marketing framing"
+        );
+    }
+
+    #[test]
+    fn refine_accepts_every_trigger_prefix() {
+        // AC-4: each documented conditional phrase opens a manual summary.
+        let conn = mem_db();
+        seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
+        for prefix in TRIGGER_PREFIXES {
+            let text = format!("{prefix} deploying: run the smoke suite");
+            let out = refine(&conn, "core", Some(&text), None, None).unwrap();
+            assert_eq!(out["schema"]["summary"], text.as_str());
+        }
+    }
+
+    #[test]
+    fn refine_rejects_manual_summary_without_trigger_phrase() {
+        // AC-4: the summary is unchanged when validation fails.
+        let conn = mem_db();
+        let id = seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
+        let err = refine(&conn, "core", Some("Gateway routing notes"), None, None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("conditional trigger phrase"), "{err}");
+        let (source, summary): (String, String) = conn
+            .query_row(
+                "SELECT summary_source, summary FROM schemas WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(source, "drafted", "failed refine must not promote to agent");
+        assert_eq!(summary, "s", "failed refine must leave the summary alone");
+    }
+
+    #[test]
+    fn refine_requires_trigger_and_rule_together() {
+        let conn = mem_db();
+        seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
+        let err = refine(&conn, "core", None, Some("editing docs"), None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--rule"), "{err}");
+        let err = refine(&conn, "core", None, None, Some("apply framing"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--trigger"), "{err}");
+    }
+
+    #[test]
+    fn refine_rejects_summary_mixed_with_trigger_flags() {
+        let conn = mem_db();
+        seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
+        let err = refine(&conn, "core", Some("Fires when x: y"), Some("x"), None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--summary"), "{err}");
+        let err = refine(&conn, "core", Some("Fires when x: y"), None, Some("y"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--summary"), "{err}");
     }
 }

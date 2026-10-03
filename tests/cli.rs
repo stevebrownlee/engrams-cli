@@ -2435,7 +2435,7 @@ fn test_schema_list_show_refine_and_confirm_bump() {
             "refine",
             "core",
             "--summary",
-            "Gateway architecture: how requests route",
+            "Fires when gateway requests route: consult the routing decisions",
         ])
         .output()
         .unwrap();
@@ -2513,6 +2513,185 @@ fn test_schema_list_show_refine_and_confirm_bump() {
             .unwrap()
             .contains("no schema matches"),
         "unexpected error body: {json}"
+    );
+}
+
+#[test]
+fn test_schema_refine_trigger_and_rule_synthesize_agent_summary() {
+    // AC-3: --trigger + --rule synthesize "Fires when <CONDITION>: <DIRECTIVE>"
+    // and record summary_source as agent. Seeded by SQL because the contract
+    // under test is the refine write path, not schema formation.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Drafted summary', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "core",
+            "--trigger",
+            "editing public documentation",
+            "--rule",
+            "use problem-first risk messaging",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        json["schema"]["summary"],
+        "Fires when editing public documentation: use problem-first risk messaging",
+        "{json}"
+    );
+    assert_eq!(json["schema"]["summary_source"], "agent");
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let (summary, source): (String, String) = conn
+        .query_row(
+            "SELECT summary, summary_source FROM schemas WHERE name = 'core'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        summary,
+        "Fires when editing public documentation: use problem-first risk messaging"
+    );
+    assert_eq!(source, "agent");
+}
+
+#[test]
+fn test_schema_refine_rejects_manual_summary_without_trigger() {
+    // AC-4: a manual summary that opens with neither conditional phrase is
+    // rejected with guidance, and the stored summary stays untouched.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Fires when deploying: run the smoke suite', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "core",
+            "--summary",
+            "Gateway architecture: how requests route",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "missing trigger phrase must fail");
+    let json: Value = serde_json::from_slice(&out.stderr).unwrap();
+    let err = json["error"].as_str().unwrap();
+    assert!(err.contains("conditional trigger phrase"), "{json}");
+    assert!(
+        err.contains("Fires when"),
+        "error names the accepted structure: {json}"
+    );
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let (summary, source): (String, String) = conn
+        .query_row(
+            "SELECT summary, summary_source FROM schemas WHERE name = 'core'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        summary, "Fires when deploying: run the smoke suite",
+        "failed refine must leave the summary unchanged"
+    );
+    assert_eq!(source, "drafted", "failed refine must not promote to agent");
+}
+
+#[test]
+fn test_schema_refine_accepts_each_trigger_prefix() {
+    // AC-4: every documented conditional phrase opens a manual summary.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Drafted summary', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    for text in [
+        "Fires when deploying: run the smoke suite",
+        "When deploying: run the smoke suite",
+        "Applies if deploying: run the smoke suite",
+        "Activates when deploying: run the smoke suite",
+    ] {
+        let out = engrams(&db)
+            .args(["schema", "refine", "core", "--summary", text])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{text} must be accepted");
+        let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(json["schema"]["summary"], text);
+    }
+}
+
+#[test]
+fn test_schema_refine_requires_trigger_and_rule_together() {
+    // Half a synthesized pair is rejected with guidance naming the missing
+    // flag; the stored summary is untouched either way.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Fires when deploying: run the smoke suite', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    for flags in [
+        vec!["--trigger", "deploying"],
+        vec!["--rule", "run the smoke suite"],
+    ] {
+        let out = engrams(&db)
+            .args(["schema", "refine", "core"])
+            .args(&flags)
+            .output()
+            .unwrap();
+        assert!(!out.status.success(), "half a pair must fail: {flags:?}");
+        let json: Value = serde_json::from_slice(&out.stderr).unwrap();
+        let err = json["error"].as_str().unwrap();
+        let missing = if flags[0] == "--trigger" {
+            "--rule"
+        } else {
+            "--trigger"
+        };
+        assert!(err.contains(missing), "expected {missing} guidance: {json}");
+    }
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let summary: String = conn
+        .query_row("SELECT summary FROM schemas WHERE name = 'core'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        summary, "Fires when deploying: run the smoke suite",
+        "failed refines must leave the summary unchanged"
     );
 }
 

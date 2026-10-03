@@ -24,6 +24,17 @@ pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
         SchemaCmd::Confirm { target, name } => confirm::confirm(conn, &target, name.as_deref()),
         SchemaCmd::List { status } => list::list(conn, status.as_deref()),
         SchemaCmd::Show { target } => list::show(conn, &target),
-        SchemaCmd::Refine { target, summary } => list::refine(conn, &target, &summary),
+        SchemaCmd::Refine {
+            target,
+            summary,
+            trigger,
+            rule,
+        } => list::refine(
+            conn,
+            &target,
+            summary.as_deref(),
+            trigger.as_deref(),
+            rule.as_deref(),
+        ),
     }
 }
