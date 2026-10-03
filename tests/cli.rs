@@ -3733,3 +3733,187 @@ fn test_batch_decision() {
         "batched decision must keep its tags"
     );
 }
+
+// spec 0005 Architecture item 1: `schema show` members gain the per-kind
+// details `brief` surfaces, capped at 20 with truncation metadata.
+#[test]
+fn test_schema_show_enriches_members_by_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // One member of every enrichable kind, one nested schema, one
+    // pass-through kind, one dangling reference — seeded by SQL because
+    // the contract under test is the read path, not member production.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha, status, contract) VALUES
+             ('d1', '2026-01-01T00:00:00Z', 'Ship the parser rewrite', '[\"parser\"]', 'abc', 'accepted',
+              'Fail fast on malformed input');
+            INSERT INTO system_patterns (uuid, timestamp, name, description, severity) VALUES
+             ('p1', '2026-01-01T00:00:00Z', 'borrow-first', 'Consume lookup maps by move', 'high');
+            INSERT INTO progress_entries (timestamp, status, description) VALUES
+             ('2026-01-02T00:00:00Z', 'in_progress', 'Wire enriched show output');
+            INSERT INTO custom_data (timestamp, category, key, value) VALUES
+             ('2026-01-03T00:00:00Z', 'config', 'region', '{\"default\": \"us-east-1\"}');
+            INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen, line_count) VALUES
+             ('file', 'src/parse.rs', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 120);
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('nested-uuid', 'nested-pack', 'A schema used as a member', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('multi-uuid', 'multi-kind', 'Host schema for every member kind', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'src/parse.rs', '2026-01-01T00:00:00Z'),
+             ('system_pattern', 1, 'docs/patterns.md', '2026-01-01T00:00:00Z');
+            INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id,
+                                       relationship_type, description, timestamp) VALUES
+             ('decision', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('system_pattern', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('progress_entry', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('custom_data', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('code', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('schema', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('pr', '42', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '9999', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["schema", "show", "multi-kind"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schema = &parsed["schema"];
+
+    assert_eq!(
+        schema["member_count"], 8,
+        "member_count stays the true total"
+    );
+    assert_eq!(schema["truncated"], false);
+    assert!(
+        schema.get("total_members").is_none(),
+        "total_members only appears when the cap bites"
+    );
+    let members = schema["members"].as_array().unwrap();
+    assert_eq!(members.len(), 8);
+    let find = |kind: &str, id: i64| {
+        members
+            .iter()
+            .find(|m| m["kind"] == kind && m["id"] == id)
+            .unwrap_or_else(|| panic!("member {kind}:{id} missing"))
+    };
+
+    let dec = find("decision", 1);
+    assert_eq!(dec["summary"], "Ship the parser rewrite");
+    assert_eq!(dec["status"], "accepted");
+    assert_eq!(dec["contract"], "Fail fast on malformed input");
+    assert_eq!(dec["anchors"], serde_json::json!(["src/parse.rs"]));
+
+    let pat = find("system_pattern", 1);
+    assert_eq!(pat["name"], "borrow-first");
+    assert_eq!(pat["description"], "Consume lookup maps by move");
+    assert_eq!(pat["severity"], "high");
+    assert_eq!(pat["anchors"], serde_json::json!(["docs/patterns.md"]));
+
+    let prog = find("progress_entry", 1);
+    assert_eq!(prog["status"], "in_progress");
+    assert_eq!(prog["description"], "Wire enriched show output");
+    assert_eq!(prog["timestamp"], "2026-01-02T00:00:00Z");
+
+    let data = find("custom_data", 1);
+    assert_eq!(data["key"], "region");
+    assert_eq!(
+        data["value"],
+        serde_json::json!({"default": "us-east-1"}),
+        "stored TEXT value surfaces as JSON when it parses"
+    );
+
+    let code = find("code", 1);
+    assert_eq!(code["path"], "src/parse.rs");
+    assert_eq!(code["symbol"], "");
+    assert_eq!(code["kind"], "code");
+    assert_eq!(code["line_count"], 120);
+
+    let nested = find("schema", 1);
+    assert_eq!(nested["name"], "nested-pack");
+    assert_eq!(nested["summary"], "A schema used as a member");
+
+    let pr = find("pr", 42);
+    assert!(
+        pr.get("summary").is_none() && pr.get("path").is_none(),
+        "unenrichable kinds stay bare references"
+    );
+
+    let dangling = find("decision", 9999);
+    assert!(
+        dangling.get("summary").is_none(),
+        "dangling references stay bare, never fabricated"
+    );
+    assert_eq!(dangling["anchors"], serde_json::json!([]));
+}
+
+#[test]
+fn test_schema_show_truncates_members_over_cap() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let mut batch = String::new();
+        for i in 1..=25 {
+            batch.push_str(&format!(
+                "INSERT INTO decisions (uuid, timestamp, summary) VALUES \
+                 ('big-{i}', '2026-01-01T00:00:00Z', 'Decision {i}');\n"
+            ));
+        }
+        batch.push_str(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES \
+             ('big-uuid', 'big-pack', 'Over the cap', '{}', \
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');\n",
+        );
+        for i in 1..=25 {
+            batch.push_str(&format!(
+                "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, \
+                 target_item_id, relationship_type, description, timestamp) VALUES \
+                 ('decision', '{i}', 'schema', '1', 'member_of', NULL, '2026-01-01T00:00:00Z');\n"
+            ));
+        }
+        conn.execute_batch(&batch).unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["schema", "show", "big-pack"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schema = &parsed["schema"];
+
+    assert_eq!(
+        schema["member_count"], 25,
+        "member_count stays the true total"
+    );
+    assert_eq!(schema["truncated"], true);
+    assert_eq!(schema["total_members"], 25);
+    let members = schema["members"].as_array().unwrap();
+    assert_eq!(members.len(), 20, "exactly the cap is enriched");
+
+    // Members keep the link query's (kind, textual id) order; the first 20
+    // of that order are shown, ids as strings sort lexicographically.
+    let mut all: Vec<String> = (1..=25).map(|i| i.to_string()).collect();
+    all.sort();
+    let shown: Vec<String> = members
+        .iter()
+        .map(|m| m["id"].as_i64().unwrap().to_string())
+        .collect();
+    assert_eq!(shown, &all[..20]);
+    for m in members {
+        assert_eq!(m["summary"], format!("Decision {}", m["id"]));
+    }
+}

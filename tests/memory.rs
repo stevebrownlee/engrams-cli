@@ -874,7 +874,10 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
     );
     assert_eq!(schema["member_count"], 3);
     let members = schema["members"].as_array().unwrap();
-    let keys: Vec<&str> = members.iter().map(|m| m.as_str().unwrap()).collect();
+    let keys: Vec<String> = members
+        .iter()
+        .map(|m| format!("{}:{}", m["kind"].as_str().unwrap(), m["id"]))
+        .collect();
     assert_eq!(
         keys,
         vec!["decision:1", "decision:2", "decision:3"],
