@@ -2760,6 +2760,135 @@ fn test_prime_leads_with_schemas_block() {
 }
 
 #[test]
+fn test_prime_ranks_context_matching_schemas() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    // prime requires an active-context track (same setup as test_prime).
+    engrams(&db)
+        .args(["active-context", "update", "--content", "{\"tasks\": []}"])
+        .assert()
+        .success();
+    // Two confirmed schemas: gateway (anchored to src/gateway.rs, one
+    // retrieval event) and policy (anchored to docs/policy.md, two events).
+    // Classically the policy schema leads on reward; AC-6 flips that when
+    // the target paths or tags point at gateway. SQL seeding for the same
+    // reasons as test_prime_leads_with_schemas_block.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u4','2026-01-01T00:00:00Z','delta policy engine','[\"policy\",\"core\"]','abc'),
+             ('u5','2026-01-01T00:00:00Z','epsilon policy engine','[\"policy\",\"core\"]','abc'),
+             ('u6','2026-01-01T00:00:00Z','zeta policy engine','[\"policy\",\"core\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','4','decision','5','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','5','decision','6','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','4','decision','6','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',3,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',4,'docs/policy.md','2026-01-02T00:00:00Z'),
+             ('decision',5,'docs/policy.md','2026-01-02T00:00:00Z'),
+             ('decision',6,'docs/policy.md','2026-01-02T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','gateway','decision',1),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',2),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',3),
+             ('2026-02-15T00:00:00Z','query','policy','decision',4),
+             ('2026-02-15T00:00:00Z','query','policy','decision',5),
+             ('2026-02-15T00:00:00Z','query','policy','decision',6),
+             ('2026-02-16T00:00:00Z','query','policy','decision',4),
+             ('2026-02-16T00:00:00Z','query','policy','decision',5),
+             ('2026-02-16T00:00:00Z','query','policy','decision',6);",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+    // reward_hits counts schema-level surface rows (retrieval_surfaces with
+    // node_kind 'schema'), so seed two events for policy and one for gateway:
+    // unscoped prime must lead with the higher-reward policy schema.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let id_for = |like: &str| -> i64 {
+            conn.query_row(
+                "SELECT id FROM schemas WHERE summary LIKE ?1",
+                rusqlite::params![format!("%{like}%")],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        let (gateway, policy) = (id_for("gateway routing"), id_for("policy engine"));
+        conn.execute_batch(&format!(
+            "INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-03-01T00:00:00Z','prime',NULL,'schema',{gateway}),
+             ('2026-03-01T00:00:00Z','prime',NULL,'schema',{policy}),
+             ('2026-03-02T00:00:00Z','prime',NULL,'schema',{policy});"
+        ))
+        .unwrap();
+    }
+
+    let summaries = |out: &std::process::Output| -> Vec<String> {
+        let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+        json["schemas"]
+            .as_array()
+            .expect("prime payload carries a schemas array")
+            .iter()
+            .map(|s| {
+                let sum = s["summary"].as_str().unwrap();
+                assert!(!sum.is_empty(), "each entry carries its rule summary");
+                sum.to_string()
+            })
+            .collect()
+    };
+
+    // No flags: classic order — the higher-reward policy schema leads.
+    let sums = summaries(&engrams(&db).arg("prime").output().unwrap());
+    assert!(
+        sums[0].contains("policy") && !sums[0].contains("gateway"),
+        "unscoped prime keeps classic reward order; got: {sums:?}"
+    );
+
+    // --paths: the schema anchored under the target path leads.
+    let sums = summaries(
+        &engrams(&db)
+            .args(["prime", "--paths", "src/gateway.rs"])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        sums[0].contains("gateway"),
+        "path-anchored schema must outrank the higher-reward one; got: {sums:?}"
+    );
+
+    // --tags: the schema whose centroid matches the tag leads.
+    let sums = summaries(
+        &engrams(&db)
+            .args(["prime", "--tags", "gateway"])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        sums[0].contains("gateway"),
+        "tag-matching schema must outrank the higher-reward one; got: {sums:?}"
+    );
+}
+
+#[test]
 fn test_schema_confirm_payload_carries_kind() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");

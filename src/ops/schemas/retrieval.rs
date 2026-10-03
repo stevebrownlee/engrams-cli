@@ -85,17 +85,33 @@ pub fn reward_hits(conn: &Connection) -> Result<HashMap<i64, i64>> {
         .map_err(Into::into)
 }
 
-/// Prime's leading schema block: top-K (K = [`PRIME_SCHEMA_K`]) confirmed
-/// schemas, ranked by reward hits, then member centrality, then agent-authored
-/// above drafts, then id. One flat line each — agent drafts are flagged via
-/// `summary_source`, never hidden. Each entry reports its `kind` (spec 0004).
-pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
+/// Prime's leading schema block: top-K (K = [`PRIME_SCHEMA_K`]) active
+/// schemas. With target paths or tags (spec 0005 AC-6), schemas whose member
+/// anchors resolve to a path or whose centroid tags overlap the tag parts rank
+/// above unanchored schemas — [`path_match_counts`] and [`tag_match_counts`]
+/// supply the context scores, and each context tier falls back to reward
+/// hits, then member centrality, then agent-authored above drafts, then id.
+/// Without targets the context score is 0 everywhere, so the order is exactly
+/// the pre-0005 reward/centrality/agent order. Paths must be pre-cleaned
+/// ([`crate::ops::anchor::clean_path`]); resolution mirrors
+/// [`crate::ops::anchor::query_relevant_ids`]: exact match, anchor under the
+/// path, or path under the anchor. One flat line each — agent drafts are
+/// flagged via `summary_source`, never hidden. Each entry reports its `kind`
+/// (spec 0004) and its operational rule `summary`.
+pub fn prime_block(
+    conn: &Connection,
+    k: usize,
+    paths: &[String],
+    tags: &[String],
+) -> Result<Vec<Value>> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.kind \
          FROM schemas s WHERE s.status = 'active'",
     )?;
     let reward = reward_hits(conn)?;
     let members = super::list::member_counts(conn)?;
+    let mut path_hits = path_match_counts(conn, paths)?;
+    let mut tag_hits = tag_match_counts(conn, tags)?;
     let rows = stmt.query_map([], |r| {
         Ok(RankedSchema {
             id: r.get(0)?,
@@ -106,23 +122,27 @@ pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
             kind: r.get(5)?,
         })
     })?;
-    let mut ranked: Vec<(i64, i64, RankedSchema)> = Vec::new();
+    let mut ranked: Vec<(usize, i64, i64, RankedSchema)> = Vec::new();
     for r in rows {
         let s: RankedSchema = r?;
+        // Context match (AC-6) leads: both maps die with this loop, so take
+        // each count out by remove() instead of cloning out of the map.
+        let context = path_hits.remove(&s.id).unwrap_or(0) + tag_hits.remove(&s.id).unwrap_or(0);
         let hits = reward.get(&s.id).copied().unwrap_or(0);
         let centrality = members.get(&s.id).copied().unwrap_or(0);
-        ranked.push((hits, centrality, s));
+        ranked.push((context, hits, centrality, s));
     }
     ranked.sort_by(|a, b| {
         b.0.cmp(&a.0)
             .then_with(|| b.1.cmp(&a.1))
-            .then_with(|| agent_rank(&a.2).cmp(&agent_rank(&b.2)))
-            .then_with(|| a.2.id.cmp(&b.2.id))
+            .then_with(|| b.2.cmp(&a.2))
+            .then_with(|| agent_rank(&a.3).cmp(&agent_rank(&b.3)))
+            .then_with(|| a.3.id.cmp(&b.3.id))
     });
     Ok(ranked
         .into_iter()
         .take(k)
-        .map(|(hits, centrality, s)| {
+        .map(|(context, hits, centrality, s)| {
             json!({
                 "id": s.id,
                 "name": s.name,
@@ -132,6 +152,7 @@ pub fn prime_block(conn: &Connection, k: usize) -> Result<Vec<Value>> {
                 "kind": s.kind,
                 "reward_hits": hits,
                 "member_count": centrality,
+                "context_matches": context,
             })
         })
         .collect())
@@ -152,6 +173,81 @@ fn agent_rank(s: &RankedSchema) -> i32 {
     } else {
         1
     }
+}
+
+/// Schema ids whose member anchors resolve to one of `paths`, with the count
+/// of distinct matching anchors (AC-6). Resolution mirrors
+/// [`crate::ops::anchor::query_relevant_ids`]; paths must be pre-cleaned.
+fn path_match_counts(conn: &Connection, paths: &[String]) -> Result<HashMap<i64, usize>> {
+    let mut counts: HashMap<i64, usize> = HashMap::new();
+    if paths.is_empty() {
+        return Ok(counts);
+    }
+    let mut sql = String::from(
+        "SELECT CAST(l.target_item_id AS INTEGER) AS schema_id, COUNT(DISTINCT a.path) FROM item_anchors a \
+         JOIN context_links l ON l.relationship_type = 'member_of' \
+          AND l.target_item_type = 'schema' \
+          AND l.source_item_type = a.item_type \
+          AND l.source_item_id = CAST(a.item_id AS TEXT) \
+         WHERE ",
+    );
+    let mut conditions = Vec::with_capacity(paths.len());
+    conditions.extend(std::iter::repeat_n(
+        "(a.path = ? OR a.path LIKE ? || '/%' OR ? LIKE a.path || '/%')",
+        paths.len(),
+    ));
+    sql.push_str(&conditions.join(" OR "));
+    sql.push_str(" GROUP BY l.target_item_id");
+    let mut stmt = conn.prepare(&sql)?;
+    // Same binding shape as query_relevant_ids: each path feeds all three
+    // arms of its condition, borrowed (AGENTS.md rule 002).
+    let mut params_vec = Vec::<&dyn rusqlite::ToSql>::with_capacity(paths.len() * 3);
+    for path in paths {
+        params_vec.extend(std::iter::repeat_n(path as &dyn rusqlite::ToSql, 3));
+    }
+    let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |r| {
+        Ok((r.get::<_, i64>(0)?, r.get::<_, usize>(1)?))
+    })?;
+    for r in rows {
+        let (id, hits) = r?;
+        counts.insert(id, hits);
+    }
+    Ok(counts)
+}
+
+/// Schema ids whose centroid tags overlap the target `tags`' word parts, with
+/// the count of distinct overlapping parts (AC-6). Tags are compared
+/// convention-aware via [`crate::ops::ident_parts`] — the same vocabulary
+/// [`centroid_match`] scores against free-text queries.
+fn tag_match_counts(conn: &Connection, tags: &[String]) -> Result<HashMap<i64, usize>> {
+    let mut counts: HashMap<i64, usize> = HashMap::new();
+    let mut wanted = std::collections::BTreeSet::new();
+    for t in tags {
+        wanted.extend(crate::ops::ident_parts(t));
+    }
+    if wanted.is_empty() {
+        return Ok(counts);
+    }
+    let mut stmt =
+        conn.prepare("SELECT s.id, s.centroid_json FROM schemas s WHERE s.status = 'active'")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    for r in rows {
+        let (id, centroid_json) = r?;
+        let centroid: Value = serde_json::from_str(&centroid_json).unwrap_or(Value::Null);
+        // `centroid()` writes tags as an object of tag → member count; the
+        // keys are the vocabulary scored against the targets.
+        if let Some(centroid_tags) = centroid["tags"].as_object() {
+            let mut parts = std::collections::BTreeSet::new();
+            for t in centroid_tags.keys() {
+                parts.extend(crate::ops::ident_parts(t));
+            }
+            let overlap = wanted.intersection(&parts).count();
+            if overlap > 0 {
+                counts.insert(id, overlap);
+            }
+        }
+    }
+    Ok(counts)
 }
 
 /// One convention-aware centroid hit: a schema whose centroid tags overlap the
@@ -673,7 +769,7 @@ mod tests {
         }
         record_surface(&conn, "prime", None, &[1], &[]).unwrap();
 
-        let block = prime_block(&conn, 3).unwrap();
+        let block = prime_block(&conn, 3, &[], &[]).unwrap();
         let ids: Vec<i64> = block.iter().map(|s| s["id"].as_i64().unwrap()).collect();
         assert_eq!(
             ids,
@@ -698,10 +794,73 @@ mod tests {
         )
         .unwrap();
 
-        let block = prime_block(&conn, 3).unwrap();
+        let block = prime_block(&conn, 3, &[], &[]).unwrap();
         let by_name = |name: &str| block.iter().find(|s| s["name"] == name).unwrap().clone();
         assert_eq!(by_name("routine")["kind"], "story");
         assert_eq!(by_name("pile")["kind"], "unclear");
+    }
+
+    #[test]
+    fn prime_block_ranks_path_anchored_schemas_above_unanchored() {
+        let conn = mem_db();
+        schema_with_tags(&conn, 1, "deploy", "drafted", &["deploy"]);
+        schema_with_tags(&conn, 2, "pile", "agent", &["pile"]);
+        member(&conn, 1, "decision", 1);
+        member(&conn, 2, "decision", 2);
+        member(&conn, 2, "decision", 3);
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', 1, 'src/deploy.rs', 't')",
+            [],
+        )
+        .unwrap();
+
+        // Path match leads even though schema 2 is agent-authored with more
+        // members: context (AC-6) outranks the classic reward/centrality tiers.
+        let target = ["src/deploy.rs".to_string()];
+        let block = prime_block(&conn, 5, &target, &[]).unwrap();
+        assert_eq!(block[0]["id"], 1, "path-anchored schema leads");
+        assert_eq!(block[0]["summary"], "s", "entry carries its rule summary");
+        assert_eq!(block[0]["context_matches"], 1);
+        assert_eq!(block[1]["id"], 2);
+        assert_eq!(block[1]["context_matches"], 0);
+
+        // Parent path resolves too (anchor under the path).
+        let parent = ["src".to_string()];
+        let block = prime_block(&conn, 5, &parent, &[]).unwrap();
+        assert_eq!(block[0]["id"], 1);
+
+        // Unrelated path: no anchor resolves, so the classic order applies
+        // (centrality 2 beats 1) — no accidental reordering.
+        let stray = ["docs/other.md".to_string()];
+        let block = prime_block(&conn, 5, &stray, &[]).unwrap();
+        assert_eq!(block[0]["id"], 2);
+        assert_eq!(block[1]["id"], 1);
+    }
+
+    #[test]
+    fn prime_block_ranks_tag_matching_schemas_above_unanchored() {
+        let conn = mem_db();
+        schema_with_tags(&conn, 1, "pipeline", "drafted", &["render_pipeline"]);
+        schema_with_tags(&conn, 2, "pile", "agent", &["unrelated"]);
+        member(&conn, 1, "decision", 1);
+        member(&conn, 2, "decision", 2);
+        member(&conn, 2, "decision", 3);
+
+        // Tag vocabulary is convention-matched: snake_case centroid tag vs
+        // kebab-case target.
+        let matching = ["render-pipeline".to_string()];
+        let block = prime_block(&conn, 5, &[], &matching).unwrap();
+        assert_eq!(block[0]["id"], 1, "tag-matching schema leads");
+        assert_eq!(block[0]["context_matches"], 2);
+        assert_eq!(block[1]["id"], 2);
+        assert_eq!(block[1]["context_matches"], 0);
+
+        // Unrelated tag: unchanged classic order (centrality 2 beats 1).
+        let stray = ["deploy".to_string()];
+        let block = prime_block(&conn, 5, &[], &stray).unwrap();
+        assert_eq!(block[0]["id"], 2);
+        assert_eq!(block[1]["id"], 1);
     }
 
     #[test]

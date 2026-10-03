@@ -10,9 +10,15 @@ pub fn handle(
 ) -> Result<Value> {
     let product_context = crate::ops::report::query_context_doc(conn, "product_context")?;
     let active_context_val = load_active_context(conn, &paths, &tags)?;
+    let cleaned_paths: Vec<String> = paths
+        .iter()
+        .map(|p| crate::ops::anchor::clean_path(p))
+        .collect();
     let schema_block = crate::ops::schemas::retrieval::prime_block(
         conn,
         crate::ops::schemas::retrieval::PRIME_SCHEMA_K,
+        &cleaned_paths,
+        &tags,
     )?;
 
     let is_scoped = !paths.is_empty() || !tags.is_empty();
@@ -22,10 +28,6 @@ pub fn handle(
     let mut decision_ids = Vec::new();
     let mut pattern_ids = Vec::new();
     if !paths.is_empty() {
-        let cleaned_paths: Vec<String> = paths
-            .iter()
-            .map(|p| crate::ops::anchor::clean_path(p))
-            .collect();
         let matched = crate::ops::anchor::query_relevant_ids(conn, &cleaned_paths)?;
         for (itype, id) in matched {
             if itype == "decision" {
