@@ -102,7 +102,15 @@ pub fn handle(conn: &Connection, target: &str, depth: i64) -> Result<Value> {
 
 /// Accept `type:id` refs; anything else is an FTS query over decisions, then
 /// patterns, then custom data (best rank wins, in that priority).
+/// `schema:<id-or-name-or-slug>` resolves through the schema namespace —
+/// numeric id, exact name, then slug fold (spec 0005 Architecture item 2).
+/// Bare numbers stay FTS text: no schema fallback for unprefixed targets.
 fn resolve(conn: &Connection, target: &str) -> Result<(String, String)> {
+    if let Some(rest) = target.strip_prefix("schema:") {
+        let id = crate::ops::schemas::list::resolve_schema(conn, rest)?
+            .ok_or_else(|| anyhow::anyhow!("no schema matches '{rest}'"))?;
+        return Ok(("schema".to_string(), id.to_string()));
+    }
     if target.contains(':') {
         if let Ok(k) = parse_node(target) {
             if node_exists(conn, &k)? {

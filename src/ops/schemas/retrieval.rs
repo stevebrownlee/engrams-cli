@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use rusqlite::{Connection, OptionalExtension};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 /// Rolling window for `retrieval_surfaces`. The spec names no length; 90 days
 /// keeps the co-observation ramp (cap 5) and the reward gate fed while bound-
@@ -224,8 +224,9 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
 }
 
 /// Composite `brief` payload for a schema node (AC-7): the schema row plus
-/// members by kind and reward telemetry — everything an agent needs to act
-/// on the concept without a second call.
+/// per-kind enriched members (capped, with truncation reported when the cap
+/// bites — spec 0005 Architecture item 2) and reward telemetry — everything
+/// an agent needs to act on the concept without a second call.
 pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
     use anyhow::Context as _;
     let row: (String, String, String, String, String) = conn
@@ -239,17 +240,11 @@ pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
         .with_context(|| format!("schema {id} not found"))?;
     let centroid: Value = serde_json::from_str(&row.4).unwrap_or(Value::Null);
     let reward = reward_hits(conn)?.get(&id).copied().unwrap_or(0);
-    let members = members_by_type(conn, id)?;
-    let total = members
-        .as_object()
-        .map(|m| {
-            m.values()
-                .filter_map(|v| v.as_array())
-                .map(|a| a.len() as i64)
-                .sum()
-        })
-        .unwrap_or(0);
-    Ok(json!({
+    let refs = member_refs(conn, id)?;
+    let total = refs.len();
+    let cap = total.min(MEMBER_ENRICHMENT_CAP);
+    let members = enrich_members(conn, &refs[..cap])?;
+    let mut payload = json!({
         "id": id,
         "name": row.0,
         "summary": row.1,
@@ -258,35 +253,261 @@ pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
         "centroid": centroid,
         "member_count": total,
         "members": members,
+        "truncated": cap < total,
         "anchors": member_anchors(conn, id)?,
         "related_schemas": neighborhood(conn, id)?,
         "reward_hits": reward,
-    }))
+    });
+    if cap < total {
+        payload["total_members"] = json!(total);
+    }
+    Ok(payload)
 }
 
-/// Members of a schema grouped by kind: `{"decision": ["1", ...], ...}`.
-pub fn members_by_type(conn: &Connection, schema_id: i64) -> Result<Value> {
+/// Immediate member references of a schema in the link query's canonical
+/// (kind, textual id) order — the order `schema show` and `brief
+/// schema:<id>` both project (spec 0005 Architecture item 2).
+pub(crate) fn member_refs(conn: &Connection, schema_id: i64) -> Result<Vec<(String, String)>> {
     let mut stmt = conn.prepare(
         "SELECT source_item_type, source_item_id FROM context_links \
          WHERE relationship_type = 'member_of' AND target_item_type = 'schema' \
-         AND target_item_id = ?1 ORDER BY source_item_type, CAST(source_item_id AS INTEGER)",
+         AND target_item_id = ?1 ORDER BY source_item_type, source_item_id",
     )?;
-    let rows = stmt.query_map([schema_id], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-    })?;
-    let mut grouped = serde_json::Map::new();
-    for r in rows {
-        let (kind, id) = r?;
-        grouped
-            .entry(kind)
-            .or_insert_with(|| Value::Array(Vec::new()))
-            .as_array_mut()
-            .expect("seeded as array")
-            .push(json!(id));
-    }
-    Ok(Value::Object(grouped))
+    let members = stmt
+        .query_map([schema_id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(members)
 }
 
+/// Cap on enriched members in agent-facing schema reads (`schema show`,
+/// `brief schema:<id>` — spec 0005 Architecture items 1-2): inventory
+/// schemas can carry hundreds of members and the read path is a single
+/// agent-facing call, so past the cap the payload reports
+/// `truncated`/`total_members` instead of more rows.
+pub(crate) const MEMBER_ENRICHMENT_CAP: usize = 20;
+
+/// The member kinds enriched schema reads detail — the graph node universe
+/// [`kind_table`](super::confirm::kind_table) backs, spelled exactly as
+/// stored in `context_links` (F-5: `code`, not `code_node`). Anything else
+/// passes through bare.
+fn enrichable_kind(kind: &str) -> Option<&'static str> {
+    match kind {
+        "decision" => Some("decision"),
+        "system_pattern" => Some("system_pattern"),
+        "progress_entry" => Some("progress_entry"),
+        "custom_data" => Some("custom_data"),
+        "code" => Some("code"),
+        "schema" => Some("schema"),
+        _ => None,
+    }
+}
+
+/// Enrich member references with the per-kind details both `schema show`
+/// and `brief schema:<id>` surface (spec 0005 Architecture items 1-2):
+/// decisions and patterns gain status, contract/severity and anchors; code
+/// gains the symbol signature; progress entries gain status; custom data
+/// gains its key and value (JSON when parseable); nested schemas gain name
+/// and summary. Members with no backing row — or an unenrichable kind like
+/// `pr` — stay bare references. The detail maps die in this call, so
+/// entries are moved out, never cloned (rule 004).
+pub(crate) fn enrich_members(
+    conn: &Connection,
+    members: &[(String, String)],
+) -> Result<Vec<Value>> {
+    // Per-kind id buckets; only enrichable kinds with numeric ids enter.
+    let mut buckets: HashMap<&'static str, Vec<i64>> = HashMap::new();
+    for (kind, raw) in members {
+        if let (Some(canon), Ok(id)) = (enrichable_kind(kind), raw.parse::<i64>()) {
+            buckets.entry(canon).or_default().push(id);
+        }
+    }
+
+    // One batched lookup per kind: id -> the fields the payload inlines.
+    let mut details: HashMap<&'static str, HashMap<i64, Value>> = HashMap::new();
+    if let Some(ids) = buckets.remove("decision") {
+        details.insert(
+            "decision",
+            fetch_details(
+                conn,
+                &format!(
+                    "SELECT id, summary, status, contract FROM decisions \
+                     WHERE id IN ({})",
+                    crate::ops::sql_placeholders(ids.len())
+                ),
+                &ids,
+                |r| {
+                    Ok(json!({
+                        "summary": r.get::<_, String>(1)?,
+                        "status": r.get::<_, String>(2)?,
+                        "contract": r.get::<_, Option<String>>(3)?,
+                    }))
+                },
+            )?,
+        );
+    }
+    if let Some(ids) = buckets.remove("system_pattern") {
+        details.insert(
+            "system_pattern",
+            fetch_details(
+                conn,
+                &format!(
+                    "SELECT id, name, description, severity FROM system_patterns \
+                     WHERE id IN ({})",
+                    crate::ops::sql_placeholders(ids.len())
+                ),
+                &ids,
+                |r| {
+                    Ok(json!({
+                        "name": r.get::<_, String>(1)?,
+                        "description": r.get::<_, Option<String>>(2)?,
+                        "severity": r.get::<_, String>(3)?,
+                    }))
+                },
+            )?,
+        );
+    }
+    if let Some(ids) = buckets.remove("progress_entry") {
+        details.insert(
+            "progress_entry",
+            fetch_details(
+                conn,
+                &format!(
+                    "SELECT id, description, status, timestamp FROM progress_entries \
+                     WHERE id IN ({})",
+                    crate::ops::sql_placeholders(ids.len())
+                ),
+                &ids,
+                |r| {
+                    Ok(json!({
+                        "description": r.get::<_, String>(1)?,
+                        "status": r.get::<_, String>(2)?,
+                        "timestamp": r.get::<_, String>(3)?,
+                    }))
+                },
+            )?,
+        );
+    }
+    if let Some(ids) = buckets.remove("custom_data") {
+        details.insert(
+            "custom_data",
+            fetch_details(
+                conn,
+                &format!(
+                    "SELECT id, key, value FROM custom_data WHERE id IN ({})",
+                    crate::ops::sql_placeholders(ids.len())
+                ),
+                &ids,
+                |r| {
+                    // Stored TEXT: surfaced as JSON when it parses as such
+                    // (mirrors import's round-trip), else as the raw string.
+                    let value: String = r.get(2)?;
+                    Ok(json!({
+                        "key": r.get::<_, String>(1)?,
+                        "value": serde_json::from_str::<Value>(&value)
+                            .unwrap_or(Value::String(value)),
+                    }))
+                },
+            )?,
+        );
+    }
+    if let Some(ids) = buckets.remove("code") {
+        details.insert(
+            "code",
+            fetch_details(
+                conn,
+                &format!(
+                    "SELECT id, path, symbol, line_count FROM code_nodes \
+                     WHERE id IN ({})",
+                    crate::ops::sql_placeholders(ids.len())
+                ),
+                &ids,
+                |r| {
+                    // code_nodes.kind ('file'/'function') is deliberately not
+                    // projected: the member discriminator owns the `kind` key.
+                    Ok(json!({
+                        "path": r.get::<_, String>(1)?,
+                        "symbol": r.get::<_, String>(2)?,
+                        "line_count": r.get::<_, Option<i64>>(3)?,
+                    }))
+                },
+            )?,
+        );
+    }
+    if let Some(ids) = buckets.remove("schema") {
+        details.insert(
+            "schema",
+            fetch_details(
+                conn,
+                &format!(
+                    "SELECT id, name, summary FROM schemas WHERE id IN ({})",
+                    crate::ops::sql_placeholders(ids.len())
+                ),
+                &ids,
+                |r| {
+                    Ok(json!({
+                        "name": r.get::<_, String>(1)?,
+                        "summary": r.get::<_, String>(2)?,
+                    }))
+                },
+            )?,
+        );
+    }
+
+    // Fold back in link order, moving each member's detail out of the
+    // dying maps. Anchors ride along for the kinds `brief` anchors.
+    let mut out = Vec::with_capacity(members.len());
+    for (kind, raw) in members {
+        let canon = enrichable_kind(kind);
+        let id = raw.parse::<i64>().ok();
+        let detail = canon
+            .zip(id)
+            .and_then(|(c, i)| details.get_mut(c).and_then(|m| m.remove(&i)));
+        let mut obj = Map::new();
+        obj.insert("kind".into(), json!(canon.unwrap_or(kind.as_str())));
+        obj.insert(
+            "id".into(),
+            id.map(Value::from).unwrap_or_else(|| json!(raw)),
+        );
+        if let Some(Value::Object(fields)) = detail {
+            for (k, v) in fields {
+                obj.insert(k, v);
+            }
+        }
+        if let (Some(c), Some(i)) = (canon, id) {
+            if c == "decision" || c == "system_pattern" {
+                obj.insert(
+                    "anchors".into(),
+                    json!(crate::ops::anchor::anchors_for(conn, c, i)?),
+                );
+            }
+        }
+        out.push(Value::Object(obj));
+    }
+    Ok(out)
+}
+
+/// Batched `IN` lookup for one member kind: id -> row fields. Id params
+/// borrow (rule 002); the map is consumed by [`enrich_members`].
+fn fetch_details(
+    conn: &Connection,
+    sql: &str,
+    ids: &[i64],
+    fields: impl Fn(&rusqlite::Row<'_>) -> rusqlite::Result<Value>,
+) -> Result<HashMap<i64, Value>> {
+    let mut stmt = conn.prepare(sql)?;
+    let id_refs: Vec<&i64> = ids.iter().collect();
+    let rows = stmt.query_map(rusqlite::params_from_iter(id_refs), |r| {
+        Ok((r.get::<_, i64>(0)?, fields(r)?))
+    })?;
+    let mut map = HashMap::with_capacity(ids.len());
+    for row in rows {
+        let (id, fields) = row?;
+        map.insert(id, fields);
+    }
+    Ok(map)
+}
 /// Distinct anchor paths across the schema's anchored members.
 pub fn member_anchors(conn: &Connection, schema_id: i64) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
@@ -484,8 +705,14 @@ mod tests {
         )
         .unwrap();
 
-        let members = members_by_type(&conn, 1).unwrap();
-        assert_eq!(members["decision"], json!(["1", "2"]));
+        let members = member_refs(&conn, 1).unwrap();
+        assert_eq!(
+            members,
+            vec![
+                ("decision".to_string(), "1".to_string()),
+                ("decision".to_string(), "2".to_string())
+            ]
+        );
 
         let anchors = member_anchors(&conn, 1).unwrap();
         assert_eq!(anchors, vec!["src/a.rs".to_string()]);
