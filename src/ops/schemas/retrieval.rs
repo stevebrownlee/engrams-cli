@@ -368,14 +368,14 @@ pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
 /// Immediate member references of a schema in (kind, insertion) order —
 /// insertion is the link rowid: deterministic, meaningful for the "first
 /// 20" truncation contract, and no per-row CAST.
-pub fn member_refs(conn: &Connection, schema_id: i64) -> Result<Vec<(String, String)>> {
+pub(crate) fn member_refs(conn: &Connection, schema_id: i64) -> Result<Vec<(String, String)>> {
     let mut stmt = conn.prepare(
         "SELECT source_item_type, source_item_id FROM context_links \
          WHERE relationship_type = 'member_of' AND target_item_type = 'schema' \
           AND target_item_id = ?1 \
          ORDER BY source_item_type, id",
     )?;
-    let rows = stmt.query_map([schema_id.to_string()], |r| {
+    let rows = stmt.query_map([schema_id], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
     })?;
     let mut members = Vec::new();
@@ -662,6 +662,7 @@ fn fetch_member_anchors(
     }
     Ok(out)
 }
+
 /// Distinct anchor paths across the schema's anchored members.
 pub fn member_anchors(conn: &Connection, schema_id: i64) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
