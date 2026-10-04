@@ -298,3 +298,38 @@ Counts: 3 findings = 0 severe, 1 moderate, 2 minor. PASS — continue.
 Verified clean (no findings): AC-6 all four pins real — path ranking (unit + CLI `--paths`), tag ranking (unit + CLI `--tags`, convention-aware render_pipeline vs render-pipeline, overlap count 2 pinned), summary present on every entry (CLI asserts non-empty across all three invocations), and the no-flag regression is load-bearing (`sums[0].contains("policy") && !contains("gateway")` fails on any order flip; telemetry self-bump preserves the 2-vs-1 reward gap because the assertion runs first). Ranking determinism: total order context desc -> reward desc -> centrality desc -> agent_rank asc -> id asc; with no flags context is 0 everywhere and the chain is byte-identical to the pre-0005 order. Rules: 002 borrowed Vec<&dyn ToSql> + params_from_iter + with_capacity; 004 remove() out of the dying path/tag maps with citing comment; 005 pre-sized conditions Vec + join matches the query_relevant_ids reference shape; 006 N/A (no static vocabulary). SQL mirrors query_relevant_ids arm-for-arm; join shape matches active_for_members/neighborhood precedent; production member_of writers (confirm.rs:551, assimilate.rs:229) store ids as TEXT, consistent with the CASTs. centroid_json is NOT NULL in both DDL copies so the String get cannot hit NULL. Cross-boundary: schema_block inserted verbatim into the payload; prime telemetry (prime.rs:406-409) reads only id, so the new context_matches key passes harmlessly. clean_path is idempotent strip-./; prime.rs cleans once and shares the vec between prime_block and query_relevant_ids. repeat_n (stable since 1.82) introduces no finding: no rust-version declared anywhere, CI pins dtolnay/rust-toolchain@stable, so no MSRV contract exists to break. Gates genuinely select the new tests this time (bin prime_block 4/4, cli prime 5/5 — first spec in memory with zero vacuous filters). fmt --check exit 0 on the committed tree; working tree byte-identical to 7c30ae8 for all three files_touched (only progress.json dirty, orchestrator-owned).
 
 Counts: 1 finding = 0 severe, 1 moderate, 0 minor.
+
+## 2026-10-04T00:27:56Z — phase 6 of spec 0005-schema-guided-retrieval (cognitive schemas guide page)
+
+- moderate / quality-smell — schema show JSON example shows "status": "confirmed",
+  but the shipped status vocabulary is active/needs_review/retired; schema confirm
+  stores 'active' and only sets last_confirmed_at (src/ops/schemas/confirm.rs:532,598),
+  so the guide teaches an output value the CLI never emits
+  (docs/src/pages/docs/guide/cognitive-schemas.astro:153)
+- minor / quality-smell — retrieval-surface table claims brief schema:<id> returns
+  enriched details for "all immediate members", but node_payload caps enrichment at
+  20 with truncated/total_members (src/ops/schemas/retrieval.rs:341-360), contradicting
+  the cap the same table documents one row above for schema show
+  (docs/src/pages/docs/guide/cognitive-schemas.astro:79)
+
+Verified clean (no findings): AC-7 all three Then clauses covered — human-schema
+theory section (organizes/activates-conditionally), agent-design section with
+authoring principles, and three worked examples (software architecture
+error-envelope, research survey-then-decide, planning what-to-build-next) — plus
+design bullet 4's LLM-retrieval explanation (retrieval-surface table). Every cited
+command/flag exists in src/cli.rs: schema refine --trigger/--rule/--summary
+(cli.rs:427-441) with the four accepted openers matching the page verbatim, schema
+show (422), schema scan/confirm (402-415), advise positional paths (261-267),
+prime --paths/--tags (126-138), brief schema:<id> dispatch (brief.rs:342-344).
+Example member shapes match enrich_members: system_pattern name/description/
+severity/anchors, decision summary/status/anchors, code path/symbol/line_count,
+custom_data key+value (JSON when parseable) matching the research example's claim.
+advise "schemas" key serializes above constraints (advise.rs:140-144). Sidebar
+Guides-section href /docs/guide/cognitive-schemas resolves to the built route
+(docs/dist/docs/guide/cognitive-schemas/index.html present); DocsLayout renders
+Sidebar on every docs page; callout tip/warn/note and reveal/lead classes all
+exist in docs/src/styles/global.css. Convention match with exemplar
+for-agent/retrieving.astro confirmed (lead, callout, reveal, pre/code escapes).
+Gate 1 F-6 (guide/ section absent from sidebar) resolved by this phase.
+
+Counts: 2 findings = 0 severe, 1 moderate, 1 minor. PASS — continue.
