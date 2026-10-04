@@ -4,10 +4,10 @@
   "spec_name": "schema-guided-retrieval",
   "spec_path": "specs/0005-schema-guided-retrieval.md",
   "created_at": "2026-10-03T00:00:00Z",
-  "updated_at": "2026-10-03T23:14:00Z",
+  "updated_at": "2026-10-04T00:12:00Z",
   "status": "in_progress",
   "mode": "autonomous",
-  "current_phase": 5,
+  "current_phase": 6,
   "phases": [
     {
       "id": 1,
@@ -240,7 +240,7 @@
       "id": 5,
       "title": "Rank context-matching schemas in prime block by paths and tags",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
       "depends_on": [],
       "exemplars": [
         "src/ops/schemas/retrieval.rs",
@@ -258,7 +258,23 @@
       ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "path_match_counts' third resolution arm (target path nested under an anchor directory, '? LIKE a.path || '/%') is unpinned: the unit test covers exact match and anchor-under-target only, so an operand-order regression in that arm passes silently; the reference query_relevant_ids has no arm-level tests either, so no existing pin backstops the new SQL",
+          "file": "src/ops/schemas/retrieval.rs",
+          "line": 196,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "7c30ae8018cb2b5e4d74b0fc9fc51fd07afcfc7c",
+      "files_touched": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/prime.rs",
+        "tests/cli.rs"
+      ],
+      "completed_at": "2026-10-03T23:59:00Z"
     },
     {
       "id": 6,
