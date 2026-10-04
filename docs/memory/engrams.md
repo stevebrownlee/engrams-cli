@@ -191,7 +191,7 @@ engrams advise src/ops/scoring.rs    # constraints + violations for one file
 engrams advise --staged              # for all git-staged files
 ```
 
-Returns `{"constraints": [...], "violations": [...]}`. Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When both arrays are empty, proceed with no constraints.
+Returns `{"schemas": [...], "constraints": [...], "violations": [...]}`. Schemas are active cognitive schemas whose member nodes anchor to those paths, surfaced above constraints so agents apply high-level guidance first (spec 0005). Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When all arrays are empty, proceed with no constraints.
 
 Distinct from `relevant`, which returns full structs with scores and reinforces-on-read — use `relevant` for *understanding* context, `advise` for *checking constraints before editing*.
 
