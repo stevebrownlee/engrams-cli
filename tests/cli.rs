@@ -4317,15 +4317,15 @@ fn test_schema_show_truncates_members_over_cap() {
     let members = schema["members"].as_array().unwrap();
     assert_eq!(members.len(), 20, "exactly the cap is enriched");
 
-    // Members keep the link query's (kind, textual id) order; the first 20
-    // of that order are shown, ids as strings sort lexicographically.
-    let mut all: Vec<String> = (1..=25).map(|i| i.to_string()).collect();
-    all.sort();
+    // Members keep the link query's (kind, insertion) order — insertion is
+    // the context_links rowid, here 1..=25 in seed order — so the first 20
+    // shown are ids 1 through 20.
     let shown: Vec<String> = members
         .iter()
         .map(|m| m["id"].as_i64().unwrap().to_string())
         .collect();
-    assert_eq!(shown, &all[..20]);
+    let expected: Vec<String> = (1..=20).map(|i| i.to_string()).collect();
+    assert_eq!(shown, expected);
     for m in members {
         assert_eq!(m["summary"], format!("Decision {}", m["id"]));
     }

@@ -151,11 +151,10 @@ pub(crate) fn resolve_schema(conn: &Connection, target: &str) -> Result<Option<i
     // wins. Only reached after id and exact-name misses; schema tables are
     // small, and the scan keeps "Multi Kind" and "multi_kind" hitting the
     // same row.
-    let rows = conn
-        .prepare("SELECT id, name FROM schemas ORDER BY id")?
-        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    for (id, name) in rows {
+    let mut stmt = conn.prepare("SELECT id, name FROM schemas ORDER BY id")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    for row in rows {
+        let (id, name) = row?;
         if slug_fold(&name) == slug {
             return Ok(Some(id));
         }

@@ -228,23 +228,28 @@ fn tag_match_counts(conn: &Connection, tags: &[String]) -> Result<HashMap<i64, u
     if wanted.is_empty() {
         return Ok(counts);
     }
-    let mut stmt =
-        conn.prepare("SELECT s.id, s.centroid_json FROM schemas s WHERE s.status = 'active'")?;
+    // json_each walks the tags object's keys inside SQLite, so no full
+    // `centroid_json` Value tree is parsed per row. `centroid()` writes
+    // tags as an object of tag → member count; the keys are the vocabulary
+    // scored against the targets. Parts union per schema before counting —
+    // a part shared by two tags of one schema still counts once.
+    let mut stmt = conn.prepare(
+        "SELECT s.id, je.key FROM schemas s, \
+         json_each(s.centroid_json, '$.tags') je WHERE s.status = 'active'",
+    )?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    let mut by_schema: HashMap<i64, std::collections::BTreeSet<String>> = HashMap::new();
     for r in rows {
-        let (id, centroid_json) = r?;
-        let centroid: Value = serde_json::from_str(&centroid_json).unwrap_or(Value::Null);
-        // `centroid()` writes tags as an object of tag → member count; the
-        // keys are the vocabulary scored against the targets.
-        if let Some(centroid_tags) = centroid["tags"].as_object() {
-            let mut parts = std::collections::BTreeSet::new();
-            for t in centroid_tags.keys() {
-                parts.extend(crate::ops::ident_parts(t));
-            }
-            let overlap = wanted.intersection(&parts).count();
-            if overlap > 0 {
-                counts.insert(id, overlap);
-            }
+        let (id, tag) = r?;
+        by_schema
+            .entry(id)
+            .or_default()
+            .extend(crate::ops::ident_parts(&tag));
+    }
+    for (id, parts) in by_schema {
+        let overlap = wanted.intersection(&parts).count();
+        if overlap > 0 {
+            counts.insert(id, overlap);
         }
     }
     Ok(counts)
@@ -360,20 +365,23 @@ pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
     Ok(payload)
 }
 
-/// Immediate member references of a schema in the link query's canonical
-/// (kind, textual id) order — the order `schema show` and `brief
-/// schema:<id>` both project (spec 0005 Architecture item 2).
-pub(crate) fn member_refs(conn: &Connection, schema_id: i64) -> Result<Vec<(String, String)>> {
+/// Immediate member references of a schema in (kind, insertion) order —
+/// insertion is the link rowid: deterministic, meaningful for the "first
+/// 20" truncation contract, and no per-row CAST.
+pub fn member_refs(conn: &Connection, schema_id: i64) -> Result<Vec<(String, String)>> {
     let mut stmt = conn.prepare(
         "SELECT source_item_type, source_item_id FROM context_links \
          WHERE relationship_type = 'member_of' AND target_item_type = 'schema' \
-         AND target_item_id = ?1 ORDER BY source_item_type, source_item_id",
+          AND target_item_id = ?1 \
+         ORDER BY source_item_type, id",
     )?;
-    let members = stmt
-        .query_map([schema_id], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let rows = stmt.query_map([schema_id.to_string()], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    let mut members = Vec::new();
+    for row in rows {
+        members.push(row?);
+    }
     Ok(members)
 }
 
@@ -419,6 +427,10 @@ pub(crate) fn enrich_members(
             buckets.entry(canon).or_default().push(id);
         }
     }
+
+    // Anchors for the two kinds `brief` anchors, batched in one query up
+    // front so the fold-back loop issues no per-member queries.
+    let mut anchor_map = fetch_member_anchors(conn, &buckets)?;
 
     // One batched lookup per kind: id -> the fields the payload inlines.
     let mut details: HashMap<&'static str, HashMap<i64, Value>> = HashMap::new();
@@ -551,8 +563,8 @@ pub(crate) fn enrich_members(
         );
     }
 
-    // Fold back in link order, moving each member's detail out of the
-    // dying maps. Anchors ride along for the kinds `brief` anchors.
+    // Fold back in link order, moving each member's detail and anchors out
+    // of the dying maps (rule 004).
     let mut out = Vec::with_capacity(members.len());
     for (kind, raw) in members {
         let canon = enrichable_kind(kind);
@@ -573,9 +585,11 @@ pub(crate) fn enrich_members(
         }
         if let (Some(c), Some(i)) = (canon, id) {
             if c == "decision" || c == "system_pattern" {
+                // Missing key = unanchored: the payload keeps the
+                // unconditional empty array `anchors_for` returned.
                 obj.insert(
                     "anchors".into(),
-                    json!(crate::ops::anchor::anchors_for(conn, c, i)?),
+                    json!(anchor_map.remove(&(c, i)).unwrap_or_default()),
                 );
             }
         }
@@ -593,8 +607,7 @@ fn fetch_details(
     fields: impl Fn(&rusqlite::Row<'_>) -> rusqlite::Result<Value>,
 ) -> Result<HashMap<i64, Value>> {
     let mut stmt = conn.prepare(sql)?;
-    let id_refs: Vec<&i64> = ids.iter().collect();
-    let rows = stmt.query_map(rusqlite::params_from_iter(id_refs), |r| {
+    let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |r| {
         Ok((r.get::<_, i64>(0)?, fields(r)?))
     })?;
     let mut map = HashMap::with_capacity(ids.len());
@@ -603,6 +616,51 @@ fn fetch_details(
         map.insert(id, fields);
     }
     Ok(map)
+}
+
+/// Anchors for every decision/system_pattern id in `buckets`, in one
+/// `IN`-list query — the batch counterpart to
+/// [`crate::ops::anchor::anchors_for`], consumed by move in
+/// [`enrich_members`]' fold-back loop (rule 004). Params borrow from
+/// `buckets` (rule 002); keyed `(kind, id)` with per-item paths in
+/// `item_anchors` insertion order, matching the single-item query.
+fn fetch_member_anchors(
+    conn: &Connection,
+    buckets: &HashMap<&'static str, Vec<i64>>,
+) -> Result<HashMap<(&'static str, i64), Vec<String>>> {
+    let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+    for kind in ["decision", "system_pattern"] {
+        if let Some(ids) = buckets.get(kind) {
+            params.extend(ids.iter().map(|id| id as &dyn rusqlite::ToSql));
+        }
+    }
+    if params.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let sql = format!(
+        "SELECT item_type, item_id, path FROM item_anchors \
+         WHERE item_type IN ('decision', 'system_pattern') \
+         AND item_id IN ({}) ORDER BY id ASC",
+        crate::ops::sql_placeholders(params.len())
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(params), |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, i64>(1)?,
+            r.get::<_, String>(2)?,
+        ))
+    })?;
+    let mut out: HashMap<(&'static str, i64), Vec<String>> = HashMap::new();
+    for row in rows {
+        let (item_type, item_id, path) = row?;
+        // The WHERE clause already filters the kind; `item_id` is INTEGER
+        // in `item_anchors`, so it keys a bucket entry directly.
+        if let Some(canon) = enrichable_kind(&item_type) {
+            out.entry((canon, item_id)).or_default().push(path);
+        }
+    }
+    Ok(out)
 }
 /// Distinct anchor paths across the schema's anchored members.
 pub fn member_anchors(conn: &Connection, schema_id: i64) -> Result<Vec<String>> {
