@@ -98,14 +98,15 @@ For each qualifying candidate:
 
 ### 3.3. Session Value Counter (`src/ops/session.rs`)
 `session close` calculates session-scoped value metrics:
-- Identifies session start timestamp from `MIN(usage_log.timestamp) WHERE session = ?1`.
+- When `session` is provided (`Some(sid)`): identifies session start timestamp from `MIN(usage_log.timestamp) WHERE session = ?1`.
+- When `session` is `None` (manual close): windows since the most recent session close (`SELECT MAX(timestamp) FROM session_closes`), falling back to `MIN(usage_log.timestamp)` if no prior close exists. If no timestamps exist, returns 0.
 - Queries `retrieval_surfaces`:
   ```sql
   SELECT COUNT(*), COUNT(DISTINCT node_id)
   FROM retrieval_surfaces
   WHERE node_kind = 'schema' AND ts >= ?1
   ```
-- Emits `"schema_value": { "guided_retrievals": N, "distinct_schemas": M }`.
+- Emits `"schema_value": { "guided_retrievals": N, "distinct_schemas": M }`. Never emits unwindowed all-time totals under session-scoped keys.
 
 ### 3.4. `schema list` Guided Counter (`src/ops/schemas/list.rs`)
 - Factors the surfacing aggregation query out of `src/ops/schemas/retrieval.rs:80`:

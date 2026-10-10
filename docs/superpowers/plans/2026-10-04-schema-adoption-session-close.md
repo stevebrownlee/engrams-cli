@@ -694,31 +694,44 @@ In `src/ops/session.rs`:
 1. Add `schema_value_rollup` helper:
 ```rust
 fn schema_value_rollup(conn: &Connection, session: Option<&str>) -> Result<Value> {
-    let (guided, distinct) = match session {
-        Some(sid) => {
-            let start_ts: Option<String> = conn.query_row(
+    let start_ts: Option<String> = match session {
+        Some(sid) => conn
+            .query_row(
                 "SELECT MIN(timestamp) FROM usage_log WHERE session = ?1",
                 params![sid],
                 |r| r.get(0),
-            ).optional()?.flatten();
+            )
+            .optional()?
+            .flatten(),
+        None => conn
+            .query_row(
+                "SELECT MAX(timestamp) FROM session_closes",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?
+            .flatten()
+            .or_else(|| {
+                conn.query_row(
+                    "SELECT MIN(timestamp) FROM usage_log",
+                    [],
+                    |r| r.get(0),
+                )
+                .ok()
+                .flatten()
+            }),
+    };
 
-            match start_ts {
-                Some(ts) => conn.query_row(
-                    "SELECT COUNT(*), COUNT(DISTINCT node_id) FROM retrieval_surfaces \
-                     WHERE node_kind = 'schema' AND ts >= ?1",
-                    params![ts],
-                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-                )?,
-                None => (0, 0),
-            }
-        }
-        None => conn.query_row(
+    let (guided, distinct) = match start_ts {
+        Some(ts) => conn.query_row(
             "SELECT COUNT(*), COUNT(DISTINCT node_id) FROM retrieval_surfaces \
-             WHERE node_kind = 'schema'",
-            [],
+             WHERE node_kind = 'schema' AND ts >= ?1",
+            params![ts],
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
         )?,
+        None => (0, 0),
     };
+
     Ok(json!({
         "guided_retrievals": guided,
         "distinct_schemas": distinct
