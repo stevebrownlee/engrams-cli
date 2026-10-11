@@ -10,6 +10,10 @@ pub mod confirm;
 pub(crate) mod gates;
 pub mod kind;
 pub mod list;
+// Not yet wired: session close (Task 4 of the schema-adoption plan) consumes
+// find_opportunities/stamp_notified; drop this allow when that lands.
+#[allow(dead_code)]
+pub(crate) mod opportunities;
 pub mod retrieval;
 pub mod scan;
 
