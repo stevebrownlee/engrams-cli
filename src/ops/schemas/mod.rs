@@ -7,6 +7,7 @@
 
 pub mod assimilate;
 pub mod confirm;
+pub(crate) mod gates;
 pub mod kind;
 pub mod list;
 pub mod retrieval;
