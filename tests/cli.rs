@@ -4814,3 +4814,69 @@ fn test_schema_list_guided_is_zero_without_surfaces() {
         "a never-surfaced schema reads 0, not null: {val}"
     );
 }
+
+#[test]
+fn test_session_close_opportunity_workflow_actionable() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Seed real members and a gate-passing schema candidate whose territory no
+    // confirmed schema claims. Gate values mirror seed_schema_candidate (density
+    // 0.8 / stability 3 / reward 1 all pass).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+             (10, 'u10', '2026-01-01T00:00:00Z', 'Dec 10', '[\"ast\", \"compiler\"]'),
+             (11, 'u11', '2026-01-01T00:00:00Z', 'Dec 11', '[\"ast\", \"syntax\"]');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 10, 'src/ast/lexer.rs', '2026-01-01T00:00:00Z'),
+             ('decision', 11, 'src/ast/parser.rs', '2026-01-01T00:00:00Z');
+             INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, stability_count, reward_hits, first_seen_at, last_seen_at, kind) VALUES
+             ('decision:10,decision:11', '[\"decision:10\", \"decision:11\"]', 0.8, 3, 1,
+              '2026-01-01T00:00:00Z', '2026-01-01T01:00:00Z', 'schema');",
+        )
+        .unwrap();
+    }
+
+    // Close surfaces exactly one opportunity with an executable command.
+    let out = engrams(&db)
+        .args(["session", "close", "--note", "first"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let opps = val["schema_opportunities"].as_array().unwrap();
+    assert_eq!(opps.len(), 1, "one gate-passing candidate surfaces: {val}");
+
+    // The emitted command runs verbatim: drop the leading "engrams" and pass
+    // the rest as argv (the suggested name is a single kebab-case token).
+    let cmd_str = opps[0]["confirm_command"].as_str().unwrap();
+    let args: Vec<&str> = cmd_str.split_whitespace().skip(1).collect();
+    engrams(&db).args(&args).assert().success();
+
+    // The schema now exists under the suggested name.
+    let name = opps[0]["suggested_name"].as_str().unwrap();
+    let show_out = engrams(&db)
+        .args(["schema", "show", name])
+        .output()
+        .unwrap();
+    assert!(
+        show_out.status.success(),
+        "emitted command must produce a resolvable schema"
+    );
+
+    // A later close neither re-nags (notified) nor re-offers (territory claimed).
+    let out2 = engrams(&db)
+        .args(["session", "close", "--note", "second"])
+        .output()
+        .unwrap();
+    assert!(out2.status.success());
+    let val2: Value = serde_json::from_slice(&out2.stdout).unwrap();
+    let opps2 = val2["schema_opportunities"].as_array().unwrap();
+    assert!(
+        opps2.is_empty(),
+        "promoted/notified candidate must not re-nag: {val2}"
+    );
+}
