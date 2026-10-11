@@ -204,7 +204,8 @@ CREATE TABLE IF NOT EXISTS schema_candidates (
   first_seen_at      TEXT NOT NULL,
   last_seen_at      TEXT NOT NULL,
   kind               TEXT NOT NULL DEFAULT 'unclear',  -- spec 0003: 'schema'|'story'|'inventory'|'unclear'
-  kind_reasons_json  TEXT NOT NULL DEFAULT '[]'        -- labeler's plain-language reasons
+  kind_reasons_json  TEXT NOT NULL DEFAULT '[]',       -- labeler's plain-language reasons
+  notified_at        TEXT                              -- session close notification timestamp
 );
 CREATE TABLE IF NOT EXISTS retrieval_surfaces (
   ts        TEXT NOT NULL,
@@ -497,4 +498,10 @@ pub const MIGRATION_V14: &str = r#"
 -- only — no existing column data changes.
 ALTER TABLE schemas ADD COLUMN kind TEXT NOT NULL DEFAULT 'unclear';
 ALTER TABLE schemas ADD COLUMN kind_reasons_json TEXT NOT NULL DEFAULT '[]';
+"#;
+
+pub const MIGRATION_V15: &str = r#"
+-- Session-close schema opportunity notification timestamp.
+-- NULL = never notified; timestamp allows re-notification only if candidate drifts (last_seen_at > notified_at).
+ALTER TABLE schema_candidates ADD COLUMN notified_at TEXT;
 "#;

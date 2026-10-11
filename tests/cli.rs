@@ -2181,14 +2181,16 @@ fn test_migration_v13_to_v14() {
 
     engrams(&db).arg("init").assert().success();
 
-    // Rewind to the pre-v14 shape: MIGRATION_V14 is purely additive, so a
-    // v13 database is exactly the current shape minus the schemas kind
-    // columns. Seed a confirmed schema the upgrade must preserve.
+    // Rewind to the pre-v14 shape: MIGRATION_V14 and MIGRATION_V15 are purely
+    // additive, so a v13 database is exactly the current shape minus the
+    // schemas kind columns and schema_candidates.notified_at. Seed a
+    // confirmed schema the upgrade must preserve.
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch(
             "ALTER TABLE schemas DROP COLUMN kind;
-             ALTER TABLE schemas DROP COLUMN kind_reasons_json;",
+             ALTER TABLE schemas DROP COLUMN kind_reasons_json;
+             ALTER TABLE schema_candidates DROP COLUMN notified_at;",
         )
         .unwrap();
         conn.execute(
@@ -2202,15 +2204,15 @@ fn test_migration_v13_to_v14() {
     }
 
     // On-disk version must match migrate's self-reported latest (self-maintaining
-    // pin — derived from command output), which this contract pins at 14.
+    // pin — derived from command output), which this contract pins at 15.
     let out = engrams(&db).arg("migrate").output().unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(parsed["version"].as_i64().unwrap(), 14);
+    assert_eq!(parsed["version"].as_i64().unwrap(), 15);
     let conn = rusqlite::Connection::open(&db).unwrap();
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 14);
+    assert_eq!(version, 15);
 
     // The kind columns exist post-migration.
     let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
@@ -2221,6 +2223,16 @@ fn test_migration_v13_to_v14() {
         .collect();
     assert!(cols.contains(&"kind".to_string()));
     assert!(cols.contains(&"kind_reasons_json".to_string()));
+
+    // MIGRATION_V15 ran as part of the 13->15 climb.
+    let cand_cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(schema_candidates)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .flatten()
+        .collect();
+    assert!(cand_cols.contains(&"notified_at".to_string()));
 
     // The pre-existing row backfilled via the column defaults (a successful
     // NOT NULL backfill proves the DEFAULT clauses landed), and every prior
