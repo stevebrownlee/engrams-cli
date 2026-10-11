@@ -64,7 +64,11 @@ struct Row {
     centroid_json: String,
 }
 
-fn row_json(counts: &std::collections::HashMap<i64, i64>, r: &Row) -> Value {
+fn row_json(
+    counts: &std::collections::HashMap<i64, i64>,
+    guided: &std::collections::HashMap<i64, usize>,
+    r: &Row,
+) -> Value {
     let centroid: Value = serde_json::from_str(&r.centroid_json).unwrap_or(Value::Null);
     json!({
         "id": r.id,
@@ -74,6 +78,7 @@ fn row_json(counts: &std::collections::HashMap<i64, i64>, r: &Row) -> Value {
         "status": r.status,
         "kind": r.kind,
         "member_count": counts.get(&r.id).copied().unwrap_or(0),
+        "guided": guided.get(&r.id).copied().unwrap_or(0),
         "updated_at": r.updated_at,
         "last_confirmed_at": r.last_confirmed_at,
         "centroid": centroid,
@@ -83,6 +88,7 @@ fn row_json(counts: &std::collections::HashMap<i64, i64>, r: &Row) -> Value {
 /// List confirmed schemas, ranked. `status` filters on the DDL vocabulary.
 pub fn list(conn: &Connection, status: Option<&str>) -> Result<Value> {
     let counts = member_counts(conn)?;
+    let guided = retrieval::surface_counts(conn)?;
     let mut stmt = conn.prepare(&format!(
         "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.kind, \
          s.kind_reasons_json, s.updated_at, \
@@ -116,7 +122,7 @@ pub fn list(conn: &Connection, status: Option<&str>) -> Result<Value> {
             .query_map([], map_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?,
     };
-    let schemas: Vec<Value> = rows.iter().map(|r| row_json(&counts, r)).collect();
+    let schemas: Vec<Value> = rows.iter().map(|r| row_json(&counts, &guided, r)).collect();
     Ok(json!({
         "status": "success",
         "schemas": schemas,
@@ -186,6 +192,7 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
     let id = resolve_schema(conn, target)?
         .ok_or_else(|| anyhow::anyhow!("no schema matches '{target}'"))?;
     let counts = member_counts(conn)?;
+    let guided = retrieval::surface_counts(conn)?;
     let row: Row = conn.query_row(
         "SELECT name, summary, summary_source, status, kind, kind_reasons_json, \
          updated_at, last_confirmed_at, \
@@ -210,7 +217,7 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
     let total = members.len();
     let cap = total.min(retrieval::MEMBER_ENRICHMENT_CAP);
     let enriched = retrieval::enrich_members(conn, &members[..cap])?;
-    let mut out = row_json(&counts, &row);
+    let mut out = row_json(&counts, &guided, &row);
     out["members"] = Value::Array(enriched);
     // Confirm-time reason sentences, projected as a JSON array; the v14
     // default '[]' reads as an empty array (spec 0004 AC-5).

@@ -73,16 +73,28 @@ pub fn prune(conn: &Connection) -> Result<usize> {
     Ok(n)
 }
 
-/// Reward hits per schema id: surface rows recorded for that schema node.
-/// The full map — schema sets are tiny at KB scale; callers pick their ids.
-pub fn reward_hits(conn: &Connection) -> Result<HashMap<i64, i64>> {
+/// Count of times each schema was surfaced across retrieval surfaces within
+/// the rolling retention window. The one surfacing-count query: prime
+/// ranking consumes it through [`reward_hits`], and `schema list`/`show`
+/// rows surface it directly as `guided`.
+pub(crate) fn surface_counts(conn: &Connection) -> Result<HashMap<i64, usize>> {
     let mut stmt = conn.prepare(
         "SELECT node_id, COUNT(*) FROM retrieval_surfaces \
          WHERE node_kind = 'schema' GROUP BY node_id",
     )?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, usize>(1)?)))?;
     rows.collect::<std::result::Result<HashMap<_, _>, _>>()
         .map_err(Into::into)
+}
+
+/// Reward hits per schema id: surface rows recorded for that schema node.
+/// The full map — schema sets are tiny at KB scale; callers pick their ids.
+/// Wraps [`surface_counts`] rather than duplicating its query.
+pub fn reward_hits(conn: &Connection) -> Result<HashMap<i64, i64>> {
+    Ok(surface_counts(conn)?
+        .into_iter()
+        .map(|(id, n)| (id, n as i64))
+        .collect())
 }
 
 /// Prime's leading schema block: top-K (K = [`PRIME_SCHEMA_K`]) active

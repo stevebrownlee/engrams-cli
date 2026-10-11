@@ -4748,3 +4748,69 @@ fn test_session_close_second_close_does_not_resurface_stamped_candidates() {
         "stamped candidates are not re-surfaced"
     );
 }
+
+#[test]
+fn test_schema_list_includes_guided_count() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (id, uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             (1, 'u1', 'active-schema', 'summary', '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-01-01T00:00:00Z', 'advise', 'path', 'schema', 1),
+             ('2026-01-01T00:01:00Z', 'advise', 'path', 'schema', 1),
+             ('2026-01-01T00:02:00Z', 'advise', 'path', 'decision', 1);",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schemas = val["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(
+        schemas[0]["guided"], 2,
+        "two schema-kind surface rows count; the decision row does not: {val}"
+    );
+
+    // `schema show` reads the same counter so both views agree.
+    let out = engrams(&db).args(["schema", "show", "1"]).output().unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        val["schema"]["guided"], 2,
+        "show mirrors the list count: {val}"
+    );
+}
+
+#[test]
+fn test_schema_list_guided_is_zero_without_surfaces() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-quiet', 'quiet-schema', 'never surfaced', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schemas = val["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(
+        schemas[0]["guided"], 0,
+        "a never-surfaced schema reads 0, not null: {val}"
+    );
+}
