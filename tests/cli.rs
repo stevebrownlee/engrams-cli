@@ -4560,3 +4560,191 @@ fn test_brief_schema_truncates_members_over_cap() {
         assert_eq!(m["summary"], format!("Decision {}", m["id"]));
     }
 }
+
+// --- Session close: schema_value + schema_opportunities (spec 0005) ---
+
+/// Seeds one `kind='schema'` candidate that clears the gates, plus retrieval
+/// surfaces and a usage row for the given session. Returns the candidate's
+/// signature so assertions can stay data-driven.
+fn seed_schema_candidate(
+    db: &std::path::Path,
+    signature: &str,
+    surface_ts: &[(&str, i64)],
+    usage_ts: &str,
+    session: &str,
+) {
+    let conn = rusqlite::Connection::open(db).unwrap();
+    conn.execute(
+        "INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, stability_count, reward_hits, last_drift_removed, last_drift_added, first_seen_at, last_seen_at, kind) \
+         VALUES (?1, ?2, 0.8, 3, 1, 0, 0, '2020-01-01T00:00:00Z', '2020-01-01T00:00:00Z', 'schema')",
+        rusqlite::params![signature, r#"["decision:1","decision:2"]"#],
+    )
+    .unwrap();
+    for (ts, node_id) in surface_ts {
+        conn.execute(
+            "INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES (?1, 'advise', NULL, 'schema', ?2)",
+            rusqlite::params![ts, node_id],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO usage_log (timestamp, command, arg, hits, miss, session) VALUES (?1, 'advise', NULL, 2, 0, ?2)",
+        rusqlite::params![usage_ts, session],
+    )
+    .unwrap();
+}
+
+#[test]
+fn test_session_close_surfaces_schema_value_and_opportunities() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Session usage starts at 12:00; surfaces at/after it count — one per
+    // distinct schema node (1 and 2) plus a repeat of node 1.
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[
+            ("2026-10-04T12:01:00Z", 1),
+            ("2026-10-04T12:02:00Z", 2),
+            ("2026-10-04T12:03:00Z", 1),
+        ],
+        "2026-10-04T12:00:00Z",
+        "ses_test",
+    );
+
+    let out = engrams(&db)
+        .args([
+            "session",
+            "close",
+            "--session",
+            "ses_test",
+            "--note",
+            "test",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+
+    // Windowed guided-retrieval counts for the named session.
+    assert_eq!(parsed["schema_value"]["guided_retrievals"], 3);
+    assert_eq!(parsed["schema_value"]["distinct_schemas"], 2);
+
+    // The gated candidate is surfaced with a suggestion.
+    let opps = parsed["schema_opportunities"].as_array().unwrap();
+    assert_eq!(opps.len(), 1, "one gated candidate surfaces");
+    assert_eq!(opps[0]["signature"], "decision:1|decision:2");
+    assert!(opps[0]["suggested_name"].as_str().is_some());
+    assert!(opps[0]["confirm_command"].as_str().is_some());
+
+    // Surfaced == stamped: notified_at is set for exactly what was emitted.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let notified: String = conn
+        .query_row(
+            "SELECT notified_at FROM schema_candidates WHERE cluster_sig = ?1",
+            rusqlite::params!["decision:1|decision:2"],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(!notified.is_empty(), "surfaced candidate must be stamped");
+}
+
+#[test]
+fn test_session_close_manual_close_before_any_closes_is_zero_window() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Surfaces exist but no session and no prior close: a manual close has no
+    // window anchor, so counts stay zero instead of reporting all-time totals.
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[("2026-10-04T12:01:00Z", 1)],
+        "2026-10-04T12:00:00Z",
+        "ses_test",
+    );
+
+    let out = engrams(&db)
+        .args(["session", "close", "--note", "first manual close"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+
+    assert_eq!(parsed["schema_value"]["guided_retrievals"], 0);
+    assert_eq!(parsed["schema_value"]["distinct_schemas"], 0);
+}
+
+#[test]
+fn test_session_close_manual_close_windows_since_previous_close() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // One surface before the previous close, one after it: only the newer
+    // surface falls inside this close's window.
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[("2026-10-04T09:00:00Z", 1), ("2026-10-04T11:00:00Z", 2)],
+        "2026-10-04T08:00:00Z",
+        "ses_earlier",
+    );
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute(
+        "INSERT INTO session_closes (timestamp, session, reads_skipped, reads_required) VALUES ('2026-10-04T10:00:00Z', 'ses_earlier', 0, 0)",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = engrams(&db)
+        .args(["session", "close", "--note", "second manual close"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+
+    assert_eq!(parsed["schema_value"]["guided_retrievals"], 1);
+    assert_eq!(parsed["schema_value"]["distinct_schemas"], 1);
+}
+
+#[test]
+fn test_session_close_second_close_does_not_resurface_stamped_candidates() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[("2026-10-04T12:01:00Z", 1)],
+        "2026-10-04T12:00:00Z",
+        "ses_test",
+    );
+
+    let out = engrams(&db)
+        .args(["session", "close", "--session", "ses_test"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let first: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(first["schema_opportunities"].as_array().unwrap().len(), 1);
+
+    // The candidate is unchanged (notified_at was stamped at first close), so
+    // the next close must not surface it again.
+    let out = engrams(&db)
+        .args(["session", "close", "--session", "ses_test"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let second: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        second["schema_opportunities"].as_array().unwrap().len(),
+        0,
+        "stamped candidates are not re-surfaced"
+    );
+}
