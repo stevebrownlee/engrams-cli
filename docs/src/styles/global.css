@@ -174,18 +174,28 @@ tbody tr:hover { background: #f5f7fb; }
 /* ============================================================
    v0.9.0 "Active Advisor" – dark theme + motion foundation
    ============================================================ */
-:root {
-  /* Dark section palette (built on gunmetal/jet) */
-  --dark-bg:        #12181f;
-  --dark-bg-2:      #1a2230;
-  --dark-surface:   #222d42;
-  --dark-border:    #33405c;
-  --dark-text:      #e9edf4;
-  --dark-text-muted:#9aa6bd;
+::root {
+  /* Dark section palette (Ink & Brass Architectural Ledger) */
+  --dark-bg:        #0e1117;
+  --dark-bg-2:      #141922;
+  --dark-surface:   #1a202c;
+  --dark-border:    #2a3447;
+  --dark-border-subtle: rgba(255, 255, 255, 0.08);
+  --dark-text:      #f0f3f8;
+  --dark-text-muted:#8c99b2;
 
-  /* Graph entity colors (legible on dark) */
+  /* Architectural Ledger Accent Tokens */
+  --brass-gold:       #cca43b;
+  --brass-bright:     #e3b84e;
+  --brass-glow:       rgba(204, 164, 59, 0.18);
+  --ledger-amber:     #d4a342;
+  --ledger-paper:     #0e1117;
+  --ledger-grid:      #1f2633;
+
+  /* Graph & Schema entity colors */
   --gold-bright:      #e3b84e;
-  --graph-decision:   #e3b84e;  /* reasoning – gold */
+  --graph-schema:     #e3b84e;  /* mental models - brass gold */
+  --graph-decision:   #cca43b;  /* reasoning – warm gold */
   --graph-pattern:    #e8ecf3;  /* standards – platinum */
   --graph-progress:   #7d8aa5;  /* activity – gray-blue */
 
