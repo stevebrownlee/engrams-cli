@@ -51,6 +51,7 @@ You have access to the `engrams` CLI tool, which maintains a local SQLite databa
 - **Links (Knowledge Graph):** Establish typed relationships between decisions, patterns, progress, and custom data (e.g. decision A *implements* pattern B).
 - **Activity Digest:** Fetch a reverse-chronological stream of modifications to quickly get up to speed.
 - **Git-Sync (Export/Import):** Export database state to structured markdown files that can be committed to git, and import them back to reconstruct the SQLite database.
+- **Cognitive Schemas:** Named bundles of related memories with a trigger-and-rule summary that guide retrieval before any file is read. Detection is automatic: `engrams session close` surfaces ready-to-confirm schema candidates and counts how many retrievals schemas guided, so the payoff stays visible with zero bookkeeping.
 
 ---
 

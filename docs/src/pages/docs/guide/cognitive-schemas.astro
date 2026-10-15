@@ -208,6 +208,30 @@ engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
     tags for topics.
   </p>
 
+  <h2 class="reveal">The loop closes itself</h2>
+  <p>
+    You do not have to remember to look for schemas. Detection runs continuously in the background,
+    and <code>engrams session close</code> tells you two things at the exact moment a session ends:
+  </p>
+  <ul>
+    <li>
+      <strong>schema_opportunities</strong> — candidate clusters that passed the formation gates and
+      do not overlap any schema you already confirmed. Each one arrives with a suggested name and a
+      ready-to-run <code>engrams schema confirm</code> command. Run it, or don't: an unchanged
+      candidate is not nagged about again, and one that keeps growing comes back louder.
+    </li>
+    <li>
+      <strong>schema_value</strong> — how many retrievals this session were guided by schemas, and
+      how many distinct schemas did the guiding. This is the payoff made visible: schemas are doing
+      work, here is the count.
+    </li>
+  </ul>
+  <p>
+    The same counter shows up per schema in <code>engrams schema list</code> and
+    <code>schema show</code> as the <code>guided</code> field — so a schema that never fires is
+    visible too, and worth refining or retiring.
+  </p>
+
   <div class="callout note reveal">
     <strong>The loop:</strong> <code>schema scan</code> finds the cluster, <code>schema confirm</code> seals it,
     <code>schema refine</code> names the trigger and rule, and <code>advise</code> / <code>prime</code> deliver the rule
