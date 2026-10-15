@@ -923,7 +923,8 @@ pub enum BatchType {
 
 #[derive(Subcommand, Debug)]
 pub enum SessionCmd {
-    /// Record an end-of-session ROI rollup (optionally gates a PR)
+    /// Record an end-of-session ROI rollup (optionally gates a PR); reports
+    /// schema-guided retrievals and unconfirmed schema opportunities
     Close {
         /// Reads the KB made unnecessary this session (estimate)
         #[arg(long, default_value_t = 0)]
