@@ -1,7 +1,5 @@
 ---
 import "../styles/global.css";
-import Hero3D from "../components/Hero3D.astro";
-import ForceGraph from "../components/ForceGraph.astro";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -13,11 +11,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Stop paying the file-reading tax. Engrams embeds interface contracts, code topology, and Git drift into a self-sufficient local architecture graph your AI agent actually trusts."
+      content="Stop burning 50,000 tokens on defensive file reads. Engrams automatically organizes your codebase into Cognitive Schemas — compact mental models that tell your AI agent exactly how to write code before it opens a single file."
     />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Engrams – Architecture Graphs for AI Agents</title>
+    <title>Engrams – Cognitive Schemas & Memory for AI Agents</title>
   </head>
   <body class="home-body">
     <!-- ── Header ── -->
@@ -28,9 +26,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <span class="logo-text">Engrams</span>
         </a>
         <nav class="hdr-nav">
+          <a href="/docs/guide/cognitive-schemas" class="nav-highlight">Schemas</a>
           <a href="/docs/advisor/overview">The Advisor</a>
-          <a href="/docs/for-you/overview">For You</a>
-          <a href="/docs/for-agent/overview">For Your Agent</a>
+          <a href="/docs/getting-started">Docs</a>
           <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
         </nav>
       </div>
@@ -38,229 +36,287 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
     <!-- ══ HERO ══ -->
     <section class="hero dark">
-      <Hero3D height="100%" />
       <div class="hero-content">
-        <div class="hero-badge">Open Source · Apache-2.0 · v{__APP_VERSION__}</div>
+        <div class="hero-badge">Autonomous Context · Cognitive Schemas · Local SQLite</div>
         <h1 class="hero-title">
-          The self-sufficient architecture graph<br />
-          your AI agent <span class="accent-word">actually trusts</span>.
+          Mental models for your AI agent.<br />
+          <span class="accent-word">Stop burning tokens on defensive file reads.</span>
         </h1>
         <p class="hero-subtitle">
-          Stop burning 15,000 tokens on defensive file reads. Engrams embeds interface contracts,
-          code topology, and live Git drift into a local knowledge graph — so your AI can plan,
-          verify, and design with architectural precision before opening a single file.
+          Your AI forgets your codebase between sessions, burning 50,000 tokens reading 15 files
+          just to guess your conventions. Engrams automatically organizes your decisions, patterns,
+          and code into <em>Cognitive Schemas</em> — compact playbooks that tell your AI how to build
+          before it opens a single file.
         </p>
         <div class="hero-actions">
-          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started</a>
-          <a href="#graph" class="btn btn-ghost btn-lg">Explore the knowledge graph ↓</a>
+          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started in 3 minutes</a>
+          <a href="#schemas" class="btn btn-ghost btn-lg">See how schemas work ↓</a>
+        </div>
+
+        <!-- ── HERO COMPARISON WIDGET ── -->
+        <div class="hero-compare-widget reveal">
+          <div class="compare-card compare-card-bad">
+            <div class="card-status-bar">
+              <span class="status-indicator red"></span>
+              <span class="card-title">Traditional Agent: The File-Reading Tax</span>
+            </div>
+            <div class="card-stats">
+              <div class="stat-pill"><strong>14</strong> files read</div>
+              <div class="stat-pill"><strong>68,400</strong> tokens burned</div>
+              <div class="stat-pill"><strong>45s</strong> tool loop</div>
+            </div>
+            <p class="card-desc">
+              Agent searches blind, opens files defensively to guess architecture, runs out of context, and hallucinates stale patterns.
+            </p>
+          </div>
+
+          <div class="compare-card compare-card-good">
+            <div class="card-status-bar">
+              <span class="status-indicator green"></span>
+              <span class="card-title">With Engrams: Cognitive Schema Playbook</span>
+            </div>
+            <div class="card-stats">
+              <div class="stat-pill accent"><strong>1</strong> schema loaded</div>
+              <div class="stat-pill accent"><strong>260</strong> tokens total</div>
+              <div class="stat-pill accent"><strong>1ms</strong> local query</div>
+            </div>
+            <p class="card-desc">
+              <code>advise</code> intercepts the edit and provides the exact trigger, operational rules, and contracts before writing code.
+            </p>
+          </div>
         </div>
       </div>
-      <div class="hero-scroll-hint" aria-hidden="true">scroll</div>
     </section>
 
-    <!-- ══ BEFORE / AFTER COMPARISON ══ -->
-    <section class="section dark compare-section">
+    <!-- ══ ANATOMY OF A SCHEMA ══ -->
+    <section id="schemas" class="section">
       <div class="section-head reveal">
-        <div class="section-eyebrow">The hidden tax</div>
-        <h2 class="section-title">Stop paying the <span class="accent-word">15,000-token</span> file reading tax</h2>
+        <div class="section-eyebrow">The Core Concept</div>
+        <h2 class="section-title">What is a <span class="accent-word">Cognitive Schema</span>?</h2>
         <p class="section-sub">
-          When agents distrust incomplete context, they open files defensively. Reading 10 source files
-          just to inspect an adapter shape burns 100k+ tokens before writing a single line of code.
+          Senior engineers don't re-read the company manual before every task. They rely on mental models:
+          <em>"When I edit database code, I borrow parameters and avoid throwaway collections."</em>
+          Schemas give your AI that same expert intuition in under 300 tokens.
         </p>
       </div>
-      <div class="compare-table reveal">
+
+      <div class="schema-specimen-wrap reveal">
+        <div class="schema-specimen">
+          <div class="specimen-header">
+            <div class="specimen-id">
+              <span class="badge-kind">schema</span>
+              <code>performance-rules</code>
+            </div>
+            <div class="specimen-meta">
+              <span class="specimen-status">● active</span>
+              <span class="specimen-guided">guided 14 sessions</span>
+            </div>
+          </div>
+
+          <div class="specimen-body">
+            <div class="specimen-row">
+              <span class="specimen-label">⚡ Trigger</span>
+              <div class="specimen-value highlight-trigger">
+                Fires when editing Rust code that creates, copies, or hands off collections and strings
+              </div>
+            </div>
+            <div class="specimen-row">
+              <span class="specimen-label">📋 Rule</span>
+              <div class="specimen-value highlight-rule">
+                Borrow SQL parameters via Vec&lt;&amp;dyn ToSql&gt;; consume lookup maps by move with remove(); never materialize intermediate throwaway Vecs.
+              </div>
+            </div>
+            <div class="specimen-row">
+              <span class="specimen-label">🔗 Members</span>
+              <div class="specimen-members">
+                <span class="member-pill"><strong>Decision #88</strong>: Borrowed SQL params</span>
+                <span class="member-pill"><strong>Decision #91</strong>: Static vocabulary returns Cow</span>
+                <span class="member-pill"><strong>Pattern #12</strong>: Enrich by move</span>
+                <span class="member-pill anchor"><strong>Anchor</strong>: src/ops/schemas/retrieval.rs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ TOKEN ECONOMICS & VALUE ══ -->
+    <section class="section dark">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">The Payoff</div>
+        <h2 class="section-title">The Token Economics of <span class="accent-word">Mental Models</span></h2>
+        <p class="section-sub">
+          When AI assistants operate at the schema level rather than the raw file level, token consumption
+          collapses and task completion speeds multiply.
+        </p>
+      </div>
+
+      <div class="stat-grid reveal">
+        <div class="stat-card">
+          <div class="stat-number">95%</div>
+          <div class="stat-title">Fewer Tokens Burned</div>
+          <p class="stat-text">A 250-token schema activation replaces 50,000+ tokens of raw source file reads per task.</p>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">4×</div>
+          <div class="stat-title">Faster Velocity</div>
+          <p class="stat-text">Eliminates 5 to 10 exploratory tool rounds. The AI receives the playbook immediately and writes correct code on the first turn.</p>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">0MB</div>
+          <div class="stat-title">Background RAM</div>
+          <p class="stat-text">No heavy daemons, socket drops, or external vector embedding APIs. Pure, instant compiled Rust on SQLite.</p>
+        </div>
+      </div>
+
+      <!-- ── COMPARISON TABLE ── -->
+      <div class="compare-table reveal" style="margin-top: 3.5rem;">
         <div class="compare-grid">
-          <div class="compare-col-header compare-without-cell">Without engrams</div>
-          <div class="compare-col-header compare-with-cell">With engrams v0.12.0</div>
+          <div class="compare-col-header compare-without-cell">Traditional AI Assistant</div>
+          <div class="compare-col-header compare-with-cell">With Engrams Cognitive Schemas</div>
+
           <div class="compare-cell compare-without-cell">
-            <p>Agent opens 10+ source files (50k–150k tokens) to inspect behaviors, types, and callback names</p>
+            <p>Opens 10+ source files (50k–150k tokens) just to inspect behaviors, conventions, and signatures</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p><code>engrams brief</code> serves exact interface contracts and symbols in &lt;200 tokens — <strong>zero file reads required</strong></p>
+            <p><code>engrams advise</code> provides the exact schema, operational rules, and contracts in &lt;300 tokens</p>
           </div>
+
           <div class="compare-cell compare-without-cell">
-            <p>Querying <code>system_user_id</code> misses <code>systemUserId</code> in code, prompting a desperate full-table context dump</p>
+            <p>Agent doesn't know project conventions exist, inventing conflicting architectural duplicates</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>Cross-convention FTS matches <code>snake_case</code>, <code>camelCase</code>, and <code>kebab-case</code> transparently</p>
+            <p>Active schemas intercept edits before code is written, ensuring strict conformance</p>
           </div>
+
           <div class="compare-cell compare-without-cell">
-            <p>Empty search returns <code>[]</code> — agent assumes no architecture exists and creates a duplicate system</p>
+            <p>6-month-old stale docs and decisions mislead the agent into building on outdated code</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>Miss-Guidance steers the agent to top tag clusters, recent decisions, and graph hubs instead of a dead end</p>
+            <p>Git-backed staleness detection alerts the agent if anchored files changed at HEAD</p>
           </div>
+
           <div class="compare-cell compare-without-cell">
-            <p>Agent assumes stale 6-month-old decisions are current and builds on outdated assumptions</p>
+            <p>Zero visibility into memory utility — you never know if your context docs are helping or hurting</p>
           </div>
           <div class="compare-cell compare-with-cell">
-            <p>Git-backed Staleness Drift detects if anchored files changed at HEAD (<code>stale: true/false</code>)</p>
-          </div>
-          <div class="compare-cell compare-without-cell">
-            <p>Unmeasured memory — no way to know if context is helping or how many reads were saved</p>
-          </div>
-          <div class="compare-cell compare-with-cell">
-            <p><code>engrams usage</code> and <code>session close</code> track exact retrieval counts, zero-hit queries, and token ROI</p>
+            <p><code>session close</code> reports exact <code>schema_value</code> (guided retrievals) and tokens saved every session</p>
           </div>
         </div>
       </div>
     </section>
 
-
-
-    <!-- ══ WHAT AN ADVISOR DOES ══ -->
-    <section class="section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">The difference</div>
-        <h2 class="section-title">A database answers. An advisor <span class="accent-word">anticipates</span>.</h2>
-        <p class="section-sub">
-          Query tools wait for you to ask the right question. Engrams builds enough architectural context to
-          guide your agent before it writes code.
-        </p>
-      </div>
-      <div class="card-grid">
-        <article class="glass-card reveal">
-          <div class="card-icon" aria-hidden="true">◆</div>
-          <h3>It embeds the contract</h3>
-          <p>
-            Decisions don't just state intent — they embed exact callback signatures, struct shapes, and error
-            tuples via <code>--contract</code>. Strategy formation never dead-ends.
-          </p>
-        </article>
-        <article class="glass-card reveal">
-          <div class="card-icon" aria-hidden="true">◈</div>
-          <h3>It catches code drift</h3>
-          <p>
-            Lightweight Git staleness scoring tells your agent whether anchored source files were committed
-            after a decision was logged. Trust is verified, not assumed.
-          </p>
-        </article>
-        <article class="glass-card reveal">
-          <div class="card-icon" aria-hidden="true">◇</div>
-          <h3>It guides empty searches</h3>
-          <p>
-            Zero-hit queries don't return dead ends. Engrams analyzes your knowledge graph and returns the
-            nearest tag clusters and graph hubs so agents re-target immediately.
-          </p>
-        </article>
-      </div>
-    </section>
-
-    <!-- ══ FOR YOU — the human commands ══ -->
+    <!-- ══ THE ZERO-EFFORT LIFECYCLE ══ -->
     <section class="section section-alt">
       <div class="section-head reveal">
-        <div class="section-eyebrow">For you</div>
-        <h2 class="section-title">Three commands you'll actually run</h2>
+        <div class="section-eyebrow">Zero Bookkeeping</div>
+        <h2 class="section-title">The loop that <span class="accent-word">closes itself</span></h2>
         <p class="section-sub">
-          Your agent does the remembering. You get the briefing.
+          You don't need to spend hours designing schemas. Engrams detects clusters from your normal work,
+          nudges you at session end, and activates schemas automatically.
+        </p>
+      </div>
+
+      <div class="lifecycle-grid reveal">
+        <div class="lifecycle-step">
+          <div class="step-badge">1. Auto-Detect</div>
+          <h3>Continuous Clustering</h3>
+          <p>As you commit code and log decisions, graph community detection identifies cohesive clusters of knowledge and code anchors.</p>
+        </div>
+        <div class="lifecycle-step">
+          <div class="step-badge">2. Session Nudge</div>
+          <h3>Ready-to-Run Opportunity</h3>
+          <p>Run <code>engrams session close</code>. Engrams surfaces qualifying candidates with a ready-to-run <code>confirm</code> command. Just copy and hit enter.</p>
+        </div>
+        <div class="lifecycle-step">
+          <div class="step-badge">3. Pre-Edit Activation</div>
+          <h3>Automatic Interception</h3>
+          <p>Tomorrow, your AI touches matching files. <code>engrams advise</code> intercepts the edit and injects the schema playbook before a line is written.</p>
+        </div>
+        <div class="lifecycle-step">
+          <div class="step-badge">4. Verified Payoff</div>
+          <h3>Observed Token ROI</h3>
+          <p>See <code>schema_value</code> rise at session close and track <code>guided</code> counters in <code>schema list</code>. Proof, not guesswork.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ THREE COMMANDS DEVELOPERS ACTUALLY CARE ABOUT ══ -->
+    <section class="section">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">Simplicity</div>
+        <h2 class="section-title">Three commands that run the loop</h2>
+        <p class="section-sub">
+          Your AI executes the advice. You steer with three high-leverage commands.
         </p>
       </div>
       <div class="cmd-list">
         <div class="cmd-row reveal">
           <div class="cmd-term">
             <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams prime
-&#123;"briefing": "3 active threads, 1 blocked…",
- "relevant_decisions": [ … ]&#125;</code></pre>
+            <pre><code>$ engrams advise src/ops/schemas/retrieval.rs
+&#123;
+  "schemas": [
+    &#123;"id": 1, "name": "performance-rules", "summary": "Fires when editing Rust..."&#125;
+  ],
+  "constraints": [ ... ]
+&#125;</code></pre>
           </div>
           <div class="cmd-copy">
-            <h3><code>prime</code> — the morning briefing</h3>
-            <p>One command rehydrates everything relevant to what you're about to touch. Start every session informed, not cold.</p>
-            <a href="/docs/for-you/briefing" class="text-link">Briefing commands →</a>
+            <h3><code>advise</code> — The automatic pre-edit interceptor</h3>
+            <p>Harnesses (omp, Cursor, Claude Code) run this automatically before any file edit. Surfaces matching schemas above low-level constraints.</p>
+            <a href="/docs/guide/cognitive-schemas" class="text-link">How schemas activate →</a>
           </div>
         </div>
+
         <div class="cmd-row reveal">
           <div class="cmd-term">
             <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams brief "payment adapter"
-&#123;"contract": "fn process(amount: u64) -> Result&lt;Receipt, Error&gt;",
- "symbols": ["StripeAdapter", "process", "refund"],
- "drift": &#123;"stale": false, "checked": 2&#125;&#125;</code></pre>
+            <pre><code>$ engrams schema show performance-rules
+&#123;
+  "name": "performance-rules",
+  "summary": "Fires when editing Rust code...",
+  "guided": 14,
+  "members": [ ... ]
+&#125;</code></pre>
           </div>
           <div class="cmd-copy">
-            <h3><code>brief</code> — the architectural brief</h3>
-            <p>One-call composite read: contracts, docstrings, symbols, anchors, and Git drift in under 200 tokens.</p>
-            <a href="/docs/for-agent/retrieving" class="text-link">Strategy retrieval →</a>
+            <h3><code>schema show</code> — Inspect the mental model</h3>
+            <p>View the operational trigger, directives, and up to 20 enriched members (decisions, patterns, code signatures) in a single structured payload.</p>
+            <a href="/docs/guide/cognitive-schemas" class="text-link">Designing triggers &amp; rules →</a>
           </div>
         </div>
+
         <div class="cmd-row reveal">
           <div class="cmd-term">
             <div class="term-bar"><span></span><span></span><span></span></div>
             <pre><code>$ engrams session close --pr 42
-&#123;"closed": true,
- "reads_skipped_estimated": 14,
- "tokens_saved_estimated": 70000,
- "pr_validation": &#123;"gate_ok": true&#125;&#125;</code></pre>
+&#123;
+  "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
+  "schema_opportunities": [
+    &#123;"confirm_command": "engrams schema confirm decision:10 --name auth-rules"&#125;
+  ]
+&#125;</code></pre>
           </div>
           <div class="cmd-copy">
-            <h3><code>session close</code> — PR gate &amp; token ROI</h3>
-            <p>Close sessions with enforced PR linkage gates and track the reads your knowledge graph made unnecessary.</p>
-            <a href="/docs/for-agent/maintaining" class="text-link">Session close &amp; ROI →</a>
+            <h3><code>session close</code> — Opportunities &amp; Token ROI</h3>
+            <p>Closes the loop: shows how many retrievals schemas guided, validates your PR, and surfaces new candidate schemas with ready-to-run confirm commands.</p>
+            <a href="/docs/reference/cli" class="text-link">Session close reference →</a>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- ══ INTERACTIVE GRAPH ══ -->
-    <section id="graph" class="section dark graph-section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">Proof, not promises</div>
-        <h2 class="section-title">Drag engrams' own memory around</h2>
-        <p class="section-sub">
-          Every node is a real decision or task from building this tool. Gold nodes are decisions;
-          the bright ones are the load-bearing few everything else depends on.
-        </p>
-      </div>
-      <ForceGraph height="620px" />
-      <p class="graph-foot reveal">And this is just the knowledge layer — the full graph, with code topology and git-derived links, spans <strong>1,273 edges</strong> across 81 code nodes and 142 memories.</p>
-    </section>
-
-    <!-- ══ ADVISOR LOOP ══ -->
-    <section class="section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">Strategy-First Protocol</div>
-        <h2 class="section-title">The strategy-first loop</h2>
-      </div>
-      <ol class="loop reveal">
-        <li class="loop-step">
-          <span class="loop-num">1</span>
-          <h3>Formulate</h3>
-          <p><code>prime</code> and <code>brief</code> assemble the complete architecture strategy in &lt;200 tokens before touching files.</p>
-        </li>
-        <li class="loop-arrow" aria-hidden="true">→</li>
-        <li class="loop-step">
-          <span class="loop-num">2</span>
-          <h3>Verify</h3>
-          <p><code>advise</code> and Git drift check rules, constraints, and staleness before editing code.</p>
-        </li>
-        <li class="loop-arrow" aria-hidden="true">→</li>
-        <li class="loop-step">
-          <span class="loop-num">3</span>
-          <h3>Escalate</h3>
-          <p>Open files <em>only</em> if the graph lacks contracts, and immediately write back what you learned.</p>
-        </li>
-        <li class="loop-arrow" aria-hidden="true">→</li>
-        <li class="loop-step">
-          <span class="loop-num">4</span>
-          <h3>Close</h3>
-          <p><code>session close</code> validates PR linkage, connects the graph, and records token ROI. Repeat.</p>
-        </li>
-      </ol>
-      <div class="loop-cta reveal">
-        <a href="/docs/advisor/overview" class="btn btn-outline">How the advisor works →</a>
       </div>
     </section>
 
     <!-- ══ FINAL CTA ══ -->
     <section class="section dark cta-final">
       <div class="cta-inner reveal">
-        <h2 class="cta-title">Start your graph tonight.<br />Feel the difference in a week.</h2>
+        <h2 class="cta-title">Give your AI the mental models it deserves.<br />Feel the difference in your next session.</h2>
         <div class="cta-install">
           <pre><code>cargo install engrams-cli</code></pre>
           <p class="cta-alt">or <code>brew install stevebrownlee/tap/engrams</code></p>
         </div>
         <div class="hero-actions">
-          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started</a>
+          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started in 3 minutes</a>
           <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">Star on GitHub</a>
         </div>
       </div>
@@ -270,16 +326,15 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <div class="footer-inner">
         <span>Engrams · Apache-2.0 · v{__APP_VERSION__}</span>
         <div class="footer-links">
+          <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>
           <a href="/docs/getting-started">Docs</a>
           <a href="/docs/reference/cli">CLI Reference</a>
-          <a href="/docs/reference/releases">Releases</a>
           <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
         </div>
       </div>
     </footer>
 
     <script>
-      // Scroll-reveal for elements not handled by the pinned story.
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const els = document.querySelectorAll('.reveal');
       if (reduced) {
@@ -304,8 +359,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .home-header {
     position: fixed; inset: 0 0 auto 0; z-index: 50;
     backdrop-filter: blur(10px);
-    background: rgba(15,19,32,.72);
-    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: rgba(15,19,32,.85);
+    border-bottom: 1px solid rgba(255,255,255,.08);
   }
   .hdr-inner {
     max-width: 76rem; margin: 0 auto; padding: .85rem 1.5rem;
@@ -314,75 +369,136 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
   .logo-mark img { width: 26px; height: 26px; display: block; }
   .logo-text { font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: -.01em; }
-  .hdr-nav { display: flex; gap: 1.6rem; }
+  .hdr-nav { display: flex; gap: 1.6rem; align-items: center; }
   .hdr-nav a { color: #c3cbdd; text-decoration: none; font-size: .95rem; font-weight: 500; transition: color .15s; }
   .hdr-nav a:hover { color: var(--color-accent); }
+  .hdr-nav a.nav-highlight {
+    color: var(--color-accent);
+    font-weight: 700;
+  }
   @media (max-width: 720px) { .hdr-nav a:not(:last-child) { display: none; } }
 
   /* Hero */
   .hero {
-    position: relative; min-height: 100vh;
+    position: relative; min-height: 85vh;
     display: flex; align-items: center; justify-content: center; text-align: center;
-    padding: 7rem 1.5rem 4rem; overflow: hidden;
+    padding: 8rem 1.5rem 4rem;
   }
-  .hero-content { position: relative; z-index: 2; max-width: 56rem; }
+  .hero-content { position: relative; z-index: 2; max-width: 62rem; }
   .hero-badge {
     display: inline-block; font-family: var(--font-mono); font-size: .78rem;
-    letter-spacing: .12em; color: var(--dark-text-muted);
-    border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
-    padding: .4rem 1rem; margin-bottom: 1.6rem;
+    letter-spacing: .12em; color: var(--color-accent);
+    background: rgba(204,164,59,.1);
+    border: 1px solid rgba(204,164,59,.3); border-radius: 999px;
+    padding: .4rem 1.1rem; margin-bottom: 1.6rem; font-weight: 600;
   }
   .hero-title {
-    font-size: clamp(2.6rem, 7vw, 4.8rem); font-weight: 800; line-height: 1.04;
+    font-size: clamp(2.4rem, 6.5vw, 4.4rem); font-weight: 800; line-height: 1.08;
     letter-spacing: -.03em; color: #fff; margin-bottom: 1.4rem;
   }
   .accent-word { color: var(--color-accent); }
   .hero-subtitle {
-    font-size: clamp(1.05rem, 2vw, 1.28rem); color: var(--dark-text-muted);
-    line-height: 1.65; max-width: 44rem; margin: 0 auto 2.2rem;
+    font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--dark-text-muted);
+    line-height: 1.65; max-width: 48rem; margin: 0 auto 2.2rem;
   }
-  .hero-subtitle em { color: var(--dark-text); font-style: normal; font-weight: 600; }
-  .hero-actions { display: flex; gap: .9rem; justify-content: center; flex-wrap: wrap; }
-  .hero-scroll-hint {
-    position: absolute; bottom: 1.6rem; left: 50%; transform: translateX(-50%);
-    font-family: var(--font-mono); font-size: .72rem; letter-spacing: .3em;
-    text-transform: uppercase; color: rgba(255,255,255,.35); z-index: 2;
-    animation: hint-float 2.2s ease-in-out infinite;
-  }
-  @keyframes hint-float { 0%,100% { transform: translate(-50%,0); } 50% { transform: translate(-50%,8px); } }
+  .hero-subtitle em { color: #fff; font-style: normal; font-weight: 600; }
+  .hero-actions { display: flex; gap: .9rem; justify-content: center; flex-wrap: wrap; margin-bottom: 3.5rem; }
 
-  /* Data note */
-  .data-note {
-    max-width: 44rem; margin: 0 auto; padding: 2rem 1.5rem 0; text-align: center;
-    color: var(--dark-text-muted); font-size: .98rem;
+  /* Hero Comparison Widget */
+  .hero-compare-widget {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem;
+    text-align: left; max-width: 58rem; margin: 0 auto;
   }
-  .data-note strong { color: var(--color-accent); }
+  @media (max-width: 760px) { .hero-compare-widget { grid-template-columns: 1fr; } }
+
+  .compare-card {
+    border-radius: var(--radius-lg); padding: 1.6rem;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  }
+  .compare-card-bad { border-left: 3px solid #e0655f; }
+  .compare-card-good {
+    border-left: 3px solid var(--color-accent);
+    background: rgba(204,164,59,.04);
+  }
+  .card-status-bar { display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem; }
+  .status-indicator { width: 9px; height: 9px; border-radius: 50%; }
+  .status-indicator.red { background: #e0655f; box-shadow: 0 0 8px rgba(224,101,95,.6); }
+  .status-indicator.green { background: var(--color-accent); box-shadow: 0 0 8px rgba(204,164,59,.6); }
+  .card-title { font-size: .95rem; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+  .card-stats { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .9rem; }
+  .stat-pill {
+    font-family: var(--font-mono); font-size: .78rem; padding: .25rem .6rem;
+    border-radius: 4px; background: rgba(255,255,255,.06); color: var(--dark-text-muted);
+  }
+  .stat-pill strong { color: #fff; }
+  .stat-pill.accent { background: rgba(204,164,59,.15); color: var(--color-accent); }
+  .stat-pill.accent strong { color: var(--color-accent); }
+  .card-desc { font-size: .88rem; color: var(--dark-text-muted); line-height: 1.55; margin: 0; }
+  .card-desc code { font-family: var(--font-mono); font-size: .82rem; color: var(--color-accent); }
 
   /* Generic sections */
   .section { max-width: 76rem; margin: 0 auto; padding: 6rem 1.5rem; }
   .section-alt { background: var(--color-bg-soft); max-width: none; }
   .section-alt > * { max-width: 76rem; margin-left: auto; margin-right: auto; }
-  .section-head { text-align: center; max-width: 46rem; margin: 0 auto 3.2rem; }
+  .section-head { text-align: center; max-width: 50rem; margin: 0 auto 3.2rem; }
   .section-eyebrow {
     font-family: var(--font-mono); font-size: .78rem; font-weight: 700;
     letter-spacing: .28em; text-transform: uppercase; color: var(--color-accent); margin-bottom: .9rem;
   }
-  .section-title { font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
-  .section-sub { font-size: 1.1rem; color: var(--color-text-muted); margin-top: 1rem; line-height: 1.6; }
+  .section-title { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+  .section-sub { font-size: 1.15rem; color: var(--color-text-muted); margin-top: 1rem; line-height: 1.6; }
   .dark .section-sub { color: var(--dark-text-muted); }
   .dark .section-title { color: var(--dark-text); }
 
-  /* Advisor capability cards */
-  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.4rem; }
-  .glass-card { padding: 2rem 1.8rem; }
-  .card-icon { font-size: 1.6rem; color: var(--color-accent); margin-bottom: 1rem; }
-  .glass-card h3 { font-size: 1.28rem; font-weight: 700; margin-bottom: .7rem; }
-  .glass-card p { color: var(--color-text-muted); line-height: 1.65; font-size: .98rem; }
-  .glass-card code { font-size: .88em; }
+  /* Schema Specimen (Anatomy Card) */
+  .schema-specimen-wrap { max-width: 58rem; margin: 0 auto; }
+  .schema-specimen {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg);
+  }
+  .specimen-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.6rem; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap; gap: .7rem;
+  }
+  .specimen-id { display: flex; align-items: center; gap: .6rem; }
+  .badge-kind {
+    font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase;
+    font-weight: 700; background: var(--color-accent); color: #1a1405; padding: .15rem .5rem; border-radius: 4px;
+  }
+  .specimen-id code { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; color: #fff; }
+  .specimen-meta { display: flex; gap: 1rem; font-size: .85rem; font-family: var(--font-mono); color: var(--color-text-muted); }
+  .specimen-status { color: #5fb87a; }
+  .specimen-guided { color: var(--color-accent); }
+  .specimen-body { padding: 1.6rem; display: flex; flex-direction: column; gap: 1.3rem; }
+  .specimen-row { display: grid; grid-template-columns: 100px 1fr; gap: 1rem; align-items: baseline; }
+  @media (max-width: 600px) { .specimen-row { grid-template-columns: 1fr; gap: .4rem; } }
+  .specimen-label { font-size: .88rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .05em; }
+  .specimen-value { font-size: 1rem; line-height: 1.6; color: var(--color-text); }
+  .highlight-trigger { color: #fff; font-weight: 600; }
+  .highlight-rule {
+    color: var(--color-accent); font-family: var(--font-mono); font-size: .92rem;
+    background: rgba(204,164,59,.08); padding: .7rem 1rem; border-radius: 6px; border: 1px solid rgba(204,164,59,.2);
+  }
+  .specimen-members { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .member-pill {
+    font-size: .82rem; font-family: var(--font-mono); padding: .3rem .7rem; border-radius: 4px;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: var(--dark-text-muted);
+  }
+  .member-pill.anchor { border-color: rgba(95,184,122,.3); color: #8ad29f; }
 
+  /* Token Economics Stat Grid */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.4rem; max-width: 60rem; margin: 0 auto; }
+  .stat-card {
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius-lg); padding: 2rem 1.6rem; text-align: center;
+  }
+  .stat-number { font-size: 3.4rem; font-weight: 900; color: var(--color-accent); line-height: 1; margin-bottom: .6rem; letter-spacing: -.03em; }
+  .stat-title { font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: .6rem; }
+  .stat-text { font-size: .92rem; color: var(--dark-text-muted); line-height: 1.6; margin: 0; }
 
   /* Before/after comparison table */
-  .compare-section { padding-top: 4rem; }
   .compare-table { max-width: 60rem; margin: 0 auto; }
   .compare-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 0;
@@ -393,38 +509,41 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     padding: 1.1rem 1.5rem; font-weight: 800; font-size: 1rem;
     letter-spacing: -.01em; text-align: center;
   }
-  .compare-without-cell {
-    background: rgba(255,255,255,.03);
-    color: var(--dark-text-muted);
-  }
+  .compare-without-cell { background: rgba(255,255,255,.03); color: var(--dark-text-muted); }
   .compare-col-header.compare-without-cell {
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    background: rgba(255,255,255,.05);
-    color: var(--dark-text);
+    border-bottom: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.05); color: var(--dark-text);
   }
-  .compare-with-cell {
-    background: rgba(204,164,59,.06);
-    color: var(--dark-text);
-  }
+  .compare-with-cell { background: rgba(204,164,59,.06); color: var(--dark-text); }
   .compare-col-header.compare-with-cell {
-    border-bottom: 1px solid rgba(204,164,59,.2);
-    background: rgba(204,164,59,.1);
-    color: var(--color-accent);
+    border-bottom: 1px solid rgba(204,164,59,.2); background: rgba(204,164,59,.1); color: var(--color-accent);
   }
   .compare-cell { padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,.06); }
   .compare-cell:last-child { border-bottom: none; }
   .compare-cell:last-child + .compare-cell { border-bottom: none; }
   .compare-cell p { font-size: .95rem; line-height: 1.6; margin: 0; }
-  .compare-cell em { color: var(--color-accent); font-style: normal; font-weight: 600; }
   @media (max-width: 720px) {
     .compare-grid { grid-template-columns: 1fr; }
     .compare-with-cell { border-top: 1px solid rgba(255,255,255,.06); }
   }
-  /* For-you command rows */
-  .cmd-list { display: flex; flex-direction: column; gap: 2.6rem; }
-  .cmd-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 2.4rem; align-items: center;
+
+  /* Lifecycle Grid */
+  .lifecycle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.4rem; }
+  .lifecycle-step {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg); padding: 1.8rem;
   }
+  .step-badge {
+    display: inline-block; font-family: var(--font-mono); font-size: .75rem; font-weight: 700;
+    color: var(--color-accent); background: rgba(204,164,59,.12); padding: .25rem .6rem; border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+  .lifecycle-step h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: .6rem; }
+  .lifecycle-step p { font-size: .92rem; color: var(--color-text-muted); line-height: 1.6; margin: 0; }
+  .lifecycle-step code { font-size: .88em; }
+
+  /* Command rows */
+  .cmd-list { display: flex; flex-direction: column; gap: 2.6rem; }
+  .cmd-row { display: grid; grid-template-columns: 1.1fr .9fr; gap: 2.4rem; align-items: center; }
   .cmd-row:nth-child(even) .cmd-term { order: 2; }
   @media (max-width: 820px) { .cmd-row { grid-template-columns: 1fr; } .cmd-row:nth-child(even) .cmd-term { order: 0; } }
   .cmd-term {
@@ -436,39 +555,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .term-bar span:first-child { background: #e0655f; }
   .term-bar span:nth-child(2) { background: #e3b84e; }
   .term-bar span:nth-child(3) { background: #5fb87a; }
-  .cmd-term pre { padding: 1.1rem 1.2rem; overflow-x: auto; }
+  .cmd-term pre { padding: 1.1rem 1.2rem; overflow-x: auto; margin: 0; }
   .cmd-term code { font-family: var(--font-mono); font-size: .86rem; color: #dbe2ef; line-height: 1.6; }
   .cmd-copy h3 { font-size: 1.35rem; font-weight: 700; margin-bottom: .6rem; }
   .cmd-copy p { color: var(--color-text-muted); line-height: 1.65; margin-bottom: .8rem; }
   .text-link { color: var(--color-accent); font-weight: 600; text-decoration: none; }
   .text-link:hover { text-decoration: underline; }
-
-  /* Graph section */
-  .graph-section { max-width: none; }
-  .graph-section > * { max-width: 76rem; margin-left: auto; margin-right: auto; }
-  .graph-foot { text-align: center; color: var(--dark-text-muted); margin-top: 1.4rem; font-size: .95rem; }
-  .graph-foot strong { color: var(--color-accent); }
-
-  /* Advisor loop */
-  .loop {
-    display: flex; align-items: stretch; justify-content: center; gap: 1rem;
-    list-style: none; flex-wrap: wrap; margin-bottom: 2.6rem;
-  }
-  .loop-step {
-    flex: 1 1 180px; max-width: 240px; background: var(--color-surface);
-    border: 1px solid var(--color-border); border-radius: var(--radius-lg);
-    padding: 1.6rem 1.3rem; text-align: center;
-  }
-  .loop-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--color-accent); color: #1a1405; font-weight: 800; margin-bottom: .8rem;
-  }
-  .loop-step h3 { font-size: 1.15rem; margin-bottom: .5rem; }
-  .loop-step p { font-size: .92rem; color: var(--color-text-muted); line-height: 1.55; }
-  .loop-arrow { align-self: center; color: var(--color-accent); font-size: 1.5rem; font-weight: 700; }
-  @media (max-width: 820px) { .loop-arrow { transform: rotate(90deg); } }
-  .loop-cta { text-align: center; }
 
   /* Final CTA */
   .cta-final { text-align: center; }

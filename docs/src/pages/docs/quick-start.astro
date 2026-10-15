@@ -2,17 +2,17 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Quick Start" description="Get Engrams running in your project in under five minutes — from zero to strategy-first retrieval.">
-  <h1>Quick Start: Zero-Read Strategy in 5 Minutes</h1>
+<DocsLayout title="Quick Start" description="Get Engrams running in your project in under five minutes — from zero to schema-guided retrieval.">
+  <h1>Quick Start: Cognitive Schemas in 5 Minutes</h1>
   <p class="lead">
-    From an empty repository to a self-sufficient architecture graph in five commands.
-    By the end, your AI assistant can plan features, verify contracts, and check Git drift without opening source files.
+    From an empty repository to active cognitive schemas in five simple commands.
+    By the end, your AI assistant can plan features, verify contracts, and receive high-level architectural rules before opening source files.
     Make sure you have completed the <a href="/docs/installation">installation</a> first.
   </p>
 
   <h2>Agent Setup</h2>
   <p>
-    Engrams provides a built-in <code>instructions</code> command designed to output the standardized instruction manual that teaches LLM agents the Strategy-First retrieval protocol:
+    Engrams provides a built-in <code>instructions</code> command that outputs the standardized operating protocol for LLM agents:
   </p>
   <pre><code>engrams instructions</code></pre>
   <p>
@@ -55,11 +55,13 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <h3>Rebuild the code graph</h3>
+        <h3>Form and refine a Cognitive Schema</h3>
         <p>
-          Let Engrams scan your repository, extracting exported symbols, docstrings, and line counts onto code nodes:
+          Bundle your decisions and code anchors into an active schema with a trigger and operational rule:
         </p>
-        <pre><code>engrams graph rebuild</code></pre>
+        <pre><code>engrams schema refine payment-adapters \
+  --trigger "editing payment adapter implementations" \
+  --rule "implement PaymentProvider; use Stripe idempotent keys; never log raw card numbers"</code></pre>
       </div>
     </div>
 
@@ -67,25 +69,21 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <div class="step">
       <div class="step-num">4</div>
       <div class="step-body">
-        <h3>Retrieve full architectural context in one call</h3>
+        <h3>Intercept edits with schema-guided advice</h3>
         <p>
-          Before writing code, your agent runs <code>brief</code> to get the decision, contract, symbols, and Git staleness drift:
+          Before touching code, your agent runs <code>advise</code>. Engrams surfaces the matching schema above all constraints in under 300 tokens:
         </p>
-        <pre><code>engrams brief "payment provider"</code></pre>
+        <pre><code>engrams advise src/adapters/stripe.rs</code></pre>
         <pre><code>&#123;
-  "brief": &#123;
-    "summary": "Provider behavior for payment adapters",
-    "contract": "fn process(amount: u64, currency: &amp;str) -> Result&lt;Receipt, PaymentError&gt;",
-    "drift": &#123; "stale": false, "checked": 1 &#125;
-  &#125;,
-  "neighbors": [
+  "schemas": [
     &#123;
-      "node": "code:42",
-      "path": "src/adapters/stripe.rs",
-      "symbols": ["StripeAdapter", "process", "refund"],
-      "line_count": 148
+      "id": 1,
+      "name": "payment-adapters",
+      "summary": "Fires when editing payment adapter implementations: implement PaymentProvider..."
     &#125;
-  ]
+  ],
+  "constraints": [ ... ],
+  "violations": []
 &#125;</code></pre>
       </div>
     </div>
@@ -94,36 +92,41 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <div class="step">
       <div class="step-num">5</div>
       <div class="step-body">
-        <h3>Close the session with PR verification</h3>
+        <h3>Close the session, view token ROI, and catch new opportunities</h3>
         <p>
-          Enforce that PRs are anchored to decisions and record token ROI:
+          At session end, record your PR, view your exact schema guidance count, and receive ready-to-run commands for new candidate schemas:
         </p>
-        <pre><code>engrams session close --reads-skipped 12 --tokens-saved 60000 --pr 42</code></pre>
+        <pre><code>engrams session close --pr 42</code></pre>
+        <pre><code>&#123;
+  "closed": true,
+  "schema_value": &#123; "guided_retrievals": 3, "distinct_schemas": 1 &#125;,
+  "schema_opportunities": [ ... ]
+&#125;</code></pre>
       </div>
     </div>
   </div>
 
   <h2>What to try next</h2>
   <div class="next-cards">
+    <a href="/docs/guide/cognitive-schemas" class="next-card">
+      <span class="nc-icon">🧠</span>
+      <strong>Cognitive Schemas</strong>
+      <span>How mental models turn raw memories into active playbooks</span>
+    </a>
     <a href="/docs/for-agent/retrieving" class="next-card">
       <span class="nc-icon">⚡</span>
       <strong>Strategy-First Retrieval</strong>
-      <span>How prime, brief, and cross-convention search save tokens</span>
+      <span>How prime, brief, and advise save 95% of tokens</span>
     </a>
     <a href="/docs/for-agent/maintaining" class="next-card">
       <span class="nc-icon">📊</span>
-      <strong>Telemetry &amp; PR Gates</strong>
-      <span>Track zero-hit queries and enforce PR linkage</span>
-    </a>
-    <a href="/docs/for-you/exploration" class="next-card">
-      <span class="nc-icon">🕸️</span>
-      <strong>Interactive Graph</strong>
-      <span>Explore the living 3D knowledge graph</span>
+      <strong>Session Close &amp; ROI</strong>
+      <span>Track token savings and enforce PR linkage</span>
     </a>
     <a href="/docs/reference/cli" class="next-card">
       <span class="nc-icon">💻</span>
       <strong>CLI Reference</strong>
-      <span>All commands, options, and flags</span>
+      <span>All commands, options, and schema operations</span>
     </a>
   </div>
 </DocsLayout>
@@ -141,8 +144,8 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   .step-num {
     flex-shrink: 0;
     width: 2rem; height: 2rem;
-    background: linear-gradient(135deg, var(--sky-aqua), var(--maya-blue));
-    color: #fff; font-weight: 700; font-size: .875rem;
+    background: var(--color-accent);
+    color: #1a1405; font-weight: 800; font-size: .875rem;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     margin-top: .1rem;
@@ -163,7 +166,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     text-decoration: none; color: var(--color-text);
     transition: border-color .15s, box-shadow .15s, transform .15s;
   }
-  .next-card:hover { border-color: var(--sky-aqua); box-shadow: var(--shadow-md); transform: translateY(-2px); text-decoration: none; }
+  .next-card:hover { border-color: var(--color-accent); box-shadow: var(--shadow-md); transform: translateY(-2px); text-decoration: none; }
   .nc-icon { font-size: 1.4rem; }
   .next-card strong { font-size: .9375rem; }
   .next-card span { font-size: .8125rem; color: var(--color-text-muted); line-height: 1.5; }
