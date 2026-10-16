@@ -94,112 +94,193 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </div>
       </section>
 
-      <!-- ══ 3. WHAT IS A SCHEMA? (LAYERED PYRAMID) ══ -->
+      <!-- ══ 3. WHAT IS A SCHEMA? (ISOMETRIC EXPLODED PYRAMID) ══ -->
       <section id="what" class="content-section">
         <h2 class="section-heading">What is a Schema?</h2>
         <p class="section-description">
-          A Cognitive Schema does not float in abstract prompt space. It is the apex of a three-tier architectural pyramid:
-          <strong>high-level mental models</strong> built on <strong>linked decisions and patterns</strong>, which in turn
-          anchor directly into your <strong>concrete repository source code</strong>.
+          A Cognitive Schema is not an isolated note. It is the peak of an architectural pyramid:
+          <strong>an active mental model</strong> resting on <strong>linked decisions and standards</strong>,
+          which anchor directly into your <strong>concrete repository source code</strong>.
         </p>
 
-        <!-- ── THE ARCHITECTURAL PYRAMID ── -->
-        <div class="schema-pyramid">
-          <!-- TIER 3: COGNITIVE SCHEMA -->
-          <div class="pyramid-tier tier-schema">
-            <div class="tier-top-bar">
-              <span class="tier-level-badge badge-burgundy">TIER 3 // COGNITIVE SCHEMA</span>
-              <span class="tier-meta">The Active Mental Model · 250 Tokens · Injected on Edit</span>
-            </div>
-            <div class="tier-body">
-              <div class="schema-head-line">
-                <span class="schema-pill">SCHEMA</span>
-                <code class="schema-title">performance-rules</code>
-                <span class="schema-status text-burgundy">● active · guided 14 sessions</span>
+        <!-- ── THE 3D ISOMETRIC PYRAMID BLUEPRINT ── -->
+        <div class="pyramid-showcase" data-pyramid>
+          <!-- Left Column: The 3D Exploded Isometric SVG Pyramid -->
+          <div class="pyramid-visual-col">
+            <svg viewBox="0 0 720 520" class="isometric-pyramid-svg" aria-label="Exploded 3D Isometric Schema Pyramid">
+              <defs>
+                <!-- Tier 3: Burgundy & Rose Gradients -->
+                <linearGradient id="pyr-t3-left" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#89023e" />
+                  <stop offset="100%" stop-color="#550126" />
+                </linearGradient>
+                <linearGradient id="pyr-t3-right" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ea638c" />
+                  <stop offset="100%" stop-color="#89023e" />
+                </linearGradient>
+
+                <!-- Tier 2: Rose & Pale Blush Gradients -->
+                <linearGradient id="pyr-t2-top" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#ffffff" />
+                  <stop offset="100%" stop-color="#ffd9da" />
+                </linearGradient>
+                <linearGradient id="pyr-t2-left" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ba1a5e" />
+                  <stop offset="100%" stop-color="#7a0237" />
+                </linearGradient>
+                <linearGradient id="pyr-t2-right" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#f588a8" />
+                  <stop offset="100%" stop-color="#ea638c" />
+                </linearGradient>
+
+                <!-- Tier 1: Foundation Slate Gradients -->
+                <linearGradient id="pyr-t1-top" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#fcf0f2" />
+                  <stop offset="100%" stop-color="#edd2d6" />
+                </linearGradient>
+                <linearGradient id="pyr-t1-left" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#30343f" />
+                  <stop offset="100%" stop-color="#1b2021" />
+                </linearGradient>
+                <linearGradient id="pyr-t1-right" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#4d5364" />
+                  <stop offset="100%" stop-color="#30343f" />
+                </linearGradient>
+
+                <!-- Drop shadow filter -->
+                <filter id="tier-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#89023e" flood-opacity="0.12" />
+                </filter>
+              </defs>
+
+              <!-- Isometric Alignment Guidelines -->
+              <g class="guide-struts" stroke="#ffd9da" stroke-width="1" stroke-dasharray="3 3">
+                <line x1="360" y1="75" x2="95" y2="385" />
+                <line x1="360" y1="75" x2="625" y2="385" />
+                <line x1="360" y1="165" x2="360" y2="465" />
+              </g>
+
+              <!-- ── TIER 1: BASE PLATFORM (Code Anchors) ── -->
+              <g class="svg-tier-group tier-1-group" data-tier="1" filter="url(#tier-shadow)">
+                <!-- Top Face (Diamond) -->
+                <polygon points="360,265 545,320 360,375 175,320" fill="url(#pyr-t1-top)" stroke="#e0c2c6" stroke-width="1.5" />
+                <!-- Left Face -->
+                <polygon points="175,320 360,375 360,460 95,385" fill="url(#pyr-t1-left)" stroke="#1b2021" stroke-width="1" />
+                <!-- Right Face -->
+                <polygon points="360,375 545,320 625,385 360,460" fill="url(#pyr-t1-right)" stroke="#1b2021" stroke-width="1" />
+                <!-- Subtle Facet Lines -->
+                <line x1="360" y1="375" x2="360" y2="460" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
+                <!-- Label on Base -->
+                <text x="215" y="405" fill="#ffffff" font-family="var(--font-mono)" font-size="11" font-weight="800" letter-spacing="1" transform="rotate(16, 215, 405)">TIER 1: REPOSITORY CODE ANCHORS</text>
+              </g>
+
+              <!-- ── TIER 2: MIDDLE FRUSTUM (Decisions & Patterns) ── -->
+              <g class="svg-tier-group tier-2-group" data-tier="2" filter="url(#tier-shadow)">
+                <!-- Top Face (Diamond) -->
+                <polygon points="360,170 460,200 360,230 260,200" fill="url(#pyr-t2-top)" stroke="#ffd9da" stroke-width="1.5" />
+                <!-- Left Face -->
+                <polygon points="260,200 360,230 360,310 195,260" fill="url(#pyr-t2-left)" stroke="#89023e" stroke-width="1" />
+                <!-- Right Face -->
+                <polygon points="360,230 460,200 525,260 360,310" fill="url(#pyr-t2-right)" stroke="#89023e" stroke-width="1" />
+                <!-- Subtle Facet Lines -->
+                <line x1="360" y1="230" x2="360" y2="310" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
+                <!-- Label on Middle Tier -->
+                <text x="235" y="270" fill="#ffffff" font-family="var(--font-mono)" font-size="10" font-weight="800" letter-spacing="0.5" transform="rotate(16, 235, 270)">TIER 2: DECISIONS &amp; PATTERNS</text>
+              </g>
+
+              <!-- ── TIER 3: APEX CAP (Cognitive Schema) ── -->
+              <g class="svg-tier-group tier-3-group" data-tier="3" filter="url(#tier-shadow)">
+                <!-- Left Face (Triangle) -->
+                <polygon points="360,75 275,140 360,165" fill="url(#pyr-t3-left)" stroke="#ffd9da" stroke-width="1" />
+                <!-- Right Face (Triangle) -->
+                <polygon points="360,75 360,165 445,140" fill="url(#pyr-t3-right)" stroke="#ffd9da" stroke-width="1" />
+                <!-- Center Crease Highlight -->
+                <line x1="360" y1="75" x2="360" y2="165" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                <!-- Glowing Apex Peak Point -->
+                <circle cx="360" cy="75" r="4.5" fill="#ffffff" stroke="#89023e" stroke-width="2" />
+                <!-- Label on Apex -->
+                <text x="290" y="135" fill="#ffffff" font-family="var(--font-mono)" font-size="9" font-weight="900" letter-spacing="0.5" transform="rotate(16, 290, 135)">TIER 3: SCHEMA</text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- Right Column: The Three Layered Cards -->
+          <div class="pyramid-stack-col">
+            <!-- Level 3 Card: Schema -->
+            <div class="stack-tier-card card-tier-3 is-active" data-tier="3">
+              <div class="st-head">
+                <span class="st-tier-badge">TIER 3 // COGNITIVE SCHEMA</span>
+                <span class="st-status text-burgundy">● active mental model</span>
               </div>
-              <div class="schema-grid-inner">
-                <div class="sgi-row">
-                  <span class="sgi-label">⚡ MENTAL TRIGGER</span>
-                  <span class="sgi-val">Fires whenever I edit Rust code that creates, copies, or hands off collections and strings</span>
+              <div class="st-title">
+                <code>performance-rules</code>
+                <span class="st-telemetry">guided 14 sessions</span>
+              </div>
+              <div class="st-content">
+                <div class="st-field">
+                  <span class="st-k">⚡ TRIGGER</span>
+                  <p class="st-v">Fires whenever I edit Rust code that creates, copies, or hands off collections and strings</p>
                 </div>
-                <div class="sgi-row">
-                  <span class="sgi-label">📋 DIRECTIVE</span>
-                  <span class="sgi-val directive-box">
+                <div class="st-field">
+                  <span class="st-k">📋 DIRECTIVE</span>
+                  <div class="st-v directive-box">
                     The four allocation rules (no throwaway collections, borrow SQL params, keep borrowed strings borrowed, consume lookup maps) plus the checker that enforces them.
-                  </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- CONNECTOR 1 -->
-          <div class="pyramid-connector">
-            <span class="connector-line"></span>
-            <span class="connector-badge">UNIFIES &amp; ACTIVATES DECISIONS WHEN TRIGGER FIRES ↓</span>
-            <span class="connector-line"></span>
-          </div>
-
-          <!-- TIER 2: LINKED DECISIONS & PATTERNS -->
-          <div class="pyramid-tier tier-decisions">
-            <div class="tier-top-bar">
-              <span class="tier-level-badge badge-slate">TIER 2 // LINKED DECISIONS &amp; PATTERNS</span>
-              <span class="tier-meta">Architectural Intent, Trade-offs &amp; Enforceable Standards</span>
-            </div>
-            <div class="tier-body">
-              <div class="decisions-chips-wrap">
-                <div class="decision-chip">
+            <!-- Level 2 Card: Decisions -->
+            <div class="stack-tier-card card-tier-2" data-tier="2">
+              <div class="st-head">
+                <span class="st-tier-badge">TIER 2 // LINKED DECISIONS &amp; PATTERNS</span>
+                <span class="st-status">architectural standards</span>
+              </div>
+              <div class="st-chips-grid">
+                <div class="st-chip">
                   <span class="chip-k">Decision #88</span>
                   <span class="chip-v">Borrowed SQL parameter lists (Vec&lt;&amp;dyn ToSql&gt;)</span>
                 </div>
-                <div class="decision-chip">
+                <div class="st-chip">
                   <span class="chip-k">Decision #91</span>
                   <span class="chip-v">Static vocabulary returns Cow&lt;str&gt;</span>
                 </div>
-                <div class="decision-chip">
+                <div class="st-chip">
                   <span class="chip-k">Pattern #11</span>
                   <span class="chip-v">Single-source row projections</span>
                 </div>
-                <div class="decision-chip">
+                <div class="st-chip">
                   <span class="chip-k">Pattern #12</span>
                   <span class="chip-v">Enrich by move, not get().clone()</span>
                 </div>
-                <div class="decision-chip chip-tool">
-                  <span class="chip-k">Enforcement Checker</span>
-                  <span class="chip-v">engrams check --staged (pre-commit hook)</span>
+                <div class="st-chip chip-tool">
+                  <span class="chip-k">Checker Tool</span>
+                  <span class="chip-v">engrams check --staged (enforced pre-commit)</span>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- CONNECTOR 2 -->
-          <div class="pyramid-connector">
-            <span class="connector-line"></span>
-            <span class="connector-badge">GROUNDED IN REPOSITORY SOURCE ANCHORS ↓</span>
-            <span class="connector-line"></span>
-          </div>
-
-          <!-- TIER 1: CODE ANCHORS & TOPOLOGY -->
-          <div class="pyramid-tier tier-anchors">
-            <div class="tier-top-bar">
-              <span class="tier-level-badge badge-muted">TIER 1 // CODE ANCHORS &amp; REPOSITORY TOPOLOGY</span>
-              <span class="tier-meta">Concrete Source Code Reality (Git Anchors &amp; Symbol Topology)</span>
-            </div>
-            <div class="tier-body">
-              <div class="anchors-list-wrap">
-                <div class="anchor-entry">
-                  <span class="anchor-icon">⚓</span>
+            <!-- Level 1 Card: Anchors -->
+            <div class="stack-tier-card card-tier-1" data-tier="1">
+              <div class="st-head">
+                <span class="st-tier-badge">TIER 1 // REPOSITORY CODE ANCHORS</span>
+                <span class="st-status">grounded code reality</span>
+              </div>
+              <div class="st-anchors-list">
+                <div class="st-anchor">
+                  <span class="anchor-glyph">⚓</span>
                   <code>src/ops/schemas/retrieval.rs</code>
-                  <span class="anchor-symbols">surface_counts · enrich_members · node_payload</span>
+                  <span class="anchor-meta">surface_counts · enrich_members · node_payload</span>
                 </div>
-                <div class="anchor-entry">
-                  <span class="anchor-icon">⚓</span>
+                <div class="st-anchor">
+                  <span class="anchor-glyph">⚓</span>
                   <code>src/ops/schemas/list.rs</code>
-                  <span class="anchor-symbols">resolve_schema · row_json · list</span>
+                  <span class="anchor-meta">resolve_schema · row_json · list</span>
                 </div>
-                <div class="anchor-entry">
-                  <span class="anchor-icon">⚓</span>
+                <div class="st-anchor">
+                  <span class="anchor-glyph">⚓</span>
                   <code>src/ops/schemas/gates.rs</code>
-                  <span class="anchor-symbols">gates_pass · claimed_territory · jaccard</span>
+                  <span class="anchor-meta">gates_pass · claimed_territory · jaccard</span>
                 </div>
               </div>
             </div>
@@ -397,24 +478,61 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </div>
       </div>
     </footer>
+
+    <!-- ── INTERACTIVE PYRAMID TIER SCRIPT ── -->
+    <script>
+      const pyramid = document.querySelector('[data-pyramid]');
+      if (pyramid) {
+        const svgGroups = pyramid.querySelectorAll('.svg-tier-group');
+        const cards = pyramid.querySelectorAll('.stack-tier-card');
+
+        function activateTier(tierNum) {
+          svgGroups.forEach((g) => {
+            if (g.getAttribute('data-tier') === tierNum) {
+              g.classList.add('is-hovered');
+            } else {
+              g.classList.remove('is-hovered');
+            }
+          });
+          cards.forEach((c) => {
+            if (c.getAttribute('data-tier') === tierNum) {
+              c.classList.add('is-active');
+            } else {
+              c.classList.remove('is-active');
+            }
+          });
+        }
+
+        svgGroups.forEach((g) => {
+          g.addEventListener('mouseenter', () => {
+            activateTier(g.getAttribute('data-tier'));
+          });
+        });
+
+        cards.forEach((c) => {
+          c.addEventListener('mouseenter', () => {
+            activateTier(c.getAttribute('data-tier'));
+          });
+        });
+      }
+    </script>
   </body>
 </html>
 
 <style>
   /* ============================================================
-     COOLORS PALETTE (LIGHTER BACKGROUNDS, DARKER TEXT):
-     #ffd9da (Pale Rose / Blush) | #ea638c (Vibrant Rose) |
-     #89023e (Deep Burgundy)     | #30343f (Deep Slate)   | #1b2021 (Night)
-     Zero black background. Zero tiny headers. Sizing fixed.
-     Layered Architectural Pyramid Visualization.
+     COOLORS PALETTE:
+     #ffd9da (Pale Rose) | #ea638c (Vibrant Rose) |
+     #89023e (Burgundy)  | #30343f (Slate)        | #1b2021 (Night)
+     3D ISOMETRIC EXPLODED PYRAMID STYLING
      ============================================================ */
 
   :root {
-    --c-rose-pale:   #ffd9da; /* soft warm blush / light accent background */
-    --c-rose:        #ea638c; /* vibrant rose / active accent */
-    --c-burgundy:    #89023e; /* deep rich burgundy / primary button / focus */
-    --c-slate:       #30343f; /* secondary dark slate text */
-    --c-night:       #1b2021; /* primary deep dark text (16:1 contrast) */
+    --c-rose-pale:   #ffd9da;
+    --c-rose:        #ea638c;
+    --c-burgundy:    #89023e;
+    --c-slate:       #30343f;
+    --c-night:       #1b2021;
     --c-white:       #ffffff;
     --c-surface-subtle: #fff8f8;
     --c-border:      #ffd9da;
@@ -443,7 +561,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     backdrop-filter: blur(8px);
   }
   .bar-inner {
-    max-width: 72rem;
+    max-width: 76rem;
     margin: 0 auto;
     padding: 0.85rem 1.5rem;
     display: flex;
@@ -460,9 +578,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .nav a.highlight { color: var(--c-burgundy); font-weight: 800; }
   @media (max-width: 760px) { .nav a:not(:last-child):not(.highlight) { display: none; } }
 
-  /* ── MAIN CONTENT CONTAINER ── */
+  /* ── MAIN CONTAINER ── */
   .page-content {
-    max-width: 72rem;
+    max-width: 76rem;
     margin: 0 auto;
     padding: 7rem 1.5rem 4rem;
   }
@@ -495,7 +613,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .hero-lede strong { color: var(--c-night); }
   .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
-  /* ── TECHNICAL BUTTONS (SHARP RECTANGULAR, ZERO PILLS) ── */
+  /* ── SHARP BUTTONS ── */
   .btn-action {
     display: inline-flex;
     align-items: center;
@@ -531,7 +649,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     color: #550126;
   }
 
-  /* ── COMMON SECTION HEADERS (NO TINY LABELS) ── */
+  /* ── SECTION HEADINGS ── */
   .content-section {
     margin-bottom: 6rem;
     padding-top: 3.5rem;
@@ -554,7 +672,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   }
   .section-description strong { color: var(--c-night); }
 
-  /* ── 2. RUNTIME MATRIX (THREE-WAY SPLIT) ── */
+  /* ── 2. RUNTIME MATRIX ── */
   .runtime-matrix {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -596,148 +714,176 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   }
   .matrix-card strong { color: var(--c-night); }
 
-  /* ── 3. LAYERED ARCHITECTURAL PYRAMID ── */
-  .schema-pyramid {
-    display: flex;
-    flex-direction: column;
+  /* ── 3. ISOMETRIC EXPLODED PYRAMID BLUEPRINT ── */
+  .pyramid-showcase {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 2.5rem;
     align-items: center;
-    gap: 0;
+    background: var(--c-surface-subtle);
+    border: 2px solid var(--c-border);
+    border-radius: 2px;
+    padding: 2.5rem;
     margin-bottom: 3.5rem;
   }
-  .pyramid-tier {
-    width: 100%;
-    background: var(--c-white);
-    border-radius: 2px;
-    box-shadow: 0 6px 20px rgba(27, 32, 33, 0.05);
-    overflow: hidden;
-  }
-  /* Tier 3: Apex / Schema */
-  .tier-schema {
-    max-width: 54rem;
-    border: 2px solid var(--c-burgundy);
-    background: #fff8f9;
-  }
-  /* Tier 2: Decisions & Patterns */
-  .tier-decisions {
-    max-width: 63rem;
-    border: 1.5px solid var(--c-border);
-    background: #ffffff;
-  }
-  /* Tier 1: Code Anchors */
-  .tier-anchors {
-    max-width: 72rem;
-    border: 1.5px solid var(--c-border);
-    background: #fdfafb;
+  @media (max-width: 960px) {
+    .pyramid-showcase { grid-template-columns: 1fr; gap: 2rem; padding: 1.5rem; }
   }
 
-  .tier-top-bar {
+  .pyramid-visual-col {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .isometric-pyramid-svg {
+    width: 100%;
+    max-width: 540px;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* SVG Tier Interactive States */
+  .svg-tier-group {
+    cursor: pointer;
+    transition: transform 0.25s var(--ease-out, ease-out), opacity 0.25s;
+  }
+  .svg-tier-group:hover, .svg-tier-group.is-hovered {
+    transform: translateY(-8px);
+  }
+  .tier-3-group:hover, .tier-3-group.is-hovered {
+    transform: translateY(-12px);
+  }
+  .tier-2-group:hover, .tier-2-group.is-hovered {
+    transform: translateY(-8px);
+  }
+  .tier-1-group:hover, .tier-1-group.is-hovered {
+    transform: translateY(-4px);
+  }
+
+  /* Right-hand Stack Cards */
+  .pyramid-stack-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .stack-tier-card {
+    background: #ffffff;
+    border: 1.5px solid var(--c-border);
+    border-radius: 2px;
+    padding: 1.4rem 1.6rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(27, 32, 33, 0.04);
+  }
+  .stack-tier-card:hover, .stack-tier-card.is-active {
+    border-color: var(--c-burgundy);
+    box-shadow: 0 6px 20px rgba(137, 2, 62, 0.12);
+  }
+  .card-tier-3.is-active {
+    border: 2px solid var(--c-burgundy);
+    background: #fffbfa;
+  }
+  .card-tier-2.is-active {
+    border: 2px solid var(--c-rose);
+  }
+  .card-tier-1.is-active {
+    border: 2px solid var(--c-slate);
+  }
+
+  .st-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1.4rem;
-    background: var(--c-surface-subtle);
-    border-bottom: 1px solid var(--c-border);
+    margin-bottom: 0.6rem;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
-  .tier-level-badge {
+  .st-tier-badge {
     font-family: var(--font-mono);
     font-size: 0.72rem;
     font-weight: 800;
-    padding: 0.2rem 0.55rem;
-    border-radius: 2px;
+    color: var(--c-burgundy);
     letter-spacing: 0.06em;
   }
-  .badge-burgundy { background: var(--c-burgundy); color: #ffffff; }
-  .badge-slate { background: var(--c-slate); color: #ffffff; }
-  .badge-muted { background: #e8eaee; color: var(--c-slate); }
-  .tier-meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c-slate); font-weight: 600; }
-
-  .tier-body { padding: 1.5rem 1.8rem; }
-  .schema-head-line { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; }
-  .schema-pill {
-    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 800; background: var(--c-rose); color: #ffffff;
-    padding: 0.15rem 0.45rem; border-radius: 2px;
+  .st-status {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--c-slate);
+    font-weight: 700;
   }
-  .schema-title { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 900; color: var(--c-night); }
-  .schema-status { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 800; margin-left: auto; }
+  .st-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .st-title code {
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: var(--c-night);
+  }
+  .st-telemetry {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--c-rose);
+    font-weight: 700;
+  }
 
-  .schema-grid-inner { display: flex; flex-direction: column; gap: 0.9rem; }
-  .sgi-row { display: grid; grid-template-columns: 140px 1fr; gap: 1rem; align-items: baseline; }
-  @media (max-width: 680px) { .sgi-row { grid-template-columns: 1fr; gap: 0.3rem; } }
-  .sgi-label { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; color: var(--c-burgundy); }
-  .sgi-val { font-size: 0.98rem; color: var(--c-night); }
+  .st-content { display: flex; flex-direction: column; gap: 0.75rem; }
+  .st-field { display: flex; flex-direction: column; gap: 0.2rem; }
+  .st-k { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 800; color: var(--c-burgundy); }
+  .st-v { font-size: 0.92rem; color: var(--c-night); margin: 0; line-height: 1.5; }
   .directive-box {
     font-family: var(--font-mono) !important;
-    font-size: 0.92rem !important;
-    background: #ffffff;
-    border: 1px solid var(--c-rose-pale);
+    font-size: 0.88rem !important;
+    background: #fff4f6;
     border-left: 3px solid var(--c-burgundy);
-    padding: 0.75rem 1rem;
-    border-radius: 2px;
+    padding: 0.65rem 0.85rem;
     color: var(--c-burgundy) !important;
     font-weight: 600;
   }
 
-  /* Pyramid Connectors */
-  .pyramid-connector {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.85rem;
-    width: 100%;
-    padding: 0.65rem 0;
-  }
-  .connector-line { width: 40px; height: 1.5px; background: var(--c-border); }
-  .connector-badge {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 800;
-    color: var(--c-burgundy);
-    background: #fff8f9;
-    padding: 0.25rem 0.75rem;
-    border: 1px solid var(--c-border);
-    border-radius: 2px;
-    letter-spacing: 0.05em;
-  }
-
-  /* Decisions Chips */
-  .decisions-chips-wrap {
+  /* Chips and Anchors */
+  .st-chips-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 0.85rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
   }
-  .decision-chip {
+  @media (max-width: 600px) { .st-chips-grid { grid-template-columns: 1fr; } }
+  .st-chip {
     background: var(--c-surface-subtle);
     border: 1px solid var(--c-border);
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 2px;
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.15rem;
   }
-  .chip-k { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; color: var(--c-burgundy); }
-  .chip-v { font-size: 0.86rem; color: var(--c-night); font-weight: 600; }
+  .chip-k { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 800; color: var(--c-burgundy); }
+  .chip-v { font-size: 0.82rem; color: var(--c-night); font-weight: 600; }
   .chip-tool { border-color: var(--c-rose); background: #fffbfa; }
   .chip-tool .chip-k { color: var(--c-rose); }
 
-  /* Anchors List */
-  .anchors-list-wrap { display: flex; flex-direction: column; gap: 0.65rem; }
-  .anchor-entry {
+  .st-anchors-list { display: flex; flex-direction: column; gap: 0.45rem; }
+  .st-anchor {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    background: var(--c-white);
+    gap: 0.6rem;
+    background: var(--c-surface-subtle);
     border: 1px solid var(--c-border);
-    padding: 0.65rem 1rem;
+    padding: 0.45rem 0.75rem;
     border-radius: 2px;
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     flex-wrap: wrap;
   }
-  .anchor-icon { font-size: 0.95rem; }
-  .anchor-entry code { font-family: var(--font-mono); font-weight: 700; color: var(--c-night); }
-  .anchor-symbols { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c-slate); margin-left: auto; }
-  @media (max-width: 680px) { .anchor-symbols { margin-left: 0; width: 100%; } }
+  .anchor-glyph { font-size: 0.85rem; }
+  .st-anchor code { font-family: var(--font-mono); font-weight: 700; color: var(--c-night); }
+  .anchor-meta { font-family: var(--font-mono); font-size: 0.72rem; color: var(--c-slate); margin-left: auto; }
+  @media (max-width: 600px) { .anchor-meta { margin-left: 0; width: 100%; } }
 
   /* Specimen Card (Strategic Planning) */
   .specimen-card {
@@ -917,7 +1063,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     padding: 2.2rem 1.5rem;
   }
   .footer-wrap {
-    max-width: 72rem;
+    max-width: 76rem;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
