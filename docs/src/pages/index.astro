@@ -1153,13 +1153,16 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .cb-body {
     padding: 1.25rem 1.4rem;
     margin: 0;
-    background: #fffcfc;
+    background: #fff8f9;
+    border: none;
+    overflow-x: auto;
+  }
+  .cb-body code {
     font-family: var(--font-mono);
     font-size: 0.88rem;
-    color: var(--c-slate);
-    overflow-x: auto;
-    border: none;
-    line-height: 1.6;
+    color: var(--c-night) !important; /* #1b2021 - Deep Night Charcoal from palette */
+    line-height: 1.65;
+    font-weight: 500;
   }
 
   /* ── 6. INSTALL ── */
