@@ -29,6 +29,8 @@
   --color-text-light:  #5c6274;
   --color-link:        #89023e;
   --color-link-hover:  #ea638c;
+
+  --sidebar-width: 260px;
   --toc-width:     220px;
   --header-height: 60px;
 
