@@ -287,6 +287,13 @@ engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000
 # View session history and cumulative savings
 engrams session history`}</code></pre>
   <p>
+    The close payload also reports <code>schema_value</code> (schema-guided retrievals in the session
+    window; omitted when no session key is known) and <code>schema_opportunities</code> (unconfirmed
+    schema candidates that passed formation gates, each with a ready-to-run
+    <code>engrams schema confirm</code> command). See
+    <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>.
+  </p>
+  <p>
     Engrams CLI automatically checks for new releases in the background (at most once every 24 hours). If a new version is available, a notification is printed to standard error.
   </p>
   <p>

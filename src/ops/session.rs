@@ -47,6 +47,12 @@ pub fn close(
 
     let now = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     let sid = session.or_else(|| std::env::var("ENGRAMS_SESSION").ok());
+
+    // A manual close windows from the previous close, so the anchor must be
+    // read BEFORE this close row is inserted — otherwise the window starts
+    // at the close itself and counts nothing.
+    let schema_val = schema_value_rollup(conn, sid.as_deref())?;
+
     conn.execute(
         "INSERT INTO session_closes (timestamp, session, reads_skipped, reads_required, tokens_saved, note, pr_url) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -54,6 +60,8 @@ pub fn close(
     )?;
 
     let rollup = usage_rollup(conn, sid.as_deref())?;
+
+    let opportunities = crate::ops::schemas::opportunities::find_opportunities(conn)?;
 
     let mut out = json!({
         "closed": true,
@@ -65,10 +73,16 @@ pub fn close(
         "note": note,
         "pr": pr_url,
         "retrievals_this_session": rollup,
+        "schema_value": schema_val,
+        "schema_opportunities": opportunities,
     });
     if let Some(v) = pr_validation {
         out["pr_validation"] = json!(v);
     }
+    // Stamp AFTER building the output so the stamped set is exactly what was
+    // surfaced this close; stamp_notified no-ops on an empty list.
+    let sigs: Vec<&str> = opportunities.iter().map(|o| o.signature.as_str()).collect();
+    crate::ops::schemas::opportunities::stamp_notified(conn, &sigs)?;
     Ok(out)
 }
 
@@ -202,6 +216,39 @@ fn usage_rollup(conn: &Connection, session: Option<&str>) -> Result<Value> {
         )?,
     };
     Ok(json!({"calls": calls, "zero_hit": misses}))
+}
+
+/// Guided-retrieval value for the window this close covers: a named session
+/// windows from its first `usage_log` call; a manual close windows from the
+/// previous `session_closes` row. With no anchor (empty session, or first
+/// manual close ever) the counts stay zero — never an unwindowed all-time
+/// total, which would silently re-credit history to every close.
+fn schema_value_rollup(conn: &Connection, session: Option<&str>) -> Result<Value> {
+    let start_ts: Option<String> = match session {
+        Some(sid) => conn.query_row(
+            "SELECT MIN(timestamp) FROM usage_log WHERE session = ?1",
+            params![sid],
+            |r| r.get::<_, Option<String>>(0),
+        )?,
+        None => conn.query_row("SELECT MAX(timestamp) FROM session_closes", [], |r| {
+            r.get::<_, Option<String>>(0)
+        })?,
+    };
+
+    let (guided, distinct) = match start_ts {
+        Some(ts) => conn.query_row(
+            "SELECT COUNT(*), COUNT(DISTINCT node_id) FROM retrieval_surfaces \
+             WHERE node_kind = 'schema' AND ts >= ?1",
+            params![ts],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+        )?,
+        None => (0, 0),
+    };
+
+    Ok(json!({
+        "guided_retrievals": guided,
+        "distinct_schemas": distinct
+    }))
 }
 
 pub fn handle(conn: &Connection, cmd: crate::cli::SessionCmd) -> Result<Value> {

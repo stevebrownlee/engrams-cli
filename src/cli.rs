@@ -428,9 +428,17 @@ pub enum SchemaCmd {
     Refine {
         /// Schema id or exact name
         target: String,
-        /// The agent-refined summary text
+        /// Manual summary text; must open with a conditional trigger phrase
+        /// ("Fires when", "When", "Applies if", "Activates when")
         #[arg(long)]
-        summary: String,
+        summary: Option<String>,
+        /// Activation condition; pairs with --rule to synthesize
+        /// "Fires when <CONDITION>: <DIRECTIVE>"
+        #[arg(long)]
+        trigger: Option<String>,
+        /// Operational directive; pairs with --trigger to synthesize the summary
+        #[arg(long)]
+        rule: Option<String>,
     },
 }
 
@@ -915,7 +923,8 @@ pub enum BatchType {
 
 #[derive(Subcommand, Debug)]
 pub enum SessionCmd {
-    /// Record an end-of-session ROI rollup (optionally gates a PR)
+    /// Record an end-of-session ROI rollup (optionally gates a PR); reports
+    /// schema-guided retrievals and unconfirmed schema opportunities
     Close {
         /// Reads the KB made unnecessary this session (estimate)
         #[arg(long, default_value_t = 0)]

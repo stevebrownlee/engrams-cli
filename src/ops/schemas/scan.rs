@@ -20,18 +20,13 @@ use std::collections::HashMap;
 #[cfg(test)]
 use std::fmt::Write as _;
 
+pub(crate) use super::gates::jaccard;
+use super::gates::{
+    failed_gates, gates_pass, DENSITY_GATE, JACCARD_IDENTITY, REWARD_GATE, STABILITY_GATE,
+};
+
 use super::super::graph::louvain::{self, OverlayWeights};
 use super::super::graph::model::NodeKey;
-
-/// Launch-default gate thresholds (spec 0002 Architecture step 4). Sweep
-/// constants owned by the phase-8 dogfood gate; the reward floor of zero
-/// exists because `retrieval_surfaces` ships empty and any higher floor
-/// would block all formation until telemetry exists.
-pub(super) const DENSITY_GATE: f64 = 0.5;
-pub(super) const STABILITY_GATE: i64 = 3;
-pub(super) const REWARD_GATE: i64 = 0;
-/// Jaccard threshold above which a cluster and a staged row share identity.
-pub(super) const JACCARD_IDENTITY: f64 = 0.7;
 
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
@@ -52,31 +47,6 @@ fn member_strings(members: &[NodeKey]) -> Vec<String> {
 /// Sorted-member signature: the exact-set key of a candidate row.
 fn signature(members: &[String]) -> String {
     members.join(",")
-}
-
-/// Jaccard similarity of two ascending-sorted member sets (merge
-/// intersection). Sortedness is a precondition enforced by every caller —
-/// `member_strings` sorts, stored members round-trip that order, and
-/// `BTreeSet` iteration is ordered.
-pub(super) fn jaccard(a: &[&str], b: &[&str]) -> f64 {
-    let (mut i, mut j, mut inter) = (0usize, 0usize, 0usize);
-    while i < a.len() && j < b.len() {
-        match a[i].cmp(b[j]) {
-            Ordering::Less => i += 1,
-            Ordering::Greater => j += 1,
-            Ordering::Equal => {
-                inter += 1;
-                i += 1;
-                j += 1;
-            }
-        }
-    }
-    let union = a.len() + b.len() - inter;
-    if union == 0 {
-        0.0
-    } else {
-        inter as f64 / union as f64
-    }
 }
 
 /// Count of `a`'s members absent from `b`; both ascending-sorted. The same
@@ -303,15 +273,6 @@ pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
         let density_pass = cluster.density >= DENSITY_GATE;
         let stability_pass = stability >= STABILITY_GATE;
         let reward_pass = reward >= REWARD_GATE;
-        let failed_gates: Vec<&str> = [
-            ("density", density_pass),
-            ("stability", stability_pass),
-            ("reward", reward_pass),
-        ]
-        .iter()
-        .filter(|(_, pass)| !pass)
-        .map(|(name, _)| *name)
-        .collect();
         // Kind pass (spec 0003): gates prove a group is real; the label
         // records what it is. Only gate-passing rows are labeled — nothing
         // that will not be proposed needs characterizing — and the write
@@ -360,8 +321,8 @@ pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
                     "pass": reward_pass,
                 },
             },
-            "failed_gates": failed_gates,
-            "gates_pass": density_pass && stability_pass && reward_pass,
+            "failed_gates": failed_gates(cluster.density, stability, reward),
+            "gates_pass": gates_pass(cluster.density, stability, reward),
         }));
     }
 

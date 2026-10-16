@@ -1,7 +1,5 @@
 ---
 import "../styles/global.css";
-import Hero3D from "../components/Hero3D.astro";
-import ForceGraph from "../components/ForceGraph.astro";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -13,482 +11,1211 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Stop paying the file-reading tax. Engrams embeds interface contracts, code topology, and Git drift into a self-sufficient local architecture graph your AI agent actually trusts."
+      content="Engrams is the Schema Runtime for AI agents. It isn't a passive memory store or static markdown rules — it's an active runtime that finds, defines, and refines mental models like the human brain."
     />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Engrams – Architecture Graphs for AI Agents</title>
+    <title>Engrams — The Schema Runtime for AI Agents</title>
   </head>
-  <body class="home-body">
-    <!-- ── Header ── -->
-    <header class="home-header">
-      <div class="hdr-inner">
-        <a href="/" class="logo">
-          <span class="logo-mark"><img src="/engram.png" alt="" class="graph-img" aria-hidden="true" /></span>
-          <span class="logo-text">Engrams</span>
+  <body class="runtime-body">
+    <!-- ── TOP BAR ── -->
+    <header class="top-bar">
+      <div class="bar-inner">
+        <a href="/" class="brand">
+          <span class="glyph">⬡</span>
+          <span class="name">ENGRAMS</span>
+          <span class="version">v0.14.0</span>
         </a>
-        <nav class="hdr-nav">
-          <a href="/docs/advisor/overview">The Advisor</a>
-          <a href="/docs/for-you/overview">For You</a>
-          <a href="/docs/for-agent/overview">For Your Agent</a>
-          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
+        <nav class="nav">
+          <a href="#what">What is a Schema</a>
+          <a href="#runtime">Why a Runtime</a>
+          <a href="#lifecycle">How It Learns</a>
+          <a href="/docs/guide/cognitive-schemas" class="highlight">Guide</a>
+          <a href="/docs/getting-started">Docs</a>
+          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub ↗</a>
         </nav>
       </div>
     </header>
 
-    <!-- ══ HERO ══ -->
-    <section class="hero dark">
-      <Hero3D height="100%" />
-      <div class="hero-content">
-        <div class="hero-badge">Open Source · Apache-2.0 · v{__APP_VERSION__}</div>
+    <main class="page-content">
+      <!-- ══ 1. THE HERO ══ -->
+      <section class="hero-section">
         <h1 class="hero-title">
-          The self-sufficient architecture graph<br />
-          your AI agent <span class="accent-word">actually trusts</span>.
+          The Schema Runtime<br />
+          <span class="accent">for AI Coding Agents.</span>
         </h1>
-        <p class="hero-subtitle">
-          Stop burning 15,000 tokens on defensive file reads. Engrams embeds interface contracts,
-          code topology, and live Git drift into a local knowledge graph — so your AI can plan,
-          verify, and design with architectural precision before opening a single file.
+        <p class="hero-lede">
+          Static markdown rules bloat your prompt. Flat memory stores sit passively waiting to be queried.
+          Engrams is an <strong>active runtime</strong> that continuously finds, defines, and refines
+          mental models for your codebase — just like the human brain.
         </p>
+
         <div class="hero-actions">
-          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started</a>
-          <a href="#graph" class="btn btn-ghost btn-lg">Explore the knowledge graph ↓</a>
+          <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
+          <a href="/docs/guide/cognitive-schemas" class="btn-action secondary">Read the Schema Guide</a>
         </div>
-      </div>
-      <div class="hero-scroll-hint" aria-hidden="true">scroll</div>
-    </section>
+      </section>
 
-    <!-- ══ BEFORE / AFTER COMPARISON ══ -->
-    <section class="section dark compare-section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">The hidden tax</div>
-        <h2 class="section-title">Stop paying the <span class="accent-word">15,000-token</span> file reading tax</h2>
-        <p class="section-sub">
-          When agents distrust incomplete context, they open files defensively. Reading 10 source files
-          just to inspect an adapter shape burns 100k+ tokens before writing a single line of code.
+      <!-- ══ 2. WHY A RUNTIME? (CATEGORICAL SEPARATION) ══ -->
+      <section id="runtime" class="content-section">
+        <h2 class="section-heading">Why a Schema Runtime?</h2>
+        <p class="section-description">
+          Other tools treat AI context as static text files or dead database records. A runtime is fundamentally different:
+          it actively perceives changes, clusters patterns, and executes directives at the exact point of action.
         </p>
-      </div>
-      <div class="compare-table reveal">
-        <div class="compare-grid">
-          <div class="compare-col-header compare-without-cell">Without engrams</div>
-          <div class="compare-col-header compare-with-cell">With engrams v0.12.0</div>
-          <div class="compare-cell compare-without-cell">
-            <p>Agent opens 10+ source files (50k–150k tokens) to inspect behaviors, types, and callback names</p>
+
+        <div class="runtime-matrix">
+          <div class="matrix-card">
+            <h3>Vector Databases &amp; ADR Lists (Passive)</h3>
+            <div class="matrix-flaw">Dead history waiting to be searched</div>
+            <p>
+              Stores hundreds of isolated notes. But the agent has no trigger condition — it doesn't know
+              <em>when</em> a rule applies. It either queries blindly or ignores your history completely.
+            </p>
           </div>
-          <div class="compare-cell compare-with-cell">
-            <p><code>engrams brief</code> serves exact interface contracts and symbols in &lt;200 tokens — <strong>zero file reads required</strong></p>
+
+          <div class="matrix-card">
+            <h3>Prompt Stuffing &amp; <code>.cursorrules</code> (Static)</h3>
+            <div class="matrix-flaw">Brittle, manual, and bloated</div>
+            <p>
+              Developers manually write rigid text rules that get dumped into every prompt regardless of relevance.
+              Consumes context window space and causes severe attention decay in reasoning models.
+            </p>
           </div>
-          <div class="compare-cell compare-without-cell">
-            <p>Querying <code>system_user_id</code> misses <code>systemUserId</code> in code, prompting a desperate full-table context dump</p>
-          </div>
-          <div class="compare-cell compare-with-cell">
-            <p>Cross-convention FTS matches <code>snake_case</code>, <code>camelCase</code>, and <code>kebab-case</code> transparently</p>
-          </div>
-          <div class="compare-cell compare-without-cell">
-            <p>Empty search returns <code>[]</code> — agent assumes no architecture exists and creates a duplicate system</p>
-          </div>
-          <div class="compare-cell compare-with-cell">
-            <p>Miss-Guidance steers the agent to top tag clusters, recent decisions, and graph hubs instead of a dead end</p>
-          </div>
-          <div class="compare-cell compare-without-cell">
-            <p>Agent assumes stale 6-month-old decisions are current and builds on outdated assumptions</p>
-          </div>
-          <div class="compare-cell compare-with-cell">
-            <p>Git-backed Staleness Drift detects if anchored files changed at HEAD (<code>stale: true/false</code>)</p>
-          </div>
-          <div class="compare-cell compare-without-cell">
-            <p>Unmeasured memory — no way to know if context is helping or how many reads were saved</p>
-          </div>
-          <div class="compare-cell compare-with-cell">
-            <p><code>engrams usage</code> and <code>session close</code> track exact retrieval counts, zero-hit queries, and token ROI</p>
+
+          <div class="matrix-card matrix-featured">
+            <h3>The Engrams Runtime (Active Schemas)</h3>
+            <div class="matrix-flaw text-burgundy">Continuous perception &amp; 1ms execution</div>
+            <p>
+              Autonomously clusters codebase activity, formalizes triggers and directives, and intercepts agent
+              edits in 1ms with compact mental models.
+            </p>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-
-
-    <!-- ══ WHAT AN ADVISOR DOES ══ -->
-    <section class="section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">The difference</div>
-        <h2 class="section-title">A database answers. An advisor <span class="accent-word">anticipates</span>.</h2>
-        <p class="section-sub">
-          Query tools wait for you to ask the right question. Engrams builds enough architectural context to
-          guide your agent before it writes code.
+      <!-- ══ 3. WHAT IS A SCHEMA? (ISOMETRIC EXPLODED PYRAMID) ══ -->
+      <section id="what" class="content-section">
+        <h2 class="section-heading">What is a Schema?</h2>
+        <p class="section-description">
+          A Cognitive Schema is not an isolated note. It is the peak of an architectural pyramid:
+          <strong>an active mental model</strong> resting on <strong>linked decisions and standards</strong>,
+          which anchor directly into your <strong>concrete repository source code</strong>.
         </p>
-      </div>
-      <div class="card-grid">
-        <article class="glass-card reveal">
-          <div class="card-icon" aria-hidden="true">◆</div>
-          <h3>It embeds the contract</h3>
+
+        <!-- ── THE 3D ISOMETRIC PYRAMID BLUEPRINT (CALIBRATED VERTICAL ALIGNMENT) ── -->
+        <div class="pyramid-showcase" data-pyramid>
+          <!-- Full-Container Overlay SVG for Leader Lines (Connects Pyramid Directly to Cards) -->
+          <svg class="pyramid-overlay-lines" aria-hidden="true">
+            <path class="leader-line line-3" data-tier="3" />
+            <circle class="leader-dot dot-3-start" data-tier="3" r="4.5" />
+            <circle class="leader-dot dot-3-end" data-tier="3" r="4.5" />
+
+            <path class="leader-line line-2" data-tier="2" />
+            <circle class="leader-dot dot-2-start" data-tier="2" r="4.5" />
+            <circle class="leader-dot dot-2-end" data-tier="2" r="4.5" />
+
+            <path class="leader-line line-1" data-tier="1" />
+            <circle class="leader-dot dot-1-start" data-tier="1" r="4.5" />
+            <circle class="leader-dot dot-1-end" data-tier="1" r="4.5" />
+          </svg>
+
+          <!-- Left Column: The 3D Exploded Isometric SVG Pyramid (Vertically Calibrated) -->
+          <div class="pyramid-visual-col">
+            <svg viewBox="0 0 680 720" class="isometric-pyramid-svg" aria-label="Exploded 3D Isometric Schema Pyramid">
+              <defs>
+                <!-- Tier 3: Burgundy & Rose Gradients -->
+                <linearGradient id="pyr-t3-left" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#89023e" />
+                  <stop offset="100%" stop-color="#550126" />
+                </linearGradient>
+                <linearGradient id="pyr-t3-right" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ea638c" />
+                  <stop offset="100%" stop-color="#89023e" />
+                </linearGradient>
+
+                <!-- Tier 2: Rose & Pale Blush Gradients -->
+                <linearGradient id="pyr-t2-top" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#ffffff" />
+                  <stop offset="100%" stop-color="#ffd9da" />
+                </linearGradient>
+                <linearGradient id="pyr-t2-left" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ba1a5e" />
+                  <stop offset="100%" stop-color="#7a0237" />
+                </linearGradient>
+                <linearGradient id="pyr-t2-right" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#f588a8" />
+                  <stop offset="100%" stop-color="#ea638c" />
+                </linearGradient>
+
+                <!-- Tier 1: Foundation Slate Gradients -->
+                <linearGradient id="pyr-t1-top" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#fcf0f2" />
+                  <stop offset="100%" stop-color="#edd2d6" />
+                </linearGradient>
+                <linearGradient id="pyr-t1-left" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#30343f" />
+                  <stop offset="100%" stop-color="#1b2021" />
+                </linearGradient>
+                <linearGradient id="pyr-t1-right" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#4d5364" />
+                  <stop offset="100%" stop-color="#30343f" />
+                </linearGradient>
+
+                <filter id="tier-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#89023e" flood-opacity="0.14" />
+                </filter>
+              </defs>
+
+              <!-- Isometric Alignment Guidelines -->
+              <g class="guide-struts" stroke="#ffd9da" stroke-width="1" stroke-dasharray="3 3">
+                <line x1="330" y1="60" x2="10" y2="595" />
+                <line x1="330" y1="60" x2="650" y2="595" />
+                <line x1="330" y1="160" x2="330" y2="675" />
+              </g>
+
+              <!-- ── TIER 1: BASE PLATFORM (Code Anchors) ── -->
+              <g class="svg-tier-group tier-1-group" data-tier="1" filter="url(#tier-shadow)">
+                <!-- Top Face (Diamond) -->
+                <polygon points="330,470 547,525 330,580 113,525" fill="url(#pyr-t1-top)" stroke="#e0c2c6" stroke-width="1.5" />
+                <!-- Left Face -->
+                <polygon points="113,525 330,580 330,675 10,595" fill="url(#pyr-t1-left)" stroke="#1b2021" stroke-width="1" />
+                <!-- Right Face -->
+                <polygon points="330,580 547,525 650,595 330,675" fill="url(#pyr-t1-right)" stroke="#1b2021" stroke-width="1" />
+                <!-- Subtle Facet Line -->
+                <line x1="330" y1="580" x2="330" y2="675" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
+                <!-- Label on Base -->
+                <text x="140" y="615" fill="#ffffff" font-family="var(--font-mono)" font-size="11" font-weight="800" letter-spacing="1" transform="rotate(16, 140, 615)">TIER 1: REPOSITORY CODE ANCHORS</text>
+                <!-- Anchor Dot for Leader Line -->
+                <circle id="tier-anchor-1" cx="598" cy="560" r="4.5" fill="#89023e" />
+              </g>
+
+              <!-- ── TIER 2: MIDDLE FRUSTUM (Decisions & Patterns) ── -->
+              <g class="svg-tier-group tier-2-group" data-tier="2" filter="url(#tier-shadow)">
+                <!-- Top Face (Diamond) -->
+                <polygon points="330,250 443,280 330,310 217,280" fill="url(#pyr-t2-top)" stroke="#ffd9da" stroke-width="1.5" />
+                <!-- Left Face -->
+                <polygon points="217,280 330,310 330,405 131,355" fill="url(#pyr-t2-left)" stroke="#89023e" stroke-width="1" />
+                <!-- Right Face -->
+                <polygon points="330,310 443,280 529,355 330,405" fill="url(#pyr-t2-right)" stroke="#89023e" stroke-width="1" />
+                <!-- Subtle Facet Line -->
+                <line x1="330" y1="310" x2="330" y2="405" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
+                <!-- Label on Middle Tier -->
+                <text x="175" y="365" fill="#ffffff" font-family="var(--font-mono)" font-size="10" font-weight="800" letter-spacing="0.5" transform="rotate(16, 175, 365)">TIER 2: DECISIONS &amp; PATTERNS</text>
+                <!-- Anchor Dot for Leader Line -->
+                <circle id="tier-anchor-2" cx="486" cy="318" r="4.5" fill="#89023e" />
+              </g>
+
+              <!-- ── TIER 3: APEX CAP (Cognitive Schema) ── -->
+              <g class="svg-tier-group tier-3-group" data-tier="3" filter="url(#tier-shadow)">
+                <!-- Left Face (Triangle) -->
+                <polygon points="330,60 235,135 330,160" fill="url(#pyr-t3-left)" stroke="#ffd9da" stroke-width="1" />
+                <!-- Right Face (Triangle) -->
+                <polygon points="330,60 330,160 425,135" fill="url(#pyr-t3-right)" stroke="#ffd9da" stroke-width="1" />
+                <!-- Center Crease Highlight -->
+                <line x1="330" y1="60" x2="330" y2="160" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                <!-- Glowing Apex Peak Point -->
+                <circle cx="330" cy="60" r="4.5" fill="#ffffff" stroke="#89023e" stroke-width="2" />
+                <!-- Label on Apex -->
+                <text x="250" y="130" fill="#ffffff" font-family="var(--font-mono)" font-size="9" font-weight="900" letter-spacing="0.5" transform="rotate(16, 250, 130)">TIER 3: SCHEMA</text>
+                <!-- Anchor Dot for Leader Line -->
+                <circle id="tier-anchor-3" cx="378" cy="148" r="4.5" fill="#89023e" />
+              </g>
+            </svg>
+          </div>
+
+          <!-- Right Column: The Three Layered Cards -->
+          <div class="pyramid-stack-col">
+            <!-- Level 3 Card: Schema -->
+            <div class="stack-tier-card card-tier-3 is-active" data-tier="3">
+              <div class="st-head">
+                <h3 class="st-card-heading text-burgundy">Tier 3: Cognitive Schema</h3>
+                <span class="st-status text-burgundy">● active mental model</span>
+              </div>
+              <div class="st-title">
+                <code>performance-rules</code>
+                <span class="st-telemetry">guided 14 sessions</span>
+              </div>
+              <div class="st-content">
+                <div class="st-field">
+                  <span class="st-k">⚡ TRIGGER</span>
+                  <p class="st-v">Fires whenever I edit Rust code handling collections &amp; strings</p>
+                </div>
+                <div class="st-field">
+                  <span class="st-k">📋 DIRECTIVE</span>
+                  <div class="st-v directive-box">
+                    The four allocation rules (borrow params, keep borrowed, consume by move) plus staged checker.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Level 2 Card: Decisions -->
+            <div class="stack-tier-card card-tier-2" data-tier="2">
+              <div class="st-head">
+                <h3 class="st-card-heading">Tier 2: Linked Decisions &amp; Patterns</h3>
+                <span class="st-status">architectural standards</span>
+              </div>
+              <div class="st-chips-grid">
+                <div class="st-chip">
+                  <span class="chip-k">Decision #88</span>
+                  <span class="chip-v">Borrowed SQL parameters (Vec&lt;&amp;dyn ToSql&gt;)</span>
+                </div>
+                <div class="st-chip">
+                  <span class="chip-k">Decision #91</span>
+                  <span class="chip-v">Static vocabulary returns Cow&lt;str&gt;</span>
+                </div>
+                <div class="st-chip">
+                  <span class="chip-k">Pattern #11</span>
+                  <span class="chip-v">Single-source row projections</span>
+                </div>
+                <div class="st-chip">
+                  <span class="chip-k">Pattern #12</span>
+                  <span class="chip-v">Enrich by move, not get().clone()</span>
+                </div>
+                <div class="st-chip chip-tool">
+                  <span class="chip-k">Checker Tool</span>
+                  <span class="chip-v">engrams check --staged (pre-commit)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Level 1 Card: Anchors -->
+            <div class="stack-tier-card card-tier-1" data-tier="1">
+              <div class="st-head">
+                <h3 class="st-card-heading">Tier 1: Repository Code Anchors</h3>
+                <span class="st-status">grounded code reality</span>
+              </div>
+              <div class="st-anchors-list">
+                <div class="st-anchor">
+                  <span class="anchor-glyph">⚓</span>
+                  <code>src/ops/schemas/retrieval.rs</code>
+                  <span class="anchor-meta">surface_counts · enrich_members</span>
+                </div>
+                <div class="st-anchor">
+                  <span class="anchor-glyph">⚓</span>
+                  <code>src/ops/schemas/list.rs</code>
+                  <span class="anchor-meta">resolve_schema · row_json</span>
+                </div>
+                <div class="st-anchor">
+                  <span class="anchor-glyph">⚓</span>
+                  <code>src/ops/schemas/gates.rs</code>
+                  <span class="anchor-meta">gates_pass · claimed_territory</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real Specimen 2: Strategic Planning Schema -->
+        <div class="specimen-card" style="margin-top: 3.5rem;">
+          <div class="sc-header">
+            <div class="sc-title">
+              <span class="sc-badge badge-rose">STRATEGIC SCHEMA</span>
+              <code>what-to-build-next</code>
+            </div>
+            <div class="sc-meta-group">
+              <span class="sc-status">● active · guided 16 sessions</span>
+              <span class="sc-centroid">centroid: roadmap: 1 · planning: 1 · versioning: 1</span>
+            </div>
+          </div>
+
+          <div class="sc-content">
+            <div class="sc-row">
+              <span class="sc-k">⚡ MENTAL TRIGGER</span>
+              <div class="sc-v">
+                <strong>When does this mental model activate?</strong>
+                <p>Fires when planning releases, evaluating roadmap priorities, or drafting new feature specifications</p>
+              </div>
+            </div>
+            <div class="sc-row">
+              <span class="sc-k">📋 CONCEPTUAL DIRECTIVE</span>
+              <div class="sc-v">
+                <strong>What operational paradigm is enforced?</strong>
+                <p class="rule-box warm">
+                  The pack that answers "what should engrams do next?": the 2026 agent-memory research survey (8 saved findings), the decision that turned it into a tiered version-by-version roadmap, and the survey session note. My learn → plan → ship loop — read this before writing any new spec.
+                </p>
+              </div>
+            </div>
+            <div class="sc-row">
+              <span class="sc-k">🔗 BUNDLED MEMBERS</span>
+              <div class="sc-v">
+                <strong>What decisions, research, and progress notes are unified?</strong>
+                <div class="sc-members">
+                  <span class="m-pill">Decision #74: Tiered version roadmap</span>
+                  <span class="m-pill">Research: 2026 agent-memory survey (8 findings)</span>
+                  <span class="m-pill">Progress: Survey session notes &amp; synthesis</span>
+                  <span class="m-pill anchor">Anchor: specs/</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="contrast-callout">
+          <h3>Why this is an architectural mental model, not a linter rule</h3>
           <p>
-            Decisions don't just state intent — they embed exact callback signatures, struct shapes, and error
-            tuples via <code>--contract</code>. Strategy formation never dead-ends.
+            Notice how both schemas capture <strong>how an expert thinks</strong>: 
+            <code>performance-rules</code> doesn't just block a single function call; it packages four architectural decisions, two code files, and a validation checker into an instant zero-allocation posture. 
+            <code>what-to-build-next</code> packages a research survey and roadmap decisions into a planning protocol. 
+            Your AI receives the complete mental model on Turn 1 before writing a single line of code.
           </p>
-        </article>
-        <article class="glass-card reveal">
-          <div class="card-icon" aria-hidden="true">◈</div>
-          <h3>It catches code drift</h3>
-          <p>
-            Lightweight Git staleness scoring tells your agent whether anchored source files were committed
-            after a decision was logged. Trust is verified, not assumed.
-          </p>
-        </article>
-        <article class="glass-card reveal">
-          <div class="card-icon" aria-hidden="true">◇</div>
-          <h3>It guides empty searches</h3>
-          <p>
-            Zero-hit queries don't return dead ends. Engrams analyzes your knowledge graph and returns the
-            nearest tag clusters and graph hubs so agents re-target immediately.
-          </p>
-        </article>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <!-- ══ FOR YOU — the human commands ══ -->
-    <section class="section section-alt">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">For you</div>
-        <h2 class="section-title">Three commands you'll actually run</h2>
-        <p class="section-sub">
-          Your agent does the remembering. You get the briefing.
+      <!-- ══ 4. HOW THE RUNTIME LEARNS: FINDS, DEFINES, REFINES, EXECUTES ══ -->
+      <section id="lifecycle" class="content-section">
+        <h2 class="section-heading">How the Runtime Learns</h2>
+        <p class="section-description">
+          The human brain doesn't require manual file editing to form intuition. Engrams runs a continuous
+          cognitive loop: perceiving clusters, defining boundaries, adapting to drift, and executing just in time.
         </p>
-      </div>
-      <div class="cmd-list">
-        <div class="cmd-row reveal">
-          <div class="cmd-term">
-            <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams prime
-&#123;"briefing": "3 active threads, 1 blocked…",
- "relevant_decisions": [ … ]&#125;</code></pre>
-          </div>
-          <div class="cmd-copy">
-            <h3><code>prime</code> — the morning briefing</h3>
-            <p>One command rehydrates everything relevant to what you're about to touch. Start every session informed, not cold.</p>
-            <a href="/docs/for-you/briefing" class="text-link">Briefing commands →</a>
-          </div>
-        </div>
-        <div class="cmd-row reveal">
-          <div class="cmd-term">
-            <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams brief "payment adapter"
-&#123;"contract": "fn process(amount: u64) -> Result&lt;Receipt, Error&gt;",
- "symbols": ["StripeAdapter", "process", "refund"],
- "drift": &#123;"stale": false, "checked": 2&#125;&#125;</code></pre>
-          </div>
-          <div class="cmd-copy">
-            <h3><code>brief</code> — the architectural brief</h3>
-            <p>One-call composite read: contracts, docstrings, symbols, anchors, and Git drift in under 200 tokens.</p>
-            <a href="/docs/for-agent/retrieving" class="text-link">Strategy retrieval →</a>
-          </div>
-        </div>
-        <div class="cmd-row reveal">
-          <div class="cmd-term">
-            <div class="term-bar"><span></span><span></span><span></span></div>
-            <pre><code>$ engrams session close --pr 42
-&#123;"closed": true,
- "reads_skipped_estimated": 14,
- "tokens_saved_estimated": 70000,
- "pr_validation": &#123;"gate_ok": true&#125;&#125;</code></pre>
-          </div>
-          <div class="cmd-copy">
-            <h3><code>session close</code> — PR gate &amp; token ROI</h3>
-            <p>Close sessions with enforced PR linkage gates and track the reads your knowledge graph made unnecessary.</p>
-            <a href="/docs/for-agent/maintaining" class="text-link">Session close &amp; ROI →</a>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- ══ INTERACTIVE GRAPH ══ -->
-    <section id="graph" class="section dark graph-section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">Proof, not promises</div>
-        <h2 class="section-title">Drag engrams' own memory around</h2>
-        <p class="section-sub">
-          Every node is a real decision or task from building this tool. Gold nodes are decisions;
-          the bright ones are the load-bearing few everything else depends on.
+        <div class="loop-grid">
+          <!-- Step 1: Finds -->
+          <div class="loop-card">
+            <h3>1. Finds</h3>
+            <p>
+              As you commit code and log decisions, graph community detection identifies natural clusters
+              of co-edited files and decisions in local SQLite.
+            </p>
+            <div class="lc-code"><code>$ engrams schema scan</code></div>
+          </div>
+
+          <!-- Step 2: Defines -->
+          <div class="loop-card">
+            <h3>2. Defines</h3>
+            <p>
+              At session close, Engrams nudges you with ready-to-run confirm commands, and authoring enforces
+              strict trigger-and-rule contracts.
+            </p>
+            <div class="lc-code"><code>$ engrams schema confirm decision:88 --name performance-rules</code></div>
+          </div>
+
+          <!-- Step 3: Refines -->
+          <div class="loop-card">
+            <h3>3. Refines</h3>
+            <p>
+              Tracks git staleness drift, records retrieval surface counts, and re-notifies when new candidate
+              evidence advances beyond prior notifications.
+            </p>
+            <div class="lc-code"><code>$ engrams schema refine performance-rules --trigger "..." --rule "..."</code></div>
+          </div>
+
+          <!-- Step 4: Executes -->
+          <div class="loop-card lc-featured">
+            <h3>4. Executes</h3>
+            <p>
+              Tomorrow, your AI touches matching files. <code>engrams advise</code> intercepts the edit in 1ms,
+              injecting the active schema before a single line is written.
+            </p>
+            <div class="lc-code"><code>$ engrams advise src/ops/schemas/retrieval.rs</code></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 5. THREE COMMANDS THAT RUN IT ══ -->
+      <section class="content-section">
+        <h2 class="section-heading">Three Operational Levers</h2>
+        <p class="section-description">
+          Your AI executes the advice automatically. You steer the runtime with three high-leverage commands.
         </p>
-      </div>
-      <ForceGraph height="620px" />
-      <p class="graph-foot reveal">And this is just the knowledge layer — the full graph, with code topology and git-derived links, spans <strong>1,273 edges</strong> across 81 code nodes and 142 memories.</p>
-    </section>
 
-    <!-- ══ ADVISOR LOOP ══ -->
-    <section class="section">
-      <div class="section-head reveal">
-        <div class="section-eyebrow">Strategy-First Protocol</div>
-        <h2 class="section-title">The strategy-first loop</h2>
-      </div>
-      <ol class="loop reveal">
-        <li class="loop-step">
-          <span class="loop-num">1</span>
-          <h3>Formulate</h3>
-          <p><code>prime</code> and <code>brief</code> assemble the complete architecture strategy in &lt;200 tokens before touching files.</p>
-        </li>
-        <li class="loop-arrow" aria-hidden="true">→</li>
-        <li class="loop-step">
-          <span class="loop-num">2</span>
-          <h3>Verify</h3>
-          <p><code>advise</code> and Git drift check rules, constraints, and staleness before editing code.</p>
-        </li>
-        <li class="loop-arrow" aria-hidden="true">→</li>
-        <li class="loop-step">
-          <span class="loop-num">3</span>
-          <h3>Escalate</h3>
-          <p>Open files <em>only</em> if the graph lacks contracts, and immediately write back what you learned.</p>
-        </li>
-        <li class="loop-arrow" aria-hidden="true">→</li>
-        <li class="loop-step">
-          <span class="loop-num">4</span>
-          <h3>Close</h3>
-          <p><code>session close</code> validates PR linkage, connects the graph, and records token ROI. Repeat.</p>
-        </li>
-      </ol>
-      <div class="loop-cta reveal">
-        <a href="/docs/advisor/overview" class="btn btn-outline">How the advisor works →</a>
-      </div>
-    </section>
+        <div class="cmd-stack">
+          <div class="cmd-box">
+            <div class="cb-chrome">
+              <span class="cb-cmd">$ engrams advise src/ops/schemas/retrieval.rs</span>
+            </div>
+            <pre class="cb-body"><code>&#123;
+  "schemas": [
+    &#123;
+      "id": 1,
+      "name": "performance-rules",
+      "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections...",
+      "guided": 14
+    &#125;
+  ],
+  "constraints": [ ... ]
+&#125;</code></pre>
+          </div>
 
-    <!-- ══ FINAL CTA ══ -->
-    <section class="section dark cta-final">
-      <div class="cta-inner reveal">
-        <h2 class="cta-title">Start your graph tonight.<br />Feel the difference in a week.</h2>
-        <div class="cta-install">
-          <pre><code>cargo install engrams-cli</code></pre>
-          <p class="cta-alt">or <code>brew install stevebrownlee/tap/engrams</code></p>
+          <div class="cmd-box">
+            <div class="cb-chrome">
+              <span class="cb-cmd">$ engrams schema show performance-rules</span>
+            </div>
+            <pre class="cb-body"><code>&#123;
+  "name": "performance-rules",
+  "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections...",
+  "guided": 14,
+  "members": [
+    &#123;"kind": "decision", "id": 88, "summary": "Borrowed SQL parameter lists"&#125;,
+    &#123;"kind": "decision", "id": 91, "summary": "Static vocabulary returns Cow"&#125;
+  ]
+&#125;</code></pre>
+          </div>
+
+          <div class="cmd-box">
+            <div class="cb-chrome">
+              <span class="cb-cmd">$ engrams session close --pr 42</span>
+            </div>
+            <pre class="cb-body"><code>&#123;
+  "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
+  "schema_opportunities": [
+    &#123;"confirm_command": "engrams schema confirm decision:88 --name performance-rules"&#125;
+  ]
+&#125;</code></pre>
+          </div>
         </div>
-        <div class="hero-actions">
-          <a href="/docs/getting-started" class="btn btn-primary btn-lg">Get started</a>
-          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">Star on GitHub</a>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <footer class="home-footer">
-      <div class="footer-inner">
-        <span>Engrams · Apache-2.0 · v{__APP_VERSION__}</span>
+      <!-- ══ 6. INSTALL ══ -->
+      <section class="install-section">
+        <div class="install-box">
+          <h2>Give your AI the mental models it deserves.</h2>
+          <p>Local SQLite engine. 0MB background memory. 1ms query execution.</p>
+          <div class="install-code">
+            <code>cargo install engrams-cli</code>
+            <span class="sep">or</span>
+            <code>brew install stevebrownlee/tap/engrams</code>
+          </div>
+          <div class="install-actions">
+            <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
+            <a href="/docs/guide/cognitive-schemas" class="btn-action secondary">Read the Full Guide</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ── FOOTER ── -->
+    <footer class="bottom-footer">
+      <div class="footer-wrap">
+        <span class="footer-brand">⬡ ENGRAMS · Apache-2.0 · The Schema Runtime for AI Agents</span>
         <div class="footer-links">
+          <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>
           <a href="/docs/getting-started">Docs</a>
           <a href="/docs/reference/cli">CLI Reference</a>
-          <a href="/docs/reference/releases">Releases</a>
           <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
         </div>
       </div>
     </footer>
 
+    <!-- ── DYNAMIC LEADER LINES & TIER HOVER SCRIPT ── -->
     <script>
-      // Scroll-reveal for elements not handled by the pinned story.
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const els = document.querySelectorAll('.reveal');
-      if (reduced) {
-        els.forEach((el) => el.classList.add('is-visible'));
+      function initPyramid() {
+        const showcase = document.querySelector('[data-pyramid]');
+        if (!showcase) return;
+
+        const svgGroups = showcase.querySelectorAll('.svg-tier-group');
+        const cards = showcase.querySelectorAll('.stack-tier-card');
+
+        function updateConnectors() {
+          const sRect = showcase.getBoundingClientRect();
+
+          [3, 2, 1].forEach((tier) => {
+            const anchor = document.getElementById(`tier-anchor-${tier}`);
+            const card = showcase.querySelector(`.card-tier-${tier}`);
+            const path = showcase.querySelector(`.line-${tier}`);
+            const dotStart = showcase.querySelector(`.dot-${tier}-start`);
+            const dotEnd = showcase.querySelector(`.dot-${tier}-end`);
+
+            if (!anchor || !card || !path) return;
+
+            const aRect = anchor.getBoundingClientRect();
+            const cRect = card.getBoundingClientRect();
+
+            // Point 1: Center of anchor dot on the pyramid tier facet
+            const x1 = Math.round(aRect.left + aRect.width / 2 - sRect.left);
+            const y1 = Math.round(aRect.top + aRect.height / 2 - sRect.top);
+
+            // Point 2: Exact left border of the card box, vertically centered on the box!
+            const x2 = Math.round(cRect.left - sRect.left);
+            const y2 = Math.round(cRect.top + cRect.height / 2 - sRect.top);
+
+            if (x2 > x1 + 10) {
+              // Nearly horizontal dogleg line straight from pyramid tier into the card box
+              const midX = Math.round(x1 + (x2 - x1) * 0.45);
+              path.setAttribute('d', `M ${x1} ${y1} L ${midX} ${y2} L ${x2} ${y2}`);
+              if (dotStart) {
+                dotStart.setAttribute('cx', x1);
+                dotStart.setAttribute('cy', y1);
+                dotStart.style.display = '';
+              }
+              if (dotEnd) {
+                dotEnd.setAttribute('cx', x2);
+                dotEnd.setAttribute('cy', y2);
+                dotEnd.style.display = '';
+              }
+              path.style.display = '';
+            } else {
+              path.style.display = 'none';
+              if (dotStart) dotStart.style.display = 'none';
+              if (dotEnd) dotEnd.style.display = 'none';
+            }
+          });
+        }
+
+        function activateTier(tierNum) {
+          svgGroups.forEach((g) => {
+            if (g.getAttribute('data-tier') === tierNum) {
+              g.classList.add('is-hovered');
+            } else {
+              g.classList.remove('is-hovered');
+            }
+          });
+          cards.forEach((c) => {
+            if (c.getAttribute('data-tier') === tierNum) {
+              c.classList.add('is-active');
+            } else {
+              c.classList.remove('is-active');
+            }
+          });
+          const path = showcase.querySelector(`.line-${tierNum}`);
+          const dotStart = showcase.querySelector(`.dot-${tierNum}-start`);
+          const dotEnd = showcase.querySelector(`.dot-${tierNum}-end`);
+          [3, 2, 1].forEach((t) => {
+            const p = showcase.querySelector(`.line-${t}`);
+            const ds = showcase.querySelector(`.dot-${t}-start`);
+            const de = showcase.querySelector(`.dot-${t}-end`);
+            if (p) p.classList.toggle('is-active', t.toString() === tierNum);
+            if (ds) ds.classList.toggle('is-active', t.toString() === tierNum);
+            if (de) de.classList.toggle('is-active', t.toString() === tierNum);
+          });
+        }
+
+        svgGroups.forEach((g) => {
+          g.addEventListener('mouseenter', () => {
+            activateTier(g.getAttribute('data-tier'));
+          });
+        });
+
+        cards.forEach((c) => {
+          c.addEventListener('mouseenter', () => {
+            activateTier(c.getAttribute('data-tier'));
+          });
+        });
+
+        window.addEventListener('resize', updateConnectors);
+        if (window.ResizeObserver) {
+          const ro = new ResizeObserver(updateConnectors);
+          ro.observe(showcase);
+        }
+        // Run immediately after layout settles
+        setTimeout(updateConnectors, 20);
+        setTimeout(updateConnectors, 150);
+        setTimeout(updateConnectors, 400);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPyramid);
       } else {
-        const io = new IntersectionObserver(
-          (entries) => entries.forEach((e) => {
-            if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
-          }),
-          { threshold: 0.15, rootMargin: '0px 0px -8% 0px' }
-        );
-        els.forEach((el) => io.observe(el));
+        initPyramid();
       }
     </script>
   </body>
 </html>
 
 <style>
-  .home-body { background: var(--color-bg); }
+  /* ============================================================
+     COOLORS PALETTE:
+     #ffd9da (Pale Rose) | #ea638c (Vibrant Rose) |
+     #89023e (Burgundy)  | #30343f (Slate)        | #1b2021 (Night)
+     DOMINANT 3D ISOMETRIC PYRAMID WITH FULL-SPAN LEADER LINES
+     ============================================================ */
 
-  /* Header */
-  .home-header {
-    position: fixed; inset: 0 0 auto 0; z-index: 50;
-    backdrop-filter: blur(10px);
-    background: rgba(15,19,32,.72);
-    border-bottom: 1px solid rgba(255,255,255,.06);
+  :root {
+    --c-rose-pale:   #ffd9da;
+    --c-rose:        #ea638c;
+    --c-burgundy:    #89023e;
+    --c-slate:       #30343f;
+    --c-night:       #1b2021;
+    --c-white:       #ffffff;
+    --c-surface-subtle: #fff8f8;
+    --c-border:      #ffd9da;
+    --c-border-strong: #ea638c;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
-  .hdr-inner {
-    max-width: 76rem; margin: 0 auto; padding: .85rem 1.5rem;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
-  .logo-mark img { width: 26px; height: 26px; display: block; }
-  .logo-text { font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: -.01em; }
-  .hdr-nav { display: flex; gap: 1.6rem; }
-  .hdr-nav a { color: #c3cbdd; text-decoration: none; font-size: .95rem; font-weight: 500; transition: color .15s; }
-  .hdr-nav a:hover { color: var(--color-accent); }
-  @media (max-width: 720px) { .hdr-nav a:not(:last-child) { display: none; } }
 
-  /* Hero */
-  .hero {
-    position: relative; min-height: 100vh;
-    display: flex; align-items: center; justify-content: center; text-align: center;
-    padding: 7rem 1.5rem 4rem; overflow: hidden;
+  .runtime-body {
+    background: var(--c-white);
+    color: var(--c-night);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
   }
-  .hero-content { position: relative; z-index: 2; max-width: 56rem; }
-  .hero-badge {
-    display: inline-block; font-family: var(--font-mono); font-size: .78rem;
-    letter-spacing: .12em; color: var(--dark-text-muted);
-    border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
-    padding: .4rem 1rem; margin-bottom: 1.6rem;
+
+  /* ── TOP BAR ── */
+  .top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid var(--c-border);
+    backdrop-filter: blur(8px);
+  }
+  .bar-inner {
+    max-width: 76rem;
+    margin: 0 auto;
+    padding: 0.85rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .brand { display: flex; align-items: baseline; gap: 0.4rem; text-decoration: none; color: var(--c-night); }
+  .glyph { color: var(--c-burgundy); font-size: 1.15rem; font-weight: 900; }
+  .name { font-family: var(--font-mono); font-weight: 900; font-size: 1.05rem; letter-spacing: 0.05em; color: var(--c-night); }
+  .version { font-family: var(--font-mono); font-size: 0.72rem; color: var(--c-rose); margin-left: 0.2rem; font-weight: 700; }
+  .nav { display: flex; gap: 1.4rem; }
+  .nav a { font-family: var(--font-mono); font-size: 0.82rem; color: var(--c-slate); text-decoration: none; font-weight: 600; transition: color 0.15s; }
+  .nav a:hover { color: var(--c-burgundy); }
+  .nav a.highlight { color: var(--c-burgundy); font-weight: 800; }
+  @media (max-width: 760px) { .nav a:not(:last-child):not(.highlight) { display: none; } }
+
+  /* ── MAIN CONTAINER ── */
+  .page-content {
+    max-width: 76rem;
+    margin: 0 auto;
+    padding: 7rem 1.5rem 4rem;
+  }
+
+  /* ── 1. HERO ── */
+  .hero-section {
+    margin-bottom: 5.5rem;
+    text-align: left;
+    padding: 2.5rem 0 1rem;
   }
   .hero-title {
-    font-size: clamp(2.6rem, 7vw, 4.8rem); font-weight: 800; line-height: 1.04;
-    letter-spacing: -.03em; color: #fff; margin-bottom: 1.4rem;
+    font-size: clamp(2.5rem, 5.8vw, 4.4rem);
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: var(--c-night);
+    margin: 0 0 1.6rem;
   }
-  .accent-word { color: var(--color-accent); }
-  .hero-subtitle {
-    font-size: clamp(1.05rem, 2vw, 1.28rem); color: var(--dark-text-muted);
-    line-height: 1.65; max-width: 44rem; margin: 0 auto 2.2rem;
+  .hero-title .accent {
+    color: var(--c-burgundy);
+    display: block;
   }
-  .hero-subtitle em { color: var(--dark-text); font-style: normal; font-weight: 600; }
-  .hero-actions { display: flex; gap: .9rem; justify-content: center; flex-wrap: wrap; }
-  .hero-scroll-hint {
-    position: absolute; bottom: 1.6rem; left: 50%; transform: translateX(-50%);
-    font-family: var(--font-mono); font-size: .72rem; letter-spacing: .3em;
-    text-transform: uppercase; color: rgba(255,255,255,.35); z-index: 2;
-    animation: hint-float 2.2s ease-in-out infinite;
+  .hero-lede {
+    font-size: 1.25rem;
+    line-height: 1.65;
+    color: var(--c-slate);
+    max-width: 52rem;
+    margin-bottom: 2.4rem;
   }
-  @keyframes hint-float { 0%,100% { transform: translate(-50%,0); } 50% { transform: translate(-50%,8px); } }
+  .hero-lede strong { color: var(--c-night); }
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
-  /* Data note */
-  .data-note {
-    max-width: 44rem; margin: 0 auto; padding: 2rem 1.5rem 0; text-align: center;
-    color: var(--dark-text-muted); font-size: .98rem;
+  /* ── SHARP BUTTONS ── */
+  .btn-action {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.8rem 1.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+    border-radius: 2px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
   }
-  .data-note strong { color: var(--color-accent); }
+  .btn-action.primary {
+    background: var(--c-burgundy);
+    color: #ffffff;
+    border-color: var(--c-burgundy);
+  }
+  .btn-action.primary:hover {
+    background: #6a0130;
+    border-color: #6a0130;
+    box-shadow: 0 4px 14px rgba(137, 2, 62, 0.35);
+  }
+  .btn-action.secondary {
+    background: var(--c-white);
+    color: var(--c-burgundy);
+    border-color: var(--c-burgundy);
+  }
+  .btn-action.secondary:hover {
+    background: var(--c-rose-pale);
+    color: #550126;
+  }
 
-  /* Generic sections */
-  .section { max-width: 76rem; margin: 0 auto; padding: 6rem 1.5rem; }
-  .section-alt { background: var(--color-bg-soft); max-width: none; }
-  .section-alt > * { max-width: 76rem; margin-left: auto; margin-right: auto; }
-  .section-head { text-align: center; max-width: 46rem; margin: 0 auto 3.2rem; }
-  .section-eyebrow {
-    font-family: var(--font-mono); font-size: .78rem; font-weight: 700;
-    letter-spacing: .28em; text-transform: uppercase; color: var(--color-accent); margin-bottom: .9rem;
+  /* ── SECTION HEADINGS ── */
+  .content-section {
+    margin-bottom: 6rem;
+    padding-top: 3.5rem;
+    border-top: 2px solid var(--c-rose-pale);
   }
-  .section-title { font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
-  .section-sub { font-size: 1.1rem; color: var(--color-text-muted); margin-top: 1rem; line-height: 1.6; }
-  .dark .section-sub { color: var(--dark-text-muted); }
-  .dark .section-title { color: var(--dark-text); }
+  .section-heading {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 900;
+    color: var(--c-night);
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    line-height: 1.15;
+  }
+  .section-description {
+    font-size: 1.18rem;
+    color: var(--c-slate);
+    line-height: 1.65;
+    max-width: 52rem;
+    margin-bottom: 2.8rem;
+  }
+  .section-description strong { color: var(--c-night); }
 
-  /* Advisor capability cards */
-  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.4rem; }
-  .glass-card { padding: 2rem 1.8rem; }
-  .card-icon { font-size: 1.6rem; color: var(--color-accent); margin-bottom: 1rem; }
-  .glass-card h3 { font-size: 1.28rem; font-weight: 700; margin-bottom: .7rem; }
-  .glass-card p { color: var(--color-text-muted); line-height: 1.65; font-size: .98rem; }
-  .glass-card code { font-size: .88em; }
+  /* ── 2. RUNTIME MATRIX ── */
+  .runtime-matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+  .matrix-card {
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    padding: 2rem 1.8rem;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+  }
+  .matrix-featured {
+    border: 2px solid var(--c-rose);
+    background: #ffffff;
+    box-shadow: 0 8px 30px rgba(234, 99, 140, 0.12);
+  }
+  .matrix-card h3 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--c-night);
+    margin: 0 0 0.4rem;
+  }
+  .matrix-flaw {
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    color: var(--c-slate);
+    margin-bottom: 1rem;
+    font-weight: 700;
+  }
+  .text-burgundy { color: var(--c-burgundy); }
+  .text-rose { color: var(--c-rose); }
+  .matrix-card p {
+    font-size: 0.95rem;
+    color: var(--c-slate);
+    line-height: 1.65;
+    margin: 0;
+  }
+  .matrix-card strong { color: var(--c-night); }
 
+  /* ── 3. ISOMETRIC EXPLODED PYRAMID (FULL VERTICAL ALIGNMENT & RELATIVE CONTAINER) ── */
+  .pyramid-showcase {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 3.5rem;
+    align-items: stretch;
+    background: var(--c-surface-subtle);
+    border: 2px solid var(--c-border);
+    border-radius: 2px;
+    padding: 2.5rem 2rem;
+    margin-bottom: 3.5rem;
+  }
+  @media (max-width: 960px) {
+    .pyramid-showcase { grid-template-columns: 1fr; gap: 2rem; padding: 1.5rem; }
+  }
 
-  /* Before/after comparison table */
-  .compare-section { padding-top: 4rem; }
-  .compare-table { max-width: 60rem; margin: 0 auto; }
-  .compare-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-    border-radius: var(--radius-lg); overflow: hidden;
-    border: 1px solid rgba(255,255,255,.08);
+  /* Full-span Overlay SVG for dynamic pixel-accurate leader lines */
+  .pyramid-overlay-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    overflow: visible;
   }
-  .compare-col-header {
-    padding: 1.1rem 1.5rem; font-weight: 800; font-size: 1rem;
-    letter-spacing: -.01em; text-align: center;
-  }
-  .compare-without-cell {
-    background: rgba(255,255,255,.03);
-    color: var(--dark-text-muted);
-  }
-  .compare-col-header.compare-without-cell {
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    background: rgba(255,255,255,.05);
-    color: var(--dark-text);
-  }
-  .compare-with-cell {
-    background: rgba(204,164,59,.06);
-    color: var(--dark-text);
-  }
-  .compare-col-header.compare-with-cell {
-    border-bottom: 1px solid rgba(204,164,59,.2);
-    background: rgba(204,164,59,.1);
-    color: var(--color-accent);
-  }
-  .compare-cell { padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .compare-cell:last-child { border-bottom: none; }
-  .compare-cell:last-child + .compare-cell { border-bottom: none; }
-  .compare-cell p { font-size: .95rem; line-height: 1.6; margin: 0; }
-  .compare-cell em { color: var(--color-accent); font-style: normal; font-weight: 600; }
-  @media (max-width: 720px) {
-    .compare-grid { grid-template-columns: 1fr; }
-    .compare-with-cell { border-top: 1px solid rgba(255,255,255,.06); }
-  }
-  /* For-you command rows */
-  .cmd-list { display: flex; flex-direction: column; gap: 2.6rem; }
-  .cmd-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 2.4rem; align-items: center;
-  }
-  .cmd-row:nth-child(even) .cmd-term { order: 2; }
-  @media (max-width: 820px) { .cmd-row { grid-template-columns: 1fr; } .cmd-row:nth-child(even) .cmd-term { order: 0; } }
-  .cmd-term {
-    background: var(--gunmetal); border-radius: var(--radius-lg); overflow: hidden;
-    border: 1px solid rgba(255,255,255,.08); box-shadow: var(--shadow-md);
-  }
-  .term-bar { display: flex; gap: .45rem; padding: .7rem .9rem; background: rgba(255,255,255,.04); }
-  .term-bar span { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.18); }
-  .term-bar span:first-child { background: #e0655f; }
-  .term-bar span:nth-child(2) { background: #e3b84e; }
-  .term-bar span:nth-child(3) { background: #5fb87a; }
-  .cmd-term pre { padding: 1.1rem 1.2rem; overflow-x: auto; }
-  .cmd-term code { font-family: var(--font-mono); font-size: .86rem; color: #dbe2ef; line-height: 1.6; }
-  .cmd-copy h3 { font-size: 1.35rem; font-weight: 700; margin-bottom: .6rem; }
-  .cmd-copy p { color: var(--color-text-muted); line-height: 1.65; margin-bottom: .8rem; }
-  .text-link { color: var(--color-accent); font-weight: 600; text-decoration: none; }
-  .text-link:hover { text-decoration: underline; }
 
-  /* Graph section */
-  .graph-section { max-width: none; }
-  .graph-section > * { max-width: 76rem; margin-left: auto; margin-right: auto; }
-  .graph-foot { text-align: center; color: var(--dark-text-muted); margin-top: 1.4rem; font-size: .95rem; }
-  .graph-foot strong { color: var(--color-accent); }
+  .leader-line {
+    stroke: var(--c-burgundy);
+    stroke-width: 2px;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 0.2s, stroke-width 0.2s, filter 0.2s;
+  }
+  .leader-line.is-active {
+    stroke: var(--c-rose);
+    stroke-width: 3.5px;
+    filter: drop-shadow(0 0 5px rgba(234, 99, 140, 0.6));
+  }
+  .leader-dot {
+    fill: var(--c-burgundy);
+    transition: fill 0.2s, r 0.2s;
+  }
+  .leader-dot.is-active {
+    fill: var(--c-rose);
+    r: 6.5;
+  }
 
-  /* Advisor loop */
-  .loop {
-    display: flex; align-items: stretch; justify-content: center; gap: 1rem;
-    list-style: none; flex-wrap: wrap; margin-bottom: 2.6rem;
+  .pyramid-visual-col {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 100%;
   }
-  .loop-step {
-    flex: 1 1 180px; max-width: 240px; background: var(--color-surface);
-    border: 1px solid var(--color-border); border-radius: var(--radius-lg);
-    padding: 1.6rem 1.3rem; text-align: center;
+  .isometric-pyramid-svg {
+    width: 100%;
+    max-width: 620px;
+    height: 100%;
+    min-height: 520px;
+    overflow: visible;
   }
-  .loop-num {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--color-accent); color: #1a1405; font-weight: 800; margin-bottom: .8rem;
-  }
-  .loop-step h3 { font-size: 1.15rem; margin-bottom: .5rem; }
-  .loop-step p { font-size: .92rem; color: var(--color-text-muted); line-height: 1.55; }
-  .loop-arrow { align-self: center; color: var(--color-accent); font-size: 1.5rem; font-weight: 700; }
-  @media (max-width: 820px) { .loop-arrow { transform: rotate(90deg); } }
-  .loop-cta { text-align: center; }
 
-  /* Final CTA */
-  .cta-final { text-align: center; }
-  .cta-title { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -.02em; color: #fff; margin-bottom: 2rem; }
-  .cta-install pre {
-    display: inline-block; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.1);
-    border-radius: var(--radius-md); padding: .9rem 1.4rem; margin-bottom: .5rem;
+  /* SVG Tier Interactive States */
+  .svg-tier-group {
+    cursor: pointer;
+    transition: transform 0.25s var(--ease-out, ease-out), opacity 0.25s;
   }
-  .cta-install code { font-family: var(--font-mono); color: var(--color-accent); font-size: 1.05rem; }
-  .cta-alt { color: var(--dark-text-muted); font-size: .9rem; margin-bottom: 2rem; }
-  .cta-alt code { font-family: var(--font-mono); }
+  .svg-tier-group:hover, .svg-tier-group.is-hovered {
+    transform: translateY(-8px);
+  }
+  .tier-3-group:hover, .tier-3-group.is-hovered {
+    transform: translateY(-12px);
+  }
+  .tier-2-group:hover, .tier-2-group.is-hovered {
+    transform: translateY(-8px);
+  }
+  .tier-1-group:hover, .tier-1-group.is-hovered {
+    transform: translateY(-4px);
+  }
 
-  /* Footer */
-  .home-footer { border-top: 1px solid var(--color-border); background: var(--color-bg); }
-  .footer-inner {
-    max-width: 76rem; margin: 0 auto; padding: 2rem 1.5rem;
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-    color: var(--color-text-muted); font-size: .9rem;
+  /* Right-hand Stack Cards */
+  .pyramid-stack-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.25rem;
+    position: relative;
+    z-index: 5;
+    height: 100%;
   }
+
+  .stack-tier-card {
+    background: #ffffff;
+    border: 1.5px solid var(--c-border);
+    border-radius: 2px;
+    padding: 1.1rem 1.4rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(27, 32, 33, 0.04);
+  }
+  .stack-tier-card:hover, .stack-tier-card.is-active {
+    border-color: var(--c-burgundy);
+    box-shadow: 0 6px 18px rgba(137, 2, 62, 0.12);
+  }
+  .card-tier-3.is-active {
+    border: 2px solid var(--c-burgundy);
+    background: #fffbfa;
+  }
+  .card-tier-2.is-active {
+    border: 2px solid var(--c-rose);
+  }
+  .card-tier-1.is-active {
+    border: 2px solid var(--c-slate);
+  }
+
+  .st-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .st-card-heading {
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: var(--c-night);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .st-status {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--c-slate);
+    font-weight: 700;
+  }
+  .st-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .st-title code {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 900;
+    color: var(--c-night);
+  }
+  .st-telemetry {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--c-rose);
+    font-weight: 700;
+  }
+
+  .st-content { display: flex; flex-direction: column; gap: 0.5rem; }
+  .st-field { display: flex; flex-direction: column; gap: 0.15rem; }
+  .st-k { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 800; color: var(--c-burgundy); }
+  .st-v { font-size: 0.85rem; color: var(--c-night); margin: 0; line-height: 1.45; }
+  .directive-box {
+    font-family: var(--font-mono) !important;
+    font-size: 0.8rem !important;
+    background: #fff4f6;
+    border-left: 3px solid var(--c-burgundy);
+    padding: 0.5rem 0.75rem;
+    color: var(--c-burgundy) !important;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  /* Chips and Anchors */
+  .st-chips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+  }
+  @media (max-width: 600px) { .st-chips-grid { grid-template-columns: 1fr; } }
+  .st-chip {
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    padding: 0.35rem 0.6rem;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .chip-k { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 800; color: var(--c-burgundy); }
+  .chip-v { font-size: 0.76rem; color: var(--c-night); font-weight: 600; }
+  .chip-tool { border-color: var(--c-rose); background: #fffbfa; }
+  .chip-tool .chip-k { color: var(--c-rose); }
+
+  .st-anchors-list { display: flex; flex-direction: column; gap: 0.35rem; }
+  .st-anchor {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    padding: 0.35rem 0.65rem;
+    border-radius: 2px;
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .anchor-glyph { font-size: 0.8rem; }
+  .st-anchor code { font-family: var(--font-mono); font-weight: 700; color: var(--c-night); }
+  .anchor-meta { font-family: var(--font-mono); font-size: 0.68rem; color: var(--c-slate); margin-left: auto; }
+  @media (max-width: 600px) { .anchor-meta { margin-left: 0; width: 100%; } }
+
+  /* Specimen Card (Strategic Planning) */
+  .specimen-card {
+    background: var(--c-white);
+    border: 2px solid var(--c-border);
+    border-radius: 2px;
+    box-shadow: 0 8px 24px rgba(27, 32, 33, 0.06);
+  }
+  .sc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--c-surface-subtle);
+    border-bottom: 1px solid var(--c-border);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .sc-title { display: flex; align-items: center; gap: 0.6rem; }
+  .sc-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: var(--c-burgundy);
+    color: #ffffff;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+  }
+  .sc-badge.badge-rose { background: var(--c-rose); }
+  .sc-title code { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 800; color: var(--c-night); }
+  .sc-meta-group { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .sc-status { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-burgundy); font-weight: 800; }
+  .sc-centroid { font-family: var(--font-mono); font-size: 0.75rem; color: var(--c-slate); font-weight: 600; }
+
+  .sc-content { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  .sc-row { display: grid; grid-template-columns: 180px 1fr; gap: 1.25rem; align-items: baseline; }
+  @media (max-width: 720px) { .sc-row { grid-template-columns: 1fr; gap: 0.4rem; } }
+  .sc-k { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; color: var(--c-burgundy); letter-spacing: 0.05em; }
+  .sc-v strong { display: block; font-size: 0.88rem; color: var(--c-slate); margin-bottom: 0.25rem; font-family: var(--font-mono); }
+  .sc-v p { margin: 0; font-size: 1.02rem; color: var(--c-night); line-height: 1.6; }
+  .sc-v code { font-family: var(--font-mono); color: var(--c-burgundy); font-size: 0.9em; background: #fff0f2; padding: 0.1rem 0.35rem; border-radius: 2px; }
+  .rule-box {
+    font-family: var(--font-mono) !important;
+    font-size: 0.94rem !important;
+    background: #fff8f9;
+    border: 1px solid var(--c-rose-pale);
+    border-left: 3px solid var(--c-burgundy);
+    padding: 0.9rem 1.2rem;
+    border-radius: 2px;
+    color: var(--c-burgundy) !important;
+    line-height: 1.6;
+    font-weight: 600;
+  }
+  .rule-box.warm { background: #fffbfa; border-color: #ffd9da; border-left: 3px solid var(--c-rose); color: #63052e !important; }
+  .sc-members { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+  .m-pill {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    color: var(--c-slate);
+    border-radius: 2px;
+    font-weight: 600;
+  }
+  .m-pill.anchor { color: var(--c-burgundy); border-color: var(--c-rose); background: #fff0f3; }
+
+  .contrast-callout {
+    margin-top: 2.5rem;
+    background: var(--c-surface-subtle);
+    border: 2px solid var(--c-rose-pale);
+    border-left: 4px solid var(--c-burgundy);
+    padding: 1.8rem 2rem;
+    border-radius: 2px;
+  }
+  .contrast-callout h3 { font-size: 1.2rem; font-weight: 800; color: var(--c-night); margin: 0 0 0.6rem; }
+  .contrast-callout p { font-size: 1rem; color: var(--c-slate); line-height: 1.65; margin: 0; }
+  .contrast-callout code { font-family: var(--font-mono); color: var(--c-burgundy); font-size: 0.92em; font-weight: 700; }
+
+  /* ── 4. HOW IT LEARNS: SPACIOUS 2-COLUMN SIZING ── */
+  .loop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 760px) { .loop-grid { grid-template-columns: 1fr; } }
+  .loop-card {
+    background: var(--c-white);
+    border: 1.5px solid var(--c-border);
+    border-radius: 2px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(27, 32, 33, 0.04);
+  }
+  .lc-featured { border: 2px solid var(--c-burgundy); background: #fffbfc; }
+  .loop-card h3 { font-size: 1.35rem; font-weight: 900; color: var(--c-night); margin: 0 0 0.75rem; }
+  .loop-card p { font-size: 1rem; color: var(--c-slate); line-height: 1.65; margin: 0 0 1.5rem; flex: 1; }
+
+  .lc-code {
+    background: #fff8f9;
+    border: 1px solid var(--c-border);
+    border-left: 3px solid var(--c-burgundy);
+    border-radius: 2px;
+    padding: 0.85rem 1.1rem;
+    margin-top: auto;
+    overflow-x: auto;
+  }
+  .lc-code code {
+    font-family: var(--font-mono); font-size: 0.88rem; color: var(--c-burgundy); font-weight: 700; white-space: nowrap;
+  }
+
+  /* ── 5. THREE COMMANDS (STACK) ── */
+  .cmd-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+  .cmd-box {
+    background: var(--c-white);
+    border: 1.5px solid var(--c-border);
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(27, 32, 33, 0.04);
+  }
+  .cb-chrome {
+    padding: 0.85rem 1.25rem;
+    background: var(--c-surface-subtle);
+    border-bottom: 1px solid var(--c-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .cb-cmd { color: var(--c-night); font-weight: 800; }
+  .cb-body {
+    padding: 1.25rem 1.4rem;
+    margin: 0;
+    background: #fff8f9;
+    border: none;
+    overflow-x: auto;
+  }
+  .cb-body code {
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    color: var(--c-night) !important; /* #1b2021 - Deep Night Charcoal from palette */
+    line-height: 1.65;
+    font-weight: 500;
+  }
+
+  /* ── 6. INSTALL ── */
+  .install-section { margin-top: 5rem; margin-bottom: 2rem; }
+  .install-box {
+    background: var(--c-surface-subtle);
+    border: 2px solid var(--c-rose-pale);
+    border-radius: 2px;
+    padding: 3.5rem 2rem;
+    text-align: center;
+  }
+  .install-box h2 { font-size: clamp(1.8rem, 3.8vw, 2.6rem); font-weight: 900; color: var(--c-night); margin: 0 0 0.6rem; letter-spacing: -0.02em; }
+  .install-box p { color: var(--c-slate); font-size: 1.1rem; margin: 0 0 2rem; }
+  .install-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: #ffffff;
+    border: 2px solid var(--c-rose);
+    padding: 0.9rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    color: var(--c-burgundy);
+    margin-bottom: 2.2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: 2px;
+    font-weight: 800;
+    box-shadow: 0 4px 14px rgba(234, 99, 140, 0.15);
+  }
+  .install-code .sep { color: var(--c-slate); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
+  .install-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+  /* ── FOOTER ── */
+  .bottom-footer {
+    border-top: 1px solid var(--c-border);
+    background: #ffffff;
+    padding: 2.2rem 1.5rem;
+  }
+  .footer-wrap {
+    max-width: 76rem;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--c-slate);
+  }
+  .footer-brand { font-weight: 800; color: var(--c-night); }
   .footer-links { display: flex; gap: 1.5rem; }
-  .footer-links a { color: var(--color-text-muted); text-decoration: none; }
-  .footer-links a:hover { color: var(--color-accent); }
+  .footer-links a { color: var(--c-slate); text-decoration: none; font-weight: 600; }
+  .footer-links a:hover { color: var(--c-burgundy); }
 </style>

@@ -1,0 +1,324 @@
+{
+  "schema_version": "1",
+  "spec_id": "0005",
+  "spec_name": "schema-guided-retrieval",
+  "spec_path": "specs/0005-schema-guided-retrieval.md",
+  "created_at": "2026-10-03T00:00:00Z",
+  "updated_at": "2026-10-04T00:33:00Z",
+  "status": "complete",
+  "mode": "autonomous",
+  "current_phase": 6,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Enrich schema show members with per-kind details and 20-member truncation",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/kind.rs",
+        "src/ops/schemas/scan.rs",
+        "src/ops/brief.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-1"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "custom_data member payload emits `key` plus the full parsed `value` where spec 0005 Architecture item 1 enumerates `id`, `schema`, and `value_preview` for that kind; the custom_data table has no `schema` column (src/schema.rs:57-61), so the spec list is unsatisfiable as written and the substitution (brief's key/value shape, full value rather than a bounded preview) is unrecorded anywhere.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 314,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "c4bf4baeb5aaabc58b08c16a8aea1f7585908e9f",
+      "files_touched": [
+        "src/ops/schemas/list.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Enrich brief schema:<id> member payload with the same per-kind details",
+      "type": "standard",
+      "status": "complete",
+      "started_at": "2026-10-03T21:45:00Z",
+      "completed_at": "2026-10-03T22:07:32Z",
+      "depends_on": [
+        1
+      ],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/confirm.rs",
+        "src/ops/brief.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-2"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "acceptance-gap",
+          "message": "AC-2's 'the response includes the schema summary and kind' is met only via the envelope's kind:\"schema\" node marker plus payload summary: node_payload does not select the schema's v14 classification kind that spec 0004 surfaced on list/show/prime/confirm (show selects it at list.rs:190), so if AC-2's kind means that classification, brief is the one read path not carrying it and no test disambiguates the reading.",
+          "file": "src/ops/schemas/retrieval.rs",
+          "line": 234,
+          "resolution": "noted"
+        },
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "resolve_schema's doc comment promises an exact name is never shadowed by a slug collision and the scan comment promises first-fold-match-wins on colliding folds, but no test seeds a slug collision or an exact-name-vs-slug-shadow case (the slug test seeds a single schema), so a reorder of the id/name/slug arms or a slug_fold change would pass silently.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 128,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "resolve_schema is shared with schema show (list.rs:186) and schema refine (list.rs:234), so the new slug fallback quietly widens both commands' target acceptance beyond the spec API line 'schema ID or exact name'; the phase records no spec_deviations entry for the extension.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 130,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "convention-drift",
+          "message": "The slug scan collects the full Vec<(i64, String)> only to iterate it once with early return; rule 005 (no throwaway intermediate collections) favors driving the loop directly off query_map, which also short-circuits without materializing the tail.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 156,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "aa93d9173b76081e230236c148d1feaf415653bb",
+      "files_touched": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/list.rs",
+        "src/ops/brief.rs",
+        "tests/cli.rs"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Add refine trigger and rule flags with summary trigger validation",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/list.rs",
+        "src/ops/schemas/kind.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-3",
+        "AC-4"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema"
+      ],
+      "retry_count": 3,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "The no-flags arm of refine_text ('nothing to refine: pass --summary, or --trigger with --rule') is the only new error branch without a unit or CLI test, so the implementer's documented no-flag-bail judgment call could be dropped or reworded silently while every sibling arm (synthesis, prefix acceptance, rejection guidance, half-pair, mixed flags) stays pinned.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 273,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "spec-conformance",
+          "message": "starts_with byte-prefix matching admits openings outside spec 0005:97's four enumerated phrases \u2014 'Whenever builds fail: ...' and 'Whence ...' pass validation because they byte-start with 'When' (proven live against a temp DB) \u2014 so the accepted vocabulary is a superset of the canonical list.",
+          "file": "src/ops/schemas/list.rs",
+          "line": 247,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "unstated-assumption",
+          "message": "The synthesized path assumes --trigger/--rule are non-empty: '--trigger \"\" --rule \"run tests\"' stores the degenerate agent-authored summary 'Fires when : run tests' (proven live), while the codebase's own boundary convention rejects empty user text (custom.rs:81 'search query cannot be empty', decision.rs:290).",
+          "file": "src/ops/schemas/list.rs",
+          "line": 255,
+          "resolution": "noted"
+        }
+      ],
+      "started_at": "2026-10-03T22:25:30Z",
+      "completed_at": "2026-10-03T22:34:53Z",
+      "commit_sha": "19e576c2bba8085a23832ce863f3f34367e2a607",
+      "files_touched": [
+        "src/cli.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/list.rs",
+        "tests/cli.rs"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Surface matching schemas in advise output above constraints",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/scan.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-5"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli advise"
+      ],
+      "retry_count": 1,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "advise --staged with an empty staging area returns {\"schemas\": [], ...} (the early-return line this phase changed to add the schemas key), but no test exercises the staged path; the three-key shape and schemas-first key order on that branch are unpinned, while git-fixture precedent exists (tests/cli.rs:3091) so the branch is directly testable",
+          "file": "src/ops/advise.rs",
+          "line": 34,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "verification",
+          "message": "recorded Gate 3 commands never execute tests/memory.rs (verified: cargo test --test cli advise matches only the 2 new tests, 70 filtered; --bin engrams schemas is bin-only), so the s14 trigger-compliant summary repair this phase carries runs in no recorded gate; Gate 5's full cargo test is the only backstop. Fourth occurrence of the green-without-exercising genre (0002 phase 2; 0004 phases 1/3/4)",
+          "file": "specs/0005-schema-guided-retrieval.progress.json",
+          "line": 199,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "documentation",
+          "message": "docs/memory/engrams.md:194 documents the advise return contract as {\"constraints\": [...], \"violations\": [...]}; the schemas key this phase adds leaves the canonical command reference stale, and phase 6 (docs) covers only the new cognitive-schemas page so no phase owns this line",
+          "file": "docs/memory/engrams.md",
+          "line": 194,
+          "resolution": "noted"
+        }
+      ],
+      "started_at": "2026-10-03T22:50:07Z",
+      "completed_at": "2026-10-03T22:58:30Z",
+      "commit_sha": "4909bf020eb703f4df36704fff08e8cdbcf60573",
+      "files_touched": [
+        "src/ops/advise.rs",
+        "src/ops/schemas/retrieval.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Rank context-matching schemas in prime block by paths and tags",
+      "type": "standard",
+      "status": "complete",
+      "depends_on": [],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/prime.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-6"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams prime_block",
+        "cargo test --test cli prime"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "missing-test",
+          "message": "path_match_counts' third resolution arm (target path nested under an anchor directory, '? LIKE a.path || '/%') is unpinned: the unit test covers exact match and anchor-under-target only, so an operand-order regression in that arm passes silently; the reference query_relevant_ids has no arm-level tests either, so no existing pin backstops the new SQL",
+          "file": "src/ops/schemas/retrieval.rs",
+          "line": 196,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "7c30ae8018cb2b5e4d74b0fc9fc51fd07afcfc7c",
+      "files_touched": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/prime.rs",
+        "tests/cli.rs"
+      ],
+      "completed_at": "2026-10-03T23:59:00Z"
+    },
+    {
+      "id": 6,
+      "title": "Add cognitive schemas guide page and register sidebar navigation",
+      "type": "standard",
+      "status": "complete",
+      "started_at": "2026-10-04T00:12:22Z",
+      "depends_on": [],
+      "exemplars": [
+        "docs/src/pages/docs/for-agent/retrieving.astro",
+        "docs/src/components/Sidebar.astro"
+      ],
+      "acceptance": [
+        "AC-7"
+      ],
+      "verification": [
+        "npm --prefix docs run build",
+        "test -f docs/dist/docs/guide/cognitive-schemas/index.html"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "quality-smell",
+          "message": "schema show JSON example shows \"status\": \"confirmed\", but the shipped status vocabulary is active/needs_review/retired \u2014 schema confirm stores 'active' and only sets last_confirmed_at (src/ops/schemas/confirm.rs:532,598), so the guide teaches an output value the CLI never emits.",
+          "file": "docs/src/pages/docs/guide/cognitive-schemas.astro",
+          "line": 153,
+          "resolution": "noted"
+        },
+        {
+          "severity": "minor",
+          "category": "quality-smell",
+          "message": "Retrieval-surface table claims brief schema:<id> returns enriched details for \"all immediate members\", but the shipped node_payload caps enrichment at 20 members and reports truncated/total_members (src/ops/schemas/retrieval.rs:341-360), contradicting the 20-member cap the same table documents one row above for schema show.",
+          "file": "docs/src/pages/docs/guide/cognitive-schemas.astro",
+          "line": 79,
+          "resolution": "noted"
+        }
+      ],
+      "commit_sha": "7148760725c4516f79882384f473f05d914fb0e3",
+      "files_touched": [
+        "docs/src/pages/docs/guide/cognitive-schemas.astro",
+        "docs/src/components/Sidebar.astro"
+      ]
+    }
+  ]
+}

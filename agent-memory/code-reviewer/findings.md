@@ -243,3 +243,93 @@ Counts: 2 findings = 0 severe, 0 moderate, 2 minor.
 Verified by execution: recorded gates run — fmt FAILS (finding above), build and clippy clean; `cargo test --test memory schemas` 1/1 (s14 only); `cargo test --test cli export` 5/5 including both new CLI tests. Filters enumerated via -- --list before running: cli 'export' genuinely selects both new tests plus three pre-existing export/import tests; memory 'schemas' does not select s16. Exact-name runs: s16 1/1 passes, both CLI tests 1/1 pass. Substance verified at emit/consume sites: export SELECT reads kind + kind_reasons_json at indices 14/15 and json! emits both keys verbatim for every schemas row; import's 16-column INSERT OR REPLACE writes both verbatim with unwrap_or('unclear')/unwrap_or('[]') fallbacks matching the house per-column default pattern and the MIGRATION_V14/SCHEMA column defaults exactly; grep confirms no labeler or inference call anywhere in import.rs (no re-derivation); process_dir reads only .md files, so retrieval_surfaces.json in the schemas dir is never parsed as a schema row (s16's comment and filter are accurate). Pattern 11 not violated — no shared projection exists for schemas; DECISION_COLS covers decisions only and remains in use. s14 and test_export_import both pass in the recorded gates, so the pre-existing export/import contract is unchanged. Frozen migrations untouched; no allow(dead_code) added. AC-6 fully covered: labeled round-trip identity (s16), legacy 'unclear'/'[]' as-is (s16 + fallback test), older exports lacking the fields (test_import_schema_kind_falls_back_for_older_exports).
 
 Counts: 2 findings = 0 severe, 1 moderate, 1 minor.
+
+## 2026-10-03T21:42:08Z — phase 1 of spec 0005-schema-guided-retrieval (schema show member enrichment + 20-cap)
+
+- minor / spec-conformance — custom_data member payload emits `key` + full parsed `value` where spec Architecture item 1 enumerates `id`, `schema`, `value_preview` for that kind; custom_data has no `schema` column (schema.rs:57-61), so the spec list is unsatisfiable as written and the substitution (brief's key/value shape; full value, not a bounded preview) is unrecorded anywhere (src/ops/schemas/list.rs:314)
+
+Verified clean (no findings): all binding Gate-1 clarifications honored — F-5 stored kind `code` (not `code_node`) with code_nodes.kind deliberately unprojected to avoid the member discriminator collision; F-7 member_count stays the true total and total_members appears only when the cap bites (both pinned at 25-vs-20); F-8 nested `schema` members enriched (name + summary); F-9 rules conformance — 002 borrowed Vec<&i64> + params_from_iter (no boxing), 004 fold moves out of the dying detail maps via get_mut+remove (comment cites the rule), 005 Vec/HashMap with_capacity + sql_placeholders (whose doc supersedes the collect-join idiom), 006 enrichable_kind returns &'static str with no .to_string() on statics. Invariants: frozen migrations untouched (no DDL), JSON-only output preserved, enrich_members is pub(crate) and live (phase-2 brief seam, no allow(dead_code)). AC-1 fully covered by the diff's two CLI tests: per-kind details for all six enrichable kinds, pass-through pr, dangling decision:9999 stays bare with empty anchors, truncation pins member_count 25 / truncated true / total_members 25 / exactly 20 shown / per-id detail mapping (guards against id scrambling). Cross-boundary consumers of the members shape all compatible: cli.rs:2420 and list.rs:502-503 assert length only, memory.rs:876 repinned to member objects (accepted deviation per spec API example), export.rs:540 builds its own array. Not re-run per protocol: Gate 3 verification (fmt/clippy/bin+cli schema tests) already green. Review was static against commit c4bf4ba.
+
+Counts: 1 finding = 0 severe, 0 moderate, 1 minor.
+
+## 2026-10-03T22:19:16Z — phase 2 of spec 0005-schema-guided-retrieval (brief schema member enrichment; machinery moved list.rs -> retrieval.rs)
+
+- moderate / acceptance-gap — AC-2 "the response includes the schema summary and kind" is met only via the envelope's kind:"schema" node marker plus payload summary; node_payload omits the schema's v14 classification kind that spec 0004 surfaced on list/show/prime/confirm (show selects it at list.rs:190), so if AC-2's kind means the classification, brief is the one read path not carrying it and no test disambiguates the reading (src/ops/schemas/retrieval.rs:234)
+- moderate / missing-test — resolve_schema's doc comment promises exact-name-never-shadowed-by-slug and first-fold-match-wins on colliding folds, but no test seeds a slug collision or exact-vs-slug-shadow case; a reorder of the id/name/slug arms or a slug_fold change passes silently (src/ops/schemas/list.rs:128)
+- minor / spec-conformance — resolve_schema is shared with schema show (list.rs:186) and refine (list.rs:234), so the slug fallback quietly widens both beyond the spec API line "schema ID or exact name"; no spec_deviations entry records the extension (src/ops/schemas/list.rs:130)
+- minor / convention-drift — slug scan collects the full Vec<(i64, String)> only to iterate once with early return; rule 005 favors looping directly off query_map (src/ops/schemas/list.rs:156)
+
+Verified clean (no findings): the enrichment move is verbatim — enrichable_kind, enrich_members, fetch_details, MEMBER_ENRICHMENT_CAP bodies byte-identical between the list.rs deletion and retrieval.rs addition; show's member SQL and cap/truncation logic unchanged (member_refs is the phase-1 inline query, same text ORDER BY), so schema show behavior is preserved and phase-1 tests untouched. Cross-boundary confirmed: brief.rs:342 dispatches kind "schema" to retrieval::node_payload, node_exists has the schema arm (brief.rs:176), and record_surface consumes the new resolve output. F-5 stored kind `code` preserved with code_nodes.kind deliberately unprojected; F-7 member_count stays the true total with total_members only when the cap bites (pinned 25-vs-20); F-4 binding — brief caps at 20 with truncated flag (pinned); bare-number targets stay FTS/decision-first (pinned by test_brief_schema_unknown_target_errors). members_by_type removal is a true clean cutover: zero consumers in src/, tests/, docs/ (grep), and no docs assert the old grouped shape. Slug fold is exact-name-first, id-first, slug-last with documented first-fold-wins; ASCII-only fold matches the doc comment's intent. Rules: 002 borrowed params (Vec<&i64> + params_from_iter), 004 get_mut+remove out of the dying detail maps, 006 enrichable_kind returns &'static str — all honored in the moved code. No DDL, JSON-only output, no new allow(dead_code). Recorded gates genuinely select the new tests: bin filter "schemas" matches via the ops::schemas module path (incl. composite_helpers_return_members_anchors_and_neighborhood), CLI filter "schema" matches all four new tests by name. started_at is implementer-disclosed [INFERENCE]; treated as metadata hygiene, not a finding.
+
+Counts: 4 findings = 0 severe, 2 moderate, 2 minor.
+
+## 2026-10-03 — phase 3 of spec 0005-schema-guided-retrieval
+
+- moderate / missing-test — no-flags arm of refine_text ("nothing to refine")
+  is the only new error branch without a unit or CLI test; the implementer's
+  no-flag-bail judgment call is unpinned while all sibling arms are pinned
+  (src/ops/schemas/list.rs:273)
+- minor / spec-conformance — starts_with byte-prefix match admits openings
+  beyond the four enumerated phrases ("Whenever...", "Whence..." pass via
+  "When"); accepted vocabulary is a superset of spec 0005:97's list,
+  proven live (src/ops/schemas/list.rs:247)
+- minor / unstated-assumption — synthesized path never checks non-empty
+  --trigger/--rule, so empty condition stores the degenerate summary
+  "Fires when : run tests"; codebase convention bails on empty user text
+  at command boundaries (custom.rs:81, decision.rs:290)
+  (src/ops/schemas/list.rs:255)
+
+## 2026-10-03 — phase 4 of spec 0005-schema-guided-retrieval
+
+- moderate / missing-test — advise --staged empty-stage early return ({"schemas": [], ...}) was extended by this phase but is unpinned: no test exercises the staged path, so the three-key shape and schemas-first key order on that branch can drift silently; git-fixture precedent exists (tests/cli.rs:3091) (src/ops/advise.rs:34)
+- minor / verification — recorded gates never execute tests/memory.rs (verified: --test cli advise matches 2 tests / 70 filtered; --bin gate is bin-only), so the s14 summary repair runs in no recorded gate; Gate 5 full cargo test is the sole backstop. Fourth occurrence of the green-without-exercising genre (0002 p2; 0004 p1/p3/p4) (specs/0005-schema-guided-retrieval.progress.json:199)
+- minor / documentation — docs/memory/engrams.md:194 documents advise's return contract as {"constraints", "violations"}; the new schemas key leaves the canonical reference stale and no remaining phase owns that line (phase 6 is scoped to the new cognitive-schemas page) (docs/memory/engrams.md:194)
+
+Verified clean (no findings): AC-5 both Then clauses pinned with load-bearing negatives — active+anchored surfaces, active-anchored-elsewhere and proposed-status both excluded (exclusion shape directly subsumes the dormant/needs_review statuses absent from any status filter), serialized schemas-before-constraints order asserted in both tests (preserve_order confirmed in Cargo.toml:15). Rule compliance: 002 borrowed Vec<&dyn ToSql> + params_from_iter + with_capacity mirroring the rule's own reference implementation (query_relevant_ids); 004 N/A (no dying maps); 005 conditions vec is pre-sized and matches the reference shape — sql_placeholders supersedes only the "?" IN-list idiom, not composite OR conditions. Vocabulary audit: item_anchors stores RefItemType::as_str() underscore forms identical to context_links.source_item_type member vocabulary (kind.rs:197) — no silent kind mismatch. TEXT<->INTEGER affinity join (l.target_item_id = s.id) matches in-file precedent (neighborhood :533) and confirm.rs:88; CAST(? AS TEXT) matches member_anchors :518. Entry shape {id,name,summary,kind} matches spec API item 3 exactly, key order included. Cross-boundary: sole in-repo consumer (.omp/engrams-advisor runAdvise) reads constraints/violations defensively — additive schemas key is backward-compatible; the extension not surfacing schemas is a spec-scope observation for a future phase/spec, not a phase defect. --staged early-return shape consistent with main path (same keys, schemas first). s14 repair statically proven justified: TRIGGER_PREFIXES starts_with (list.rs:234) provably rejects the old "Gateway architecture: ..." summary post-phase-3; repair confined to summary string + assertion, export/import contract untouched.
+
+Ran: cargo test --test cli advise (2 passed) and cargo test --test memory s14 (1 passed) at HEAD.
+
+Counts: 3 findings = 0 severe, 1 moderate, 2 minor. PASS — continue.
+
+## 2026-10-04T00:08:42Z — phase 5 of spec 0005-schema-guided-retrieval (prime block context ranking)
+
+- moderate / missing-test — path_match_counts' third resolution arm (target path nested under an anchor directory, `? LIKE a.path || '/%'`) unpinned; unit test pins exact + anchor-under-target only, and query_relevant_ids has no arm-level tests to backstop the mirrored SQL (src/ops/schemas/retrieval.rs:196)
+
+Verified clean (no findings): AC-6 all four pins real — path ranking (unit + CLI `--paths`), tag ranking (unit + CLI `--tags`, convention-aware render_pipeline vs render-pipeline, overlap count 2 pinned), summary present on every entry (CLI asserts non-empty across all three invocations), and the no-flag regression is load-bearing (`sums[0].contains("policy") && !contains("gateway")` fails on any order flip; telemetry self-bump preserves the 2-vs-1 reward gap because the assertion runs first). Ranking determinism: total order context desc -> reward desc -> centrality desc -> agent_rank asc -> id asc; with no flags context is 0 everywhere and the chain is byte-identical to the pre-0005 order. Rules: 002 borrowed Vec<&dyn ToSql> + params_from_iter + with_capacity; 004 remove() out of the dying path/tag maps with citing comment; 005 pre-sized conditions Vec + join matches the query_relevant_ids reference shape; 006 N/A (no static vocabulary). SQL mirrors query_relevant_ids arm-for-arm; join shape matches active_for_members/neighborhood precedent; production member_of writers (confirm.rs:551, assimilate.rs:229) store ids as TEXT, consistent with the CASTs. centroid_json is NOT NULL in both DDL copies so the String get cannot hit NULL. Cross-boundary: schema_block inserted verbatim into the payload; prime telemetry (prime.rs:406-409) reads only id, so the new context_matches key passes harmlessly. clean_path is idempotent strip-./; prime.rs cleans once and shares the vec between prime_block and query_relevant_ids. repeat_n (stable since 1.82) introduces no finding: no rust-version declared anywhere, CI pins dtolnay/rust-toolchain@stable, so no MSRV contract exists to break. Gates genuinely select the new tests this time (bin prime_block 4/4, cli prime 5/5 — first spec in memory with zero vacuous filters). fmt --check exit 0 on the committed tree; working tree byte-identical to 7c30ae8 for all three files_touched (only progress.json dirty, orchestrator-owned).
+
+Counts: 1 finding = 0 severe, 1 moderate, 0 minor.
+
+## 2026-10-04T00:27:56Z — phase 6 of spec 0005-schema-guided-retrieval (cognitive schemas guide page)
+
+- moderate / quality-smell — schema show JSON example shows "status": "confirmed",
+  but the shipped status vocabulary is active/needs_review/retired; schema confirm
+  stores 'active' and only sets last_confirmed_at (src/ops/schemas/confirm.rs:532,598),
+  so the guide teaches an output value the CLI never emits
+  (docs/src/pages/docs/guide/cognitive-schemas.astro:153)
+- minor / quality-smell — retrieval-surface table claims brief schema:<id> returns
+  enriched details for "all immediate members", but node_payload caps enrichment at
+  20 with truncated/total_members (src/ops/schemas/retrieval.rs:341-360), contradicting
+  the cap the same table documents one row above for schema show
+  (docs/src/pages/docs/guide/cognitive-schemas.astro:79)
+
+Verified clean (no findings): AC-7 all three Then clauses covered — human-schema
+theory section (organizes/activates-conditionally), agent-design section with
+authoring principles, and three worked examples (software architecture
+error-envelope, research survey-then-decide, planning what-to-build-next) — plus
+design bullet 4's LLM-retrieval explanation (retrieval-surface table). Every cited
+command/flag exists in src/cli.rs: schema refine --trigger/--rule/--summary
+(cli.rs:427-441) with the four accepted openers matching the page verbatim, schema
+show (422), schema scan/confirm (402-415), advise positional paths (261-267),
+prime --paths/--tags (126-138), brief schema:<id> dispatch (brief.rs:342-344).
+Example member shapes match enrich_members: system_pattern name/description/
+severity/anchors, decision summary/status/anchors, code path/symbol/line_count,
+custom_data key+value (JSON when parseable) matching the research example's claim.
+advise "schemas" key serializes above constraints (advise.rs:140-144). Sidebar
+Guides-section href /docs/guide/cognitive-schemas resolves to the built route
+(docs/dist/docs/guide/cognitive-schemas/index.html present); DocsLayout renders
+Sidebar on every docs page; callout tip/warn/note and reveal/lead classes all
+exist in docs/src/styles/global.css. Convention match with exemplar
+for-agent/retrieving.astro confirmed (lead, callout, reveal, pre/code escapes).
+Gate 1 F-6 (guide/ section absent from sidebar) resolved by this phase.
+
+Counts: 2 findings = 0 severe, 1 moderate, 1 minor. PASS — continue.

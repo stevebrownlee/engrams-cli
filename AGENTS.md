@@ -68,6 +68,10 @@ Run `engrams advise <paths>` (or `--staged`) for the files you are about to edit
 | Attach file anchors | `engrams anchor add --type <decision\|progress-entry\|system-pattern> --id <n> --path <path>` |
 | Attach PR reference | `engrams pr add --type <decision\|system-pattern> --id <n> --pr <n_or_url>` |
 | Promote repeated progress into patterns | `engrams consolidate [--apply] [--min-repeats <n>] [--min-days <n>]` — propose by default; `--apply` inserts with evidence links + confidence; re-runs confirm |
+| Schemas (concepts over items) | `engrams schema list` (confirmed, agent-authored first; `guided` = times surfaced) · `engrams schema show <id-or-name>` (summary, members, centroid) |
+| Confirm a schema candidate | `engrams schema confirm <sig-prefix> --name <name>` — promotes a gate-passing candidate; `session close` prints ready-to-run confirm commands |
+| Refine a schema | `engrams schema refine <id-or-name> [--trigger "..." --rule "..."]` — agent-authored summaries rank above drafts |
+| Scan for candidates | `engrams schema scan` — detect and stage candidate clusters from the graph |
 | Causal chain ("why"/impact) | `engrams graph why --node decision:7 [--down]` — transitive walk over `causes` |
 | Bulk operations | `engrams batch --type <decision\|progress\|pattern\|custom-data> --items <json_or_->` |
 | Export to Markdown | `engrams export [--path <dir>]` |
@@ -90,7 +94,11 @@ Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Vali
   (4) `active-context update --patch '<json>'` → (5) `engrams session close
   --reads-skipped <n> --reads-required <n> --tokens-saved <est> --pr <n>` —
   ties the session's usage rollup to its PR and validates the PR exists and is
-  referenced by this session's decisions → (6) `engrams export` →
+  referenced by this session's decisions. The close payload also reports
+  `schema_value` (schema-guided retrievals this session) and
+  `schema_opportunities` (gate-passing candidates, each with a ready
+  `engrams schema confirm` command): present opportunities to the developer
+  verbatim — confirmation is a human act → (6) `engrams export` →
   (7) commit & push `engrams_export/`. The close record makes "the graph grew
   this session" a checked invariant: `engrams usage` and
   `engrams session history` show what retrieval answered vs. what still

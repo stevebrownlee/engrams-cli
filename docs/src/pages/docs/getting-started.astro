@@ -8,11 +8,10 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   </div>
   <h1>Introduction</h1>
   <p class="lead">
-    Engrams turns your AI coding assistant into an <strong>advisor that compounds</strong>. Instead of
-    forgetting everything between sessions, your AI accumulates the decisions you've made, the patterns
-    you follow, and the progress you've tracked — and surfaces the right information exactly when it's
-    needed. On day one it can only fetch what you ask for; as the graph densifies, it starts telling
-    you what you need before you ask.
+    Engrams turns your AI coding assistant into an <strong>advisor that compounds using Cognitive Schemas</strong>. Instead of
+    forgetting everything between sessions and burning 50,000 tokens defensively reading source files, your AI leverages
+    compact mental models that package your project's decisions, patterns, and code topology into actionable operational rules.
+    Before touching code, your AI knows the rules, contracts, and conventions upfront.
   </p>
 
   <div class="callout tip">
@@ -21,14 +20,18 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <a href="/docs/quick-start">Quick Start guide</a>.
   </div>
 
-  <h2>Why Engrams CLI?</h2>
+  <h2>Why Cognitive Schemas?</h2>
   <p>
     Have you ever had to remind your AI assistant — again — that your project uses a
-    specific framework, or that you already decided on a certain database? AI coding
-    tools are powerful, but they start every conversation with a blank slate. The bigger
-    your project gets, the more time you spend catching your AI up.
+    specific framework, or that you already decided on a certain database pattern? AI coding
+    tools are powerful, but they start every conversation with a blank slate.
   </p>
-
+  <p>
+    Traditional approaches either dump massive prompts into context (burning thousands of tokens)
+    or search for isolated facts. But human senior engineers don't re-read the entire company manual before writing code.
+    They rely on <strong>mental models</strong>: <em>"When I edit database code, I borrow parameters and avoid throwaway collections."</em>
+    Engrams gives your AI that exact expert intuition through <strong>Cognitive Schemas</strong>.
+  </p>
   <h3>The Problem: Context Window Bloat & Fragile Servers</h3>
   <p>
     Traditionally, developers had to choose between two bad options for giving AIs project context:
@@ -141,11 +144,10 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h3>How a typical interaction works</h3>
   <ol>
-    <li><strong>You ask your AI something.</strong> For example: "Implement the DB schema."</li>
-    <li><strong>Your AI queries the Engrams CLI</strong> using the shell tool: e.g., <code>engrams decision search "database"</code> or <code>engrams pattern list</code> to orient itself.</li>
-    <li><strong>Engrams returns SQLite search matches</strong> as structured JSON.</li>
-    <li><strong>Your AI writes code aligned with project context</strong>, respecting prior decisions.</li>
-    <li><strong>New choices get recorded.</strong> If a new architectural choice is made, the AI runs <code>engrams decision log</code>.</li>
+    <li><strong>You ask your AI to build a feature.</strong> For example: "Implement the payment webhook handler."</li>
+    <li><strong>Your AI runs <code>engrams advise src/adapters/stripe.rs</code> before editing.</strong> Engrams intercepts the action and injects the matching Cognitive Schema (trigger + rule + contracts) in under 300 tokens.</li>
+    <li><strong>Your AI writes code aligned with project context</strong>, respecting architectural decisions on the first turn without defensive file exploration.</li>
+    <li><strong>Session closes and compounds.</strong> You run <code>engrams session close</code>: Engrams validates your PR, reports your exact token savings, and surfaces newly detected schema candidates with ready-to-run confirm commands.</li>
   </ol>
   <p>
     That loop is day one: your advisor fetches what you ask for. Every decision, pattern, and link you

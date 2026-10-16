@@ -191,7 +191,7 @@ engrams advise src/ops/scoring.rs    # constraints + violations for one file
 engrams advise --staged              # for all git-staged files
 ```
 
-Returns `{"constraints": [...], "violations": [...]}`. Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When both arrays are empty, proceed with no constraints.
+Returns `{"schemas": [...], "constraints": [...], "violations": [...]}`. Schemas are active cognitive schemas whose member nodes anchor to those paths, surfaced above constraints so agents apply high-level guidance first (spec 0005). Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When all arrays are empty, proceed with no constraints.
 
 Distinct from `relevant`, which returns full structs with scores and reinforces-on-read — use `relevant` for *understanding* context, `advise` for *checking constraints before editing*.
 
@@ -323,6 +323,11 @@ engrams session history
 
 Records reads skipped vs required and token ROI rollups. When `--pr` is provided, Engrams validates that the PR node is linked to at least one decision and connected to anchored code files before blessing the session.
 
+The close payload also carries the schema adoption surface:
+
+- `schema_value`: `{guided_retrievals, distinct_schemas}` — how often schemas guided retrieval in the session window. Derived from `retrieval_surfaces` telemetry; omitted entirely when no session key is known (manual close without `--session`/`ENGRAMS_SESSION`), never silently substituted with an all-time count.
+- `schema_opportunities`: unconfirmed candidates that passed formation gates, kind-labeled `schema`, sit on unclaimed territory, and have not been notified (or drifted since notification via `notified_at < last_seen_at`). Each carries `suggested_name` and a ready-to-run `confirm_command`; close stamps `notified_at` in the same write path so an unchanged candidate is not re-nagged.
+
 ### PR reverse lookup (`engrams pr find`)
 
 ```text
@@ -330,3 +335,25 @@ engrams pr find 42
 ```
 
 Finds all decisions, patterns, or progress entries that reference a PR number or URL.
+
+## Cognitive Schemas — Formation, Retrieval & Adoption
+
+A schema is a named bundle of related knowledge items (decisions, patterns, progress, other schemas) with a trigger-and-rule summary. Schemas prime individual facts: `prime` leads with the top matching schemas, `advise` surfaces them above constraints, `query` prepends a centroid tier, and `brief schema:<id|name|slug>` resolves them as nodes.
+
+```text
+engrams schema scan [--apply]                 # detect clusters from the graph, stage candidates; --apply promotes passing schema-kind candidates
+engrams schema list [--status active]         # confirmed schemas ranked agent-authored first; rows carry kind, member count, and guided (times surfaced)
+engrams schema show <id|name|slug>            # summary, enriched members (cap 20, truncation reported), lexical centroid, kind, guided
+engrams schema confirm <id|sig-prefix> [--name <name>]   # promote a gate-passing candidate; rejects territory claimed by an existing schema (subset, superset, or Jaccard ≥ 0.7 on knowledge members)
+engrams schema refine <id|name> [--summary "..." | --trigger "..." --rule "..."]   # rewrite the summary as agent-authored (ranks above drafts)
+```
+
+Schema summaries are activation contracts: a conditional trigger phrase plus an operational directive ("Fires when editing Rust SQL: hand collections by move, allocate strings once"). Manual summaries must open with one of "Fires when", "When", "Applies if", "Activates when" (byte-prefix match).
+
+### Log-time membership (`--schema`)
+
+`decision log`, `pattern log`, and `progress log` take `--schema <id|name>`: the new item is matched against active schemas' lexical centroids (fit gate 0.4, top 2 suggestions persisted to `schema_suggestions` with status `suggested`), and the explicit flag attaches `member_of` at write time. `--schema none` declines the fired suggestions. Suggestions are human/agent-confirmed — accepted or declined, never auto-attached.
+
+### Adoption at session close
+
+Detection runs continuously (`scan` stages candidates; drift tracking re-evaluates them), but surfacing happens once per session: `engrams session close` reports `schema_value` and `schema_opportunities` as described above. The intended loop is zero-effort — close a session, read the suggested name, run the printed `confirm_command`, then `schema refine` the summary if the drafted trigger misses the mark.

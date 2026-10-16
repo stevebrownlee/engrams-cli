@@ -1,35 +1,34 @@
 /* ============================================================
    Engrams Documentation – Global Styles
-   Palette (live): Brass/Gold #cca43b | Gunmetal #242f40 |
-            Platinum #e5e5e5 | Jet #363636 | Off-white #fafafa
+   Palette: Pale Rose #ffd9da | Vibrant Rose #ea638c |
+            Burgundy #89023e | Deep Slate #30343f | Night #1b2021 | White #ffffff
    ============================================================ */
 
 :root {
-  --sky-aqua:    #cca43b; /* Brass / Gold */
-  --maya-blue:   #242f40; /* Gunmetal */
-  --powder-blue: #e5e5e5; /* Platinum */
-  --pastel-petal:#363636; /* Jet */
-  --lavender:    #ffffff; /* White */
+  --color-rose-pale:   #ffd9da;
+  --color-rose:        #ea638c;
+  --color-burgundy:    #89023e;
+  --color-slate:       #30343f;
+  --color-night:       #1b2021;
+  --color-white:       #ffffff;
 
-  /* Semantic tokens */
-  --color-bg:          #fafafa; /* Soft off-white */
+  /* Semantic tokens: Lighter background, darker text */
+  --color-bg:          #ffffff;
+  --color-bg-subtle:   #fff8f8;
+  --color-bg-rose:     #ffd9da;
   --color-bg-sidebar:  #ffffff;
-  --color-bg-code:     #f0f0f0;
+  --color-bg-code:     #fcf3f4;
   --color-surface:     #ffffff;
-  --color-border:      #e5e5e5; /* Platinum */
-  --color-accent:      #cca43b; /* Brass / Gold */
-  --color-accent-dim:  #242f40; /* Gunmetal */
-  --color-accent-soft: #e5e5e5; /* Platinum */
-  --color-muted:       #e5e5e5; /* Platinum */
-  --color-highlight:   #cca43b; /* Brass / Gold */
+  --color-border:      #ffd9da;
+  --color-border-dark: #ea638c;
+  --color-accent:      #89023e;
+  --color-accent-rose: #ea638c;
 
-  --color-text:        #242f40; /* Gunmetal */
-  --color-text-muted:  #363636; /* Jet */
-  --color-text-light:  #5c677d; /* Muted gray-blue */
-  --color-link:        #cca43b; /* Brass / Gold */
-  --color-link-hover:  #242f40; /* Gunmetal */
-
-  --sidebar-width: 260px;
+  --color-text:        #1b2021;
+  --color-text-muted:  #30343f;
+  --color-text-light:  #5c6274;
+  --color-link:        #89023e;
+  --color-link-hover:  #ea638c;
   --toc-width:     220px;
   --header-height: 60px;
 
@@ -174,18 +173,28 @@ tbody tr:hover { background: #f5f7fb; }
 /* ============================================================
    v0.9.0 "Active Advisor" – dark theme + motion foundation
    ============================================================ */
-:root {
-  /* Dark section palette (built on gunmetal/jet) */
-  --dark-bg:        #12181f;
-  --dark-bg-2:      #1a2230;
-  --dark-surface:   #222d42;
-  --dark-border:    #33405c;
-  --dark-text:      #e9edf4;
-  --dark-text-muted:#9aa6bd;
+::root {
+  /* Dark section palette (Ink & Brass Architectural Ledger) */
+  --dark-bg:        #0e1117;
+  --dark-bg-2:      #141922;
+  --dark-surface:   #1a202c;
+  --dark-border:    #2a3447;
+  --dark-border-subtle: rgba(255, 255, 255, 0.08);
+  --dark-text:      #f0f3f8;
+  --dark-text-muted:#8c99b2;
 
-  /* Graph entity colors (legible on dark) */
+  /* Architectural Ledger Accent Tokens */
+  --brass-gold:       #cca43b;
+  --brass-bright:     #e3b84e;
+  --brass-glow:       rgba(204, 164, 59, 0.18);
+  --ledger-amber:     #d4a342;
+  --ledger-paper:     #0e1117;
+  --ledger-grid:      #1f2633;
+
+  /* Graph & Schema entity colors */
   --gold-bright:      #e3b84e;
-  --graph-decision:   #e3b84e;  /* reasoning – gold */
+  --graph-schema:     #e3b84e;  /* mental models - brass gold */
+  --graph-decision:   #cca43b;  /* reasoning – warm gold */
   --graph-pattern:    #e8ecf3;  /* standards – platinum */
   --graph-progress:   #7d8aa5;  /* activity – gray-blue */
 

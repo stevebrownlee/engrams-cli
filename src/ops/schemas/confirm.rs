@@ -36,8 +36,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use super::scan::{jaccard, DENSITY_GATE, JACCARD_IDENTITY, REWARD_GATE, STABILITY_GATE};
-
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
@@ -434,60 +432,18 @@ pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value
         .filter(|m| !m.starts_with("schema:"))
         .cloned()
         .collect();
-    for s in confirmed_schemas(conn)? {
-        // Territory checks: a candidate whose members sit inside — or fully
-        // cover — an existing schema's knowledge members IS that schema,
-        // not a new concept; both orientations dilute or tighten past the
-        // J >= 0.7 identity rule, so they are pinned explicitly here.
-        // Drifted/partial shapes (some overlap, some not) stay with Jaccard.
-        // Claimed territory frees only via prune/archive — the v0.14
-        // adaptation owns the retire path (decision 76); nothing in the
-        // confirm covenant un-claims it.
-        // NOTE: Strict subset rejection (Item 3) is intentionally active in v0.13.0
-        // to prevent duplicate promotion; hierarchical sub-schemas (permitting
-        // child concepts inside parent territories) remain pending for v0.14.0.
-        let s_knowledge: Vec<&String> = s
-            .members
-            .iter()
-            .filter(|m| !m.starts_with("schema:"))
-            .collect();
-        let covered = knowledge_members
-            .iter()
-            .filter(|m| s_knowledge.contains(m))
-            .count();
-        let covers = s_knowledge
-            .iter()
-            .filter(|k| knowledge_members.contains(k))
-            .count();
-        if covered == knowledge_members.len()
-            || (!s_knowledge.is_empty() && covers == s_knowledge.len())
-            || jaccard(
-                &knowledge_members
-                    .iter()
-                    .map(|m| m.as_str())
-                    .collect::<Vec<_>>(),
-                &s.members.iter().map(String::as_str).collect::<Vec<_>>(),
-            ) >= JACCARD_IDENTITY
-        {
-            bail!(
-                "candidate already confirmed as schema {} ({})",
-                s.id,
-                s.name
-            );
-        }
+    if let Some((claimed_id, claimed_name)) =
+        super::gates::claimed_territory(conn, &knowledge_members)?
+    {
+        bail!(
+            "candidate already confirmed as schema {} ({})",
+            claimed_id,
+            claimed_name
+        );
     }
 
     // The propose-confirm covenant: only gate-passing candidates promote.
-    let mut failed: Vec<&str> = Vec::new();
-    if cand.density < DENSITY_GATE {
-        failed.push("density");
-    }
-    if cand.stability_count < STABILITY_GATE {
-        failed.push("stability");
-    }
-    if cand.reward_hits < REWARD_GATE {
-        failed.push("reward");
-    }
+    let failed = super::gates::failed_gates(cand.density, cand.stability_count, cand.reward_hits);
     if !failed.is_empty() {
         bail!(
             "candidate has not passed the gates (failing: {}); only passing candidates confirm",

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::schema::SCHEMA;
 
-pub const LATEST_VERSION: i32 = 14;
+pub const LATEST_VERSION: i32 = 15;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -93,6 +93,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             }
             14 => {
                 tx.execute_batch(crate::schema::MIGRATION_V14)?;
+            }
+            15 => {
+                tx.execute_batch(crate::schema::MIGRATION_V15)?;
             }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }
@@ -277,4 +280,30 @@ pub fn open(db_path: &Path) -> Result<Connection> {
     }
 
     Ok(conn)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_migration_v15_adds_notified_at_to_schema_candidates() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::SCHEMA).unwrap();
+        // Baseline SCHEMA is DDL only; open() stamps user_version separately.
+        set_user_version(&conn, LATEST_VERSION).unwrap();
+        let user_ver = get_user_version(&conn).unwrap();
+        assert_eq!(user_ver, 15);
+
+        let has_col: bool = conn
+            .prepare("PRAGMA table_info(schema_candidates)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .any(|c| c.as_deref() == Ok("notified_at"));
+        assert!(
+            has_col,
+            "schema_candidates must have notified_at in baseline"
+        );
+    }
 }

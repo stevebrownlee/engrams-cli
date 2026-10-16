@@ -691,7 +691,10 @@ mod tests {
         crate::db::run_migrations(&mut conn).unwrap();
 
         // run_migrations climbs past v13 to LATEST_VERSION.
-        assert_eq!(crate::db::get_user_version(&conn).unwrap(), 14);
+        assert_eq!(
+            crate::db::get_user_version(&conn).unwrap(),
+            crate::db::LATEST_VERSION
+        );
         let mut stmt = conn
             .prepare("PRAGMA table_info(schema_candidates)")
             .unwrap();
@@ -738,6 +741,8 @@ mod tests {
                created_at        TEXT NOT NULL,
                updated_at        TEXT NOT NULL
              ); \
+             CREATE TABLE schema_candidates (id INTEGER PRIMARY KEY AUTOINCREMENT, \
+              cluster_sig TEXT NOT NULL, member_keys_json TEXT NOT NULL); \
              PRAGMA user_version = 13;",
         )
         .unwrap();
@@ -750,7 +755,10 @@ mod tests {
         .unwrap();
         crate::db::run_migrations(&mut conn).unwrap();
 
-        assert_eq!(crate::db::get_user_version(&conn).unwrap(), 14);
+        assert_eq!(
+            crate::db::get_user_version(&conn).unwrap(),
+            crate::db::LATEST_VERSION
+        );
         let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
         let cols: Vec<String> = stmt
             .query_map([], |r| r.get::<_, String>(1))

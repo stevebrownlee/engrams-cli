@@ -1,0 +1,250 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Cognitive Schemas" description="How human cognitive schemas organize lower-level memories, how to design schemas that guide AI agents, and concrete patterns for software architecture, research, and planning.">
+  <h1>Cognitive Schemas</h1>
+  <p class="lead">
+    A cognitive schema is a high-level mental model that organizes many lower-level memories under one
+    idea — and tells you when to apply it. Engrams gives your agent the same machinery: a confirmed schema
+    bundles related decisions, patterns, and code under a single summary that states <em>when it fires</em>
+    and <em>what to do</em>, so the agent loads the model instead of re-reading the history.
+  </p>
+
+  <div class="callout tip reveal">
+    <strong>The retrieval rule:</strong> Raw facts cost tokens on every session; a schema costs tokens once per activation.
+    Because the summary starts with a trigger condition, <code>advise</code> and <code>prime</code> can decide
+    <em>before any file is opened</em> whether this situation is one the project has already reasoned about.
+  </div>
+
+  <h2 class="reveal">How human schemas organize memory</h2>
+  <p>
+    Cognitive psychology describes memory as layered. At the bottom sit individual episodes and facts;
+    at the top sit <strong>schemas</strong> — abstract frames like <em>code review</em> or <em>restaurant visit</em> that
+    group those episodes together. A schema does two things:
+  </p>
+  <ol>
+    <li>
+      <strong>It organizes.</strong> Specific memories become instances of the schema. You do not store
+      <em>restaurant visit #47</em> from scratch; you store what was different from the frame, and the frame
+      supplies the rest.
+    </li>
+    <li>
+      <strong>It activates conditionally.</strong> A schema carries an activation trigger — cues in the environment
+      (<em>a menu, a pull request diff</em>) — plus procedural rules for what to do once it fires. Recall is top-down:
+      the cue selects the schema, and the schema selects which lower-level memories matter.
+    </li>
+  </ol>
+  <p>
+    This is why humans never search their memory linearly. The right frame arriving early is what makes
+    behavior fast and consistent — and it is exactly what an LLM agent lacks when it greps a repository cold.
+  </p>
+
+  <h2 class="reveal">How schemas guide LLM retrieval in Engrams</h2>
+  <p>
+    An Engrams schema is a confirmed graph node whose <strong>members</strong> are lower-level memories —
+    decisions, system patterns, code nodes, progress entries, custom data, even nested schemas. The schema's
+    summary is written as a conditional sentence:
+  </p>
+  <pre><code>Fires when &lt;trigger condition&gt;: &lt;operational rule&gt;</code></pre>
+  <p>
+    Every retrieval surface reads that sentence differently:
+  </p>
+  <table>
+    <thead><tr><th>Surface</th><th>How the schema guides it</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>engrams advise &lt;paths&gt;</code></td>
+        <td>
+          Resolves active schemas whose member anchors touch the target paths and prints them in a
+          <code>schemas</code> block <strong>above</strong> low-level constraints — the rule arrives before the fine print.
+        </td>
+      </tr>
+      <tr>
+        <td><code>engrams prime --paths --tags</code></td>
+        <td>
+          Ranks schemas that match the target paths or tags above unanchored schemas, each entry carrying
+          its operational rule summary.
+        </td>
+      </tr>
+      <tr>
+        <td><code>engrams schema show &lt;target&gt;</code></td>
+        <td>
+          Returns the schema plus every member enriched with type-specific details (summaries, descriptions,
+          file anchors), capped at 20 members with a truncation flag for large clusters.
+        </td>
+      </tr>
+      <tr>
+        <td><code>engrams brief schema:&lt;id&gt;</code></td>
+        <td>One call returns the schema summary, its kind, and enriched details for all immediate members.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    The trigger is what makes this work for an LLM: matching a short conditional sentence against the current
+    prompt or edited paths is cheap, while the rule is a directive the model can comply with immediately —
+    no file reads required. Full-text search (<code>schemas_fts</code>) indexes the whole summary, so triggers
+    and rules are findable from any query surface.
+  </p>
+
+  <h2 class="reveal">Designing a schema that guides an agent</h2>
+  <p>
+    A schema is only as good as its summary. Engrams enforces the shape — <code>schema refine</code> accepts
+    a structured pair and rejects free-text summaries that lack a conditional trigger:
+  </p>
+  <pre><code># Structured authoring (recommended) — formats the summary for you
+engrams schema refine &lt;target&gt; --trigger "editing public documentation" \
+                              --rule "use problem-first risk messaging"
+# =&gt; summary: "Fires when editing public documentation: use problem-first risk messaging."
+
+# Manual summaries must begin with a conditional trigger phrase
+engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
+# Accepted openers: "Fires when", "When", "Applies if", "Activates when"</code></pre>
+  <div class="callout warn reveal">
+    <strong>Validation is deliberate:</strong> <code>--summary</code> strings without a trigger condition are rejected
+    with guidance on the required format, and there is no bypass flag. A schema that cannot say when it fires
+    can never be activated by <code>advise</code> or <code>prime</code>.
+  </div>
+  <h3 class="reveal">Authoring principles</h3>
+  <ul>
+    <li>
+      <strong>Write the trigger as observable context.</strong> A file path, a file kind, a task verb — something
+      present in the prompt or the paths being edited. <em>“When working on things”</em> never matches;
+      <em>“Fires when editing files under src/ops/”</em> always does.
+    </li>
+    <li>
+      <strong>Write the rule as an imperative.</strong> The agent must be able to comply without more reading.
+      <em>“Error handling matters here”</em> is a description; <em>“return the AppError envelope and never
+      unwrap in library code”</em> is a rule.
+    </li>
+    <li>
+      <strong>Anchor members where the rule applies.</strong> <code>advise</code> and <code>prime</code> match through
+      member anchors and centroid tags — an unanchored schema never activates on a path.
+    </li>
+    <li>
+      <strong>Members first, summary second.</strong> Let <code>schema scan</code> cluster related nodes, confirm
+      the cluster, then <code>refine</code> the summary. The schema should summarize memory that exists,
+      not invent memory you wish you had.
+    </li>
+    <li>
+      <strong>One schema per recurring situation.</strong> If two triggers always fire together, they are one
+      schema; if one trigger demands two unrelated rules, it is two schemas.
+    </li>
+  </ul>
+
+  <h2 class="reveal">Example: software architecture</h2>
+  <p>
+    A cluster of error-handling decisions, a result-envelope pattern, and the central error type become one
+    schema that fires on any fallible-function work:
+  </p>
+  <pre><code>engrams schema refine error-envelope \
+  --trigger "adding or editing a fallible public function in Rust code" \
+  --rule "return the AppError envelope and never unwrap outside tests"</code></pre>
+  <p>
+    Running <code>engrams schema show error-envelope</code> returns the schema plus its enriched members:
+  </p>
+  <pre><code>&#123;
+  "status": "success",
+  "schema": &#123;
+    "id": 4,
+    "name": "error-envelope",
+    "summary": "Fires when adding or editing a fallible public function in Rust code: return the AppError envelope and never unwrap outside tests.",
+    "summary_source": "agent",
+    "status": "confirmed",
+    "members": [
+      &#123;
+        "kind": "system_pattern", "id": 12, "name": "result-envelope",
+        "description": "Public fallible functions return Result&lt;T, AppError&gt;.",
+        "severity": "error", "anchors": ["src/ops"]
+      &#125;,
+      &#123;
+        "kind": "decision", "id": 58,
+        "summary": "Ban unwrap in library code; convert with AppError::from",
+        "status": "active", "anchors": ["src/ops/schemas/list.rs"]
+      &#125;,
+      &#123;
+        "kind": "code", "id": 91, "path": "src/errors.rs",
+        "symbol": "AppError", "line_count": 64
+      &#125;
+    ],
+    "member_count": 3,
+    "truncated": false
+  &#125;
+&#125;</code></pre>
+  <p>
+    From now on, <code>engrams advise src/errors.rs</code> surfaces this schema above the constraint list, and
+    <code>engrams prime --paths src/ops</code> ranks it at the top of the schemas block — the agent reads the rule
+    before it reads the code.
+  </p>
+
+  <h2 class="reveal">Example: research</h2>
+  <p>
+    Research findings stored as custom data tend to go stale because nothing forces an agent to consult them.
+    A schema turns the survey into a standing rule:
+  </p>
+  <pre><code>engrams schema refine survey-then-decide \
+  --trigger "evaluating a new dependency or settling an open design question" \
+  --rule "read the saved research findings first and cite the finding ID in the decision"</code></pre>
+  <p>
+    Members: the custom-data entries holding the survey findings (each enriched with its <code>key</code> and
+    full <code>value</code> — JSON stored as JSON), plus the decision that turned the survey into a roadmap. Now a prompt like
+    <em>“should we adopt bgk for clustering?”</em> activates the schema through <code>advise</code> — the agent is
+    told to ground the answer in finding IDs instead of improvising from training-data priors.
+  </p>
+
+  <h2 class="reveal">Example: planning</h2>
+  <p>
+    Planning drift happens when every session re-derives what to build next from a backlog of raw notes.
+    The <code>what-to-build-next</code> schema packages the survey, the roadmap decision, and the session notes
+    into one activation:
+  </p>
+  <pre><code>engrams schema refine what-to-build-next \
+  --trigger "planning a release or choosing what to build next" \
+  --rule "pick from the tiered version-by-version roadmap before inventing new scope"</code></pre>
+  <p>
+    Running <code>engrams prime --tags roadmap</code> ranks this schema first with its rule inline, so planning
+    sessions start from the committed sequence rather than the loudest recent note. Tagging the schema
+    (or its members) with the tags your planning prompts use is what makes the match — anchors for paths,
+    tags for topics.
+  </p>
+
+  <h2 class="reveal">The loop closes itself</h2>
+  <p>
+    You do not have to remember to look for schemas. Detection runs continuously in the background,
+    and <code>engrams session close</code> tells you two things at the exact moment a session ends:
+  </p>
+  <ul>
+    <li>
+      <strong>schema_opportunities</strong> — candidate clusters that passed the formation gates and
+      do not overlap any schema you already confirmed. Each one arrives with a suggested name and a
+      ready-to-run <code>engrams schema confirm</code> command. Run it, or don't: an unchanged
+      candidate is not nagged about again, and one that keeps growing comes back louder.
+    </li>
+    <li>
+      <strong>schema_value</strong> — how many retrievals this session were guided by schemas, and
+      how many distinct schemas did the guiding. This is the payoff made visible: schemas are doing
+      work, here is the count.
+    </li>
+  </ul>
+  <p>
+    The same counter shows up per schema in <code>engrams schema list</code> and
+    <code>schema show</code> as the <code>guided</code> field — so a schema that never fires is
+    visible too, and worth refining or retiring.
+  </p>
+
+  <div class="callout note reveal">
+    <strong>The loop:</strong> <code>schema scan</code> finds the cluster, <code>schema confirm</code> seals it,
+    <code>schema refine</code> names the trigger and rule, and <code>advise</code> / <code>prime</code> deliver the rule
+    exactly when the trigger appears. Each session that follows the rule without re-reading the underlying
+    memories is the compounding payoff.
+  </div>
+</DocsLayout>
+
+<style>
+  .lead {
+    font-size: 1.125rem;
+    color: var(--color-text-muted);
+    line-height: 1.75;
+    margin-bottom: 1.75rem;
+  }
+</style>

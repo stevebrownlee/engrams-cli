@@ -2181,14 +2181,16 @@ fn test_migration_v13_to_v14() {
 
     engrams(&db).arg("init").assert().success();
 
-    // Rewind to the pre-v14 shape: MIGRATION_V14 is purely additive, so a
-    // v13 database is exactly the current shape minus the schemas kind
-    // columns. Seed a confirmed schema the upgrade must preserve.
+    // Rewind to the pre-v14 shape: MIGRATION_V14 and MIGRATION_V15 are purely
+    // additive, so a v13 database is exactly the current shape minus the
+    // schemas kind columns and schema_candidates.notified_at. Seed a
+    // confirmed schema the upgrade must preserve.
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch(
             "ALTER TABLE schemas DROP COLUMN kind;
-             ALTER TABLE schemas DROP COLUMN kind_reasons_json;",
+             ALTER TABLE schemas DROP COLUMN kind_reasons_json;
+             ALTER TABLE schema_candidates DROP COLUMN notified_at;",
         )
         .unwrap();
         conn.execute(
@@ -2202,15 +2204,15 @@ fn test_migration_v13_to_v14() {
     }
 
     // On-disk version must match migrate's self-reported latest (self-maintaining
-    // pin — derived from command output), which this contract pins at 14.
+    // pin — derived from command output), which this contract pins at 15.
     let out = engrams(&db).arg("migrate").output().unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(parsed["version"].as_i64().unwrap(), 14);
+    assert_eq!(parsed["version"].as_i64().unwrap(), 15);
     let conn = rusqlite::Connection::open(&db).unwrap();
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 14);
+    assert_eq!(version, 15);
 
     // The kind columns exist post-migration.
     let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
@@ -2221,6 +2223,16 @@ fn test_migration_v13_to_v14() {
         .collect();
     assert!(cols.contains(&"kind".to_string()));
     assert!(cols.contains(&"kind_reasons_json".to_string()));
+
+    // MIGRATION_V15 ran as part of the 13->15 climb.
+    let cand_cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(schema_candidates)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .flatten()
+        .collect();
+    assert!(cand_cols.contains(&"notified_at".to_string()));
 
     // The pre-existing row backfilled via the column defaults (a successful
     // NOT NULL backfill proves the DEFAULT clauses landed), and every prior
@@ -2435,7 +2447,7 @@ fn test_schema_list_show_refine_and_confirm_bump() {
             "refine",
             "core",
             "--summary",
-            "Gateway architecture: how requests route",
+            "Fires when gateway requests route: consult the routing decisions",
         ])
         .output()
         .unwrap();
@@ -2517,6 +2529,185 @@ fn test_schema_list_show_refine_and_confirm_bump() {
 }
 
 #[test]
+fn test_schema_refine_trigger_and_rule_synthesize_agent_summary() {
+    // AC-3: --trigger + --rule synthesize "Fires when <CONDITION>: <DIRECTIVE>"
+    // and record summary_source as agent. Seeded by SQL because the contract
+    // under test is the refine write path, not schema formation.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Drafted summary', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "core",
+            "--trigger",
+            "editing public documentation",
+            "--rule",
+            "use problem-first risk messaging",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        json["schema"]["summary"],
+        "Fires when editing public documentation: use problem-first risk messaging",
+        "{json}"
+    );
+    assert_eq!(json["schema"]["summary_source"], "agent");
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let (summary, source): (String, String) = conn
+        .query_row(
+            "SELECT summary, summary_source FROM schemas WHERE name = 'core'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        summary,
+        "Fires when editing public documentation: use problem-first risk messaging"
+    );
+    assert_eq!(source, "agent");
+}
+
+#[test]
+fn test_schema_refine_rejects_manual_summary_without_trigger() {
+    // AC-4: a manual summary that opens with neither conditional phrase is
+    // rejected with guidance, and the stored summary stays untouched.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Fires when deploying: run the smoke suite', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "core",
+            "--summary",
+            "Gateway architecture: how requests route",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "missing trigger phrase must fail");
+    let json: Value = serde_json::from_slice(&out.stderr).unwrap();
+    let err = json["error"].as_str().unwrap();
+    assert!(err.contains("conditional trigger phrase"), "{json}");
+    assert!(
+        err.contains("Fires when"),
+        "error names the accepted structure: {json}"
+    );
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let (summary, source): (String, String) = conn
+        .query_row(
+            "SELECT summary, summary_source FROM schemas WHERE name = 'core'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        summary, "Fires when deploying: run the smoke suite",
+        "failed refine must leave the summary unchanged"
+    );
+    assert_eq!(source, "drafted", "failed refine must not promote to agent");
+}
+
+#[test]
+fn test_schema_refine_accepts_each_trigger_prefix() {
+    // AC-4: every documented conditional phrase opens a manual summary.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Drafted summary', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    for text in [
+        "Fires when deploying: run the smoke suite",
+        "When deploying: run the smoke suite",
+        "Applies if deploying: run the smoke suite",
+        "Activates when deploying: run the smoke suite",
+    ] {
+        let out = engrams(&db)
+            .args(["schema", "refine", "core", "--summary", text])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{text} must be accepted");
+        let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(json["schema"]["summary"], text);
+    }
+}
+
+#[test]
+fn test_schema_refine_requires_trigger_and_rule_together() {
+    // Half a synthesized pair is rejected with guidance naming the missing
+    // flag; the stored summary is untouched either way.
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-core', 'core', 'Fires when deploying: run the smoke suite', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+    for flags in [
+        vec!["--trigger", "deploying"],
+        vec!["--rule", "run the smoke suite"],
+    ] {
+        let out = engrams(&db)
+            .args(["schema", "refine", "core"])
+            .args(&flags)
+            .output()
+            .unwrap();
+        assert!(!out.status.success(), "half a pair must fail: {flags:?}");
+        let json: Value = serde_json::from_slice(&out.stderr).unwrap();
+        let err = json["error"].as_str().unwrap();
+        let missing = if flags[0] == "--trigger" {
+            "--rule"
+        } else {
+            "--trigger"
+        };
+        assert!(err.contains(missing), "expected {missing} guidance: {json}");
+    }
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let summary: String = conn
+        .query_row("SELECT summary FROM schemas WHERE name = 'core'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        summary, "Fires when deploying: run the smoke suite",
+        "failed refines must leave the summary unchanged"
+    );
+}
+
+#[test]
 fn test_prime_leads_with_schemas_block() {
     let temp = TempDir::new().unwrap();
     let db = temp.path().join("e.db");
@@ -2577,6 +2768,135 @@ fn test_prime_leads_with_schemas_block() {
     assert_eq!(
         map["schemas"][0]["kind"], "schema",
         "prime schemas entries carry the confirm-time kind"
+    );
+}
+
+#[test]
+fn test_prime_ranks_context_matching_schemas() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+    // prime requires an active-context track (same setup as test_prime).
+    engrams(&db)
+        .args(["active-context", "update", "--content", "{\"tasks\": []}"])
+        .assert()
+        .success();
+    // Two confirmed schemas: gateway (anchored to src/gateway.rs, one
+    // retrieval event) and policy (anchored to docs/policy.md, two events).
+    // Classically the policy schema leads on reward; AC-6 flips that when
+    // the target paths or tags point at gateway. SQL seeding for the same
+    // reasons as test_prime_leads_with_schemas_block.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
+             ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u2','2026-01-01T00:00:00Z','beta gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u3','2026-01-01T00:00:00Z','gamma gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u4','2026-01-01T00:00:00Z','delta policy engine','[\"policy\",\"core\"]','abc'),
+             ('u5','2026-01-01T00:00:00Z','epsilon policy engine','[\"policy\",\"core\"]','abc'),
+             ('u6','2026-01-01T00:00:00Z','zeta policy engine','[\"policy\",\"core\"]','abc');
+             INSERT INTO context_links (source_item_type, source_item_id, \
+              target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
+             ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','4','decision','5','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','5','decision','6','relates_to','2026-01-01T00:00:00Z','manual'),
+             ('decision','4','decision','6','relates_to','2026-01-01T00:00:00Z','manual');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',3,'src/gateway.rs','2026-01-02T00:00:00Z'),
+             ('decision',4,'docs/policy.md','2026-01-02T00:00:00Z'),
+             ('decision',5,'docs/policy.md','2026-01-02T00:00:00Z'),
+             ('decision',6,'docs/policy.md','2026-01-02T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z','query','gateway','decision',1),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',2),
+             ('2026-02-15T00:00:00Z','query','gateway','decision',3),
+             ('2026-02-15T00:00:00Z','query','policy','decision',4),
+             ('2026-02-15T00:00:00Z','query','policy','decision',5),
+             ('2026-02-15T00:00:00Z','query','policy','decision',6),
+             ('2026-02-16T00:00:00Z','query','policy','decision',4),
+             ('2026-02-16T00:00:00Z','query','policy','decision',5),
+             ('2026-02-16T00:00:00Z','query','policy','decision',6);",
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .assert()
+        .success();
+    // reward_hits counts schema-level surface rows (retrieval_surfaces with
+    // node_kind 'schema'), so seed two events for policy and one for gateway:
+    // unscoped prime must lead with the higher-reward policy schema.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let id_for = |like: &str| -> i64 {
+            conn.query_row(
+                "SELECT id FROM schemas WHERE summary LIKE ?1",
+                rusqlite::params![format!("%{like}%")],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        let (gateway, policy) = (id_for("gateway routing"), id_for("policy engine"));
+        conn.execute_batch(&format!(
+            "INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-03-01T00:00:00Z','prime',NULL,'schema',{gateway}),
+             ('2026-03-01T00:00:00Z','prime',NULL,'schema',{policy}),
+             ('2026-03-02T00:00:00Z','prime',NULL,'schema',{policy});"
+        ))
+        .unwrap();
+    }
+
+    let summaries = |out: &std::process::Output| -> Vec<String> {
+        let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+        json["schemas"]
+            .as_array()
+            .expect("prime payload carries a schemas array")
+            .iter()
+            .map(|s| {
+                let sum = s["summary"].as_str().unwrap();
+                assert!(!sum.is_empty(), "each entry carries its rule summary");
+                sum.to_string()
+            })
+            .collect()
+    };
+
+    // No flags: classic order — the higher-reward policy schema leads.
+    let sums = summaries(&engrams(&db).arg("prime").output().unwrap());
+    assert!(
+        sums[0].contains("policy") && !sums[0].contains("gateway"),
+        "unscoped prime keeps classic reward order; got: {sums:?}"
+    );
+
+    // --paths: the schema anchored under the target path leads.
+    let sums = summaries(
+        &engrams(&db)
+            .args(["prime", "--paths", "src/gateway.rs"])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        sums[0].contains("gateway"),
+        "path-anchored schema must outrank the higher-reward one; got: {sums:?}"
+    );
+
+    // --tags: the schema whose centroid matches the tag leads.
+    let sums = summaries(
+        &engrams(&db)
+            .args(["prime", "--tags", "gateway"])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        sums[0].contains("gateway"),
+        "tag-matching schema must outrank the higher-reward one; got: {sums:?}"
     );
 }
 
@@ -3731,5 +4051,832 @@ fn test_batch_decision() {
         two["tags"],
         serde_json::json!(["tagA", "tagB"]),
         "batched decision must keep its tags"
+    );
+}
+
+#[test]
+fn test_advise_surfaces_matching_schemas() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Seeded by SQL because the contract under test is schema resolution
+    // against anchors, not member production: an active schema over a
+    // decision anchored to the advised path, an active schema anchored
+    // elsewhere, and a proposed schema over the same decision.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha, status, contract) VALUES
+             ('d1', '2026-01-01T00:00:00Z', 'Advise returns only actionable constraints', '[\"advise\"]', 'abc', 'active',
+              'No scores, no progress, no reinforcement'),
+             ('d2', '2026-01-01T00:00:00Z', 'Docs use problem-first messaging', '[\"docs\"]', 'def', 'active',
+              'Lead with the reader risk');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at, kind) VALUES
+             ('match-uuid', 'pre-edit-gating',
+              'Fires when editing the advise pipeline: keep output constraints-only and machine-readable',
+              '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'schema'),
+             ('elsewhere-uuid', 'docs-voice',
+              'Fires when writing docs: use problem-first messaging',
+              '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'story');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('proposed-uuid', 'not-yet-active',
+              'Fires when editing the advise pipeline: still proposed',
+              '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            UPDATE schemas SET status = 'proposed' WHERE uuid = 'proposed-uuid';
+            INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'src/ops/advise.rs', '2026-01-01T00:00:00Z'),
+             ('decision', 2, 'docs/guide.md', '2026-01-01T00:00:00Z');
+            INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id,
+                                       relationship_type, description, timestamp) VALUES
+             ('decision', '1', 'schema', '1', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '1', 'schema', '3', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '2', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["advise", "src/ops/advise.rs"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+
+    // AC-5 clause 1: the schema whose member anchors to the advised path
+    // appears with its trigger-and-rule summary; non-anchored and
+    // non-active schemas stay out.
+    let schemas = parsed["schemas"].as_array().unwrap();
+    assert_eq!(
+        schemas.len(),
+        1,
+        "exactly the anchored active schema: {:?}",
+        schemas,
+    );
+    let entry = &schemas[0];
+    assert_eq!(entry["id"], 1);
+    assert_eq!(entry["name"], "pre-edit-gating");
+    assert_eq!(entry["kind"], "schema");
+    let summary = entry["summary"].as_str().unwrap();
+    assert!(
+        summary.starts_with("Fires when") && summary.contains(':'),
+        "summary carries trigger and rule: {summary}"
+    );
+
+    // AC-5 clause 2: schemas sit above the low-level constraints in the
+    // serialized output (serde_json preserve_order keeps insertion order).
+    let s_pos = stdout.find("\"schemas\"").unwrap();
+    let c_pos = stdout.find("\"constraints\"").unwrap();
+    let v_pos = stdout.find("\"violations\"").unwrap();
+    assert!(s_pos < c_pos && c_pos < v_pos);
+
+    // The low-level machinery keeps working alongside: the anchored
+    // decision still surfaces as a constraint.
+    let constraints = parsed["constraints"].as_array().unwrap();
+    assert_eq!(constraints.len(), 1);
+    assert_eq!(constraints[0]["type"], "decision");
+    assert_eq!(constraints[0]["id"], 1);
+}
+
+#[test]
+fn test_advise_schemas_empty_without_anchored_schemas() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    let out = engrams(&db)
+        .args(["advise", "src/nothing/here.rs"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let parsed: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schemas"], serde_json::json!([]));
+    assert_eq!(parsed["constraints"], serde_json::json!([]));
+    let s_pos = stdout.find("\"schemas\"").unwrap();
+    let c_pos = stdout.find("\"constraints\"").unwrap();
+    assert!(s_pos < c_pos, "schemas key stays above constraints");
+}
+
+// spec 0005 Architecture item 1: `schema show` members gain the per-kind
+// details `brief` surfaces, capped at 20 with truncation metadata.
+#[test]
+fn test_schema_show_enriches_members_by_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // One member of every enrichable kind, one nested schema, one
+    // pass-through kind, one dangling reference — seeded by SQL because
+    // the contract under test is the read path, not member production.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha, status, contract) VALUES
+             ('d1', '2026-01-01T00:00:00Z', 'Ship the parser rewrite', '[\"parser\"]', 'abc', 'accepted',
+              'Fail fast on malformed input');
+            INSERT INTO system_patterns (uuid, timestamp, name, description, severity) VALUES
+             ('p1', '2026-01-01T00:00:00Z', 'borrow-first', 'Consume lookup maps by move', 'high');
+            INSERT INTO progress_entries (timestamp, status, description) VALUES
+             ('2026-01-02T00:00:00Z', 'in_progress', 'Wire enriched show output');
+            INSERT INTO custom_data (timestamp, category, key, value) VALUES
+             ('2026-01-03T00:00:00Z', 'config', 'region', '{\"default\": \"us-east-1\"}');
+            INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen, line_count) VALUES
+             ('file', 'src/parse.rs', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 120);
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('nested-uuid', 'nested-pack', 'A schema used as a member', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('multi-uuid', 'multi-kind', 'Host schema for every member kind', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'src/parse.rs', '2026-01-01T00:00:00Z'),
+             ('system_pattern', 1, 'docs/patterns.md', '2026-01-01T00:00:00Z');
+            INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id,
+                                       relationship_type, description, timestamp) VALUES
+             ('decision', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('system_pattern', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('progress_entry', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('custom_data', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('code', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('schema', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('pr', '42', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '9999', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["schema", "show", "multi-kind"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schema = &parsed["schema"];
+
+    assert_eq!(
+        schema["member_count"], 8,
+        "member_count stays the true total"
+    );
+    assert_eq!(schema["truncated"], false);
+    assert!(
+        schema.get("total_members").is_none(),
+        "total_members only appears when the cap bites"
+    );
+    let members = schema["members"].as_array().unwrap();
+    assert_eq!(members.len(), 8);
+    let find = |kind: &str, id: i64| {
+        members
+            .iter()
+            .find(|m| m["kind"] == kind && m["id"] == id)
+            .unwrap_or_else(|| panic!("member {kind}:{id} missing"))
+    };
+
+    let dec = find("decision", 1);
+    assert_eq!(dec["summary"], "Ship the parser rewrite");
+    assert_eq!(dec["status"], "accepted");
+    assert_eq!(dec["contract"], "Fail fast on malformed input");
+    assert_eq!(dec["anchors"], serde_json::json!(["src/parse.rs"]));
+
+    let pat = find("system_pattern", 1);
+    assert_eq!(pat["name"], "borrow-first");
+    assert_eq!(pat["description"], "Consume lookup maps by move");
+    assert_eq!(pat["severity"], "high");
+    assert_eq!(pat["anchors"], serde_json::json!(["docs/patterns.md"]));
+
+    let prog = find("progress_entry", 1);
+    assert_eq!(prog["status"], "in_progress");
+    assert_eq!(prog["description"], "Wire enriched show output");
+    assert_eq!(prog["timestamp"], "2026-01-02T00:00:00Z");
+
+    let data = find("custom_data", 1);
+    assert_eq!(data["key"], "region");
+    assert_eq!(
+        data["value"],
+        serde_json::json!({"default": "us-east-1"}),
+        "stored TEXT value surfaces as JSON when it parses"
+    );
+
+    let code = find("code", 1);
+    assert_eq!(code["path"], "src/parse.rs");
+    assert_eq!(code["symbol"], "");
+    assert_eq!(code["kind"], "code");
+    assert_eq!(code["line_count"], 120);
+
+    let nested = find("schema", 1);
+    assert_eq!(nested["name"], "nested-pack");
+    assert_eq!(nested["summary"], "A schema used as a member");
+
+    let pr = find("pr", 42);
+    assert!(
+        pr.get("summary").is_none() && pr.get("path").is_none(),
+        "unenrichable kinds stay bare references"
+    );
+
+    let dangling = find("decision", 9999);
+    assert!(
+        dangling.get("summary").is_none(),
+        "dangling references stay bare, never fabricated"
+    );
+    assert_eq!(dangling["anchors"], serde_json::json!([]));
+}
+
+#[test]
+fn test_schema_show_truncates_members_over_cap() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let mut batch = String::new();
+        for i in 1..=25 {
+            batch.push_str(&format!(
+                "INSERT INTO decisions (uuid, timestamp, summary) VALUES \
+                 ('big-{i}', '2026-01-01T00:00:00Z', 'Decision {i}');\n"
+            ));
+        }
+        batch.push_str(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES \
+             ('big-uuid', 'big-pack', 'Over the cap', '{}', \
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');\n",
+        );
+        for i in 1..=25 {
+            batch.push_str(&format!(
+                "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, \
+                 target_item_id, relationship_type, description, timestamp) VALUES \
+                 ('decision', '{i}', 'schema', '1', 'member_of', NULL, '2026-01-01T00:00:00Z');\n"
+            ));
+        }
+        conn.execute_batch(&batch).unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["schema", "show", "big-pack"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schema = &parsed["schema"];
+
+    assert_eq!(
+        schema["member_count"], 25,
+        "member_count stays the true total"
+    );
+    assert_eq!(schema["truncated"], true);
+    assert_eq!(schema["total_members"], 25);
+    let members = schema["members"].as_array().unwrap();
+    assert_eq!(members.len(), 20, "exactly the cap is enriched");
+
+    // Members keep the link query's (kind, insertion) order — insertion is
+    // the context_links rowid, here 1..=25 in seed order — so the first 20
+    // shown are ids 1 through 20.
+    let shown: Vec<String> = members
+        .iter()
+        .map(|m| m["id"].as_i64().unwrap().to_string())
+        .collect();
+    let expected: Vec<String> = (1..=20).map(|i| i.to_string()).collect();
+    assert_eq!(shown, expected);
+    for m in members {
+        assert_eq!(m["summary"], format!("Decision {}", m["id"]));
+    }
+}
+
+// spec 0005 Architecture item 2: `brief schema:<id>` returns the schema's
+// immediate members enriched with the same per-kind details `schema show`
+// surfaces (phase 1's shared code path), capped at 20 with truncation metadata.
+#[test]
+fn test_brief_schema_enriches_members_by_kind() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Same multi-kind seeding as the `schema show` enrichment test: the
+    // contract is that both read paths surface identical member details.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha, status, contract) VALUES
+             ('d1', '2026-01-01T00:00:00Z', 'Ship the parser rewrite', '[\"parser\"]', 'abc', 'accepted',
+              'Fail fast on malformed input');
+            INSERT INTO system_patterns (uuid, timestamp, name, description, severity) VALUES
+             ('p1', '2026-01-01T00:00:00Z', 'borrow-first', 'Consume lookup maps by move', 'high');
+            INSERT INTO progress_entries (timestamp, status, description) VALUES
+             ('2026-01-02T00:00:00Z', 'in_progress', 'Wire enriched show output');
+            INSERT INTO custom_data (timestamp, category, key, value) VALUES
+             ('2026-01-03T00:00:00Z', 'config', 'region', '{\"default\": \"us-east-1\"}');
+            INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen, line_count) VALUES
+             ('file', 'src/parse.rs', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 120);
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('nested-uuid', 'nested-pack', 'A schema used as a member', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('multi-uuid', 'multi-kind', 'Host schema for every member kind', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'src/parse.rs', '2026-01-01T00:00:00Z'),
+             ('system_pattern', 1, 'docs/patterns.md', '2026-01-01T00:00:00Z');
+            INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id,
+                                       relationship_type, description, timestamp) VALUES
+             ('decision', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('system_pattern', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('progress_entry', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('custom_data', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('code', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('schema', '1', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('pr', '42', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z'),
+             ('decision', '9999', 'schema', '2', 'member_of', NULL, '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db).args(["brief", "schema:2"]).output().unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(parsed["node"], "schema:2");
+    assert_eq!(parsed["kind"], "schema");
+
+    let brief = &parsed["brief"];
+    assert_eq!(brief["id"], 2);
+    assert_eq!(brief["name"], "multi-kind");
+    assert_eq!(brief["summary"], "Host schema for every member kind");
+    assert_eq!(
+        brief["member_count"], 8,
+        "member_count stays the true total"
+    );
+    assert_eq!(brief["truncated"], false);
+    assert!(
+        brief.get("total_members").is_none(),
+        "total_members only appears when the cap bites"
+    );
+
+    let members = brief["members"].as_array().unwrap();
+    assert_eq!(members.len(), 8);
+    let find = |kind: &str, id: i64| {
+        members
+            .iter()
+            .find(|m| m["kind"] == kind && m["id"] == id)
+            .unwrap_or_else(|| panic!("member {kind}:{id} missing"))
+    };
+
+    let dec = find("decision", 1);
+    assert_eq!(dec["summary"], "Ship the parser rewrite");
+    assert_eq!(dec["status"], "accepted");
+    assert_eq!(dec["contract"], "Fail fast on malformed input");
+    assert_eq!(dec["anchors"], serde_json::json!(["src/parse.rs"]));
+
+    let pat = find("system_pattern", 1);
+    assert_eq!(pat["name"], "borrow-first");
+    assert_eq!(pat["description"], "Consume lookup maps by move");
+    assert_eq!(pat["severity"], "high");
+    assert_eq!(pat["anchors"], serde_json::json!(["docs/patterns.md"]));
+
+    let prog = find("progress_entry", 1);
+    assert_eq!(prog["status"], "in_progress");
+    assert_eq!(prog["description"], "Wire enriched show output");
+    assert_eq!(prog["timestamp"], "2026-01-02T00:00:00Z");
+
+    let data = find("custom_data", 1);
+    assert_eq!(data["key"], "region");
+    assert_eq!(
+        data["value"],
+        serde_json::json!({"default": "us-east-1"}),
+        "stored TEXT value surfaces as JSON when it parses"
+    );
+
+    let code = find("code", 1);
+    assert_eq!(code["path"], "src/parse.rs");
+    assert_eq!(code["symbol"], "");
+    assert_eq!(code["line_count"], 120);
+
+    let nested = find("schema", 1);
+    assert_eq!(nested["name"], "nested-pack");
+    assert_eq!(nested["summary"], "A schema used as a member");
+
+    let pr = find("pr", 42);
+    assert!(
+        pr.get("summary").is_none() && pr.get("path").is_none(),
+        "unenrichable kinds stay bare references"
+    );
+
+    let dangling = find("decision", 9999);
+    assert!(
+        dangling.get("summary").is_none(),
+        "dangling references stay bare, never fabricated"
+    );
+}
+
+#[test]
+fn test_brief_schema_resolves_by_name_and_slug() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('wp-uuid', 'Deploy Pipeline', 'Ships code to production', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    for target in [
+        "schema:Deploy Pipeline",
+        "schema:deploy-pipeline",
+        "schema:1",
+    ] {
+        let out = engrams(&db).args(["brief", target]).output().unwrap();
+        assert!(out.status.success(), "target '{target}' should resolve");
+        let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(parsed["brief"]["id"], 1, "target '{target}'");
+        assert_eq!(parsed["brief"]["name"], "Deploy Pipeline");
+    }
+}
+
+#[test]
+fn test_brief_schema_unknown_target_errors() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    engrams(&db)
+        .args(["brief", "schema:ghost"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no schema matches 'ghost'"));
+
+    // Bare numbers stay FTS text: no implicit schema fallback.
+    engrams(&db).args(["brief", "1"]).assert().failure();
+}
+
+#[test]
+fn test_brief_schema_truncates_members_over_cap() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let mut batch = String::new();
+        for i in 1..=25 {
+            batch.push_str(&format!(
+                "INSERT INTO decisions (uuid, timestamp, summary) VALUES \
+                 ('big-{i}', '2026-01-01T00:00:00Z', 'Decision {i}');\n"
+            ));
+        }
+        batch.push_str(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES \
+             ('big-uuid', 'big-pack', 'Over the cap', '{}', \
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');\n",
+        );
+        for i in 1..=25 {
+            batch.push_str(&format!(
+                "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, \
+                 target_item_id, relationship_type, description, timestamp) VALUES \
+                 ('decision', '{i}', 'schema', '1', 'member_of', NULL, '2026-01-01T00:00:00Z');\n"
+            ));
+        }
+        conn.execute_batch(&batch).unwrap();
+    }
+
+    let out = engrams(&db)
+        .args(["brief", "schema:big-pack"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let brief = &parsed["brief"];
+
+    assert_eq!(
+        brief["member_count"], 25,
+        "member_count stays the true total"
+    );
+    assert_eq!(brief["truncated"], true);
+    assert_eq!(brief["total_members"], 25);
+    let members = brief["members"].as_array().unwrap();
+    assert_eq!(members.len(), 20, "exactly the cap is enriched");
+    for m in members {
+        assert_eq!(m["summary"], format!("Decision {}", m["id"]));
+    }
+}
+
+// --- Session close: schema_value + schema_opportunities (spec 0005) ---
+
+/// Seeds one `kind='schema'` candidate that clears the gates, plus retrieval
+/// surfaces and a usage row for the given session. Returns the candidate's
+/// signature so assertions can stay data-driven.
+fn seed_schema_candidate(
+    db: &std::path::Path,
+    signature: &str,
+    surface_ts: &[(&str, i64)],
+    usage_ts: &str,
+    session: &str,
+) {
+    let conn = rusqlite::Connection::open(db).unwrap();
+    conn.execute(
+        "INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, stability_count, reward_hits, last_drift_removed, last_drift_added, first_seen_at, last_seen_at, kind) \
+         VALUES (?1, ?2, 0.8, 3, 1, 0, 0, '2020-01-01T00:00:00Z', '2020-01-01T00:00:00Z', 'schema')",
+        rusqlite::params![signature, r#"["decision:1","decision:2"]"#],
+    )
+    .unwrap();
+    for (ts, node_id) in surface_ts {
+        conn.execute(
+            "INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES (?1, 'advise', NULL, 'schema', ?2)",
+            rusqlite::params![ts, node_id],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO usage_log (timestamp, command, arg, hits, miss, session) VALUES (?1, 'advise', NULL, 2, 0, ?2)",
+        rusqlite::params![usage_ts, session],
+    )
+    .unwrap();
+}
+
+#[test]
+fn test_session_close_surfaces_schema_value_and_opportunities() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Session usage starts at 12:00; surfaces at/after it count — one per
+    // distinct schema node (1 and 2) plus a repeat of node 1.
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[
+            ("2026-10-04T12:01:00Z", 1),
+            ("2026-10-04T12:02:00Z", 2),
+            ("2026-10-04T12:03:00Z", 1),
+        ],
+        "2026-10-04T12:00:00Z",
+        "ses_test",
+    );
+
+    let out = engrams(&db)
+        .args([
+            "session",
+            "close",
+            "--session",
+            "ses_test",
+            "--note",
+            "test",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+
+    // Windowed guided-retrieval counts for the named session.
+    assert_eq!(parsed["schema_value"]["guided_retrievals"], 3);
+    assert_eq!(parsed["schema_value"]["distinct_schemas"], 2);
+
+    // The gated candidate is surfaced with a suggestion.
+    let opps = parsed["schema_opportunities"].as_array().unwrap();
+    assert_eq!(opps.len(), 1, "one gated candidate surfaces");
+    assert_eq!(opps[0]["signature"], "decision:1|decision:2");
+    assert!(opps[0]["suggested_name"].as_str().is_some());
+    assert!(opps[0]["confirm_command"].as_str().is_some());
+
+    // Surfaced == stamped: notified_at is set for exactly what was emitted.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let notified: String = conn
+        .query_row(
+            "SELECT notified_at FROM schema_candidates WHERE cluster_sig = ?1",
+            rusqlite::params!["decision:1|decision:2"],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(!notified.is_empty(), "surfaced candidate must be stamped");
+}
+
+#[test]
+fn test_session_close_manual_close_before_any_closes_is_zero_window() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Surfaces exist but no session and no prior close: a manual close has no
+    // window anchor, so counts stay zero instead of reporting all-time totals.
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[("2026-10-04T12:01:00Z", 1)],
+        "2026-10-04T12:00:00Z",
+        "ses_test",
+    );
+
+    let out = engrams(&db)
+        .args(["session", "close", "--note", "first manual close"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+
+    assert_eq!(parsed["schema_value"]["guided_retrievals"], 0);
+    assert_eq!(parsed["schema_value"]["distinct_schemas"], 0);
+}
+
+#[test]
+fn test_session_close_manual_close_windows_since_previous_close() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // One surface before the previous close, one after it: only the newer
+    // surface falls inside this close's window.
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[("2026-10-04T09:00:00Z", 1), ("2026-10-04T11:00:00Z", 2)],
+        "2026-10-04T08:00:00Z",
+        "ses_earlier",
+    );
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute(
+        "INSERT INTO session_closes (timestamp, session, reads_skipped, reads_required) VALUES ('2026-10-04T10:00:00Z', 'ses_earlier', 0, 0)",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = engrams(&db)
+        .args(["session", "close", "--note", "second manual close"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let parsed: Value = serde_json::from_slice(&out.stdout).unwrap();
+
+    assert_eq!(parsed["schema_value"]["guided_retrievals"], 1);
+    assert_eq!(parsed["schema_value"]["distinct_schemas"], 1);
+}
+
+#[test]
+fn test_session_close_second_close_does_not_resurface_stamped_candidates() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    seed_schema_candidate(
+        &db,
+        "decision:1|decision:2",
+        &[("2026-10-04T12:01:00Z", 1)],
+        "2026-10-04T12:00:00Z",
+        "ses_test",
+    );
+
+    let out = engrams(&db)
+        .args(["session", "close", "--session", "ses_test"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let first: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(first["schema_opportunities"].as_array().unwrap().len(), 1);
+
+    // The candidate is unchanged (notified_at was stamped at first close), so
+    // the next close must not surface it again.
+    let out = engrams(&db)
+        .args(["session", "close", "--session", "ses_test"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let second: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        second["schema_opportunities"].as_array().unwrap().len(),
+        0,
+        "stamped candidates are not re-surfaced"
+    );
+}
+
+#[test]
+fn test_schema_list_includes_guided_count() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (id, uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             (1, 'u1', 'active-schema', 'summary', '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-01-01T00:00:00Z', 'advise', 'path', 'schema', 1),
+             ('2026-01-01T00:01:00Z', 'advise', 'path', 'schema', 1),
+             ('2026-01-01T00:02:00Z', 'advise', 'path', 'decision', 1);",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schemas = val["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(
+        schemas[0]["guided"], 2,
+        "two schema-kind surface rows count; the decision row does not: {val}"
+    );
+
+    // `schema show` reads the same counter so both views agree.
+    let out = engrams(&db).args(["schema", "show", "1"]).output().unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        val["schema"]["guided"], 2,
+        "show mirrors the list count: {val}"
+    );
+}
+
+#[test]
+fn test_schema_list_guided_is_zero_without_surfaces() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) VALUES
+             ('u-quiet', 'quiet-schema', 'never surfaced', '{}',
+              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db).args(["schema", "list"]).output().unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let schemas = val["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(
+        schemas[0]["guided"], 0,
+        "a never-surfaced schema reads 0, not null: {val}"
+    );
+}
+
+#[test]
+fn test_session_close_opportunity_workflow_actionable() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Seed real members and a gate-passing schema candidate whose territory no
+    // confirmed schema claims. Gate values mirror seed_schema_candidate (density
+    // 0.8 / stability 3 / reward 1 all pass).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+             (10, 'u10', '2026-01-01T00:00:00Z', 'Dec 10', '[\"ast\", \"compiler\"]'),
+             (11, 'u11', '2026-01-01T00:00:00Z', 'Dec 11', '[\"ast\", \"syntax\"]');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 10, 'src/ast/lexer.rs', '2026-01-01T00:00:00Z'),
+             ('decision', 11, 'src/ast/parser.rs', '2026-01-01T00:00:00Z');
+             INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, stability_count, reward_hits, first_seen_at, last_seen_at, kind) VALUES
+             ('decision:10,decision:11', '[\"decision:10\", \"decision:11\"]', 0.8, 3, 1,
+              '2026-01-01T00:00:00Z', '2026-01-01T01:00:00Z', 'schema');",
+        )
+        .unwrap();
+    }
+
+    // Close surfaces exactly one opportunity with an executable command.
+    let out = engrams(&db)
+        .args(["session", "close", "--note", "first"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let val: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let opps = val["schema_opportunities"].as_array().unwrap();
+    assert_eq!(opps.len(), 1, "one gate-passing candidate surfaces: {val}");
+
+    // The emitted command runs verbatim: drop the leading "engrams" and pass
+    // the rest as argv (the suggested name is a single kebab-case token).
+    let cmd_str = opps[0]["confirm_command"].as_str().unwrap();
+    let args: Vec<&str> = cmd_str.split_whitespace().skip(1).collect();
+    engrams(&db).args(&args).assert().success();
+
+    // The schema now exists under the suggested name.
+    let name = opps[0]["suggested_name"].as_str().unwrap();
+    let show_out = engrams(&db)
+        .args(["schema", "show", name])
+        .output()
+        .unwrap();
+    assert!(
+        show_out.status.success(),
+        "emitted command must produce a resolvable schema"
+    );
+
+    // A later close neither re-nags (notified) nor re-offers (territory claimed).
+    let out2 = engrams(&db)
+        .args(["session", "close", "--note", "second"])
+        .output()
+        .unwrap();
+    assert!(out2.status.success());
+    let val2: Value = serde_json::from_slice(&out2.stdout).unwrap();
+    let opps2 = val2["schema_opportunities"].as_array().unwrap();
+    assert!(
+        opps2.is_empty(),
+        "promoted/notified candidate must not re-nag: {val2}"
     );
 }

@@ -10,8 +10,6 @@
     "astro": "astro"
   },
   "dependencies": {
-    "3d-force-graph": "^1.80.0",
-    "astro": "^4.15.0",
-    "three": "^0.185.1"
+    "astro": "^4.15.0"
   }
 }
