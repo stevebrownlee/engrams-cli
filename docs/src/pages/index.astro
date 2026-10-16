@@ -11,11 +11,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="What is a schema? Why do schemas matter? How are schemas defined? Engrams is the cognitive schema engine that gives AI agents architectural mental models before they write code."
+      content="Engrams is the Schema Runtime for AI agents. It isn't a passive memory store or static markdown rules — it's an active runtime that finds, defines, and refines mental models like the human brain."
     />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Engrams — Cognitive Schemas for AI Agents</title>
+    <title>Engrams — The Schema Runtime for AI Agents</title>
   </head>
   <body class="signal-body">
     <!-- ── TOP BAR ── -->
@@ -28,8 +28,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </a>
         <nav class="nav">
           <a href="#what">What is a Schema</a>
-          <a href="#why">Why Schemas Matter</a>
-          <a href="#how">How Schemas are Defined</a>
+          <a href="#runtime">Why a Runtime</a>
+          <a href="#lifecycle">How It Learns</a>
           <a href="/docs/guide/cognitive-schemas" class="highlight">Guide</a>
           <a href="/docs/getting-started">Docs</a>
           <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub ↗</a>
@@ -40,31 +40,73 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <main class="page-content">
       <!-- ══ 1. THE HERO MANIFESTO ══ -->
       <section class="hero-signal">
-        <div class="signal-kicker">COGNITIVE SCHEMA ENGINE // ARCHITECTURAL RUNTIME FOR AI AGENTS</div>
+        <div class="signal-kicker">NOT A MEMORY STORE · NOT STATIC RULES · AN ACTIVE RUNTIME</div>
         <h1 class="signal-title">
-          AI models don't fail because they can't code.<br />
-          <span class="accent">They fail because they lack mental models.</span>
+          The Schema Runtime<br />
+          <span class="accent">for AI Coding Agents.</span>
         </h1>
         <p class="signal-lede">
-          Engrams is the schema runtime for your codebase. It formalizes your architectural intent into
-          <strong>Cognitive Schemas</strong> — compact, high-level mental models that tell your AI agent
-          how your system works before it writes a single line of code.
+          Static markdown rules bloat your prompt. Flat memory stores sit passively waiting to be queried.
+          Engrams is an <strong>active runtime</strong> that continuously finds, defines, and refines
+          mental models for your codebase — just like the human brain.
         </p>
 
         <div class="signal-actions">
-          <a href="/docs/quick-start" class="btn-action primary">Quick Start in 5 Minutes</a>
-          <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Full Guide</a>
+          <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
+          <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Schema Guide</a>
         </div>
       </section>
 
-      <!-- ══ 2. WHAT IS A SCHEMA? ══ -->
+      <!-- ══ 2. WHY A RUNTIME? (THE THREE-WAY SEPARATION) ══ -->
+      <section id="runtime" class="content-section">
+        <div class="section-label">PART 01 // CATEGORICAL SEPARATION</div>
+        <h2 class="section-heading">Why a Schema Runtime?</h2>
+        <p class="section-description">
+          Other tools treat AI context as static files or dead databases. A runtime is different:
+          it actively perceives changes, clusters patterns, and executes directives at the exact point of action.
+        </p>
+
+        <div class="runtime-matrix">
+          <div class="matrix-card">
+            <span class="matrix-badge text-muted">PASSIVE MEMORY STORES</span>
+            <h3>Vector Databases &amp; ADR Lists</h3>
+            <div class="matrix-flaw">Dead history waiting to be asked</div>
+            <p>
+              Stores hundreds of isolated notes. But the agent has no trigger condition — it doesn't know
+              <em>when</em> a rule applies. It either queries blindly or ignores your history completely.
+            </p>
+          </div>
+
+          <div class="matrix-card">
+            <span class="matrix-badge text-muted">STATIC RULES FILES</span>
+            <h3>Prompt Stuffing &amp; <code>.cursorrules</code></h3>
+            <div class="matrix-flaw">Brittle, manual, and bloated</div>
+            <p>
+              Developers manually write rigid text rules that get dumped into every prompt regardless of relevance.
+              Consumes context window space and causes severe attention decay in reasoning models.
+            </p>
+          </div>
+
+          <div class="matrix-card matrix-featured">
+            <span class="matrix-badge text-gold">THE ENGRAMS RUNTIME</span>
+            <h3>Active Cognitive Schemas</h3>
+            <div class="matrix-flaw text-green">Continuous perception &amp; conditional execution</div>
+            <p>
+              Autonomously clusters codebase activity, formalizes triggers and directives, and intercepts agent
+              edits in 1ms with compact 250-token playbooks.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 3. WHAT IS A SCHEMA? ══ -->
       <section id="what" class="content-section">
-        <div class="section-label">PART 01 // THE DEFINITION</div>
+        <div class="section-label">PART 02 // THE COGNITIVE MODEL</div>
         <h2 class="section-heading">What is a Schema?</h2>
         <p class="section-description">
-          A Cognitive Schema is an <strong>active mental model</strong>, not a passive document.
-          Just as a human engineer carries intuition about how code should behave, a schema formalizes
-          three exact elements into a single machine-retrievable concept:
+          Human experts don't re-read the company manual before every task. They rely on <strong>cognitive schemas</strong>:
+          intuitive mental models that sleep until a specific context wakes them up.
+          Engrams formalizes this into three machine-executable elements:
         </p>
 
         <div class="specimen-card">
@@ -73,21 +115,21 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               <span class="sc-badge">SCHEMA</span>
               <code>payment-adapters</code>
             </div>
-            <span class="sc-status">● active concept · local SQLite</span>
+            <span class="sc-status">● active runtime concept · 1ms SQLite</span>
           </div>
 
           <div class="sc-content">
             <div class="sc-row">
               <span class="sc-k">⚡ TRIGGER</span>
               <div class="sc-v">
-                <strong>When does this concept apply?</strong>
+                <strong>When does this concept activate?</strong>
                 <p>Fires when editing payment adapter implementations under <code>src/adapters/</code></p>
               </div>
             </div>
             <div class="sc-row">
               <span class="sc-k">📋 DIRECTIVE</span>
               <div class="sc-v">
-                <strong>What invariant must be followed?</strong>
+                <strong>What operational rule must be executed?</strong>
                 <p class="rule-box">
                   Implement PaymentProvider trait; pass idempotency_key to all charge requests; verify signatures with crypto::constant_time_eq; never log raw payload tokens.
                 </p>
@@ -112,163 +154,136 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <div class="anatomy-item">
             <h3>1. The Activation Trigger</h3>
             <p>
-              A testable condition an agent can evaluate from context alone (e.g., target file paths or task tags).
-              Schemas don't float in global context; they wake up precisely when relevant.
+              The precise operational scope. Schemas don't float in global context; they sleep until matching file paths
+              or task tags wake them up.
             </p>
           </div>
           <div class="anatomy-item">
             <h3>2. The Operational Directive</h3>
             <p>
-              An imperative instruction the AI executes immediately. Not passive history, but a concrete operational
-              rule that prevents bugs, security leaks, and convention drift.
+              The non-negotiable invariant the AI must follow. Not passive history, but an actionable directive that
+              prevents bugs and convention drift upfront.
             </p>
           </div>
           <div class="anatomy-item">
             <h3>3. Bundled Knowledge Members</h3>
             <p>
-              The underlying decisions, patterns, and code anchors that ground the rule. If the AI needs to know <em>why</em>
-              the rule exists, the contracts and reasoning are already linked.
+              The underlying ADRs, patterns, and code anchors that ground the rule. If the AI needs to verify <em>why</em>,
+              the contracts and reasoning are already attached.
             </p>
           </div>
         </div>
       </section>
 
-      <!-- ══ 3. WHY SCHEMAS MATTER ══ -->
-      <section id="why" class="content-section">
-        <div class="section-label">PART 02 // THE COGNITIVE THESIS</div>
-        <h2 class="section-heading">Why Schemas Matter</h2>
+      <!-- ══ 4. HOW THE RUNTIME LEARNS: FINDS, DEFINES, REFINES, EXECUTES ══ -->
+      <section id="lifecycle" class="content-section">
+        <div class="section-label">PART 03 // THE CONTINUOUS LOOP</div>
+        <h2 class="section-heading">How the Runtime Learns</h2>
         <p class="section-description">
-          Senior engineers don't re-read the entire company manual before writing a function.
-          They rely on mental models built from months of experience. Today's AI tools treat your agent
-          like a perpetual novice. Schemas change the fundamental dynamics of agentic coding:
+          The human brain doesn't require manual file editing to form intuition. Engrams runs a continuous
+          cognitive loop: perceiving clusters, defining boundaries, adapting to drift, and executing just in time.
         </p>
 
-        <div class="pillar-grid">
-          <div class="pillar-card">
-            <span class="pillar-num">01</span>
-            <h3>From Syntax Scraping to Conceptual Clarity</h3>
+        <div class="loop-grid">
+          <!-- Step 1: Finds -->
+          <div class="loop-card">
+            <div class="lc-stage">STAGE 01</div>
+            <h3>1. Finds (Perception)</h3>
             <p>
-              Without schemas, an AI agent opens 10 to 15 source files defensively, burning thousands of tokens
-              just trying to reverse-engineer your conventions from raw syntax. With schemas, the AI receives
-              the exact mental model in <strong>under 300 tokens on Turn 1</strong> before touching code.
+              As you commit code and log decisions, graph community detection identifies natural clusters
+              of co-edited files and decisions in local SQLite.
             </p>
+            <pre class="lc-code"><code>$ engrams schema scan</code></pre>
           </div>
 
-          <div class="pillar-card">
-            <span class="pillar-num">02</span>
-            <h3>Invariants Enforced Before Code is Written</h3>
+          <!-- Step 2: Defines -->
+          <div class="loop-card">
+            <div class="lc-stage">STAGE 02</div>
+            <h3>2. Defines (Accommodation)</h3>
             <p>
-              Don't catch architectural violations during human pull request review. When an agent touches a file,
-              <code>engrams advise</code> intercepts the edit and provides the non-negotiable architectural directives upfront.
-              The agent writes compliant code on the first attempt.
+              At session close, Engrams nudges you with ready-to-run confirm commands, and authoring enforces
+              strict trigger-and-rule contracts.
             </p>
+            <pre class="lc-code"><code>$ engrams schema confirm decision:10 \
+    --name payment-adapters</code></pre>
           </div>
 
-          <div class="pillar-card">
-            <span class="pillar-num">03</span>
-            <h3>Compounding Codebase Intuition</h3>
+          <!-- Step 3: Refines -->
+          <div class="loop-card">
+            <div class="lc-stage">STAGE 03</div>
+            <h3>3. Refines (Adaptation)</h3>
             <p>
-              Chat transcripts vanish. Documentation goes stale. Cognitive Schemas live in local SQLite and
-              compound with every session. As your graph densifies, Engrams shifts from passively answering queries
-              to actively steering your agent with the accumulated intuition of your team.
+              Tracks git staleness drift, records retrieval surface counts, and re-notifies when new candidate
+              evidence advances beyond prior notifications.
             </p>
+            <pre class="lc-code"><code>$ engrams schema refine payment-adapters \
+    --trigger "..." --rule "..."</code></pre>
+          </div>
+
+          <!-- Step 4: Executes -->
+          <div class="loop-card lc-featured">
+            <div class="lc-stage text-gold">STAGE 04</div>
+            <h3>4. Executes (Action)</h3>
+            <p>
+              Tomorrow, your AI touches matching files. <code>engrams advise</code> intercepts the edit in 1ms,
+              injecting the active schema before a single line is written.
+            </p>
+            <pre class="lc-code"><code>$ engrams advise src/adapters/stripe.rs</code></pre>
           </div>
         </div>
       </section>
 
-      <!-- ══ 4. HOW SCHEMAS ARE DEFINED ══ -->
-      <section id="how" class="content-section">
-        <div class="section-label">PART 03 // THE LIFECYCLE</div>
-        <h2 class="section-heading">How Schemas are Defined</h2>
+      <!-- ══ 5. THREE COMMANDS THAT RUN IT ══ -->
+      <section class="content-section">
+        <div class="section-label">PART 04 // THE INTERFACE</div>
+        <h2 class="section-heading">Three Operational Levers</h2>
         <p class="section-description">
-          Schemas do not require tedious manual database administration. Engrams detects them from normal git work,
-          nudges you at session close, and enforces a strict trigger-and-rule contract.
+          Your AI executes the advice automatically. You steer the runtime with three high-leverage commands.
         </p>
 
-        <div class="how-steps">
-          <!-- Step 1 -->
-          <div class="how-step">
-            <div class="hs-marker">
-              <span class="hs-num">1</span>
+        <div class="cmd-stack">
+          <div class="cmd-box">
+            <div class="cb-chrome">
+              <span class="cb-cmd">$ engrams advise src/adapters/stripe.rs</span>
+              <span class="cb-desc">RUNTIME PRE-EDIT INTERCEPTOR</span>
             </div>
-            <div class="hs-content">
-              <h3>Autonomous Graph Detection</h3>
-              <p>
-                As you commit code and record architectural decisions, Engrams runs graph community detection
-                to identify natural clusters of co-edited files and related rules:
-              </p>
-              <pre class="hs-code"><code># Detect clusters from your codebase graph and stage candidates
-$ engrams schema scan</code></pre>
-            </div>
-          </div>
-
-          <!-- Step 2 -->
-          <div class="how-step">
-            <div class="hs-marker">
-              <span class="hs-num">2</span>
-            </div>
-            <div class="hs-content">
-              <h3>Session-End Opportunity Nudges</h3>
-              <p>
-                You don't need to remember to check for schemas. When you run <code>session close</code>, Engrams
-                spots qualified candidates and prints a ready-to-run confirm command with a suggested kebab-case name:
-              </p>
-              <pre class="hs-code"><code>$ engrams session close --pr 42
-&#123;
-  "schema_opportunities": [
-    &#123;
-      "suggested_name": "payment-adapters",
-      "confirm_command": "engrams schema confirm decision:10,dec --name payment-adapters"
-    &#125;
-  ]
-&#125;</code></pre>
-            </div>
-          </div>
-
-          <!-- Step 3 -->
-          <div class="how-step">
-            <div class="hs-marker">
-              <span class="hs-num">3</span>
-            </div>
-            <div class="hs-content">
-              <h3>Standardized Refinement: Trigger + Rule</h3>
-              <p>
-                A schema summary is an activation contract. Refinement requires an explicit trigger condition
-                and an operational directive, immediately ranking it above machine drafts:
-              </p>
-              <pre class="hs-code"><code>$ engrams schema refine payment-adapters \
-  --trigger "editing payment adapter implementations" \
-  --rule "implement PaymentProvider; use crypto::constant_time_eq"</code></pre>
-            </div>
-          </div>
-
-          <!-- Step 4 -->
-          <div class="how-step">
-            <div class="hs-marker">
-              <span class="hs-num">4</span>
-            </div>
-            <div class="hs-content">
-              <h3>Pre-Edit Interception</h3>
-              <p>
-                Tomorrow, your AI touches <code>src/adapters/stripe.rs</code>. Coding harnesses (omp, Cursor, Claude Code)
-                run <code>engrams advise</code>. The schema fires automatically in 1ms:
-              </p>
-              <pre class="hs-code"><code>$ engrams advise src/adapters/stripe.rs
-&#123;
+            <pre class="cb-body"><code>&#123;
   "schemas": [
-    &#123;
-      "name": "payment-adapters",
-      "summary": "Fires when editing payment adapters: implement PaymentProvider..."
-    &#125;
+    &#123;"id": 1, "name": "payment-adapters", "summary": "Fires when editing payment adapters: implement PaymentProvider..."&#125;
   ],
   "constraints": [ ... ]
 &#125;</code></pre>
+          </div>
+
+          <div class="cmd-box">
+            <div class="cb-chrome">
+              <span class="cb-cmd">$ engrams schema show payment-adapters</span>
+              <span class="cb-desc">CONCEPTUAL INSPECTION CONSOLE</span>
             </div>
+            <pre class="cb-body"><code>&#123;
+  "name": "payment-adapters",
+  "summary": "Fires when editing payment adapters...",
+  "guided": 14,
+  "members": [ ... ]
+&#125;</code></pre>
+          </div>
+
+          <div class="cmd-box">
+            <div class="cb-chrome">
+              <span class="cb-cmd">$ engrams session close --pr 42</span>
+              <span class="cb-desc">OPPORTUNITY NUDGE &amp; TOKEN RECEIPT</span>
+            </div>
+            <pre class="cb-body"><code>&#123;
+  "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
+  "schema_opportunities": [
+    &#123;"confirm_command": "engrams schema confirm decision:10 --name auth-rules"&#125;
+  ]
+&#125;</code></pre>
           </div>
         </div>
       </section>
 
-      <!-- ══ 5. INSTALL & ACTION ══ -->
+      <!-- ══ 6. INSTALL & ACTION ══ -->
       <section class="install-section">
         <div class="install-box">
           <h2>Give your AI the mental models it deserves.</h2>
@@ -280,16 +295,16 @@ $ engrams schema scan</code></pre>
           </div>
           <div class="install-actions">
             <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
-            <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Schema Guide</a>
+            <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Full Guide</a>
           </div>
         </div>
       </section>
     </main>
 
-    <!-- ── MINIMAL FOOTER ── -->
+    <!-- ── FOOTER ── -->
     <footer class="bottom-footer">
       <div class="footer-wrap">
-        <span>⬡ ENGRAMS · Apache-2.0 · Cognitive Schema Engine for AI Agents</span>
+        <span>⬡ ENGRAMS · Apache-2.0 · The Schema Runtime for AI Agents</span>
         <div class="footer-links">
           <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>
           <a href="/docs/getting-started">Docs</a>
@@ -303,8 +318,7 @@ $ engrams schema scan</code></pre>
 
 <style>
   /* ============================================================
-     MAXIMUM SIGNAL: SCHEMAS-FIRST ARCHITECTURAL LEDGER
-     Focus: 1. What is a schema? 2. Why schemas matter? 3. How schemas are defined?
+     THE SCHEMA RUNTIME: BRUTALIST ARCHITECTURAL LEDGER
      ============================================================ */
 
   :root {
@@ -343,7 +357,7 @@ $ engrams schema scan</code></pre>
     backdrop-filter: blur(8px);
   }
   .bar-inner {
-    max-width: 68rem;
+    max-width: 72rem;
     margin: 0 auto;
     padding: 0.75rem 1.5rem;
     display: flex;
@@ -358,11 +372,11 @@ $ engrams schema scan</code></pre>
   .nav a { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
   .nav a:hover { color: var(--text-white); }
   .nav a.highlight { color: var(--brass-bright); font-weight: 700; }
-  @media (max-width: 700px) { .nav a:not(:last-child):not(.highlight) { display: none; } }
+  @media (max-width: 760px) { .nav a:not(:last-child):not(.highlight) { display: none; } }
 
   /* ── MAIN CONTENT CONTAINER ── */
   .page-content {
-    max-width: 68rem;
+    max-width: 72rem;
     margin: 0 auto;
     padding: 7.5rem 1.5rem 4rem;
   }
@@ -381,7 +395,7 @@ $ engrams schema scan</code></pre>
     margin-bottom: 1.25rem;
   }
   .signal-title {
-    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+    font-size: clamp(2.4rem, 5.5vw, 4.3rem);
     font-weight: 900;
     line-height: 1.08;
     letter-spacing: -0.03em;
@@ -393,7 +407,7 @@ $ engrams schema scan</code></pre>
     font-size: 1.2rem;
     line-height: 1.65;
     color: var(--text-body);
-    max-width: 50rem;
+    max-width: 52rem;
     margin-bottom: 2.2rem;
   }
   .signal-lede strong { color: var(--text-white); }
@@ -464,7 +478,54 @@ $ engrams schema scan</code></pre>
   }
   .section-description strong { color: var(--text-white); }
 
-  /* ── 2. WHAT IS A SCHEMA (SPECIMEN CARD) ── */
+  /* ── 2. RUNTIME MATRIX (THREE-WAY SPLIT) ── */
+  .runtime-matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+  .matrix-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    padding: 2rem 1.8rem;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+  }
+  .matrix-featured {
+    border-color: var(--brass);
+    background: #121824;
+    box-shadow: 0 0 25px rgba(204, 164, 59, 0.1);
+  }
+  .matrix-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.8rem;
+  }
+  .matrix-card h3 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-white);
+    margin: 0 0 0.4rem;
+  }
+  .matrix-flaw {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+  .matrix-card p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin: 0;
+  }
+  .matrix-card strong { color: var(--text-white); }
+
+  /* ── 3. WHAT IS A SCHEMA (SPECIMEN CARD) ── */
   .specimen-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-dim);
@@ -552,92 +613,94 @@ $ engrams schema scan</code></pre>
   }
   .anatomy-item h3 { font-size: 1.1rem; font-weight: 800; color: var(--text-white); margin: 0 0 0.5rem; }
   .anatomy-item p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
-  .anatomy-item em { color: var(--text-white); font-style: normal; font-weight: 600; }
 
-  /* ── 3. WHY SCHEMAS MATTER (PILLARS) ── */
-  .pillar-grid {
+  /* ── 4. HOW IT LEARNS (LOOP GRID) ── */
+  .loop-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
   }
-  .pillar-card {
+  .loop-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-dim);
     border-radius: 2px;
-    padding: 2rem 1.8rem;
+    padding: 1.6rem;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
   }
-  .pillar-num {
+  .lc-featured {
+    border-color: var(--brass);
+    background: #121824;
+  }
+  .lc-stage {
     font-family: var(--font-mono);
-    font-size: 1.4rem;
-    font-weight: 900;
-    color: var(--brass-bright);
-    margin-bottom: 0.8rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    margin-bottom: 0.6rem;
   }
-  .pillar-card h3 {
-    font-size: 1.25rem;
+  .loop-card h3 {
+    font-size: 1.15rem;
     font-weight: 800;
     color: var(--text-white);
-    margin: 0 0 0.8rem;
-    line-height: 1.25;
+    margin: 0 0 0.5rem;
   }
-  .pillar-card p {
-    font-size: 0.95rem;
+  .loop-card p {
+    font-size: 0.9rem;
     color: var(--text-muted);
-    line-height: 1.65;
-    margin: 0;
+    line-height: 1.6;
+    margin: 0 0 1rem;
+    flex: 1;
   }
-  .pillar-card strong { color: var(--text-white); }
-  .pillar-card code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brass-bright); }
-
-  /* ── 4. HOW SCHEMAS ARE DEFINED (STEPS) ── */
-  .how-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 1.8rem;
-  }
-  .how-step {
-    display: grid;
-    grid-template-columns: 48px 1fr;
-    gap: 1.5rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
-    border-radius: 2px;
-    padding: 1.8rem;
-    align-items: start;
-  }
-  @media (max-width: 600px) { .how-step { grid-template-columns: 1fr; gap: 0.75rem; } }
-  .hs-marker {
-    width: 38px; height: 38px;
-    background: rgba(204, 164, 59, 0.12);
-    border: 1px solid rgba(204, 164, 59, 0.35);
-    border-radius: 2px;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--brass-bright);
-    font-family: var(--font-mono);
-    font-weight: 900;
-    font-size: 1rem;
-  }
-  .hs-content h3 { font-size: 1.25rem; font-weight: 800; color: var(--text-white); margin: 0 0 0.5rem; }
-  .hs-content p { font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin: 0 0 1rem; }
-  .hs-content code { font-family: var(--font-mono); color: var(--brass-bright); font-size: 0.88em; }
-  .hs-code {
+  .lc-code {
     background: #090c12;
     border: 1px solid var(--border-dim);
     border-radius: 2px;
-    padding: 0.85rem 1.1rem;
+    padding: 0.65rem 0.85rem;
     margin: 0;
     overflow-x: auto;
   }
-  .hs-code code {
+  .lc-code code {
     font-family: var(--font-mono);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     color: var(--text-body);
-    line-height: 1.55;
+    line-height: 1.45;
   }
 
-  /* ── 5. INSTALL ── */
+  /* ── 5. THREE COMMANDS (STACK) ── */
+  .cmd-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+  .cmd-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+  }
+  .cb-chrome {
+    padding: 0.75rem 1.25rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .cb-cmd { color: var(--text-white); font-weight: 800; }
+  .cb-desc { color: var(--brass-bright); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; }
+  .cb-body {
+    padding: 1.1rem 1.25rem;
+    margin: 0;
+    background: #090c12;
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    color: var(--text-body);
+    overflow-x: auto;
+  }
+
+  /* ── 6. INSTALL ── */
   .install-section {
     margin-top: 5rem;
     margin-bottom: 2rem;
@@ -686,7 +749,7 @@ $ engrams schema scan</code></pre>
     padding: 2.2rem 1.5rem;
   }
   .footer-wrap {
-    max-width: 68rem;
+    max-width: 72rem;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
@@ -700,4 +763,9 @@ $ engrams schema scan</code></pre>
   .footer-links { display: flex; gap: 1.5rem; }
   .footer-links a { color: var(--text-muted); text-decoration: none; }
   .footer-links a:hover { color: var(--brass-bright); }
+
+  /* Utility classes */
+  .text-gold { color: var(--brass-bright); }
+  .text-green { color: var(--green); }
+  .text-muted { color: var(--text-muted); }
 </style>
