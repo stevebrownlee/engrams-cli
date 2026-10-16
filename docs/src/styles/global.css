@@ -1,34 +1,34 @@
 /* ============================================================
    Engrams Documentation – Global Styles
-   Palette: Orange #ff9f1c | Soft Peach #ffbf69 | White #ffffff |
-            Ice Aqua #cbf3f0 | Teal #2ec4b6 | Deep Pine #0c2423
+   Palette: Pale Rose #ffd9da | Vibrant Rose #ea638c |
+            Burgundy #89023e | Deep Slate #30343f | Night #1b2021 | White #ffffff
    ============================================================ */
 
 :root {
-  --color-orange:       #ff9f1c;
-  --color-peach:        #ffbf69;
-  --color-white:        #ffffff;
-  --color-aqua:         #cbf3f0;
-  --color-teal:         #2ec4b6;
-  --color-pine:         #0c2423;
+  --color-rose-pale:   #ffd9da;
+  --color-rose:        #ea638c;
+  --color-burgundy:    #89023e;
+  --color-slate:       #30343f;
+  --color-night:       #1b2021;
+  --color-white:       #ffffff;
 
-  /* Semantic tokens */
+  /* Semantic tokens: Lighter background, darker text */
   --color-bg:          #ffffff;
-  --color-bg-subtle:   #f5fcfa;
+  --color-bg-subtle:   #fff8f8;
+  --color-bg-rose:     #ffd9da;
   --color-bg-sidebar:  #ffffff;
-  --color-bg-code:     #f2f8f7;
+  --color-bg-code:     #fcf3f4;
   --color-surface:     #ffffff;
-  --color-border:      #cbf3f0;
-  --color-border-dark: #2ec4b6;
-  --color-accent:      #2ec4b6;
-  --color-accent-warm: #ff9f1c;
+  --color-border:      #ffd9da;
+  --color-border-dark: #ea638c;
+  --color-accent:      #89023e;
+  --color-accent-rose: #ea638c;
 
-  --color-text:        #0c2423;
-  --color-text-muted:  #375755;
-  --color-text-light:  #5f8582;
-  --color-link:        #2ec4b6;
-  --color-link-hover:  #ff9f1c;
-  --sidebar-width: 260px;
+  --color-text:        #1b2021;
+  --color-text-muted:  #30343f;
+  --color-text-light:  #5c6274;
+  --color-link:        #89023e;
+  --color-link-hover:  #ea638c;
   --toc-width:     220px;
   --header-height: 60px;
 
