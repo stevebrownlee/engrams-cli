@@ -94,68 +94,123 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </div>
       </section>
 
-      <!-- ══ 3. WHAT IS A SCHEMA? ══ -->
+      <!-- ══ 3. WHAT IS A SCHEMA? (LAYERED PYRAMID) ══ -->
       <section id="what" class="content-section">
         <h2 class="section-heading">What is a Schema?</h2>
         <p class="section-description">
-          A schema is not a mechanical compiler rule. A compiler rule says <em>"don't clone on line 42."</em>
-          A Cognitive Schema is an <strong>intuitive mental model</strong> that packages multiple decisions,
-          code conventions, and tools into a single working paradigm.
+          A Cognitive Schema does not float in abstract prompt space. It is the apex of a three-tier architectural pyramid:
+          <strong>high-level mental models</strong> built on <strong>linked decisions and patterns</strong>, which in turn
+          anchor directly into your <strong>concrete repository source code</strong>.
         </p>
 
-        <!-- Real Specimen 1: Performance Rules (Engineering Paradigm) -->
-        <div class="specimen-card">
-          <div class="sc-header">
-            <div class="sc-title">
-              <span class="sc-badge">SCHEMA 01</span>
-              <code>performance-rules</code>
+        <!-- ── THE ARCHITECTURAL PYRAMID ── -->
+        <div class="schema-pyramid">
+          <!-- TIER 3: COGNITIVE SCHEMA -->
+          <div class="pyramid-tier tier-schema">
+            <div class="tier-top-bar">
+              <span class="tier-level-badge badge-burgundy">TIER 3 // COGNITIVE SCHEMA</span>
+              <span class="tier-meta">The Active Mental Model · 250 Tokens · Injected on Edit</span>
             </div>
-            <div class="sc-meta-group">
-              <span class="sc-status">● active · guided 14 sessions</span>
-              <span class="sc-centroid">centroid: performance: 4 · sql: 1 · src/ops: 4</span>
+            <div class="tier-body">
+              <div class="schema-head-line">
+                <span class="schema-pill">SCHEMA</span>
+                <code class="schema-title">performance-rules</code>
+                <span class="schema-status text-burgundy">● active · guided 14 sessions</span>
+              </div>
+              <div class="schema-grid-inner">
+                <div class="sgi-row">
+                  <span class="sgi-label">⚡ MENTAL TRIGGER</span>
+                  <span class="sgi-val">Fires whenever I edit Rust code that creates, copies, or hands off collections and strings</span>
+                </div>
+                <div class="sgi-row">
+                  <span class="sgi-label">📋 DIRECTIVE</span>
+                  <span class="sgi-val directive-box">
+                    The four allocation rules (no throwaway collections, borrow SQL params, keep borrowed strings borrowed, consume lookup maps) plus the checker that enforces them.
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="sc-content">
-            <div class="sc-row">
-              <span class="sc-k">⚡ MENTAL TRIGGER</span>
-              <div class="sc-v">
-                <strong>When does this mental model activate?</strong>
-                <p>Fires whenever I edit Rust code that creates, copies, or hands off collections and strings</p>
+          <!-- CONNECTOR 1 -->
+          <div class="pyramid-connector">
+            <span class="connector-line"></span>
+            <span class="connector-badge">UNIFIES &amp; ACTIVATES DECISIONS WHEN TRIGGER FIRES ↓</span>
+            <span class="connector-line"></span>
+          </div>
+
+          <!-- TIER 2: LINKED DECISIONS & PATTERNS -->
+          <div class="pyramid-tier tier-decisions">
+            <div class="tier-top-bar">
+              <span class="tier-level-badge badge-slate">TIER 2 // LINKED DECISIONS &amp; PATTERNS</span>
+              <span class="tier-meta">Architectural Intent, Trade-offs &amp; Enforceable Standards</span>
+            </div>
+            <div class="tier-body">
+              <div class="decisions-chips-wrap">
+                <div class="decision-chip">
+                  <span class="chip-k">Decision #88</span>
+                  <span class="chip-v">Borrowed SQL parameter lists (Vec&lt;&amp;dyn ToSql&gt;)</span>
+                </div>
+                <div class="decision-chip">
+                  <span class="chip-k">Decision #91</span>
+                  <span class="chip-v">Static vocabulary returns Cow&lt;str&gt;</span>
+                </div>
+                <div class="decision-chip">
+                  <span class="chip-k">Pattern #11</span>
+                  <span class="chip-v">Single-source row projections</span>
+                </div>
+                <div class="decision-chip">
+                  <span class="chip-k">Pattern #12</span>
+                  <span class="chip-v">Enrich by move, not get().clone()</span>
+                </div>
+                <div class="decision-chip chip-tool">
+                  <span class="chip-k">Enforcement Checker</span>
+                  <span class="chip-v">engrams check --staged (pre-commit hook)</span>
+                </div>
               </div>
             </div>
-            <div class="sc-row">
-              <span class="sc-k">📋 CONCEPTUAL DIRECTIVE</span>
-              <div class="sc-v">
-                <strong>What operational paradigm is enforced?</strong>
-                <p class="rule-box">
-                  The four allocation rules (no throwaway collections, borrow SQL params, keep borrowed strings borrowed, consume lookup maps) plus the checker that enforces them.
-                </p>
-              </div>
+          </div>
+
+          <!-- CONNECTOR 2 -->
+          <div class="pyramid-connector">
+            <span class="connector-line"></span>
+            <span class="connector-badge">GROUNDED IN REPOSITORY SOURCE ANCHORS ↓</span>
+            <span class="connector-line"></span>
+          </div>
+
+          <!-- TIER 1: CODE ANCHORS & TOPOLOGY -->
+          <div class="pyramid-tier tier-anchors">
+            <div class="tier-top-bar">
+              <span class="tier-level-badge badge-muted">TIER 1 // CODE ANCHORS &amp; REPOSITORY TOPOLOGY</span>
+              <span class="tier-meta">Concrete Source Code Reality (Git Anchors &amp; Symbol Topology)</span>
             </div>
-            <div class="sc-row">
-              <span class="sc-k">🔗 BUNDLED MEMBERS</span>
-              <div class="sc-v">
-                <strong>What decisions, patterns, and code anchors are unified?</strong>
-                <div class="sc-members">
-                  <span class="m-pill">Decision #88: Borrowed SQL parameter lists</span>
-                  <span class="m-pill">Decision #91: Static vocabulary returns Cow&lt;str&gt;</span>
-                  <span class="m-pill">Pattern #11: Single-source row projections</span>
-                  <span class="m-pill">Pattern #12: Enrich by move, not get().clone()</span>
-                  <span class="m-pill checker">Checker: engrams check --staged</span>
-                  <span class="m-pill anchor">Anchor: src/ops/schemas/retrieval.rs</span>
-                  <span class="m-pill anchor">Anchor: src/ops/schemas/list.rs</span>
+            <div class="tier-body">
+              <div class="anchors-list-wrap">
+                <div class="anchor-entry">
+                  <span class="anchor-icon">⚓</span>
+                  <code>src/ops/schemas/retrieval.rs</code>
+                  <span class="anchor-symbols">surface_counts · enrich_members · node_payload</span>
+                </div>
+                <div class="anchor-entry">
+                  <span class="anchor-icon">⚓</span>
+                  <code>src/ops/schemas/list.rs</code>
+                  <span class="anchor-symbols">resolve_schema · row_json · list</span>
+                </div>
+                <div class="anchor-entry">
+                  <span class="anchor-icon">⚓</span>
+                  <code>src/ops/schemas/gates.rs</code>
+                  <span class="anchor-symbols">gates_pass · claimed_territory · jaccard</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Real Specimen 2: What to Build Next (Strategic Planning) -->
-        <div class="specimen-card" style="margin-top: 2rem;">
+        <!-- Real Specimen 2: Strategic Planning Schema -->
+        <div class="specimen-card" style="margin-top: 3.5rem;">
           <div class="sc-header">
             <div class="sc-title">
-              <span class="sc-badge badge-rose">SCHEMA 02</span>
+              <span class="sc-badge badge-rose">STRATEGIC SCHEMA</span>
               <code>what-to-build-next</code>
             </div>
             <div class="sc-meta-group">
@@ -197,7 +252,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </div>
 
         <div class="contrast-callout">
-          <h3>Why this is a mental model, not a linter rule</h3>
+          <h3>Why this is an architectural mental model, not a linter rule</h3>
           <p>
             Notice how both schemas capture <strong>how an expert thinks</strong>: 
             <code>performance-rules</code> doesn't just block a single function call; it packages four architectural decisions, two code files, and a validation checker into an instant zero-allocation posture. 
@@ -351,6 +406,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
      #ffd9da (Pale Rose / Blush) | #ea638c (Vibrant Rose) |
      #89023e (Deep Burgundy)     | #30343f (Deep Slate)   | #1b2021 (Night)
      Zero black background. Zero tiny headers. Sizing fixed.
+     Layered Architectural Pyramid Visualization.
      ============================================================ */
 
   :root {
@@ -540,7 +596,150 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   }
   .matrix-card strong { color: var(--c-night); }
 
-  /* ── 3. WHAT IS A SCHEMA (SPECIMEN CARD) ── */
+  /* ── 3. LAYERED ARCHITECTURAL PYRAMID ── */
+  .schema-pyramid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 3.5rem;
+  }
+  .pyramid-tier {
+    width: 100%;
+    background: var(--c-white);
+    border-radius: 2px;
+    box-shadow: 0 6px 20px rgba(27, 32, 33, 0.05);
+    overflow: hidden;
+  }
+  /* Tier 3: Apex / Schema */
+  .tier-schema {
+    max-width: 54rem;
+    border: 2px solid var(--c-burgundy);
+    background: #fff8f9;
+  }
+  /* Tier 2: Decisions & Patterns */
+  .tier-decisions {
+    max-width: 63rem;
+    border: 1.5px solid var(--c-border);
+    background: #ffffff;
+  }
+  /* Tier 1: Code Anchors */
+  .tier-anchors {
+    max-width: 72rem;
+    border: 1.5px solid var(--c-border);
+    background: #fdfafb;
+  }
+
+  .tier-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.4rem;
+    background: var(--c-surface-subtle);
+    border-bottom: 1px solid var(--c-border);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tier-level-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 0.2rem 0.55rem;
+    border-radius: 2px;
+    letter-spacing: 0.06em;
+  }
+  .badge-burgundy { background: var(--c-burgundy); color: #ffffff; }
+  .badge-slate { background: var(--c-slate); color: #ffffff; }
+  .badge-muted { background: #e8eaee; color: var(--c-slate); }
+  .tier-meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c-slate); font-weight: 600; }
+
+  .tier-body { padding: 1.5rem 1.8rem; }
+  .schema-head-line { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .schema-pill {
+    font-family: var(--font-mono); font-size: 0.68rem; font-weight: 800; background: var(--c-rose); color: #ffffff;
+    padding: 0.15rem 0.45rem; border-radius: 2px;
+  }
+  .schema-title { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 900; color: var(--c-night); }
+  .schema-status { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 800; margin-left: auto; }
+
+  .schema-grid-inner { display: flex; flex-direction: column; gap: 0.9rem; }
+  .sgi-row { display: grid; grid-template-columns: 140px 1fr; gap: 1rem; align-items: baseline; }
+  @media (max-width: 680px) { .sgi-row { grid-template-columns: 1fr; gap: 0.3rem; } }
+  .sgi-label { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; color: var(--c-burgundy); }
+  .sgi-val { font-size: 0.98rem; color: var(--c-night); }
+  .directive-box {
+    font-family: var(--font-mono) !important;
+    font-size: 0.92rem !important;
+    background: #ffffff;
+    border: 1px solid var(--c-rose-pale);
+    border-left: 3px solid var(--c-burgundy);
+    padding: 0.75rem 1rem;
+    border-radius: 2px;
+    color: var(--c-burgundy) !important;
+    font-weight: 600;
+  }
+
+  /* Pyramid Connectors */
+  .pyramid-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    width: 100%;
+    padding: 0.65rem 0;
+  }
+  .connector-line { width: 40px; height: 1.5px; background: var(--c-border); }
+  .connector-badge {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--c-burgundy);
+    background: #fff8f9;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--c-border);
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Decisions Chips */
+  .decisions-chips-wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.85rem;
+  }
+  .decision-chip {
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    padding: 0.75rem 1rem;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .chip-k { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; color: var(--c-burgundy); }
+  .chip-v { font-size: 0.86rem; color: var(--c-night); font-weight: 600; }
+  .chip-tool { border-color: var(--c-rose); background: #fffbfa; }
+  .chip-tool .chip-k { color: var(--c-rose); }
+
+  /* Anchors List */
+  .anchors-list-wrap { display: flex; flex-direction: column; gap: 0.65rem; }
+  .anchor-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
+    padding: 0.65rem 1rem;
+    border-radius: 2px;
+    font-size: 0.88rem;
+    flex-wrap: wrap;
+  }
+  .anchor-icon { font-size: 0.95rem; }
+  .anchor-entry code { font-family: var(--font-mono); font-weight: 700; color: var(--c-night); }
+  .anchor-symbols { font-family: var(--font-mono); font-size: 0.78rem; color: var(--c-slate); margin-left: auto; }
+  @media (max-width: 680px) { .anchor-symbols { margin-left: 0; width: 100%; } }
+
+  /* Specimen Card (Strategic Planning) */
   .specimen-card {
     background: var(--c-white);
     border: 2px solid var(--c-border);
@@ -567,39 +766,16 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     padding: 0.15rem 0.5rem;
     border-radius: 2px;
   }
-  .sc-badge.badge-rose {
-    background: var(--c-rose);
-  }
-  .sc-title code {
-    font-family: var(--font-mono);
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: var(--c-night);
-  }
+  .sc-badge.badge-rose { background: var(--c-rose); }
+  .sc-title code { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 800; color: var(--c-night); }
   .sc-meta-group { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-  .sc-status {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--c-burgundy);
-    font-weight: 800;
-  }
-  .sc-centroid {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--c-slate);
-    font-weight: 600;
-  }
+  .sc-status { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-burgundy); font-weight: 800; }
+  .sc-centroid { font-family: var(--font-mono); font-size: 0.75rem; color: var(--c-slate); font-weight: 600; }
 
   .sc-content { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
   .sc-row { display: grid; grid-template-columns: 180px 1fr; gap: 1.25rem; align-items: baseline; }
   @media (max-width: 720px) { .sc-row { grid-template-columns: 1fr; gap: 0.4rem; } }
-  .sc-k {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    font-weight: 800;
-    color: var(--c-burgundy);
-    letter-spacing: 0.05em;
-  }
+  .sc-k { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; color: var(--c-burgundy); letter-spacing: 0.05em; }
   .sc-v strong { display: block; font-size: 0.88rem; color: var(--c-slate); margin-bottom: 0.25rem; font-family: var(--font-mono); }
   .sc-v p { margin: 0; font-size: 1.02rem; color: var(--c-night); line-height: 1.6; }
   .sc-v code { font-family: var(--font-mono); color: var(--c-burgundy); font-size: 0.9em; background: #fff0f2; padding: 0.1rem 0.35rem; border-radius: 2px; }
@@ -615,12 +791,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     line-height: 1.6;
     font-weight: 600;
   }
-  .rule-box.warm {
-    background: #fffbfa;
-    border-color: #ffd9da;
-    border-left: 3px solid var(--c-rose);
-    color: #63052e !important;
-  }
+  .rule-box.warm { background: #fffbfa; border-color: #ffd9da; border-left: 3px solid var(--c-rose); color: #63052e !important; }
   .sc-members { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
   .m-pill {
     font-family: var(--font-mono);
@@ -633,7 +804,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-weight: 600;
   }
   .m-pill.anchor { color: var(--c-burgundy); border-color: var(--c-rose); background: #fff0f3; }
-  .m-pill.checker { color: #89023e; border-color: var(--c-rose-pale); background: #fff8f9; }
 
   .contrast-callout {
     margin-top: 2.5rem;
@@ -643,35 +813,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     padding: 1.8rem 2rem;
     border-radius: 2px;
   }
-  .contrast-callout h3 {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: var(--c-night);
-    margin: 0 0 0.6rem;
-  }
-  .contrast-callout p {
-    font-size: 1rem;
-    color: var(--c-slate);
-    line-height: 1.65;
-    margin: 0;
-  }
-  .contrast-callout code {
-    font-family: var(--font-mono);
-    color: var(--c-burgundy);
-    font-size: 0.92em;
-    font-weight: 700;
-  }
+  .contrast-callout h3 { font-size: 1.2rem; font-weight: 800; color: var(--c-night); margin: 0 0 0.6rem; }
+  .contrast-callout p { font-size: 1rem; color: var(--c-slate); line-height: 1.65; margin: 0; }
+  .contrast-callout code { font-family: var(--font-mono); color: var(--c-burgundy); font-size: 0.92em; font-weight: 700; }
 
-  /* ── 4. HOW IT LEARNS: SPACIOUS 2-COLUMN SIZING (NO CRAMPING) ── */
-  .loop-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-  }
-  @media (max-width: 760px) {
-    .loop-grid { grid-template-columns: 1fr; }
-  }
-
+  /* ── 4. HOW IT LEARNS: SPACIOUS 2-COLUMN SIZING ── */
+  .loop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 760px) { .loop-grid { grid-template-columns: 1fr; } }
   .loop-card {
     background: var(--c-white);
     border: 1.5px solid var(--c-border);
@@ -682,25 +830,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     justify-content: space-between;
     box-shadow: 0 4px 12px rgba(27, 32, 33, 0.04);
   }
-  .lc-featured {
-    border: 2px solid var(--c-burgundy);
-    background: #fffbfc;
-  }
-  .loop-card h3 {
-    font-size: 1.35rem;
-    font-weight: 900;
-    color: var(--c-night);
-    margin: 0 0 0.75rem;
-  }
-  .loop-card p {
-    font-size: 1rem;
-    color: var(--c-slate);
-    line-height: 1.65;
-    margin: 0 0 1.5rem;
-    flex: 1;
-  }
+  .lc-featured { border: 2px solid var(--c-burgundy); background: #fffbfc; }
+  .loop-card h3 { font-size: 1.35rem; font-weight: 900; color: var(--c-night); margin: 0 0 0.75rem; }
+  .loop-card p { font-size: 1rem; color: var(--c-slate); line-height: 1.65; margin: 0 0 1.5rem; flex: 1; }
 
-  /* ── NO BLACK BOXES: LIGHT ROSE CODE BACKGROUND ── */
   .lc-code {
     background: #fff8f9;
     border: 1px solid var(--c-border);
@@ -711,11 +844,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     overflow-x: auto;
   }
   .lc-code code {
-    font-family: var(--font-mono);
-    font-size: 0.88rem;
-    color: var(--c-burgundy);
-    font-weight: 700;
-    white-space: nowrap;
+    font-family: var(--font-mono); font-size: 0.88rem; color: var(--c-burgundy); font-weight: 700; white-space: nowrap;
   }
 
   /* ── 5. THREE COMMANDS (STACK) ── */
@@ -751,10 +880,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   }
 
   /* ── 6. INSTALL ── */
-  .install-section {
-    margin-top: 5rem;
-    margin-bottom: 2rem;
-  }
+  .install-section { margin-top: 5rem; margin-bottom: 2rem; }
   .install-box {
     background: var(--c-surface-subtle);
     border: 2px solid var(--c-rose-pale);
@@ -762,18 +888,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     padding: 3.5rem 2rem;
     text-align: center;
   }
-  .install-box h2 {
-    font-size: clamp(1.8rem, 3.8vw, 2.6rem);
-    font-weight: 900;
-    color: var(--c-night);
-    margin: 0 0 0.6rem;
-    letter-spacing: -0.02em;
-  }
-  .install-box p {
-    color: var(--c-slate);
-    font-size: 1.1rem;
-    margin: 0 0 2rem;
-  }
+  .install-box h2 { font-size: clamp(1.8rem, 3.8vw, 2.6rem); font-weight: 900; color: var(--c-night); margin: 0 0 0.6rem; letter-spacing: -0.02em; }
+  .install-box p { color: var(--c-slate); font-size: 1.1rem; margin: 0 0 2rem; }
   .install-code {
     display: inline-flex;
     align-items: center;
