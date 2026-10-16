@@ -8,6 +8,39 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.15.0</h2>
+  <div class="release-block">
+    <h3>What was added</h3>
+    <ul>
+      <li>
+        <strong>Schema-guided retrieval (Spec 0005):</strong> <code>schema show</code> and <code>brief schema:&lt;target&gt;</code> return immediate member nodes enriched with per-kind structural details (decisions: summary &amp; contract; code: symbol, path, line_count; patterns: description, severity; progress: status, description; custom_data: parsed value), capped at 20 members with truncation reporting.
+      </li>
+      <li>
+        <strong>Structured schema authoring &amp; trigger validation:</strong> <code>schema refine</code> accepts <code>--trigger &lt;condition&gt;</code> and <code>--rule &lt;directive&gt;</code> flags to synthesize standardized activation summaries (<code>"Fires when &lt;trigger&gt;: &lt;rule&gt;"</code>), with trigger-prefix validation on manual summaries.
+      </li>
+      <li>
+        <strong>Pre-edit advisory schema activation:</strong> <code>advise &lt;paths&gt;</code> identifies active schemas whose member nodes anchor to the target paths and surfaces them under a top-level <code>schemas</code> key positioned above low-level constraints.
+      </li>
+      <li>
+        <strong>Context-matching prime ranking:</strong> <code>prime --paths ... --tags ...</code> prioritizes matching schemas above unanchored ones based on member anchors and centroid tag overlap.
+      </li>
+      <li>
+        <strong>Session-end schema adoption &amp; ROI receipts:</strong> <code>session close</code> surfaces unconfirmed, gate-passing schema opportunities with ready-to-run <code>confirm</code> commands, and measures exact session-windowed <code>schema_value</code> (guided retrievals). Migration v15 adds <code>notified_at</code> to <code>schema_candidates</code>.
+      </li>
+      <li>
+        <strong>Guided telemetry counters:</strong> <code>schema list</code> and <code>schema show</code> display a <code>guided</code> counter tracking times each schema guided agent retrieval.
+      </li>
+      <li>
+        <strong>Website &amp; documentation overhaul:</strong> Rebuilt the documentation and marketing site as the Schema Runtime for AI Agents, featuring an interactive 3D isometric SVG pyramid, light-theme Rose Burgundy Slate palette, and refined developer guides.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <p>
+      Previously, schemas clustered and staged quietly, but AI agents still read files defensively because schemas weren't integrated into the pre-edit advisory loop or the session-end adoption workflow. v0.15.0 transforms schemas into an active, self-closing runtime: detecting clusters in the background, prompting developers at session close, and intercepting agent edits in 1ms to prevent architectural drift and eliminate 95% of defensive file-reading tokens.
+    </p>
+  </div>
+
   <h2>v0.14.0</h2>
   <div class="release-block">
     <h3>What was added</h3>
