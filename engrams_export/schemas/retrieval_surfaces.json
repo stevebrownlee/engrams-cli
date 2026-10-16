@@ -936,5 +936,747 @@
     "arg": null,
     "node_kind": "progress_entry",
     "node_id": 73
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 59
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 90
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 89
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 88
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 56
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 55
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 54
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 87
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 86
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 85
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 58
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 12
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 11
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 10
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 9
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T20:47:06Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "progress_entry",
+    "node_id": 74
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 59
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 90
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 89
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 88
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 56
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 55
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 54
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 87
+  },
+  {
+    "ts": "2026-10-03T21:10:11Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 86
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 59
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 90
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 89
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 88
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 56
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 55
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 54
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 87
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 86
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 85
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 58
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 12
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 11
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 10
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 9
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T22:24:51Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "progress_entry",
+    "node_id": 74
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 59
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 90
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 89
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 88
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 56
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 55
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 54
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 87
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 86
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 85
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 58
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 12
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 11
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 10
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 9
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "system_pattern",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-03T22:44:53Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "progress_entry",
+    "node_id": 74
+  },
+  {
+    "ts": "2026-10-03T23:14:42Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-03T23:14:42Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-04T00:12:22Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-04T00:12:22Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-04T00:12:22Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "decision",
+    "node_id": 48
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 3
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 4
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 5
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 6
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "decision",
+    "node_id": 53
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "progress_entry",
+    "node_id": 61
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-04T12:58:24Z",
+    "cmd": "prime",
+    "arg": null,
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "schema",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 2
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 3
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 4
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 5
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 6
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "custom_data",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "decision",
+    "node_id": 53
+  },
+  {
+    "ts": "2026-10-04T12:59:10Z",
+    "cmd": "brief",
+    "arg": "schema:2",
+    "node_kind": "progress_entry",
+    "node_id": 61
   }
 ]

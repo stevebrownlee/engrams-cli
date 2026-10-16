@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-09-18T05:05:49Z
+created: 2026-10-16T03:24:22Z
 ---
 # Active Context
 
@@ -22,7 +22,7 @@ created: 2026-09-18T05:05:49Z
       78,
       79
     ],
-    "focus": "v0.14.0 released (PR 6 merged, spec 0004 shipped); next: none queued",
+    "focus": "v0.15.0 released (PR 7 merged, spec 0005 + schema adoption + website overhaul shipped); next: none queued",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next": [
@@ -69,10 +69,14 @@ created: 2026-09-18T05:05:49Z
       "PR 6 merge",
       "orchestrator must create feature branch BEFORE first spec commit - main was reset once this session to fix direct-land"
     ],
-    "last_release": "v0.14.0",
-    "schema_kind_surfacing": "shipped in v0.14.0"
+    "last_release": "v0.15.0",
+    "schema_kind_surfacing": "shipped in v0.14.0",
+    "last_spec_completed": "0005-schema-guided-retrieval",
+    "branch": "spec-0005-schema-guided-retrieval",
+    "pending": "open PR from Gate 5 description; then session close --pr",
+    "schema_runtime": "shipped in v0.15.0"
   },
-  "version": 48,
-  "updated_at": "2026-09-18T05:05:49Z"
+  "version": 50,
+  "updated_at": "2026-10-16T03:24:22Z"
 }
 ```
