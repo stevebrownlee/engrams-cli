@@ -11,690 +11,196 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Stop teaching your AI the same architecture twice. Engrams is the cognitive schema runtime that intercepts agent edits in 1ms with 250-token mental models instead of 50,000-token file reads."
+      content="Stop burning 50,000 tokens on defensive file reads. Engrams provides Cognitive Schemas — 250-token mental models that tell your AI agent how to write code before reading source files."
     />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Engrams — Cognitive Schema Engine for AI Coding Agents</title>
+    <title>Engrams — Cognitive Schemas for AI Agents</title>
   </head>
-  <body class="ledger-body">
-    <!-- ── TOP TELEMETRY MASTHEAD ── -->
-    <header class="masthead">
-      <div class="masthead-inner">
-        <div class="masthead-brand">
-          <a href="/" class="brand-link">
-            <span class="brand-glyph">⬡</span>
-            <span class="brand-name">ENGRAMS</span>
-            <span class="brand-version">v0.14.0</span>
-          </a>
-          <span class="masthead-sub">COGNITIVE SCHEMA RUNTIME</span>
-        </div>
-        <nav class="masthead-nav">
-          <a href="#trace" class="nav-item">Execution Trace</a>
-          <a href="#thesis" class="nav-item">Why Schemas</a>
-          <a href="#workbench" class="nav-item">Workbench</a>
-          <a href="#ledger" class="nav-item">Token Math</a>
-          <a href="/docs/guide/cognitive-schemas" class="nav-item highlight">Guide</a>
-          <a href="/docs/getting-started" class="nav-item">Docs</a>
-          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="nav-item">GitHub ↗</a>
+  <body class="signal-body">
+    <!-- ── MINIMAL TOP BAR ── -->
+    <header class="top-bar">
+      <div class="bar-inner">
+        <a href="/" class="brand">
+          <span class="glyph">⬡</span>
+          <span class="name">ENGRAMS</span>
+          <span class="version">v0.14.0</span>
+        </a>
+        <nav class="nav">
+          <a href="/docs/guide/cognitive-schemas">Guide</a>
+          <a href="/docs/getting-started">Docs</a>
+          <a href="/docs/reference/cli">CLI Reference</a>
+          <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub ↗</a>
         </nav>
       </div>
     </header>
 
-    <!-- ══ SECTION 1: THE DUAL EXECUTION TRACE (HERO) ══ -->
-    <main>
-      <section id="trace" class="trace-section">
-        <div class="trace-container">
-          <div class="hero-manifesto">
-            <div class="kicker-tag">ARCHITECTURAL FIELD MANUAL // 0MB BACKGROUND RAM // 1MS SQLITE</div>
-            <h1 class="hero-headline">
-              Stop teaching your AI<br />
-              <span class="gold-text">the same architecture twice.</span>
-            </h1>
-            <p class="hero-lede">
-              AI agents suffer from complete amnesia between conversations. To guess your conventions,
-              they burn 50,000 tokens reading 15 files defensively. Engrams automatically organizes your
-              codebase history into <strong>Cognitive Schemas</strong> — compact mental models that tell your
-              agent how to build before it opens a single file.
+    <main class="page-content">
+      <!-- ══ 1. THE CORE VALUE PROPOSITION ══ -->
+      <section class="hero-signal">
+        <div class="signal-kicker">LOCAL SQLITE RUNTIME · 0MB BACKGROUND RAM · 1MS EXECUTION</div>
+        <h1 class="signal-title">
+          Stop burning 50,000 tokens<br />
+          <span class="accent">teaching your AI the same architecture.</span>
+        </h1>
+        <p class="signal-lede">
+          AI coding agents forget your codebase between sessions. To guess your conventions, they burn
+          tens of thousands of tokens reading files defensively. Engrams automatically organizes your
+          codebase history into <strong>Cognitive Schemas</strong> — compact mental models that tell your
+          agent how to build before it opens a single file.
+        </p>
+
+        <div class="signal-actions">
+          <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
+          <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Schema Guide</a>
+        </div>
+      </section>
+
+      <!-- ══ 2. THE 10-SECOND PROOF (THE SIGNAL) ══ -->
+      <section class="proof-section">
+        <div class="proof-grid">
+          <div class="proof-box box-bad">
+            <div class="box-tag">WITHOUT SCHEMAS</div>
+            <div class="box-metric">48,200 tokens · 52s</div>
+            <p class="box-desc">
+              Agent explores 14 source files defensively trying to guess your conventions. Runs out of
+              context, invents duplicate interfaces, and leaks security flaws.
             </p>
           </div>
 
-          <!-- THE LIVE TRACE RUNNER -->
-          <div class="trace-runner">
-            <!-- Global Command Bar -->
-            <div class="command-bar">
-              <span class="prompt-symbol">$</span>
-              <span class="prompt-label">PROMPT:</span>
-              <span class="prompt-text">"Add webhook signature verification to our Stripe payment adapter."</span>
-            </div>
-
-            <!-- Dual Split Lanes -->
-            <div class="split-lanes">
-              <!-- LANE A: THE AMNESIAC EXPLORATION -->
-              <div class="lane lane-amnesiac">
-                <div class="lane-header">
-                  <div class="lane-badge badge-red">TRACE 01 // UNCONSTRAINED CONTEXT DUMP</div>
-                  <div class="lane-metrics">48,200 TOKENS · 52.4s · 4 TOOL ROUNDS</div>
-                </div>
-
-                <div class="lane-body">
-                  <div class="trace-log">
-                    <div class="log-entry">
-                      <span class="log-time">00.1s</span>
-                      <span class="log-action">tool:read_file</span>
-                      <span class="log-target">src/billing/service.rs</span>
-                      <span class="log-cost">+12,410 tok</span>
-                    </div>
-                    <div class="log-entry">
-                      <span class="log-time">01.4s</span>
-                      <span class="log-action">tool:read_file</span>
-                      <span class="log-target">src/config.rs</span>
-                      <span class="log-cost">+8,920 tok</span>
-                    </div>
-                    <div class="log-entry">
-                      <span class="log-time">03.2s</span>
-                      <span class="log-action">tool:read_file</span>
-                      <span class="log-target">src/api/routes.rs</span>
-                      <span class="log-cost">+15,100 tok</span>
-                    </div>
-                    <div class="log-entry">
-                      <span class="log-time">04.8s</span>
-                      <span class="log-action">tool:read_file</span>
-                      <span class="log-target">src/adapters/stripe.rs</span>
-                      <span class="log-cost">+11,770 tok</span>
-                    </div>
-                  </div>
-
-                  <!-- Diff output with red critique annotations -->
-                  <div class="diff-block diff-bad">
-                    <div class="diff-header">
-                      <span>GENERATED CODE // FAILED PR REVIEW</span>
-                      <span class="diff-status text-red">3 CONVENTION VIOLATIONS</span>
-                    </div>
-                    <pre class="diff-code"><code>// Agent invents ad-hoc helper, ignoring codebase architecture
-pub fn verify_signature(secret: &str, sig: &str) -> bool &#123;
-<span class="critique-line bad">  // ❌ VIOLATION: ADR #44 requires PaymentProvider interface</span>
-<span class="critique-line bad">  // ❌ FLAW: Leaks timing attacks (Pattern #8 requires crypto::constant_time_eq)</span>
-<span class="critique-line bad">  // ❌ DUPLICATION: Re-implements hex_decode instead of crate::crypto</span>
-  sig == compute_hmac(secret)
-&#125;</code></pre>
-                  </div>
-                </div>
-
-                <div class="lane-footer footer-bad">
-                  <div class="footer-status">RESULT: 52s WASTED · $0.144 BURNED · CODE REVIEW REJECTED</div>
-                </div>
-              </div>
-
-              <!-- LANE B: THE SCHEMA-GUIDED EXECUTION -->
-              <div class="lane lane-schema">
-                <div class="lane-header">
-                  <div class="lane-badge badge-gold">TRACE 02 // SCHEMA-INTERCEPTED EXECUTION</div>
-                  <div class="lane-metrics text-gold">260 TOKENS · 3.1s · 0 FILES READ</div>
-                </div>
-
-                <div class="lane-body">
-                  <div class="trace-log">
-                    <div class="log-entry log-intercept">
-                      <span class="log-time">00.001s</span>
-                      <span class="log-action text-gold">intercept</span>
-                      <span class="log-target">engrams advise src/adapters/stripe.rs</span>
-                      <span class="log-cost text-gold">1ms [SQLite]</span>
-                    </div>
-                  </div>
-
-                  <!-- Injected Schema Box -->
-                  <div class="schema-intercept-box">
-                    <div class="sib-head">
-                      <span class="sib-label">INJECTED SCHEMA</span>
-                      <span class="sib-name">payment-adapters</span>
-                      <span class="sib-telemetry">guided 14 sessions</span>
-                    </div>
-                    <div class="sib-content">
-                      <div class="sib-row">
-                        <span class="sib-k">⚡ TRIGGER</span>
-                        <span class="sib-v">Fires when editing payment adapter implementations</span>
-                      </div>
-                      <div class="sib-row">
-                        <span class="sib-k">📋 DIRECTIVE</span>
-                        <span class="sib-v text-gold">Implement PaymentProvider; verify signatures with crypto::constant_time_eq; never log raw webhook payloads.</span>
-                      </div>
-                      <div class="sib-row">
-                        <span class="sib-k">🔗 MEMBERS</span>
-                        <span class="sib-v">ADR #44 (trait contract) · Pattern #8 (constant_time_eq) · 3 anchors</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Diff output with green verified annotations -->
-                  <div class="diff-block diff-good">
-                    <div class="diff-header">
-                      <span>GENERATED CODE // TURN 1 ZERO-SHOT</span>
-                      <span class="diff-status text-green">100% INVARIANT COMPLIANT</span>
-                    </div>
-                    <pre class="diff-code"><code>impl PaymentProvider for StripeAdapter &#123;
-<span class="critique-line good">  // ✓ Satisfies ADR #44: Pluggable provider interface</span>
-<span class="critique-line good">  // ✓ Satisfies Pattern #8: Constant-time byte comparison against timing attacks</span>
-  fn verify_webhook(&self, payload: &[u8], sig: &str) -> Result&lt;bool&gt; &#123;
-    crypto::constant_time_eq(sig.as_bytes(), &self.compute_sig(payload))
-  &#125;
-&#125;</code></pre>
-                  </div>
-                </div>
-
-                <div class="lane-footer footer-good">
-                  <div class="footer-status">RESULT: 3.1s TURN · 47,940 TOKENS SAVED · MERGED ON TURN 1</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══ SECTION 2: THE COGNITIVE THESIS ══ -->
-      <section id="thesis" class="thesis-section">
-        <div class="thesis-container">
-          <div class="thesis-quote-col">
-            <blockquote class="thesis-statement">
-              "AI models do not fail because they lack raw intelligence. They fail because they lack
-              <span class="gold-text">mental models</span>."
-            </blockquote>
-            <p class="thesis-cite">— The Architectural Thesis of Engrams</p>
-          </div>
-
-          <div class="thesis-body-col">
-            <h2>The Psychology of Codebase Expertise</h2>
-            <p>
-              When a senior engineer joins a project, they spend weeks assimilating how things are done.
-              After six months, they don't re-read the company manual before every pull request.
-              Their brain has crystallized dozens of individual decisions, bugs, and rules into
-              <strong>cognitive schemas</strong> — fluid mental models that fire conditionally:
+          <div class="proof-box box-good">
+            <div class="box-tag accent">WITH ENGRAMS SCHEMA</div>
+            <div class="box-metric accent">260 tokens · 1ms</div>
+            <p class="box-desc">
+              <code>engrams advise</code> intercepts the edit and provides the exact trigger, operational rules,
+              and code contracts upfront. Agent writes compliant code on Turn 1.
             </p>
-            <div class="quote-callout">
-              <em>"When I edit database code here, I borrow parameters and never build throwaway Vecs."</em>
-            </div>
-            <p>
-              Today's AI coding tools operate in a permanent state of novice confusion. They force the agent to
-              re-discover your entire system from scratch on every prompt by scraping raw syntax.
-            </p>
+          </div>
+        </div>
+      </section>
 
-            <!-- THE THREE-TIER CODEBASE REALITY -->
-            <div class="tier-pyramid">
-              <div class="tier-level tier-3">
-                <div class="tier-badge">TIER 3 // 250 TOKENS</div>
-                <div class="tier-title">Cognitive Schemas</div>
-                <div class="tier-desc">Active conceptual playbooks: <em>"Fires when X: Do Y"</em>. Injected in 1ms.</div>
-              </div>
-              <div class="tier-arrow">▲ Engrams operates here (95% of sessions)</div>
-              <div class="tier-level tier-2">
-                <div class="tier-badge">TIER 2 // 1,500 TOKENS</div>
-                <div class="tier-title">Decisions, Patterns &amp; Contracts</div>
-                <div class="tier-desc">The underlying reasoning, error signatures, and anchored files.</div>
-              </div>
-              <div class="tier-arrow">▲ Conventional tools dump everything here</div>
-              <div class="tier-level tier-1">
-                <div class="tier-badge">TIER 1 // 50,000+ TOKENS</div>
-                <div class="tier-title">Raw Source Code &amp; Multi-File Diffs</div>
-                <div class="tier-desc">Defensive file reads, attention decay, and exploratory tool loops.</div>
+      <!-- ══ 3. ANATOMY OF A SCHEMA (WHAT IT LOOKS LIKE) ══ -->
+      <section class="specimen-section">
+        <div class="section-label">WHAT A COGNITIVE SCHEMA LOOKS LIKE</div>
+        <div class="specimen-card">
+          <div class="sc-header">
+            <div class="sc-title">
+              <span class="sc-badge">SCHEMA</span>
+              <code>payment-adapters</code>
+            </div>
+            <span class="sc-status">● active · guided 14 sessions</span>
+          </div>
+
+          <div class="sc-content">
+            <div class="sc-row">
+              <span class="sc-k">⚡ TRIGGER</span>
+              <span class="sc-v highlight">Fires when editing payment adapter implementations under src/adapters/</span>
+            </div>
+            <div class="sc-row">
+              <span class="sc-k">📋 DIRECTIVE</span>
+              <span class="sc-v rule">
+                Implement PaymentProvider trait; pass idempotency_key to all charge requests; verify signatures with crypto::constant_time_eq.
+              </span>
+            </div>
+            <div class="sc-row">
+              <span class="sc-k">🔗 MEMBERS</span>
+              <div class="sc-members">
+                <span class="m-pill">ADR #44: PaymentProvider interface contract</span>
+                <span class="m-pill">Pattern #8: Constant-time verification</span>
+                <span class="m-pill anchor">Anchor: src/adapters/stripe.rs</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ══ SECTION 3: THE THREE ERAS ══ -->
-      <section id="eras" class="eras-section">
-        <div class="section-lead">
-          <span class="mono-label">CHRONOLOGY // TOOLING EVOLUTION</span>
-          <h2>The Three Eras of AI Context</h2>
-        </div>
-
-        <div class="eras-table">
-          <div class="era-row">
-            <div class="era-col-year">2023</div>
-            <div class="era-col-name">The Raw Prompt Era</div>
-            <div class="era-col-mechanism">Dumping complete READMEs, full repo trees, and naive RAG chunks into the prompt window.</div>
-            <div class="era-col-flaw">100k token bills, model attention rot, extreme tool-loop latency.</div>
+      <!-- ══ 4. THREE COMMANDS (HOW YOU RUN IT) ══ -->
+      <section class="workflow-section">
+        <div class="section-label">THREE COMMANDS THAT RUN THE LOOP</div>
+        <div class="terminal-card">
+          <div class="tc-header">
+            <span class="tc-dot"></span>
+            <span class="tc-title">engrams-cli — developer workflow</span>
           </div>
-
-          <div class="era-row">
-            <div class="era-col-year">2024–2025</div>
-            <div class="era-col-name">The Memory Store Era</div>
-            <div class="era-col-mechanism">Flat vector databases, unorganized ADR files, and static <code>.cursorrules</code> files.</div>
-            <div class="era-col-flaw">200 disconnected notes. The agent has facts, but no trigger condition — it doesn't know <em>which</em> rule applies right now.</div>
-          </div>
-
-          <div class="era-row era-active">
-            <div class="era-col-year text-gold">NOW</div>
-            <div class="era-col-name text-gold">The Cognitive Schema Era</div>
-            <div class="era-col-mechanism">Autonomous graph clustering that packages decisions, patterns, and code into active mental models with triggers and directives.</div>
-            <div class="era-col-flaw text-green">260 tokens injected in 1ms. Zero file reads required. Senior engineer precision.</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══ SECTION 4: THE SCHEMA WORKBENCH ══ -->
-      <section id="workbench" class="workbench-section">
-        <div class="section-lead">
-          <span class="mono-label">INSPECTION CONSOLE // REAL-WORLD ARTIFACTS</span>
-          <h2>Deconstructing a Schema</h2>
-          <p class="section-subtext">Click through real schemas running on this repository to inspect their anatomy.</p>
-        </div>
-
-        <div class="workbench-rig" data-workbench>
-          <div class="rig-tabs">
-            <button class="rig-tab is-active" data-specimen="db">
-              <span class="tab-index">01</span>
-              <span class="tab-name">performance-rules</span>
-              <span class="tab-tag">Database</span>
-            </button>
-            <button class="rig-tab" data-specimen="payment">
-              <span class="tab-index">02</span>
-              <span class="tab-name">payment-adapters</span>
-              <span class="tab-tag">API Integration</span>
-            </button>
-            <button class="rig-tab" data-specimen="auth">
-              <span class="tab-index">03</span>
-              <span class="tab-name">auth-session-tokens</span>
-              <span class="tab-tag">Security</span>
-            </button>
-          </div>
-
-          <!-- Specimen 1: Database -->
-          <div class="specimen-panel is-active" id="specimen-db">
-            <div class="panel-terminal">
-              <div class="pt-bar">
-                <span class="pt-title">$ engrams schema show performance-rules</span>
-                <span class="pt-status text-green">● ACTIVE [GUIDED 14 SESSIONS]</span>
-              </div>
-              <div class="pt-body">
-                <div class="pt-segment">
-                  <span class="pt-key">TARGET SCOPE</span>
-                  <div class="pt-data font-bold">src/db/**/*.rs · src/ops/schemas/**/*.rs</div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">⚡ ACTIVATION TRIGGER</span>
-                  <div class="pt-data text-white font-bold">Fires when editing Rust code that creates, copies, or hands off collections and strings</div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">📋 OPERATIONAL DIRECTIVE</span>
-                  <div class="pt-data text-gold highlight-box">
-                    Borrow SQL parameters via Vec&lt;&amp;dyn ToSql&gt;; consume temporary lookup maps by move with remove(); never materialize intermediate throwaway Vecs.
-                  </div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">🔗 BUNDLED MEMBERS (4)</span>
-                  <div class="pt-tags">
-                    <span class="t-pill">Decision #88: Borrowed SQL params</span>
-                    <span class="t-pill">Decision #91: Static vocabulary returns Cow</span>
-                    <span class="t-pill">Pattern #12: Enrich by move</span>
-                    <span class="t-pill anchor">Anchor: src/ops/schemas/retrieval.rs</span>
-                  </div>
-                </div>
-              </div>
+          <div class="tc-body">
+            <div class="code-block">
+              <span class="comment"># 1. Automatic pre-edit interception (harnesses run this before editing)</span>
+              <span class="cmd">$ engrams advise src/adapters/stripe.rs</span>
+              <span class="output">&#123; "schemas": [ &#123; "name": "payment-adapters", "summary": "Fires when editing..." &#125; ] &#125;</span>
             </div>
-          </div>
 
-          <!-- Specimen 2: Payment -->
-          <div class="specimen-panel" id="specimen-payment">
-            <div class="panel-terminal">
-              <div class="pt-bar">
-                <span class="pt-title">$ engrams schema show payment-adapters</span>
-                <span class="pt-status text-green">● ACTIVE [GUIDED 9 SESSIONS]</span>
-              </div>
-              <div class="pt-body">
-                <div class="pt-segment">
-                  <span class="pt-key">TARGET SCOPE</span>
-                  <div class="pt-data font-bold">src/adapters/**/*.rs · src/billing/**/*.rs</div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">⚡ ACTIVATION TRIGGER</span>
-                  <div class="pt-data text-white font-bold">Fires when editing payment adapter implementations or checkout flows</div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">📋 OPERATIONAL DIRECTIVE</span>
-                  <div class="pt-data text-gold highlight-box">
-                    Implement PaymentProvider trait; pass idempotency_key to all charge requests; verify signatures with crypto::constant_time_eq.
-                  </div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">🔗 BUNDLED MEMBERS (3)</span>
-                  <div class="pt-tags">
-                    <span class="t-pill">Decision #44: PaymentProvider interface contract</span>
-                    <span class="t-pill">Pattern #8: Constant-time signature verification</span>
-                    <span class="t-pill anchor">Anchor: src/adapters/stripe.rs</span>
-                  </div>
-                </div>
-              </div>
+            <div class="code-block">
+              <span class="comment"># 2. Inspect the active mental model, rules, and members</span>
+              <span class="cmd">$ engrams schema show payment-adapters</span>
             </div>
-          </div>
 
-          <!-- Specimen 3: Auth -->
-          <div class="specimen-panel" id="specimen-auth">
-            <div class="panel-terminal">
-              <div class="pt-bar">
-                <span class="pt-title">$ engrams schema show auth-session-tokens</span>
-                <span class="pt-status text-green">● ACTIVE [GUIDED 18 SESSIONS]</span>
-              </div>
-              <div class="pt-body">
-                <div class="pt-segment">
-                  <span class="pt-key">TARGET SCOPE</span>
-                  <div class="pt-data font-bold">src/auth/**/*.rs · src/middleware/**/*.rs</div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">⚡ ACTIVATION TRIGGER</span>
-                  <div class="pt-data text-white font-bold">Fires when editing session token validation or login route handlers</div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">📋 OPERATIONAL DIRECTIVE</span>
-                  <div class="pt-data text-gold highlight-box">
-                    Validate tokens strictly at boundary middleware; never pass raw JWT strings into domain services; use SessionContext struct.
-                  </div>
-                </div>
-                <div class="pt-segment">
-                  <span class="pt-key">🔗 BUNDLED MEMBERS (3)</span>
-                  <div class="pt-tags">
-                    <span class="t-pill">Decision #19: Token validation at middleware boundary</span>
-                    <span class="t-pill">Decision #23: Typed SessionContext envelope</span>
-                    <span class="t-pill anchor">Anchor: src/middleware/auth.rs</span>
-                  </div>
-                </div>
-              </div>
+            <div class="code-block">
+              <span class="comment"># 3. Close the session: see tokens saved and receive new schema opportunities</span>
+              <span class="cmd">$ engrams session close --pr 42</span>
+              <span class="output">&#123; "schema_value": &#123; "guided_retrievals": 6 &#125;, "schema_opportunities": [ ... ] &#125;</span>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ══ SECTION 5: THE TOKEN ECONOMICS LEDGER ══ -->
-      <section id="ledger" class="ledger-section">
-        <div class="section-lead">
-          <span class="mono-label">THE BALANCE SHEET // MEASURED TOKENS</span>
-          <h2>The Token Economics Ledger</h2>
-          <p class="section-subtext">Token savings aren't speculative. They are calculated directly at every session close.</p>
-        </div>
-
-        <div class="ledger-calculator" data-calc>
-          <div class="calc-header-bar">
-            <div class="ch-label">
-              <span>TEAM ACTIVITY PARAMETER:</span>
-              <strong id="calc-prompts-label">100</strong> tasks / day
-            </div>
-            <input
-              type="range"
-              id="prompt-slider"
-              min="10"
-              max="500"
-              step="10"
-              value="100"
-              class="sharp-slider"
-            />
-          </div>
-
-          <table class="financial-table">
-            <thead>
-              <tr>
-                <th>OPERATIONAL METRIC</th>
-                <th>CONVENTIONAL AI AGENT</th>
-                <th>ENGRAMS SCHEMA AGENT</th>
-                <th class="text-right">NET DELTA</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Context Load per Task</strong></td>
-                <td>45,000 tokens (defensive reads)</td>
-                <td><strong class="text-gold">260 tokens</strong> (injected schema)</td>
-                <td class="text-right text-green">−99.4% context load</td>
-              </tr>
-              <tr>
-                <td><strong>Exploratory Tool Loops</strong></td>
-                <td>6 to 12 file reads / task</td>
-                <td><strong class="text-gold">0 file reads</strong> (rules provided)</td>
-                <td class="text-right text-green">Instant Turn 1 start</td>
-              </tr>
-              <tr>
-                <td><strong>Daily Token Consumption</strong></td>
-                <td id="row-without-tokens">4,500,000 tokens/day</td>
-                <td id="row-with-tokens" class="text-gold">26,000 tokens/day</td>
-                <td id="row-delta-tokens" class="text-right text-green">−4,474,000 tokens/day</td>
-              </tr>
-              <tr class="highlight-row">
-                <td><strong>Monthly Financial Cost ($3/Mtok)</strong></td>
-                <td id="row-without-cost">$405.00 / mo</td>
-                <td id="row-with-cost" class="text-gold">$2.34 / mo</td>
-                <td id="row-delta-cost" class="text-right text-green">+$402.66 / mo SAVED</td>
-              </tr>
-              <tr>
-                <td><strong>Monthly Engineer Tool Latency</strong></td>
-                <td>43.3 hours waiting</td>
-                <td>2.5 hours waiting</td>
-                <td class="text-right text-green">+40.8 hours recovered</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- The 3 System Invariants -->
-        <div class="invariants-row">
-          <div class="inv-block">
-            <span class="inv-k">FOOTPRINT</span>
-            <span class="inv-v">0 MB RAM</span>
-            <p>Zero running Node daemons, no background socket drops. A compiled Rust binary that executes in 1ms and exits.</p>
-          </div>
-          <div class="inv-block">
-            <span class="inv-k">SEARCH ENGINE</span>
-            <span class="inv-v">1 ms SQLite</span>
-            <p>Built-in FTS5 engine and graph traversal. Zero external embedding APIs, zero network round-trips, works 100% offline.</p>
-          </div>
-          <div class="inv-block">
-            <span class="inv-k">VERSIONING</span>
-            <span class="inv-v">Git-Native</span>
-            <p>Automatic <code>export</code> and <code>import</code> transforms database state into human-readable Markdown for team PR reviews.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══ SECTION 6: THE ZERO-MAINTENANCE PROTOCOL ══ -->
-      <section class="protocol-section">
-        <div class="section-lead">
-          <span class="mono-label">WORKFLOW PROTOCOL // ZERO BOOKKEEPING</span>
-          <h2>The Loop That Closes Itself</h2>
-          <p class="section-subtext">You never write schemas from scratch. The system detects them, prompts you, and activates them.</p>
-        </div>
-
-        <div class="protocol-steps">
-          <div class="proto-step">
-            <div class="ps-num">01</div>
-            <h3>Graph Clustering</h3>
-            <p>As you commit code and log decisions, community detection identifies co-edited clusters in local SQLite.</p>
-          </div>
-          <div class="proto-step">
-            <div class="ps-num">02</div>
-            <h3>Session Nudge</h3>
-            <p>At <code>session close</code>, Engrams surfaces passing clusters with a ready-to-run <code>confirm</code> command.</p>
-          </div>
-          <div class="proto-step">
-            <div class="ps-num">03</div>
-            <h3>Pre-Edit Intercept</h3>
-            <p>Tomorrow, your AI touches matching files. <code>advise</code> silently injects the schema before a line is written.</p>
-          </div>
-          <div class="proto-step">
-            <div class="ps-num">04</div>
-            <h3>Verified Receipts</h3>
-            <p>Every session close records <code>schema_value: &#123; guided_retrievals: N &#125;</code>, proving exact tokens saved.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══ SECTION 7: THREE OPERATIONAL COMMANDS ══ -->
-      <section class="commands-section">
-        <div class="section-lead">
-          <span class="mono-label">CLI INTERFACE // RUNTIME COMMANDS</span>
-          <h2>Three Levers for the Human</h2>
-          <p class="section-subtext">Your AI executes the advice. You steer with three high-leverage commands.</p>
-        </div>
-
-        <div class="cmd-stack">
-          <!-- Command 1 -->
-          <div class="cmd-box">
-            <div class="cb-chrome">
-              <span class="cb-cmd">$ engrams advise src/adapters/stripe.rs</span>
-              <span class="cb-desc">AUTOMATIC PRE-EDIT INTERCEPTOR</span>
-            </div>
-            <pre class="cb-body"><code>&#123;
-  "schemas": [
-    &#123;"id": 1, "name": "payment-adapters", "summary": "Fires when editing payment adapters: implement PaymentProvider..."&#125;
-  ],
-  "constraints": [ ... ]
-&#125;</code></pre>
-          </div>
-
-          <!-- Command 2 -->
-          <div class="cmd-box">
-            <div class="cb-chrome">
-              <span class="cb-cmd">$ engrams schema show payment-adapters</span>
-              <span class="cb-desc">CONCEPTUAL SPECIMEN INSPECTOR</span>
-            </div>
-            <pre class="cb-body"><code>&#123;
-  "name": "payment-adapters",
-  "summary": "Fires when editing payment adapters...",
-  "guided": 9,
-  "members": [ ... ]
-&#125;</code></pre>
-          </div>
-
-          <!-- Command 3 -->
-          <div class="cmd-box">
-            <div class="cb-chrome">
-              <span class="cb-cmd">$ engrams session close --pr 42</span>
-              <span class="cb-desc">PR GATE &amp; TOKEN RECEIPT</span>
-            </div>
-            <pre class="cb-body"><code>&#123;
-  "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
-  "schema_opportunities": [
-    &#123;"confirm_command": "engrams schema confirm decision:10 --name auth-rules"&#125;
-  ]
-&#125;</code></pre>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══ SECTION 8: BOTTOM CTA ══ -->
-      <section class="bottom-cta">
-        <div class="cta-box">
-          <h2 class="cta-heading">Give your AI the mental models it deserves.</h2>
-          <p class="cta-sub">Install in 30 seconds. Zero background servers. 100% local SQLite.</p>
-          <div class="terminal-install">
+      <!-- ══ 5. INSTALL & ACTION ══ -->
+      <section class="install-section">
+        <div class="install-box">
+          <h2>Give your AI the mental models it deserves.</h2>
+          <p>Zero background daemons. 100% local SQLite. 1ms query time.</p>
+          <div class="install-code">
             <code>cargo install engrams-cli</code>
-            <span class="install-divider">or</span>
+            <span class="sep">or</span>
             <code>brew install stevebrownlee/tap/engrams</code>
           </div>
-          <div class="cta-button-row">
-            <a href="/docs/quick-start" class="tech-btn primary">Quick Start in 5 Minutes</a>
-            <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="tech-btn ghost">Star on GitHub ↗</a>
+          <div class="install-actions">
+            <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
+            <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener" class="btn-action ghost">Star on GitHub ↗</a>
           </div>
         </div>
       </section>
     </main>
 
-    <!-- ── FOOTER ── -->
-    <footer class="ledger-footer">
+    <!-- ── MINIMAL FOOTER ── -->
+    <footer class="bottom-footer">
       <div class="footer-wrap">
-        <div class="footer-col-main">
-          <span class="footer-brand">⬡ ENGRAMS</span>
-          <span class="footer-license">Apache-2.0 · Local Cognitive Architecture</span>
-        </div>
-        <div class="footer-nav">
+        <span>⬡ ENGRAMS · Apache-2.0 · Local Cognitive Architecture</span>
+        <div class="footer-links">
           <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>
-          <a href="/docs/getting-started">Documentation</a>
+          <a href="/docs/getting-started">Docs</a>
           <a href="/docs/reference/cli">CLI Reference</a>
           <a href="https://github.com/stevebrownlee/engrams-cli" target="_blank" rel="noopener">GitHub</a>
         </div>
       </div>
     </footer>
-
-    <!-- ── INTERACTIVE CLIENT LOGIC ── -->
-    <script>
-      // 1. Interactive Workbench Tab Switcher
-      document.querySelectorAll('[data-workbench]').forEach((wb) => {
-        const tabs = wb.querySelectorAll('.rig-tab');
-        const panels = wb.querySelectorAll('.specimen-panel');
-        tabs.forEach((tab) => {
-          tab.addEventListener('click', () => {
-            const specId = 'specimen-' + tab.getAttribute('data-specimen');
-            tabs.forEach((t) => t.classList.remove('is-active'));
-            panels.forEach((p) => p.classList.remove('is-active'));
-            tab.classList.add('is-active');
-            const target = document.getElementById(specId);
-            if (target) target.classList.add('is-active');
-          });
-        });
-      });
-
-      // 2. Interactive Ledger Math Calculator
-      const slider = document.getElementById('prompt-slider');
-      const promptsLabel = document.getElementById('calc-prompts-label');
-      const rowWithoutTokens = document.getElementById('row-without-tokens');
-      const rowWithTokens = document.getElementById('row-with-tokens');
-      const rowDeltaTokens = document.getElementById('row-delta-tokens');
-      const rowWithoutCost = document.getElementById('row-without-cost');
-      const rowWithCost = document.getElementById('row-with-cost');
-      const rowDeltaCost = document.getElementById('row-delta-cost');
-
-      if (slider && promptsLabel) {
-        slider.addEventListener('input', (e) => {
-          const tasks = parseInt(e.target.value, 10);
-          promptsLabel.textContent = tasks.toLocaleString();
-
-          const withoutTok = tasks * 45000;
-          const withTok = tasks * 260;
-          const deltaTok = withoutTok - withTok;
-
-          const withoutC = (withoutTok / 1000000) * 3.0 * 30; // monthly
-          const withC = (withTok / 1000000) * 3.0 * 30;
-          const deltaC = withoutC - withC;
-
-          if (rowWithoutTokens) rowWithoutTokens.textContent = `${withoutTok.toLocaleString()} tokens/day`;
-          if (rowWithTokens) rowWithTokens.textContent = `${withTok.toLocaleString()} tokens/day`;
-          if (rowDeltaTokens) rowDeltaTokens.textContent = `−${deltaTok.toLocaleString()} tokens/day`;
-
-          if (rowWithoutCost) rowWithoutCost.textContent = `$${withoutC.toFixed(2)} / mo`;
-          if (rowWithCost) rowWithCost.textContent = `$${withC.toFixed(2)} / mo`;
-          if (rowDeltaCost) rowDeltaCost.textContent = `+$${deltaC.toFixed(2)} / mo SAVED`;
-        });
-      }
-    </script>
   </body>
 </html>
 
 <style>
   /* ============================================================
-     BRUTALIST ARCHITECTURAL LEDGER STYLING
-     Palette: Deep Obsidian (#080a0f), Titanium (#e2e8f0),
-              Chalk (#9da7b8), Brass Gold (#cca43b / #f3ba42),
-              Terminal Green (#4ade80), Crimson (#f87171).
+     MAXIMUM SIGNAL, ZERO NOISE: MONOCHROME & BRASS LEDGER
      ============================================================ */
-  
+
   :root {
-    --bg-obsidian: #080a0f;
+    --bg-dark: #080a0f;
     --bg-surface: #0e121a;
-    --bg-elevated: #141924;
-    --border-grid: #1e2636;
-    --border-highlight: #2c374d;
-    --text-pure: #ffffff;
-    --text-primary: #e2e8f0;
+    --bg-elevated: #131824;
+    --border-dim: #1e2636;
+    --border-bright: #2d384e;
+    --text-white: #ffffff;
+    --text-body: #e2e8f0;
     --text-muted: #8e9bb0;
-    --gold-base: #cca43b;
-    --gold-bright: #f3ba42;
-    --green-bright: #4ade80;
-    --red-bright: #f87171;
+    --brass: #cca43b;
+    --brass-bright: #f3ba42;
+    --green: #4ade80;
+    --red: #f87171;
     --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
 
-  .ledger-body {
-    background: var(--bg-obsidian);
-    color: var(--text-primary);
+  .signal-body {
+    background: var(--bg-dark);
+    color: var(--text-body);
     font-family: var(--font-sans);
     line-height: 1.6;
     margin: 0;
@@ -702,588 +208,318 @@ pub fn verify_signature(secret: &str, sig: &str) -> bool &#123;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── MASTHEAD ── */
-  .masthead {
+  /* ── TOP BAR ── */
+  .top-bar {
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 100;
     background: rgba(8, 10, 15, 0.95);
-    border-bottom: 1px solid var(--border-grid);
+    border-bottom: 1px solid var(--border-dim);
     backdrop-filter: blur(8px);
   }
-  .masthead-inner {
-    max-width: 80rem;
+  .bar-inner {
+    max-width: 68rem;
     margin: 0 auto;
-    padding: 0.65rem 1.5rem;
+    padding: 0.75rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .masthead-brand { display: flex; align-items: baseline; gap: 0.75rem; }
-  .brand-link { display: flex; align-items: baseline; gap: 0.4rem; text-decoration: none; color: var(--text-pure); }
-  .brand-glyph { color: var(--gold-bright); font-size: 1.1rem; }
-  .brand-name { font-family: var(--font-mono); font-weight: 900; font-size: 1.05rem; letter-spacing: 0.05em; }
-  .brand-version { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
-  .masthead-sub { font-family: var(--font-mono); font-size: 0.68rem; color: var(--gold-base); letter-spacing: 0.1em; }
-  @media (max-width: 800px) { .masthead-sub { display: none; } }
+  .brand { display: flex; align-items: baseline; gap: 0.4rem; text-decoration: none; color: var(--text-white); }
+  .glyph { color: var(--brass-bright); font-size: 1.1rem; }
+  .name { font-family: var(--font-mono); font-weight: 900; font-size: 1rem; letter-spacing: 0.05em; }
+  .version { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin-left: 0.2rem; }
+  .nav { display: flex; gap: 1.4rem; }
+  .nav a { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+  .nav a:hover { color: var(--text-white); }
+  @media (max-width: 600px) { .nav a:not(:last-child) { display: none; } }
 
-  .masthead-nav { display: flex; gap: 1.25rem; align-items: center; }
-  .nav-item {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    text-decoration: none;
-    letter-spacing: 0.04em;
-    transition: color 0.15s;
+  /* ── MAIN CONTENT CONTAINER ── */
+  .page-content {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 7rem 1.5rem 4rem;
   }
-  .nav-item:hover { color: var(--text-pure); }
-  .nav-item.highlight { color: var(--gold-bright); font-weight: 700; }
-  @media (max-width: 680px) { .masthead-nav .nav-item:not(.highlight) { display: none; } }
 
-  /* ── SECTION FOUNDATIONS ── */
-  .trace-section {
-    padding: 7rem 1.5rem 5rem;
-    border-bottom: 1px solid var(--border-grid);
-    background: radial-gradient(circle at 50% 0%, rgba(204, 164, 59, 0.08) 0%, transparent 60%);
+  /* ── 1. HERO ── */
+  .hero-signal {
+    margin-bottom: 4rem;
   }
-  .trace-container { max-width: 80rem; margin: 0 auto; }
-
-  .hero-manifesto { text-align: left; max-width: 58rem; margin-bottom: 3.5rem; }
-  .kicker-tag {
+  .signal-kicker {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 800;
-    letter-spacing: 0.18em;
-    color: var(--gold-bright);
-    margin-bottom: 1.25rem;
+    letter-spacing: 0.15em;
+    color: var(--brass-bright);
+    margin-bottom: 1rem;
   }
-  .hero-headline {
-    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+  .signal-title {
+    font-size: clamp(2.2rem, 5.2vw, 3.8rem);
     font-weight: 900;
-    line-height: 1.05;
+    line-height: 1.1;
     letter-spacing: -0.03em;
-    color: var(--text-pure);
+    color: var(--text-white);
     margin: 0 0 1.5rem;
   }
-  .gold-text { color: var(--gold-bright); }
-  .hero-lede {
+  .signal-title .accent { color: var(--brass-bright); }
+  .signal-lede {
     font-size: 1.15rem;
     line-height: 1.65;
-    color: var(--text-primary);
+    color: var(--text-body);
     max-width: 48rem;
-    margin-bottom: 2.2rem;
+    margin-bottom: 2rem;
   }
-  .hero-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .signal-lede strong { color: var(--text-white); }
+  .signal-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
-  /* ── NO PILLS: SHARP TECHNICAL BUTTONS ── */
-  .tech-btn {
+  /* ── SHARP BUTTONS (ZERO PILLS) ── */
+  .btn-action {
     display: inline-flex;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0.7rem 1.4rem;
     font-family: var(--font-mono);
     font-size: 0.82rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-decoration: none;
     border-radius: 2px;
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.15s;
   }
-  .tech-btn.primary {
-    background: var(--gold-bright);
+  .btn-action.primary {
+    background: var(--brass-bright);
     color: #080a0f;
-    border-color: var(--gold-bright);
+    border-color: var(--brass-bright);
   }
-  .tech-btn.primary:hover {
+  .btn-action.primary:hover {
     background: #ffcf54;
-    box-shadow: 0 0 15px rgba(243, 186, 66, 0.4);
+    box-shadow: 0 0 16px rgba(243, 186, 66, 0.4);
   }
-  .tech-btn.ghost {
+  .btn-action.ghost {
     background: transparent;
-    color: var(--text-primary);
-    border-color: var(--border-highlight);
+    color: var(--text-body);
+    border-color: var(--border-bright);
   }
-  .tech-btn.ghost:hover {
-    border-color: var(--gold-bright);
-    color: var(--gold-bright);
+  .btn-action.ghost:hover {
+    border-color: var(--brass-bright);
+    color: var(--brass-bright);
   }
 
-  /* ── LIVE TRACE RUNNER WIDGET ── */
-  .trace-runner {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-grid);
-    border-radius: 2px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  /* ── 2. PROOF SECTION ── */
+  .proof-section {
+    margin-bottom: 4.5rem;
   }
-  .command-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.85rem 1.25rem;
-    background: #111622;
-    border-bottom: 1px solid var(--border-grid);
-    font-family: var(--font-mono);
-    font-size: 0.88rem;
-  }
-  .prompt-symbol { color: var(--gold-bright); font-weight: 900; }
-  .prompt-label { color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; }
-  .prompt-text { color: var(--text-pure); font-weight: 600; }
-
-  .split-lanes {
+  .proof-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    border-collapse: collapse;
+    gap: 1.25rem;
   }
-  @media (max-width: 860px) { .split-lanes { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) { .proof-grid { grid-template-columns: 1fr; } }
+  .proof-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+    padding: 1.5rem;
+  }
+  .box-bad { border-top: 3px solid var(--red); }
+  .box-good { border-top: 3px solid var(--brass-bright); background: #111520; }
+  .box-tag {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .box-tag.accent { color: var(--brass-bright); }
+  .box-metric {
+    font-family: var(--font-mono);
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--text-white);
+    margin-bottom: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .box-metric.accent { color: var(--brass-bright); }
+  .box-desc {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .box-desc code {
+    font-family: var(--font-mono);
+    color: var(--brass-bright);
+    font-size: 0.85em;
+  }
 
-  .lane { display: flex; flex-direction: column; justify-content: space-between; }
-  .lane-amnesiac { border-right: 1px solid var(--border-grid); }
-  @media (max-width: 860px) { .lane-amnesiac { border-right: none; border-bottom: 1px solid var(--border-grid); } }
-
-  .lane-header {
-    padding: 0.85rem 1.25rem;
-    background: rgba(255,255,255,0.02);
-    border-bottom: 1px solid var(--border-grid);
+  /* ── 3. SPECIMEN SECTION ── */
+  .specimen-section {
+    margin-bottom: 4.5rem;
+  }
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--brass-bright);
+    margin-bottom: 1rem;
+  }
+  .specimen-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+  }
+  .sc-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 0.85rem 1.25rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-dim);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .sc-title { display: flex; align-items: center; gap: 0.5rem; }
+  .sc-badge {
     font-family: var(--font-mono);
-  }
-  .lane-badge { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; padding: 0.2rem 0.5rem; border-radius: 2px; }
-  .badge-red { background: rgba(248, 113, 113, 0.15); color: var(--red-bright); border: 1px solid rgba(248, 113, 113, 0.3); }
-  .badge-gold { background: rgba(204, 164, 59, 0.15); color: var(--gold-bright); border: 1px solid rgba(204, 164, 59, 0.3); }
-  .lane-metrics { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-
-  .lane-body { padding: 1.25rem; flex: 1; }
-  .trace-log {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    margin-bottom: 1.25rem;
-  }
-  .log-entry {
-    display: grid;
-    grid-template-columns: 55px 120px 1fr 85px;
-    align-items: baseline;
-    padding: 0.25rem 0.4rem;
-    background: rgba(0,0,0,0.25);
-    border-radius: 2px;
-  }
-  .log-intercept {
-    background: rgba(204, 164, 59, 0.1);
-    border: 1px solid rgba(204, 164, 59, 0.25);
-  }
-  .log-time { color: var(--text-muted); font-size: 0.75rem; }
-  .log-action { color: #818cf8; font-weight: 700; }
-  .log-target { color: var(--text-primary); }
-  .log-cost { text-align: right; color: var(--red-bright); font-variant-numeric: tabular-nums; }
-
-  .diff-block {
-    background: #090c12;
-    border: 1px solid var(--border-grid);
-    border-radius: 2px;
-  }
-  .diff-header {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 0.85rem;
-    background: #111622;
-    border-bottom: 1px solid var(--border-grid);
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-  .diff-code {
-    padding: 0.85rem 1rem;
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
-    line-height: 1.55;
-    color: var(--text-primary);
-  }
-  .critique-line { display: block; padding: 0.15rem 0; font-weight: 600; }
-  .critique-line.bad { color: var(--red-bright); }
-  .critique-line.good { color: var(--green-bright); }
-
-  .schema-intercept-box {
-    background: #121824;
-    border: 1px solid rgba(204, 164, 59, 0.4);
-    border-radius: 2px;
-    padding: 0.85rem 1rem;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 0 15px rgba(204, 164, 59, 0.08);
-  }
-  .sib-head { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.5rem; }
-  .sib-label { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 800; color: var(--gold-bright); letter-spacing: 0.08em; }
-  .sib-name { font-family: var(--font-mono); font-size: 0.92rem; font-weight: 800; color: #fff; }
-  .sib-telemetry { font-family: var(--font-mono); font-size: 0.72rem; color: var(--green-bright); margin-left: auto; }
-  .sib-content { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.84rem; }
-  .sib-row { display: grid; grid-template-columns: 85px 1fr; gap: 0.5rem; align-items: baseline; }
-  .sib-k { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
-  .sib-v { color: var(--text-primary); line-height: 1.45; }
-
-  .lane-footer {
-    padding: 0.75rem 1.25rem;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     font-weight: 800;
-    border-top: 1px solid var(--border-grid);
+    background: var(--brass-bright);
+    color: #080a0f;
+    padding: 0.15rem 0.45rem;
+    border-radius: 2px;
   }
-  .footer-bad { background: rgba(248, 113, 113, 0.08); color: var(--red-bright); }
-  .footer-good { background: rgba(74, 222, 128, 0.08); color: var(--green-bright); }
-
-  /* ── SECTION 2: EDITORIAL THESIS ── */
-  .thesis-section {
-    padding: 6rem 1.5rem;
-    background: #090c12;
-    border-bottom: 1px solid var(--border-grid);
-  }
-  .thesis-container {
-    max-width: 80rem;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1.6fr;
-    gap: 4rem;
-    align-items: start;
-  }
-  @media (max-width: 860px) { .thesis-container { grid-template-columns: 1fr; gap: 2.5rem; } }
-
-  .thesis-statement {
-    font-size: clamp(1.8rem, 3.2vw, 2.6rem);
-    font-weight: 900;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    color: var(--text-pure);
-    margin: 0 0 1rem;
-    border-left: 3px solid var(--gold-bright);
-    padding-left: 1.5rem;
-  }
-  .thesis-cite { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); padding-left: 1.5rem; }
-
-  .thesis-body-col h2 { font-size: 1.8rem; font-weight: 800; color: var(--text-pure); margin-bottom: 1rem; }
-  .thesis-body-col p { font-size: 1.05rem; line-height: 1.7; color: var(--text-primary); margin-bottom: 1.25rem; }
-  .quote-callout {
+  .sc-title code {
     font-family: var(--font-mono);
     font-size: 0.95rem;
-    color: var(--gold-bright);
-    background: rgba(204, 164, 59, 0.08);
-    border-left: 3px solid var(--gold-bright);
-    padding: 0.85rem 1.25rem;
-    margin-bottom: 1.8rem;
+    font-weight: 800;
+    color: var(--text-white);
   }
-
-  /* Pyramid */
-  .tier-pyramid { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 2rem; }
-  .tier-level {
-    padding: 1.1rem 1.5rem;
-    border-radius: 2px;
-    border: 1px solid var(--border-grid);
-    background: var(--bg-surface);
+  .sc-status {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--green);
+    font-weight: 700;
   }
-  .tier-3 { border-color: var(--gold-bright); background: #151a26; }
-  .tier-badge { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 800; color: var(--text-muted); margin-bottom: 0.2rem; }
-  .tier-3 .tier-badge { color: var(--gold-bright); }
-  .tier-title { font-size: 1.1rem; font-weight: 800; color: var(--text-pure); }
-  .tier-desc { font-size: 0.88rem; color: var(--text-muted); margin-top: 0.2rem; }
-  .tier-arrow { font-family: var(--font-mono); font-size: 0.72rem; color: var(--gold-bright); text-align: center; margin: 0.2rem 0; font-weight: 700; }
-
-  /* ── SECTION 3: ERAS TABLE ── */
-  .eras-section {
-    padding: 6rem 1.5rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    border-bottom: 1px solid var(--border-grid);
-  }
-  .section-lead { margin-bottom: 3rem; text-align: left; }
-  .mono-label { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; color: var(--gold-bright); letter-spacing: 0.15em; display: block; margin-bottom: 0.6rem; }
-  .section-lead h2 { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 900; color: var(--text-pure); margin: 0; }
-  .section-subtext { font-size: 1.05rem; color: var(--text-muted); margin-top: 0.6rem; }
-
-  .eras-table { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border-grid); border-radius: 2px; }
-  .era-row {
-    display: grid;
-    grid-template-columns: 140px 220px 1fr 1fr;
-    gap: 1.5rem;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-grid);
-    align-items: baseline;
-    font-size: 0.92rem;
-  }
-  .era-row:last-child { border-bottom: none; }
-  .era-active { background: rgba(204, 164, 59, 0.05); }
-  .era-col-year { font-family: var(--font-mono); font-weight: 900; font-size: 1rem; color: var(--text-muted); }
-  .era-col-name { font-weight: 800; color: var(--text-pure); font-size: 1.05rem; }
-  .era-col-mechanism { color: var(--text-primary); line-height: 1.5; }
-  .era-col-flaw { font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.5; }
-  @media (max-width: 860px) {
-    .era-row { grid-template-columns: 1fr; gap: 0.6rem; }
-  }
-
-  /* ── SECTION 4: WORKBENCH ══ */
-  .workbench-section {
-    padding: 6rem 1.5rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    border-bottom: 1px solid var(--border-grid);
-  }
-  .workbench-rig { border: 1px solid var(--border-grid); border-radius: 2px; background: var(--bg-surface); }
-  .rig-tabs { display: flex; border-bottom: 1px solid var(--border-grid); background: #0c0f16; flex-wrap: wrap; }
-  .rig-tab {
-    padding: 0.85rem 1.4rem;
-    background: transparent;
-    border: none;
-    border-right: 1px solid var(--border-grid);
-    border-bottom: 2px solid transparent;
+  .sc-content { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
+  .sc-row { display: grid; grid-template-columns: 110px 1fr; gap: 1rem; align-items: baseline; }
+  @media (max-width: 600px) { .sc-row { grid-template-columns: 1fr; gap: 0.3rem; } }
+  .sc-k {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
     color: var(--text-muted);
+  }
+  .sc-v { font-size: 0.95rem; color: var(--text-body); }
+  .sc-v.highlight { color: var(--text-white); font-weight: 600; }
+  .sc-v.rule {
     font-family: var(--font-mono);
-    cursor: pointer;
-    display: flex;
-    gap: 0.6rem;
-    align-items: baseline;
-    transition: all 0.15s;
-  }
-  .rig-tab:hover { color: var(--text-pure); background: rgba(255,255,255,0.02); }
-  .rig-tab.is-active {
-    color: var(--gold-bright);
-    background: var(--bg-surface);
-    border-bottom-color: var(--gold-bright);
-  }
-  .tab-index { color: var(--text-muted); font-size: 0.72rem; }
-  .tab-name { font-weight: 700; font-size: 0.86rem; color: var(--text-pure); }
-  .tab-tag { font-size: 0.7rem; color: var(--text-muted); }
-
-  .specimen-panel { display: none; padding: 2rem; }
-  .specimen-panel.is-active { display: block; }
-  .panel-terminal {
-    background: #090c12;
-    border: 1px solid var(--border-grid);
-    border-radius: 2px;
-  }
-  .pt-bar {
-    padding: 0.65rem 1.25rem;
-    background: #111622;
-    border-bottom: 1px solid var(--border-grid);
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-  }
-  .pt-title { color: var(--text-muted); font-weight: 700; }
-  .pt-status { font-weight: 800; font-size: 0.75rem; letter-spacing: 0.05em; }
-
-  .pt-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
-  .pt-segment { display: grid; grid-template-columns: 180px 1fr; gap: 1.25rem; align-items: baseline; }
-  @media (max-width: 680px) { .pt-segment { grid-template-columns: 1fr; gap: 0.4rem; } }
-  .pt-key { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.05em; }
-  .pt-data { font-size: 0.95rem; color: var(--text-primary); }
-  .highlight-box {
+    font-size: 0.88rem;
+    color: var(--text-white);
     background: rgba(204, 164, 59, 0.08);
     border: 1px solid rgba(204, 164, 59, 0.25);
     padding: 0.75rem 1rem;
-    font-family: var(--font-mono);
-    font-size: 0.88rem;
-    color: var(--text-pure);
+    border-radius: 2px;
   }
-  .pt-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  .t-pill {
+  .sc-members { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .m-pill {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    padding: 0.25rem 0.65rem;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border-grid);
-    color: var(--text-primary);
-  }
-  .t-pill.anchor { border-color: rgba(74, 222, 128, 0.35); color: var(--green-bright); }
-
-  /* ── SECTION 5: LEDGER ══ */
-  .ledger-section {
-    padding: 6rem 1.5rem;
-    background: #090c12;
-    border-bottom: 1px solid var(--border-grid);
-  }
-  .ledger-calculator {
-    max-width: 80rem;
-    margin: 0 auto 3.5rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-grid);
-    border-radius: 2px;
-  }
-  .calc-header-bar {
-    padding: 1.25rem 1.5rem;
-    background: #111622;
-    border-bottom: 1px solid var(--border-grid);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1.25rem;
-  }
-  .ch-label { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted); }
-  .ch-label strong { color: var(--gold-bright); font-size: 1.2rem; }
-  .sharp-slider {
-    width: 280px;
-    height: 6px;
-    background: #252e40;
-    outline: none;
-    -webkit-appearance: none;
-    accent-color: var(--gold-bright);
-    border-radius: 0;
-  }
-
-  .financial-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.92rem;
-  }
-  .financial-table th {
-    text-align: left;
-    padding: 0.9rem 1.5rem;
-    background: rgba(0,0,0,0.25);
-    border-bottom: 1px solid var(--border-grid);
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    font-weight: 800;
+    padding: 0.25rem 0.6rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-dim);
     color: var(--text-muted);
-    letter-spacing: 0.08em;
-  }
-  .financial-table td {
-    padding: 1.1rem 1.5rem;
-    border-bottom: 1px solid var(--border-grid);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-  .financial-table tr:last-child td { border-bottom: none; }
-  .financial-table .highlight-row td { background: rgba(204, 164, 59, 0.05); }
-
-  .text-right { text-align: right; }
-  .text-gold { color: var(--gold-bright); }
-  .text-green { color: var(--green-bright); }
-  .text-red { color: var(--red-bright); }
-  .text-white { color: #fff; }
-  .font-bold { font-weight: 700; }
-
-  .invariants-row {
-    max-width: 80rem;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-  }
-  .inv-block {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-grid);
-    padding: 1.5rem;
     border-radius: 2px;
   }
-  .inv-k { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 800; color: var(--gold-bright); letter-spacing: 0.1em; display: block; margin-bottom: 0.4rem; }
-  .inv-v { font-family: var(--font-mono); font-size: 1.8rem; font-weight: 900; color: var(--text-pure); display: block; margin-bottom: 0.6rem; }
-  .inv-block p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
+  .m-pill.anchor { color: var(--green); border-color: rgba(74, 222, 128, 0.3); }
 
-  /* ── SECTION 6: PROTOCOL ══ */
-  .protocol-section {
-    padding: 6rem 1.5rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    border-bottom: 1px solid var(--border-grid);
+  /* ── 4. WORKFLOW / COMMANDS ── */
+  .workflow-section {
+    margin-bottom: 4.5rem;
   }
-  .protocol-steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.25rem;
-  }
-  .proto-step {
+  .terminal-card {
     background: var(--bg-surface);
-    border: 1px solid var(--border-grid);
-    padding: 1.6rem;
+    border: 1px solid var(--border-dim);
     border-radius: 2px;
   }
-  .ps-num {
-    font-family: var(--font-mono);
-    font-size: 1.1rem;
-    font-weight: 900;
-    color: var(--gold-bright);
-    margin-bottom: 0.8rem;
-  }
-  .proto-step h3 { font-size: 1.15rem; font-weight: 800; color: var(--text-pure); margin-bottom: 0.5rem; }
-  .proto-step p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
-  .proto-step code { font-size: 0.82em; color: var(--gold-bright); }
-
-  /* ── SECTION 7: COMMANDS ══ */
-  .commands-section {
-    padding: 6rem 1.5rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    border-bottom: 1px solid var(--border-grid);
-  }
-  .cmd-stack { display: flex; flex-direction: column; gap: 1.5rem; }
-  .cmd-box {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-grid);
-    border-radius: 2px;
-  }
-  .cb-chrome {
-    padding: 0.75rem 1.25rem;
-    background: #111622;
-    border-bottom: 1px solid var(--border-grid);
+  .tc-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
+    gap: 0.6rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-dim);
   }
-  .cb-cmd { color: var(--text-pure); font-weight: 800; }
-  .cb-desc { color: var(--gold-bright); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; }
-  .cb-body {
-    padding: 1.1rem 1.25rem;
-    margin: 0;
-    background: #090c12;
-    font-family: var(--font-mono);
-    font-size: 0.84rem;
-    color: var(--text-primary);
-    overflow-x: auto;
-  }
+  .tc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brass-bright); }
+  .tc-title { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); font-weight: 700; }
+  .tc-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  .code-block { display: flex; flex-direction: column; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.85rem; }
+  .comment { color: var(--text-muted); }
+  .cmd { color: var(--brass-bright); font-weight: 700; }
+  .output { color: #818cf8; font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 0.4rem 0.75rem; border-radius: 2px; border: 1px solid var(--border-dim); }
 
-  /* ── SECTION 8: BOTTOM CTA ══ */
-  .bottom-cta { padding: 7rem 1.5rem; text-align: center; background: #080a0f; }
-  .cta-box { max-width: 48rem; margin: 0 auto; }
-  .cta-heading { font-size: clamp(2rem, 4.5vw, 3.2rem); font-weight: 900; color: var(--text-pure); margin-bottom: 1rem; letter-spacing: -0.02em; }
-  .cta-sub { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 2.2rem; }
-  .terminal-install {
+  /* ── 5. INSTALL ── */
+  .install-section {
+    margin-bottom: 2rem;
+  }
+  .install-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dim);
+    border-radius: 2px;
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+  .install-box h2 {
+    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+    font-weight: 900;
+    color: var(--text-white);
+    margin: 0 0 0.6rem;
+  }
+  .install-box p {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin: 0 0 1.8rem;
+  }
+  .install-code {
     display: inline-flex;
     align-items: center;
-    gap: 0.85rem;
-    background: #111622;
-    border: 1px solid var(--border-grid);
-    padding: 0.85rem 1.5rem;
-    margin-bottom: 2.5rem;
+    gap: 0.75rem;
+    background: #090c12;
+    border: 1px solid var(--border-bright);
+    padding: 0.75rem 1.25rem;
     font-family: var(--font-mono);
-    font-size: 0.95rem;
-    color: var(--gold-bright);
+    font-size: 0.9rem;
+    color: var(--brass-bright);
+    margin-bottom: 2rem;
     flex-wrap: wrap;
     justify-content: center;
+    border-radius: 2px;
   }
-  .install-divider { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
-  .cta-button-row { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .install-code .sep { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+  .install-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
-  /* ── FOOTER ══ */
-  .ledger-footer { border-top: 1px solid var(--border-grid); background: #06070a; padding: 2.5rem 1.5rem; }
+  /* ── FOOTER ── */
+  .bottom-footer {
+    border-top: 1px solid var(--border-dim);
+    background: #06070a;
+    padding: 2rem 1.5rem;
+  }
   .footer-wrap {
-    max-width: 80rem;
+    max-width: 68rem;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1.5rem;
+    gap: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
   }
-  .footer-col-main { display: flex; flex-direction: column; gap: 0.2rem; }
-  .footer-brand { font-family: var(--font-mono); font-weight: 900; font-size: 1rem; color: var(--text-pure); }
-  .footer-license { font-size: 0.8rem; color: var(--text-muted); }
-  .footer-nav { display: flex; gap: 1.5rem; }
-  .footer-nav a { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-muted); text-decoration: none; }
-  .footer-nav a:hover { color: var(--gold-bright); }
+  .footer-links { display: flex; gap: 1.25rem; }
+  .footer-links a { color: var(--text-muted); text-decoration: none; }
+  .footer-links a:hover { color: var(--brass-bright); }
 </style>
