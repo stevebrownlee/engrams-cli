@@ -17,7 +17,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Engrams — The Schema Runtime for AI Agents</title>
   </head>
-  <body class="signal-body">
+  <body class="runtime-body">
     <!-- ── TOP BAR ── -->
     <header class="top-bar">
       <div class="bar-inner">
@@ -38,28 +38,26 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     </header>
 
     <main class="page-content">
-      <!-- ══ 1. THE HERO MANIFESTO ══ -->
-      <section class="hero-signal">
-        <div class="signal-kicker">NOT A MEMORY STORE · NOT STATIC RULES · AN ACTIVE RUNTIME</div>
-        <h1 class="signal-title">
+      <!-- ══ 1. THE HERO ══ -->
+      <section class="hero-section">
+        <h1 class="hero-title">
           The Schema Runtime<br />
           <span class="accent">for AI Coding Agents.</span>
         </h1>
-        <p class="signal-lede">
+        <p class="hero-lede">
           Static markdown rules bloat your prompt. Flat memory stores sit passively waiting to be queried.
           Engrams is an <strong>active runtime</strong> that continuously finds, defines, and refines
           mental models for your codebase — just like the human brain.
         </p>
 
-        <div class="signal-actions">
+        <div class="hero-actions">
           <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
-          <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Schema Guide</a>
+          <a href="/docs/guide/cognitive-schemas" class="btn-action secondary">Read the Schema Guide</a>
         </div>
       </section>
 
-      <!-- ══ 2. WHY A RUNTIME? (THE THREE-WAY SEPARATION) ══ -->
+      <!-- ══ 2. WHY A RUNTIME? (CATEGORICAL SEPARATION) ══ -->
       <section id="runtime" class="content-section">
-        <div class="section-label">PART 01 // CATEGORICAL SEPARATION</div>
         <h2 class="section-heading">Why a Schema Runtime?</h2>
         <p class="section-description">
           Other tools treat AI context as static files or dead databases. A runtime is different:
@@ -68,9 +66,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
         <div class="runtime-matrix">
           <div class="matrix-card">
-            <span class="matrix-badge text-muted">PASSIVE MEMORY STORES</span>
+            <span class="matrix-tag tag-muted">PASSIVE MEMORY STORES</span>
             <h3>Vector Databases &amp; ADR Lists</h3>
-            <div class="matrix-flaw">Dead history waiting to be asked</div>
+            <div class="matrix-flaw">Dead history waiting to be searched</div>
             <p>
               Stores hundreds of isolated notes. But the agent has no trigger condition — it doesn't know
               <em>when</em> a rule applies. It either queries blindly or ignores your history completely.
@@ -78,7 +76,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           </div>
 
           <div class="matrix-card">
-            <span class="matrix-badge text-muted">STATIC RULES FILES</span>
+            <span class="matrix-tag tag-muted">STATIC RULES FILES</span>
             <h3>Prompt Stuffing &amp; <code>.cursorrules</code></h3>
             <div class="matrix-flaw">Brittle, manual, and bloated</div>
             <p>
@@ -88,9 +86,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           </div>
 
           <div class="matrix-card matrix-featured">
-            <span class="matrix-badge text-gold">THE ENGRAMS RUNTIME</span>
+            <span class="matrix-tag tag-teal">THE ENGRAMS RUNTIME</span>
             <h3>Active Cognitive Schemas</h3>
-            <div class="matrix-flaw text-green">Continuous perception &amp; conditional execution</div>
+            <div class="matrix-flaw text-teal">Continuous perception &amp; 1ms execution</div>
             <p>
               Autonomously clusters codebase activity, formalizes triggers and directives, and intercepts agent
               edits in 1ms with compact 250-token playbooks.
@@ -101,7 +99,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
       <!-- ══ 3. WHAT IS A SCHEMA? ══ -->
       <section id="what" class="content-section">
-        <div class="section-label">PART 02 // THE COGNITIVE MODEL</div>
         <h2 class="section-heading">What is a Schema?</h2>
         <p class="section-description">
           Human experts don't re-read the company manual before every task. They rely on <strong>cognitive schemas</strong>:
@@ -177,7 +174,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
       <!-- ══ 4. HOW THE RUNTIME LEARNS: FINDS, DEFINES, REFINES, EXECUTES ══ -->
       <section id="lifecycle" class="content-section">
-        <div class="section-label">PART 03 // THE CONTINUOUS LOOP</div>
         <h2 class="section-heading">How the Runtime Learns</h2>
         <p class="section-description">
           The human brain doesn't require manual file editing to form intuition. Engrams runs a continuous
@@ -187,8 +183,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="loop-grid">
           <!-- Step 1: Finds -->
           <div class="loop-card">
-            <div class="lc-stage">STAGE 01</div>
-            <h3>1. Finds (Perception)</h3>
+            <div class="lc-stage">01 / PERCEPTION</div>
+            <h3>Finds</h3>
             <p>
               As you commit code and log decisions, graph community detection identifies natural clusters
               of co-edited files and decisions in local SQLite.
@@ -198,8 +194,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           <!-- Step 2: Defines -->
           <div class="loop-card">
-            <div class="lc-stage">STAGE 02</div>
-            <h3>2. Defines (Accommodation)</h3>
+            <div class="lc-stage">02 / ACCOMMODATION</div>
+            <h3>Defines</h3>
             <p>
               At session close, Engrams nudges you with ready-to-run confirm commands, and authoring enforces
               strict trigger-and-rule contracts.
@@ -210,8 +206,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           <!-- Step 3: Refines -->
           <div class="loop-card">
-            <div class="lc-stage">STAGE 03</div>
-            <h3>3. Refines (Adaptation)</h3>
+            <div class="lc-stage">03 / ADAPTATION</div>
+            <h3>Refines</h3>
             <p>
               Tracks git staleness drift, records retrieval surface counts, and re-notifies when new candidate
               evidence advances beyond prior notifications.
@@ -222,8 +218,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           <!-- Step 4: Executes -->
           <div class="loop-card lc-featured">
-            <div class="lc-stage text-gold">STAGE 04</div>
-            <h3>4. Executes (Action)</h3>
+            <div class="lc-stage text-orange">04 / ACTION</div>
+            <h3>Executes</h3>
             <p>
               Tomorrow, your AI touches matching files. <code>engrams advise</code> intercepts the edit in 1ms,
               injecting the active schema before a single line is written.
@@ -235,7 +231,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
       <!-- ══ 5. THREE COMMANDS THAT RUN IT ══ -->
       <section class="content-section">
-        <div class="section-label">PART 04 // THE INTERFACE</div>
         <h2 class="section-heading">Three Operational Levers</h2>
         <p class="section-description">
           Your AI executes the advice automatically. You steer the runtime with three high-leverage commands.
@@ -283,7 +278,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </div>
       </section>
 
-      <!-- ══ 6. INSTALL & ACTION ══ -->
+      <!-- ══ 6. INSTALL ══ -->
       <section class="install-section">
         <div class="install-box">
           <h2>Give your AI the mental models it deserves.</h2>
@@ -295,7 +290,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           </div>
           <div class="install-actions">
             <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
-            <a href="/docs/guide/cognitive-schemas" class="btn-action ghost">Read the Full Guide</a>
+            <a href="/docs/guide/cognitive-schemas" class="btn-action secondary">Read the Full Guide</a>
           </div>
         </div>
       </section>
@@ -304,7 +299,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <!-- ── FOOTER ── -->
     <footer class="bottom-footer">
       <div class="footer-wrap">
-        <span>⬡ ENGRAMS · Apache-2.0 · The Schema Runtime for AI Agents</span>
+        <span class="footer-brand">⬡ ENGRAMS · Apache-2.0 · The Schema Runtime for AI Agents</span>
         <div class="footer-links">
           <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>
           <a href="/docs/getting-started">Docs</a>
@@ -318,28 +313,30 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
 <style>
   /* ============================================================
-     THE SCHEMA RUNTIME: BRUTALIST ARCHITECTURAL LEDGER
+     COOLORS PALETTE: #ff9f1c | #ffbf69 | #ffffff | #cbf3f0 | #2ec4b6
+     Text: Deep Pine (#0c2423) for crisp, authoritative contrast
+     Zero black background. Zero tiny headers above large headers.
      ============================================================ */
 
   :root {
-    --bg-dark: #080a0f;
-    --bg-surface: #0e121a;
-    --bg-elevated: #131824;
-    --border-dim: #1e2636;
-    --border-bright: #2d384e;
-    --text-white: #ffffff;
-    --text-body: #e2e8f0;
-    --text-muted: #8e9bb0;
-    --brass: #cca43b;
-    --brass-bright: #f3ba42;
-    --green: #4ade80;
+    --c-orange:       #ff9f1c; /* primary warm action */
+    --c-peach:        #ffbf69; /* soft warm secondary */
+    --c-white:        #ffffff; /* crisp white */
+    --c-aqua:         #cbf3f0; /* ice aqua / border / tint */
+    --c-teal:         #2ec4b6; /* vibrant teal / brand */
+    --c-pine:         #0c2423; /* high-contrast dark text */
+    --c-pine-muted:   #345351; /* secondary text */
+    --c-surface:      #ffffff;
+    --c-surface-subtle: #f5fcfa;
+    --c-border:       #cbf3f0;
+    --c-border-strong: #2ec4b6;
     --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
 
-  .signal-body {
-    background: var(--bg-dark);
-    color: var(--text-body);
+  .runtime-body {
+    background: var(--c-white);
+    color: var(--c-pine);
     font-family: var(--font-sans);
     line-height: 1.6;
     margin: 0;
@@ -352,131 +349,121 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 100;
-    background: rgba(8, 10, 15, 0.96);
-    border-bottom: 1px solid var(--border-dim);
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid var(--c-border);
     backdrop-filter: blur(8px);
   }
   .bar-inner {
     max-width: 72rem;
     margin: 0 auto;
-    padding: 0.75rem 1.5rem;
+    padding: 0.85rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .brand { display: flex; align-items: baseline; gap: 0.4rem; text-decoration: none; color: var(--text-white); }
-  .glyph { color: var(--brass-bright); font-size: 1.1rem; }
-  .name { font-family: var(--font-mono); font-weight: 900; font-size: 1rem; letter-spacing: 0.05em; }
-  .version { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin-left: 0.2rem; }
+  .brand { display: flex; align-items: baseline; gap: 0.4rem; text-decoration: none; color: var(--c-pine); }
+  .glyph { color: var(--c-orange); font-size: 1.15rem; font-weight: 900; }
+  .name { font-family: var(--font-mono); font-weight: 900; font-size: 1.05rem; letter-spacing: 0.05em; color: var(--c-pine); }
+  .version { font-family: var(--font-mono); font-size: 0.72rem; color: var(--c-teal); margin-left: 0.2rem; font-weight: 700; }
   .nav { display: flex; gap: 1.4rem; }
-  .nav a { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
-  .nav a:hover { color: var(--text-white); }
-  .nav a.highlight { color: var(--brass-bright); font-weight: 700; }
+  .nav a { font-family: var(--font-mono); font-size: 0.82rem; color: var(--c-pine-muted); text-decoration: none; font-weight: 600; transition: color 0.15s; }
+  .nav a:hover { color: var(--c-teal); }
+  .nav a.highlight { color: var(--c-orange); font-weight: 800; }
   @media (max-width: 760px) { .nav a:not(:last-child):not(.highlight) { display: none; } }
 
   /* ── MAIN CONTENT CONTAINER ── */
   .page-content {
     max-width: 72rem;
     margin: 0 auto;
-    padding: 7.5rem 1.5rem 4rem;
+    padding: 7rem 1.5rem 4rem;
   }
 
   /* ── 1. HERO ── */
-  .hero-signal {
+  .hero-section {
     margin-bottom: 5.5rem;
     text-align: left;
+    padding: 2.5rem 0 1rem;
   }
-  .signal-kicker {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    color: var(--brass-bright);
-    margin-bottom: 1.25rem;
-  }
-  .signal-title {
-    font-size: clamp(2.4rem, 5.5vw, 4.3rem);
+  .hero-title {
+    font-size: clamp(2.5rem, 5.8vw, 4.4rem);
     font-weight: 900;
     line-height: 1.08;
     letter-spacing: -0.03em;
-    color: var(--text-white);
+    color: var(--c-pine);
     margin: 0 0 1.6rem;
   }
-  .signal-title .accent { color: var(--brass-bright); }
-  .signal-lede {
-    font-size: 1.2rem;
-    line-height: 1.65;
-    color: var(--text-body);
-    max-width: 52rem;
-    margin-bottom: 2.2rem;
+  .hero-title .accent {
+    color: var(--c-teal);
+    display: block;
   }
-  .signal-lede strong { color: var(--text-white); }
-  .signal-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .hero-lede {
+    font-size: 1.25rem;
+    line-height: 1.65;
+    color: var(--c-pine-muted);
+    max-width: 52rem;
+    margin-bottom: 2.4rem;
+  }
+  .hero-lede strong { color: var(--c-pine); }
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
-  /* ── TECHNICAL BUTTONS (ZERO PILLS) ── */
+  /* ── TECHNICAL BUTTONS (SHARP RECTANGULAR, ZERO PILLS) ── */
   .btn-action {
     display: inline-flex;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0.8rem 1.6rem;
     font-family: var(--font-mono);
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     text-decoration: none;
     border-radius: 2px;
-    border: 1px solid transparent;
+    border: 2px solid transparent;
     cursor: pointer;
     transition: all 0.15s;
   }
   .btn-action.primary {
-    background: var(--brass-bright);
-    color: #080a0f;
-    border-color: var(--brass-bright);
+    background: var(--c-orange);
+    color: #ffffff;
+    border-color: var(--c-orange);
   }
   .btn-action.primary:hover {
-    background: #ffcf54;
-    box-shadow: 0 0 16px rgba(243, 186, 66, 0.4);
+    background: #e68e17;
+    border-color: #e68e17;
+    box-shadow: 0 4px 14px rgba(255, 159, 28, 0.35);
   }
-  .btn-action.ghost {
-    background: transparent;
-    color: var(--text-body);
-    border-color: var(--border-bright);
+  .btn-action.secondary {
+    background: var(--c-white);
+    color: var(--c-teal);
+    border-color: var(--c-teal);
   }
-  .btn-action.ghost:hover {
-    border-color: var(--brass-bright);
-    color: var(--brass-bright);
+  .btn-action.secondary:hover {
+    background: var(--c-aqua);
+    color: #1b8a80;
   }
 
-  /* ── COMMON SECTION HEADERS ── */
+  /* ── COMMON SECTION HEADERS (NO TINY LABELS) ── */
   .content-section {
     margin-bottom: 6rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border-dim);
-  }
-  .section-label {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-    color: var(--brass-bright);
-    margin-bottom: 0.6rem;
+    padding-top: 3.5rem;
+    border-top: 2px solid var(--c-aqua);
   }
   .section-heading {
     font-size: clamp(2rem, 4vw, 3rem);
     font-weight: 900;
-    color: var(--text-white);
+    color: var(--c-pine);
     letter-spacing: -0.02em;
     margin: 0 0 1rem;
+    line-height: 1.15;
   }
   .section-description {
-    font-size: 1.15rem;
-    color: var(--text-body);
+    font-size: 1.18rem;
+    color: var(--c-pine-muted);
     line-height: 1.65;
     max-width: 52rem;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2.8rem;
   }
-  .section-description strong { color: var(--text-white); }
+  .section-description strong { color: var(--c-pine); }
 
   /* ── 2. RUNTIME MATRIX (THREE-WAY SPLIT) ── */
   .runtime-matrix {
@@ -485,71 +472,75 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     gap: 1.5rem;
   }
   .matrix-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
     padding: 2rem 1.8rem;
     border-radius: 2px;
     display: flex;
     flex-direction: column;
   }
   .matrix-featured {
-    border-color: var(--brass);
-    background: #121824;
-    box-shadow: 0 0 25px rgba(204, 164, 59, 0.1);
+    border: 2px solid var(--c-teal);
+    background: #ffffff;
+    box-shadow: 0 8px 30px rgba(46, 196, 182, 0.12);
   }
-  .matrix-badge {
+  .matrix-tag {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     margin-bottom: 0.8rem;
   }
+  .tag-muted { color: var(--c-pine-muted); }
+  .tag-teal { color: var(--c-teal); }
   .matrix-card h3 {
     font-size: 1.3rem;
     font-weight: 800;
-    color: var(--text-white);
+    color: var(--c-pine);
     margin: 0 0 0.4rem;
   }
   .matrix-flaw {
     font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--text-muted);
+    font-size: 0.88rem;
+    color: var(--c-pine-muted);
     margin-bottom: 1rem;
-    font-weight: 600;
+    font-weight: 700;
   }
+  .text-teal { color: var(--c-teal); }
+  .text-orange { color: var(--c-orange); }
   .matrix-card p {
     font-size: 0.95rem;
-    color: var(--text-muted);
+    color: var(--c-pine-muted);
     line-height: 1.65;
     margin: 0;
   }
-  .matrix-card strong { color: var(--text-white); }
+  .matrix-card strong { color: var(--c-pine); }
 
   /* ── 3. WHAT IS A SCHEMA (SPECIMEN CARD) ── */
   .specimen-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
+    background: var(--c-white);
+    border: 2px solid var(--c-border);
     border-radius: 2px;
-    margin-bottom: 2.5rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    margin-bottom: 2.8rem;
+    box-shadow: 0 8px 24px rgba(12, 36, 35, 0.06);
   }
   .sc-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.85rem 1.4rem;
-    background: var(--bg-elevated);
-    border-bottom: 1px solid var(--border-dim);
+    padding: 1rem 1.5rem;
+    background: var(--c-surface-subtle);
+    border-bottom: 1px solid var(--c-border);
     flex-wrap: wrap;
     gap: 0.5rem;
   }
   .sc-title { display: flex; align-items: center; gap: 0.6rem; }
   .sc-badge {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 800;
-    background: var(--brass-bright);
-    color: #080a0f;
+    background: var(--c-orange);
+    color: #ffffff;
     padding: 0.15rem 0.5rem;
     border-radius: 2px;
   }
@@ -557,48 +548,50 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-family: var(--font-mono);
     font-size: 1.05rem;
     font-weight: 800;
-    color: var(--text-white);
+    color: var(--c-pine);
   }
   .sc-status {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--green);
-    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--c-teal);
+    font-weight: 800;
   }
-  .sc-content { padding: 1.8rem; display: flex; flex-direction: column; gap: 1.4rem; }
-  .sc-row { display: grid; grid-template-columns: 120px 1fr; gap: 1.25rem; align-items: baseline; }
+  .sc-content { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  .sc-row { display: grid; grid-template-columns: 130px 1fr; gap: 1.25rem; align-items: baseline; }
   @media (max-width: 680px) { .sc-row { grid-template-columns: 1fr; gap: 0.4rem; } }
   .sc-k {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 800;
-    color: var(--brass-bright);
+    color: var(--c-teal);
     letter-spacing: 0.05em;
   }
-  .sc-v strong { display: block; font-size: 0.88rem; color: var(--text-muted); margin-bottom: 0.25rem; font-family: var(--font-mono); }
-  .sc-v p { margin: 0; font-size: 1rem; color: var(--text-white); }
-  .sc-v code { font-family: var(--font-mono); color: var(--brass-bright); font-size: 0.9em; }
+  .sc-v strong { display: block; font-size: 0.88rem; color: var(--c-pine-muted); margin-bottom: 0.25rem; font-family: var(--font-mono); }
+  .sc-v p { margin: 0; font-size: 1.02rem; color: var(--c-pine); line-height: 1.6; }
+  .sc-v code { font-family: var(--font-mono); color: var(--c-teal); font-size: 0.9em; background: #e8f8f6; padding: 0.1rem 0.35rem; border-radius: 2px; }
   .rule-box {
     font-family: var(--font-mono) !important;
-    font-size: 0.92rem !important;
-    background: rgba(204, 164, 59, 0.08);
-    border: 1px solid rgba(204, 164, 59, 0.25);
-    padding: 0.85rem 1.1rem;
+    font-size: 0.94rem !important;
+    background: #fdf6ec;
+    border: 1px solid #ffd8a8;
+    border-left: 3px solid var(--c-orange);
+    padding: 0.9rem 1.2rem;
     border-radius: 2px;
-    color: var(--text-white) !important;
-    line-height: 1.55;
+    color: #7a4100 !important;
+    line-height: 1.6;
   }
   .sc-members { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
   .m-pill {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
-    padding: 0.3rem 0.65rem;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border-dim);
-    color: var(--text-body);
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    color: var(--c-pine-muted);
     border-radius: 2px;
+    font-weight: 600;
   }
-  .m-pill.anchor { color: var(--green); border-color: rgba(74, 222, 128, 0.35); }
+  .m-pill.anchor { color: #15796f; border-color: var(--c-teal); background: #eaf8f7; }
 
   .anatomy-grid {
     display: grid;
@@ -606,13 +599,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     gap: 1.5rem;
   }
   .anatomy-item {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
-    padding: 1.6rem;
+    background: var(--c-surface-subtle);
+    border: 1px solid var(--c-border);
+    padding: 1.8rem;
     border-radius: 2px;
   }
-  .anatomy-item h3 { font-size: 1.1rem; font-weight: 800; color: var(--text-white); margin: 0 0 0.5rem; }
-  .anatomy-item p { font-size: 0.92rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
+  .anatomy-item h3 { font-size: 1.15rem; font-weight: 800; color: var(--c-pine); margin: 0 0 0.5rem; }
+  .anatomy-item p { font-size: 0.95rem; color: var(--c-pine-muted); line-height: 1.6; margin: 0; }
 
   /* ── 4. HOW IT LEARNS (LOOP GRID) ── */
   .loop-grid {
@@ -621,83 +614,85 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     gap: 1.25rem;
   }
   .loop-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
     border-radius: 2px;
-    padding: 1.6rem;
+    padding: 1.8rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
   }
   .lc-featured {
-    border-color: var(--brass);
-    background: #121824;
+    border: 2px solid var(--c-teal);
+    background: #f7fdfc;
   }
   .lc-stage {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 800;
-    color: var(--text-muted);
-    letter-spacing: 0.12em;
+    color: var(--c-teal);
+    letter-spacing: 0.08em;
     margin-bottom: 0.6rem;
   }
   .loop-card h3 {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: var(--text-white);
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--c-pine);
     margin: 0 0 0.5rem;
   }
   .loop-card p {
-    font-size: 0.9rem;
-    color: var(--text-muted);
+    font-size: 0.95rem;
+    color: var(--c-pine-muted);
     line-height: 1.6;
-    margin: 0 0 1rem;
+    margin: 0 0 1.2rem;
     flex: 1;
   }
   .lc-code {
-    background: #090c12;
-    border: 1px solid var(--border-dim);
+    background: #0c2022;
+    border: 1px solid #1c3c3f;
     border-radius: 2px;
-    padding: 0.65rem 0.85rem;
+    padding: 0.75rem 0.95rem;
     margin: 0;
     overflow-x: auto;
   }
   .lc-code code {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--text-body);
+    font-size: 0.8rem;
+    color: var(--c-aqua);
     line-height: 1.45;
   }
 
   /* ── 5. THREE COMMANDS (STACK) ── */
   .cmd-stack { display: flex; flex-direction: column; gap: 1.5rem; }
   .cmd-box {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
+    background: var(--c-white);
+    border: 1px solid var(--c-border);
     border-radius: 2px;
+    overflow: hidden;
   }
   .cb-chrome {
-    padding: 0.75rem 1.25rem;
-    background: var(--bg-elevated);
-    border-bottom: 1px solid var(--border-dim);
+    padding: 0.85rem 1.25rem;
+    background: var(--c-surface-subtle);
+    border-bottom: 1px solid var(--c-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-family: var(--font-mono);
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .cb-cmd { color: var(--text-white); font-weight: 800; }
-  .cb-desc { color: var(--brass-bright); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; }
+  .cb-cmd { color: var(--c-pine); font-weight: 800; }
+  .cb-desc { color: var(--c-teal); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; }
   .cb-body {
-    padding: 1.1rem 1.25rem;
+    padding: 1.25rem;
     margin: 0;
-    background: #090c12;
+    background: #0c2022;
     font-family: var(--font-mono);
-    font-size: 0.84rem;
-    color: var(--text-body);
+    font-size: 0.86rem;
+    color: #e5fbf9;
     overflow-x: auto;
+    border: none;
   }
 
   /* ── 6. INSTALL ── */
@@ -706,8 +701,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     margin-bottom: 2rem;
   }
   .install-box {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-dim);
+    background: var(--c-surface-subtle);
+    border: 2px solid var(--c-aqua);
     border-radius: 2px;
     padding: 3.5rem 2rem;
     text-align: center;
@@ -715,37 +710,38 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .install-box h2 {
     font-size: clamp(1.8rem, 3.8vw, 2.6rem);
     font-weight: 900;
-    color: var(--text-white);
+    color: var(--c-pine);
     margin: 0 0 0.6rem;
     letter-spacing: -0.02em;
   }
   .install-box p {
-    color: var(--text-muted);
-    font-size: 1.05rem;
+    color: var(--c-pine-muted);
+    font-size: 1.1rem;
     margin: 0 0 2rem;
   }
   .install-code {
     display: inline-flex;
     align-items: center;
     gap: 0.85rem;
-    background: #090c12;
-    border: 1px solid var(--border-bright);
-    padding: 0.85rem 1.4rem;
+    background: #0c2022;
+    border: 1px solid #1c3c3f;
+    padding: 0.9rem 1.5rem;
     font-family: var(--font-mono);
     font-size: 0.95rem;
-    color: var(--brass-bright);
+    color: var(--c-orange);
     margin-bottom: 2.2rem;
     flex-wrap: wrap;
     justify-content: center;
     border-radius: 2px;
+    font-weight: 700;
   }
-  .install-code .sep { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+  .install-code .sep { color: #8ba7a5; font-size: 0.75rem; text-transform: uppercase; }
   .install-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
   /* ── FOOTER ── */
   .bottom-footer {
-    border-top: 1px solid var(--border-dim);
-    background: #06070a;
+    border-top: 1px solid var(--c-border);
+    background: #fafefe;
     padding: 2.2rem 1.5rem;
   }
   .footer-wrap {
@@ -757,15 +753,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     flex-wrap: wrap;
     gap: 1rem;
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    font-size: 0.82rem;
+    color: var(--c-pine-muted);
   }
+  .footer-brand { font-weight: 800; color: var(--c-pine); }
   .footer-links { display: flex; gap: 1.5rem; }
-  .footer-links a { color: var(--text-muted); text-decoration: none; }
-  .footer-links a:hover { color: var(--brass-bright); }
-
-  /* Utility classes */
-  .text-gold { color: var(--brass-bright); }
-  .text-green { color: var(--green); }
-  .text-muted { color: var(--text-muted); }
+  .footer-links a { color: var(--c-pine-muted); text-decoration: none; font-weight: 600; }
+  .footer-links a:hover { color: var(--c-teal); }
 </style>

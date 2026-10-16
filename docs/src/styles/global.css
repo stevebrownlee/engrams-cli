@@ -1,34 +1,33 @@
 /* ============================================================
    Engrams Documentation – Global Styles
-   Palette (live): Brass/Gold #cca43b | Gunmetal #242f40 |
-            Platinum #e5e5e5 | Jet #363636 | Off-white #fafafa
+   Palette: Orange #ff9f1c | Soft Peach #ffbf69 | White #ffffff |
+            Ice Aqua #cbf3f0 | Teal #2ec4b6 | Deep Pine #0c2423
    ============================================================ */
 
 :root {
-  --sky-aqua:    #cca43b; /* Brass / Gold */
-  --maya-blue:   #242f40; /* Gunmetal */
-  --powder-blue: #e5e5e5; /* Platinum */
-  --pastel-petal:#363636; /* Jet */
-  --lavender:    #ffffff; /* White */
+  --color-orange:       #ff9f1c;
+  --color-peach:        #ffbf69;
+  --color-white:        #ffffff;
+  --color-aqua:         #cbf3f0;
+  --color-teal:         #2ec4b6;
+  --color-pine:         #0c2423;
 
   /* Semantic tokens */
-  --color-bg:          #fafafa; /* Soft off-white */
+  --color-bg:          #ffffff;
+  --color-bg-subtle:   #f5fcfa;
   --color-bg-sidebar:  #ffffff;
-  --color-bg-code:     #f0f0f0;
+  --color-bg-code:     #f2f8f7;
   --color-surface:     #ffffff;
-  --color-border:      #e5e5e5; /* Platinum */
-  --color-accent:      #cca43b; /* Brass / Gold */
-  --color-accent-dim:  #242f40; /* Gunmetal */
-  --color-accent-soft: #e5e5e5; /* Platinum */
-  --color-muted:       #e5e5e5; /* Platinum */
-  --color-highlight:   #cca43b; /* Brass / Gold */
+  --color-border:      #cbf3f0;
+  --color-border-dark: #2ec4b6;
+  --color-accent:      #2ec4b6;
+  --color-accent-warm: #ff9f1c;
 
-  --color-text:        #242f40; /* Gunmetal */
-  --color-text-muted:  #363636; /* Jet */
-  --color-text-light:  #5c677d; /* Muted gray-blue */
-  --color-link:        #cca43b; /* Brass / Gold */
-  --color-link-hover:  #242f40; /* Gunmetal */
-
+  --color-text:        #0c2423;
+  --color-text-muted:  #375755;
+  --color-text-light:  #5f8582;
+  --color-link:        #2ec4b6;
+  --color-link-hover:  #ff9f1c;
   --sidebar-width: 260px;
   --toc-width:     220px;
   --header-height: 60px;
