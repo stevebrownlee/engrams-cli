@@ -60,7 +60,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <section id="runtime" class="content-section">
         <h2 class="section-heading">Why a Schema Runtime?</h2>
         <p class="section-description">
-          Other tools treat AI context as static files or dead databases. A runtime is different:
+          Other tools treat AI context as static text files or dead database records. A runtime is fundamentally different:
           it actively perceives changes, clusters patterns, and executes directives at the exact point of action.
         </p>
 
@@ -91,7 +91,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             <div class="matrix-flaw text-teal">Continuous perception &amp; 1ms execution</div>
             <p>
               Autonomously clusters codebase activity, formalizes triggers and directives, and intercepts agent
-              edits in 1ms with compact 250-token playbooks.
+              edits in 1ms with compact mental models.
             </p>
           </div>
         </div>
@@ -101,74 +101,112 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <section id="what" class="content-section">
         <h2 class="section-heading">What is a Schema?</h2>
         <p class="section-description">
-          Human experts don't re-read the company manual before every task. They rely on <strong>cognitive schemas</strong>:
-          intuitive mental models that sleep until a specific context wakes them up.
-          Engrams formalizes this into three machine-executable elements:
+          A schema is not a mechanical compiler rule. A compiler rule says <em>"don't clone on line 42."</em>
+          A Cognitive Schema is an <strong>intuitive mental model</strong> that packages multiple decisions,
+          code conventions, and tools into a single working paradigm.
         </p>
 
+        <!-- Real Specimen 1: Performance Rules (Engineering Paradigm) -->
         <div class="specimen-card">
           <div class="sc-header">
             <div class="sc-title">
-              <span class="sc-badge">SCHEMA</span>
-              <code>payment-adapters</code>
+              <span class="sc-badge">SCHEMA 01</span>
+              <code>performance-rules</code>
             </div>
-            <span class="sc-status">● active runtime concept · 1ms SQLite</span>
+            <div class="sc-meta-group">
+              <span class="sc-status">● active · guided 14 sessions</span>
+              <span class="sc-centroid">centroid: performance: 4 · sql: 1 · src/ops: 4</span>
+            </div>
           </div>
 
           <div class="sc-content">
             <div class="sc-row">
-              <span class="sc-k">⚡ TRIGGER</span>
+              <span class="sc-k">⚡ MENTAL TRIGGER</span>
               <div class="sc-v">
-                <strong>When does this concept activate?</strong>
-                <p>Fires when editing payment adapter implementations under <code>src/adapters/</code></p>
+                <strong>When does this mental model activate?</strong>
+                <p>Fires whenever I edit Rust code that creates, copies, or hands off collections and strings</p>
               </div>
             </div>
             <div class="sc-row">
-              <span class="sc-k">📋 DIRECTIVE</span>
+              <span class="sc-k">📋 CONCEPTUAL DIRECTIVE</span>
               <div class="sc-v">
-                <strong>What operational rule must be executed?</strong>
+                <strong>What operational paradigm is enforced?</strong>
                 <p class="rule-box">
-                  Implement PaymentProvider trait; pass idempotency_key to all charge requests; verify signatures with crypto::constant_time_eq; never log raw payload tokens.
+                  The four allocation rules (no throwaway collections, borrow SQL params, keep borrowed strings borrowed, consume lookup maps) plus the checker that enforces them.
                 </p>
               </div>
             </div>
             <div class="sc-row">
-              <span class="sc-k">🔗 MEMBERS</span>
+              <span class="sc-k">🔗 BUNDLED MEMBERS</span>
               <div class="sc-v">
-                <strong>What decisions and code anchors prove why?</strong>
+                <strong>What decisions, patterns, and code anchors are unified?</strong>
                 <div class="sc-members">
-                  <span class="m-pill">ADR #44: PaymentProvider interface contract</span>
-                  <span class="m-pill">Pattern #8: Constant-time signature verification</span>
-                  <span class="m-pill anchor">Anchor: src/adapters/stripe.rs</span>
-                  <span class="m-pill anchor">Anchor: src/billing/service.rs</span>
+                  <span class="m-pill">Decision #88: Borrowed SQL parameter lists</span>
+                  <span class="m-pill">Decision #91: Static vocabulary returns Cow&lt;str&gt;</span>
+                  <span class="m-pill">Pattern #11: Single-source row projections</span>
+                  <span class="m-pill">Pattern #12: Enrich by move, not get().clone()</span>
+                  <span class="m-pill checker">Checker: engrams check --staged</span>
+                  <span class="m-pill anchor">Anchor: src/ops/schemas/retrieval.rs</span>
+                  <span class="m-pill anchor">Anchor: src/ops/schemas/list.rs</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="anatomy-grid">
-          <div class="anatomy-item">
-            <h3>1. The Activation Trigger</h3>
-            <p>
-              The precise operational scope. Schemas don't float in global context; they sleep until matching file paths
-              or task tags wake them up.
-            </p>
+        <!-- Real Specimen 2: What to Build Next (Strategic Planning) -->
+        <div class="specimen-card" style="margin-top: 2rem;">
+          <div class="sc-header">
+            <div class="sc-title">
+              <span class="sc-badge peach">SCHEMA 02</span>
+              <code>what-to-build-next</code>
+            </div>
+            <div class="sc-meta-group">
+              <span class="sc-status">● active · guided 16 sessions</span>
+              <span class="sc-centroid">centroid: roadmap: 1 · planning: 1 · versioning: 1</span>
+            </div>
           </div>
-          <div class="anatomy-item">
-            <h3>2. The Operational Directive</h3>
-            <p>
-              The non-negotiable invariant the AI must follow. Not passive history, but an actionable directive that
-              prevents bugs and convention drift upfront.
-            </p>
+
+          <div class="sc-content">
+            <div class="sc-row">
+              <span class="sc-k">⚡ MENTAL TRIGGER</span>
+              <div class="sc-v">
+                <strong>When does this mental model activate?</strong>
+                <p>Fires when planning releases, evaluating roadmap priorities, or drafting new feature specifications</p>
+              </div>
+            </div>
+            <div class="sc-row">
+              <span class="sc-k">📋 CONCEPTUAL DIRECTIVE</span>
+              <div class="sc-v">
+                <strong>What operational paradigm is enforced?</strong>
+                <p class="rule-box warm">
+                  The pack that answers "what should engrams do next?": the 2026 agent-memory research survey (8 saved findings), the decision that turned it into a tiered version-by-version roadmap, and the survey session note. My learn → plan → ship loop — read this before writing any new spec.
+                </p>
+              </div>
+            </div>
+            <div class="sc-row">
+              <span class="sc-k">🔗 BUNDLED MEMBERS</span>
+              <div class="sc-v">
+                <strong>What decisions, research, and progress notes are unified?</strong>
+                <div class="sc-members">
+                  <span class="m-pill">Decision #74: Tiered version roadmap</span>
+                  <span class="m-pill">Research: 2026 agent-memory survey (8 findings)</span>
+                  <span class="m-pill">Progress: Survey session notes &amp; synthesis</span>
+                  <span class="m-pill anchor">Anchor: specs/</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="anatomy-item">
-            <h3>3. Bundled Knowledge Members</h3>
-            <p>
-              The underlying ADRs, patterns, and code anchors that ground the rule. If the AI needs to verify <em>why</em>,
-              the contracts and reasoning are already attached.
-            </p>
-          </div>
+        </div>
+
+        <div class="contrast-callout">
+          <h3>Why this is a mental model, not a linter rule</h3>
+          <p>
+            Notice how both schemas capture <strong>how an expert thinks</strong>: 
+            <code>performance-rules</code> doesn't just block a single function call; it packages four architectural decisions, two code files, and a validation checker into an instant zero-allocation posture. 
+            <code>what-to-build-next</code> packages a research survey and roadmap decisions into a planning protocol. 
+            Your AI receives the complete mental model on Turn 1 before writing a single line of code.
+          </p>
         </div>
       </section>
 
@@ -200,8 +238,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               At session close, Engrams nudges you with ready-to-run confirm commands, and authoring enforces
               strict trigger-and-rule contracts.
             </p>
-            <pre class="lc-code"><code>$ engrams schema confirm decision:10 \
-    --name payment-adapters</code></pre>
+            <pre class="lc-code"><code>$ engrams schema confirm decision:88 \
+    --name performance-rules</code></pre>
           </div>
 
           <!-- Step 3: Refines -->
@@ -212,7 +250,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               Tracks git staleness drift, records retrieval surface counts, and re-notifies when new candidate
               evidence advances beyond prior notifications.
             </p>
-            <pre class="lc-code"><code>$ engrams schema refine payment-adapters \
+            <pre class="lc-code"><code>$ engrams schema refine performance-rules \
     --trigger "..." --rule "..."</code></pre>
           </div>
 
@@ -224,7 +262,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               Tomorrow, your AI touches matching files. <code>engrams advise</code> intercepts the edit in 1ms,
               injecting the active schema before a single line is written.
             </p>
-            <pre class="lc-code"><code>$ engrams advise src/adapters/stripe.rs</code></pre>
+            <pre class="lc-code"><code>$ engrams advise src/ops/schemas/retrieval.rs</code></pre>
           </div>
         </div>
       </section>
@@ -239,12 +277,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="cmd-stack">
           <div class="cmd-box">
             <div class="cb-chrome">
-              <span class="cb-cmd">$ engrams advise src/adapters/stripe.rs</span>
+              <span class="cb-cmd">$ engrams advise src/ops/schemas/retrieval.rs</span>
               <span class="cb-desc">RUNTIME PRE-EDIT INTERCEPTOR</span>
             </div>
             <pre class="cb-body"><code>&#123;
   "schemas": [
-    &#123;"id": 1, "name": "payment-adapters", "summary": "Fires when editing payment adapters: implement PaymentProvider..."&#125;
+    &#123;
+      "id": 1,
+      "name": "performance-rules",
+      "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections...",
+      "guided": 14
+    &#125;
   ],
   "constraints": [ ... ]
 &#125;</code></pre>
@@ -252,14 +295,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
           <div class="cmd-box">
             <div class="cb-chrome">
-              <span class="cb-cmd">$ engrams schema show payment-adapters</span>
+              <span class="cb-cmd">$ engrams schema show performance-rules</span>
               <span class="cb-desc">CONCEPTUAL INSPECTION CONSOLE</span>
             </div>
             <pre class="cb-body"><code>&#123;
-  "name": "payment-adapters",
-  "summary": "Fires when editing payment adapters...",
+  "name": "performance-rules",
+  "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections...",
   "guided": 14,
-  "members": [ ... ]
+  "members": [
+    &#123;"kind": "decision", "id": 88, "summary": "Borrowed SQL parameter lists"&#125;,
+    &#123;"kind": "decision", "id": 91, "summary": "Static vocabulary returns Cow"&#125;
+  ]
 &#125;</code></pre>
           </div>
 
@@ -271,7 +317,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             <pre class="cb-body"><code>&#123;
   "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
   "schema_opportunities": [
-    &#123;"confirm_command": "engrams schema confirm decision:10 --name auth-rules"&#125;
+    &#123;"confirm_command": "engrams schema confirm decision:88 --name performance-rules"&#125;
   ]
 &#125;</code></pre>
           </div>
@@ -521,7 +567,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     background: var(--c-white);
     border: 2px solid var(--c-border);
     border-radius: 2px;
-    margin-bottom: 2.8rem;
     box-shadow: 0 8px 24px rgba(12, 36, 35, 0.06);
   }
   .sc-header {
@@ -539,10 +584,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-family: var(--font-mono);
     font-size: 0.72rem;
     font-weight: 800;
-    background: var(--c-orange);
+    background: var(--c-teal);
     color: #ffffff;
     padding: 0.15rem 0.5rem;
     border-radius: 2px;
+  }
+  .sc-badge.peach {
+    background: var(--c-orange);
   }
   .sc-title code {
     font-family: var(--font-mono);
@@ -550,15 +598,23 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-weight: 800;
     color: var(--c-pine);
   }
+  .sc-meta-group { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
   .sc-status {
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--c-teal);
     font-weight: 800;
   }
+  .sc-centroid {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--c-pine-muted);
+    font-weight: 600;
+  }
+
   .sc-content { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
-  .sc-row { display: grid; grid-template-columns: 130px 1fr; gap: 1.25rem; align-items: baseline; }
-  @media (max-width: 680px) { .sc-row { grid-template-columns: 1fr; gap: 0.4rem; } }
+  .sc-row { display: grid; grid-template-columns: 180px 1fr; gap: 1.25rem; align-items: baseline; }
+  @media (max-width: 720px) { .sc-row { grid-template-columns: 1fr; gap: 0.4rem; } }
   .sc-k {
     font-family: var(--font-mono);
     font-size: 0.78rem;
@@ -580,6 +636,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     color: #7a4100 !important;
     line-height: 1.6;
   }
+  .rule-box.warm {
+    background: #f3fcfb;
+    border-color: #b7ebe6;
+    border-left: 3px solid var(--c-teal);
+    color: #0c3e3a !important;
+  }
   .sc-members { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
   .m-pill {
     font-family: var(--font-mono);
@@ -592,20 +654,34 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-weight: 600;
   }
   .m-pill.anchor { color: #15796f; border-color: var(--c-teal); background: #eaf8f7; }
+  .m-pill.checker { color: #9a5300; border-color: var(--c-peach); background: #fff5e6; }
 
-  .anatomy-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-  }
-  .anatomy-item {
+  .contrast-callout {
+    margin-top: 2.5rem;
     background: var(--c-surface-subtle);
-    border: 1px solid var(--c-border);
-    padding: 1.8rem;
+    border: 2px solid var(--c-aqua);
+    border-left: 4px solid var(--c-teal);
+    padding: 1.8rem 2rem;
     border-radius: 2px;
   }
-  .anatomy-item h3 { font-size: 1.15rem; font-weight: 800; color: var(--c-pine); margin: 0 0 0.5rem; }
-  .anatomy-item p { font-size: 0.95rem; color: var(--c-pine-muted); line-height: 1.6; margin: 0; }
+  .contrast-callout h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--c-pine);
+    margin: 0 0 0.6rem;
+  }
+  .contrast-callout p {
+    font-size: 1rem;
+    color: var(--c-pine-muted);
+    line-height: 1.65;
+    margin: 0;
+  }
+  .contrast-callout code {
+    font-family: var(--font-mono);
+    color: var(--c-teal);
+    font-size: 0.92em;
+    font-weight: 700;
+  }
 
   /* ── 4. HOW IT LEARNS (LOOP GRID) ── */
   .loop-grid {
