@@ -66,8 +66,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
         <div class="runtime-matrix">
           <div class="matrix-card">
-            <span class="matrix-tag tag-muted">PASSIVE MEMORY STORES</span>
-            <h3>Vector Databases &amp; ADR Lists</h3>
+            <h3>Vector Databases &amp; ADR Lists (Passive)</h3>
             <div class="matrix-flaw">Dead history waiting to be searched</div>
             <p>
               Stores hundreds of isolated notes. But the agent has no trigger condition — it doesn't know
@@ -76,8 +75,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           </div>
 
           <div class="matrix-card">
-            <span class="matrix-tag tag-muted">STATIC RULES FILES</span>
-            <h3>Prompt Stuffing &amp; <code>.cursorrules</code></h3>
+            <h3>Prompt Stuffing &amp; <code>.cursorrules</code> (Static)</h3>
             <div class="matrix-flaw">Brittle, manual, and bloated</div>
             <p>
               Developers manually write rigid text rules that get dumped into every prompt regardless of relevance.
@@ -86,8 +84,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           </div>
 
           <div class="matrix-card matrix-featured">
-            <span class="matrix-tag tag-rose">THE ENGRAMS RUNTIME</span>
-            <h3>Active Cognitive Schemas</h3>
+            <h3>The Engrams Runtime (Active Schemas)</h3>
             <div class="matrix-flaw text-burgundy">Continuous perception &amp; 1ms execution</div>
             <p>
               Autonomously clusters codebase activity, formalizes triggers and directives, and intercepts agent
@@ -221,48 +218,42 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <div class="loop-grid">
           <!-- Step 1: Finds -->
           <div class="loop-card">
-            <div class="lc-stage">01 / PERCEPTION</div>
-            <h3>Finds</h3>
+            <h3>1. Finds</h3>
             <p>
               As you commit code and log decisions, graph community detection identifies natural clusters
               of co-edited files and decisions in local SQLite.
             </p>
-            <pre class="lc-code"><code>$ engrams schema scan</code></pre>
+            <div class="lc-code"><code>$ engrams schema scan</code></div>
           </div>
 
           <!-- Step 2: Defines -->
           <div class="loop-card">
-            <div class="lc-stage">02 / ACCOMMODATION</div>
-            <h3>Defines</h3>
+            <h3>2. Defines</h3>
             <p>
               At session close, Engrams nudges you with ready-to-run confirm commands, and authoring enforces
               strict trigger-and-rule contracts.
             </p>
-            <pre class="lc-code"><code>$ engrams schema confirm decision:88 \
-    --name performance-rules</code></pre>
+            <div class="lc-code"><code>$ engrams schema confirm decision:88 --name performance-rules</code></div>
           </div>
 
           <!-- Step 3: Refines -->
           <div class="loop-card">
-            <div class="lc-stage">03 / ADAPTATION</div>
-            <h3>Refines</h3>
+            <h3>3. Refines</h3>
             <p>
               Tracks git staleness drift, records retrieval surface counts, and re-notifies when new candidate
               evidence advances beyond prior notifications.
             </p>
-            <pre class="lc-code"><code>$ engrams schema refine performance-rules \
-    --trigger "..." --rule "..."</code></pre>
+            <div class="lc-code"><code>$ engrams schema refine performance-rules --trigger "..." --rule "..."</code></div>
           </div>
 
           <!-- Step 4: Executes -->
           <div class="loop-card lc-featured">
-            <div class="lc-stage text-rose">04 / ACTION</div>
-            <h3>Executes</h3>
+            <h3>4. Executes</h3>
             <p>
               Tomorrow, your AI touches matching files. <code>engrams advise</code> intercepts the edit in 1ms,
               injecting the active schema before a single line is written.
             </p>
-            <pre class="lc-code"><code>$ engrams advise src/ops/schemas/retrieval.rs</code></pre>
+            <div class="lc-code"><code>$ engrams advise src/ops/schemas/retrieval.rs</code></div>
           </div>
         </div>
       </section>
@@ -278,7 +269,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <div class="cmd-box">
             <div class="cb-chrome">
               <span class="cb-cmd">$ engrams advise src/ops/schemas/retrieval.rs</span>
-              <span class="cb-desc">RUNTIME PRE-EDIT INTERCEPTOR</span>
             </div>
             <pre class="cb-body"><code>&#123;
   "schemas": [
@@ -296,7 +286,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <div class="cmd-box">
             <div class="cb-chrome">
               <span class="cb-cmd">$ engrams schema show performance-rules</span>
-              <span class="cb-desc">CONCEPTUAL INSPECTION CONSOLE</span>
             </div>
             <pre class="cb-body"><code>&#123;
   "name": "performance-rules",
@@ -312,7 +301,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <div class="cmd-box">
             <div class="cb-chrome">
               <span class="cb-cmd">$ engrams session close --pr 42</span>
-              <span class="cb-desc">OPPORTUNITY NUDGE &amp; TOKEN RECEIPT</span>
             </div>
             <pre class="cb-body"><code>&#123;
   "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
@@ -359,12 +347,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
 <style>
   /* ============================================================
-     COOLORS PALETTE:
+     COOLORS PALETTE (LIGHTER BACKGROUNDS, DARKER TEXT):
      #ffd9da (Pale Rose / Blush) | #ea638c (Vibrant Rose) |
      #89023e (Deep Burgundy)     | #30343f (Deep Slate)   | #1b2021 (Night)
-     Lighter backgrounds (#ffffff / #fff8f8 / #ffd9da)
-     Darker text (#1b2021 / #30343f)
-     Zero black background. Zero tiny headers above large headers.
+     Zero black background. Zero tiny headers. Sizing fixed.
      ============================================================ */
 
   :root {
@@ -531,15 +517,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     background: #ffffff;
     box-shadow: 0 8px 30px rgba(234, 99, 140, 0.12);
   }
-  .matrix-tag {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.8rem;
-  }
-  .tag-muted { color: var(--c-slate); }
-  .tag-rose { color: var(--c-burgundy); }
   .matrix-card h3 {
     font-size: 1.3rem;
     font-weight: 800;
@@ -685,68 +662,70 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     font-weight: 700;
   }
 
-  /* ── 4. HOW IT LEARNS (LOOP GRID) ── */
+  /* ── 4. HOW IT LEARNS: SPACIOUS 2-COLUMN SIZING (NO CRAMPING) ── */
   .loop-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.25rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
   }
+  @media (max-width: 760px) {
+    .loop-grid { grid-template-columns: 1fr; }
+  }
+
   .loop-card {
     background: var(--c-white);
-    border: 1px solid var(--c-border);
+    border: 1.5px solid var(--c-border);
     border-radius: 2px;
-    padding: 1.8rem;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(27, 32, 33, 0.04);
   }
   .lc-featured {
-    border: 2px solid var(--c-rose);
+    border: 2px solid var(--c-burgundy);
     background: #fffbfc;
   }
-  .lc-stage {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: var(--c-burgundy);
-    letter-spacing: 0.08em;
-    margin-bottom: 0.6rem;
-  }
   .loop-card h3 {
-    font-size: 1.3rem;
+    font-size: 1.35rem;
     font-weight: 900;
     color: var(--c-night);
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.75rem;
   }
   .loop-card p {
-    font-size: 0.95rem;
+    font-size: 1rem;
     color: var(--c-slate);
-    line-height: 1.6;
-    margin: 0 0 1.2rem;
+    line-height: 1.65;
+    margin: 0 0 1.5rem;
     flex: 1;
   }
+
+  /* ── NO BLACK BOXES: LIGHT ROSE CODE BACKGROUND ── */
   .lc-code {
-    background: var(--c-night);
-    border: 1px solid #30343f;
+    background: #fff8f9;
+    border: 1px solid var(--c-border);
+    border-left: 3px solid var(--c-burgundy);
     border-radius: 2px;
-    padding: 0.75rem 0.95rem;
-    margin: 0;
+    padding: 0.85rem 1.1rem;
+    margin-top: auto;
     overflow-x: auto;
   }
   .lc-code code {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--c-rose-pale);
-    line-height: 1.45;
+    font-size: 0.88rem;
+    color: var(--c-burgundy);
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   /* ── 5. THREE COMMANDS (STACK) ── */
   .cmd-stack { display: flex; flex-direction: column; gap: 1.5rem; }
   .cmd-box {
     background: var(--c-white);
-    border: 1px solid var(--c-border);
+    border: 1.5px solid var(--c-border);
     border-radius: 2px;
     overflow: hidden;
+    box-shadow: 0 4px 12px rgba(27, 32, 33, 0.04);
   }
   .cb-chrome {
     padding: 0.85rem 1.25rem;
@@ -757,20 +736,18 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     align-items: center;
     font-family: var(--font-mono);
     font-size: 0.85rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
   .cb-cmd { color: var(--c-night); font-weight: 800; }
-  .cb-desc { color: var(--c-burgundy); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; }
   .cb-body {
-    padding: 1.25rem;
+    padding: 1.25rem 1.4rem;
     margin: 0;
-    background: var(--c-night);
+    background: #fffcfc;
     font-family: var(--font-mono);
-    font-size: 0.86rem;
-    color: #f7e6e8;
+    font-size: 0.88rem;
+    color: var(--c-slate);
     overflow-x: auto;
     border: none;
+    line-height: 1.6;
   }
 
   /* ── 6. INSTALL ── */
@@ -801,25 +778,26 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     display: inline-flex;
     align-items: center;
     gap: 0.85rem;
-    background: var(--c-night);
-    border: 1px solid #30343f;
+    background: #ffffff;
+    border: 2px solid var(--c-rose);
     padding: 0.9rem 1.5rem;
     font-family: var(--font-mono);
     font-size: 0.95rem;
-    color: var(--c-rose-pale);
+    color: var(--c-burgundy);
     margin-bottom: 2.2rem;
     flex-wrap: wrap;
     justify-content: center;
     border-radius: 2px;
-    font-weight: 700;
+    font-weight: 800;
+    box-shadow: 0 4px 14px rgba(234, 99, 140, 0.15);
   }
-  .install-code .sep { color: var(--c-rose); font-size: 0.75rem; text-transform: uppercase; }
+  .install-code .sep { color: var(--c-slate); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }
   .install-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
   /* ── FOOTER ── */
   .bottom-footer {
     border-top: 1px solid var(--c-border);
-    background: #fffbfc;
+    background: #ffffff;
     padding: 2.2rem 1.5rem;
   }
   .footer-wrap {
