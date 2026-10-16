@@ -103,11 +103,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           which anchor directly into your <strong>concrete repository source code</strong>.
         </p>
 
-        <!-- ── THE 3D ISOMETRIC PYRAMID BLUEPRINT ── -->
+        <!-- ── THE 3D ISOMETRIC PYRAMID BLUEPRINT (DOMINANT PYRAMID + CONNECTING LINES) ── -->
         <div class="pyramid-showcase" data-pyramid>
-          <!-- Left Column: The 3D Exploded Isometric SVG Pyramid -->
+          <!-- Left Column: The 3D Exploded Isometric SVG Pyramid (Enlarged) -->
           <div class="pyramid-visual-col">
-            <svg viewBox="0 0 720 520" class="isometric-pyramid-svg" aria-label="Exploded 3D Isometric Schema Pyramid">
+            <svg viewBox="0 0 780 500" class="isometric-pyramid-svg" aria-label="Exploded 3D Isometric Schema Pyramid with Leader Lines">
               <defs>
                 <!-- Tier 3: Burgundy & Rose Gradients -->
                 <linearGradient id="pyr-t3-left" x1="0" y1="0" x2="1" y2="1">
@@ -149,62 +149,80 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
                 <!-- Drop shadow filter -->
                 <filter id="tier-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#89023e" flood-opacity="0.12" />
+                  <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#89023e" flood-opacity="0.14" />
                 </filter>
               </defs>
 
               <!-- Isometric Alignment Guidelines -->
               <g class="guide-struts" stroke="#ffd9da" stroke-width="1" stroke-dasharray="3 3">
-                <line x1="360" y1="75" x2="95" y2="385" />
-                <line x1="360" y1="75" x2="625" y2="385" />
-                <line x1="360" y1="165" x2="360" y2="465" />
+                <line x1="330" y1="75" x2="65" y2="385" />
+                <line x1="330" y1="75" x2="595" y2="385" />
+                <line x1="330" y1="165" x2="330" y2="465" />
               </g>
 
               <!-- ── TIER 1: BASE PLATFORM (Code Anchors) ── -->
               <g class="svg-tier-group tier-1-group" data-tier="1" filter="url(#tier-shadow)">
                 <!-- Top Face (Diamond) -->
-                <polygon points="360,265 545,320 360,375 175,320" fill="url(#pyr-t1-top)" stroke="#e0c2c6" stroke-width="1.5" />
+                <polygon points="330,265 515,320 330,375 145,320" fill="url(#pyr-t1-top)" stroke="#e0c2c6" stroke-width="1.5" />
                 <!-- Left Face -->
-                <polygon points="175,320 360,375 360,460 95,385" fill="url(#pyr-t1-left)" stroke="#1b2021" stroke-width="1" />
+                <polygon points="145,320 330,375 330,460 65,385" fill="url(#pyr-t1-left)" stroke="#1b2021" stroke-width="1" />
                 <!-- Right Face -->
-                <polygon points="360,375 545,320 625,385 360,460" fill="url(#pyr-t1-right)" stroke="#1b2021" stroke-width="1" />
+                <polygon points="330,375 515,320 595,385 330,460" fill="url(#pyr-t1-right)" stroke="#1b2021" stroke-width="1" />
                 <!-- Subtle Facet Lines -->
-                <line x1="360" y1="375" x2="360" y2="460" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
+                <line x1="330" y1="375" x2="330" y2="460" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
                 <!-- Label on Base -->
-                <text x="215" y="405" fill="#ffffff" font-family="var(--font-mono)" font-size="11" font-weight="800" letter-spacing="1" transform="rotate(16, 215, 405)">TIER 1: REPOSITORY CODE ANCHORS</text>
+                <text x="185" y="405" fill="#ffffff" font-family="var(--font-mono)" font-size="11" font-weight="800" letter-spacing="1" transform="rotate(16, 185, 405)">TIER 1: REPOSITORY CODE ANCHORS</text>
               </g>
 
               <!-- ── TIER 2: MIDDLE FRUSTUM (Decisions & Patterns) ── -->
               <g class="svg-tier-group tier-2-group" data-tier="2" filter="url(#tier-shadow)">
                 <!-- Top Face (Diamond) -->
-                <polygon points="360,170 460,200 360,230 260,200" fill="url(#pyr-t2-top)" stroke="#ffd9da" stroke-width="1.5" />
+                <polygon points="330,170 430,200 330,230 230,200" fill="url(#pyr-t2-top)" stroke="#ffd9da" stroke-width="1.5" />
                 <!-- Left Face -->
-                <polygon points="260,200 360,230 360,310 195,260" fill="url(#pyr-t2-left)" stroke="#89023e" stroke-width="1" />
+                <polygon points="230,200 330,230 330,310 165,260" fill="url(#pyr-t2-left)" stroke="#89023e" stroke-width="1" />
                 <!-- Right Face -->
-                <polygon points="360,230 460,200 525,260 360,310" fill="url(#pyr-t2-right)" stroke="#89023e" stroke-width="1" />
+                <polygon points="330,230 430,200 495,260 330,310" fill="url(#pyr-t2-right)" stroke="#89023e" stroke-width="1" />
                 <!-- Subtle Facet Lines -->
-                <line x1="360" y1="230" x2="360" y2="310" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
+                <line x1="330" y1="230" x2="330" y2="310" stroke="#ffd9da" stroke-width="1.5" opacity="0.6" />
                 <!-- Label on Middle Tier -->
-                <text x="235" y="270" fill="#ffffff" font-family="var(--font-mono)" font-size="10" font-weight="800" letter-spacing="0.5" transform="rotate(16, 235, 270)">TIER 2: DECISIONS &amp; PATTERNS</text>
+                <text x="205" y="270" fill="#ffffff" font-family="var(--font-mono)" font-size="10" font-weight="800" letter-spacing="0.5" transform="rotate(16, 205, 270)">TIER 2: DECISIONS &amp; PATTERNS</text>
               </g>
 
               <!-- ── TIER 3: APEX CAP (Cognitive Schema) ── -->
               <g class="svg-tier-group tier-3-group" data-tier="3" filter="url(#tier-shadow)">
                 <!-- Left Face (Triangle) -->
-                <polygon points="360,75 275,140 360,165" fill="url(#pyr-t3-left)" stroke="#ffd9da" stroke-width="1" />
+                <polygon points="330,75 245,140 330,165" fill="url(#pyr-t3-left)" stroke="#ffd9da" stroke-width="1" />
                 <!-- Right Face (Triangle) -->
-                <polygon points="360,75 360,165 445,140" fill="url(#pyr-t3-right)" stroke="#ffd9da" stroke-width="1" />
+                <polygon points="330,75 330,165 415,140" fill="url(#pyr-t3-right)" stroke="#ffd9da" stroke-width="1" />
                 <!-- Center Crease Highlight -->
-                <line x1="360" y1="75" x2="360" y2="165" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
+                <line x1="330" y1="75" x2="330" y2="165" stroke="#ffffff" stroke-width="1.5" opacity="0.8" />
                 <!-- Glowing Apex Peak Point -->
-                <circle cx="360" cy="75" r="4.5" fill="#ffffff" stroke="#89023e" stroke-width="2" />
+                <circle cx="330" cy="75" r="4.5" fill="#ffffff" stroke="#89023e" stroke-width="2" />
                 <!-- Label on Apex -->
-                <text x="290" y="135" fill="#ffffff" font-family="var(--font-mono)" font-size="9" font-weight="900" letter-spacing="0.5" transform="rotate(16, 290, 135)">TIER 3: SCHEMA</text>
+                <text x="260" y="135" fill="#ffffff" font-family="var(--font-mono)" font-size="9" font-weight="900" letter-spacing="0.5" transform="rotate(16, 260, 135)">TIER 3: SCHEMA</text>
+              </g>
+
+              <!-- ── ARCHITECTURAL LEADER LINES CONNECTING TIERS TO CARDS ── -->
+              <g class="leader-lines-group">
+                <!-- Leader Line 3 (Apex -> Card 3) -->
+                <path class="leader-line" data-tier="3" d="M 372 152 L 490 100 L 780 100" />
+                <circle class="leader-dot" data-tier="3" cx="372" cy="152" r="4" />
+                <circle class="leader-end" data-tier="3" cx="778" cy="100" r="3" />
+
+                <!-- Leader Line 2 (Middle -> Card 2) -->
+                <path class="leader-line" data-tier="2" d="M 462 255 L 560 255 L 780 255" />
+                <circle class="leader-dot" data-tier="2" cx="462" cy="255" r="4" />
+                <circle class="leader-end" data-tier="2" cx="778" cy="255" r="3" />
+
+                <!-- Leader Line 1 (Base -> Card 1) -->
+                <path class="leader-line" data-tier="1" d="M 555 352 L 640 405 L 780 405" />
+                <circle class="leader-dot" data-tier="1" cx="555" cy="352" r="4" />
+                <circle class="leader-end" data-tier="1" cx="778" cy="405" r="3" />
               </g>
             </svg>
           </div>
 
-          <!-- Right Column: The Three Layered Cards -->
+          <!-- Right Column: The Three Layered Cards (Compact, Balanced Typography) -->
           <div class="pyramid-stack-col">
             <!-- Level 3 Card: Schema -->
             <div class="stack-tier-card card-tier-3 is-active" data-tier="3">
@@ -219,12 +237,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               <div class="st-content">
                 <div class="st-field">
                   <span class="st-k">⚡ TRIGGER</span>
-                  <p class="st-v">Fires whenever I edit Rust code that creates, copies, or hands off collections and strings</p>
+                  <p class="st-v">Fires whenever I edit Rust code handling collections &amp; strings</p>
                 </div>
                 <div class="st-field">
                   <span class="st-k">📋 DIRECTIVE</span>
                   <div class="st-v directive-box">
-                    The four allocation rules (no throwaway collections, borrow SQL params, keep borrowed strings borrowed, consume lookup maps) plus the checker that enforces them.
+                    The four allocation rules (borrow params, keep borrowed, consume by move) plus staged checker.
                   </div>
                 </div>
               </div>
@@ -239,7 +257,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               <div class="st-chips-grid">
                 <div class="st-chip">
                   <span class="chip-k">Decision #88</span>
-                  <span class="chip-v">Borrowed SQL parameter lists (Vec&lt;&amp;dyn ToSql&gt;)</span>
+                  <span class="chip-v">Borrowed SQL parameters (Vec&lt;&amp;dyn ToSql&gt;)</span>
                 </div>
                 <div class="st-chip">
                   <span class="chip-k">Decision #91</span>
@@ -255,7 +273,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                 </div>
                 <div class="st-chip chip-tool">
                   <span class="chip-k">Checker Tool</span>
-                  <span class="chip-v">engrams check --staged (enforced pre-commit)</span>
+                  <span class="chip-v">engrams check --staged (pre-commit)</span>
                 </div>
               </div>
             </div>
@@ -270,17 +288,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
                 <div class="st-anchor">
                   <span class="anchor-glyph">⚓</span>
                   <code>src/ops/schemas/retrieval.rs</code>
-                  <span class="anchor-meta">surface_counts · enrich_members · node_payload</span>
+                  <span class="anchor-meta">surface_counts · enrich_members</span>
                 </div>
                 <div class="st-anchor">
                   <span class="anchor-glyph">⚓</span>
                   <code>src/ops/schemas/list.rs</code>
-                  <span class="anchor-meta">resolve_schema · row_json · list</span>
+                  <span class="anchor-meta">resolve_schema · row_json</span>
                 </div>
                 <div class="st-anchor">
                   <span class="anchor-glyph">⚓</span>
                   <code>src/ops/schemas/gates.rs</code>
-                  <span class="anchor-meta">gates_pass · claimed_territory · jaccard</span>
+                  <span class="anchor-meta">gates_pass · claimed_territory</span>
                 </div>
               </div>
             </div>
@@ -485,6 +503,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       if (pyramid) {
         const svgGroups = pyramid.querySelectorAll('.svg-tier-group');
         const cards = pyramid.querySelectorAll('.stack-tier-card');
+        const leaderLines = pyramid.querySelectorAll('.leader-line');
+        const leaderDots = pyramid.querySelectorAll('.leader-dot, .leader-end');
 
         function activateTier(tierNum) {
           svgGroups.forEach((g) => {
@@ -499,6 +519,20 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               c.classList.add('is-active');
             } else {
               c.classList.remove('is-active');
+            }
+          });
+          leaderLines.forEach((l) => {
+            if (l.getAttribute('data-tier') === tierNum) {
+              l.classList.add('is-active');
+            } else {
+              l.classList.remove('is-active');
+            }
+          });
+          leaderDots.forEach((d) => {
+            if (d.getAttribute('data-tier') === tierNum) {
+              d.classList.add('is-active');
+            } else {
+              d.classList.remove('is-active');
             }
           });
         }
@@ -524,7 +558,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
      COOLORS PALETTE:
      #ffd9da (Pale Rose) | #ea638c (Vibrant Rose) |
      #89023e (Burgundy)  | #30343f (Slate)        | #1b2021 (Night)
-     3D ISOMETRIC EXPLODED PYRAMID STYLING
+     DOMINANT 3D ISOMETRIC PYRAMID WITH ARCHITECTURAL LEADER LINES
      ============================================================ */
 
   :root {
@@ -714,16 +748,16 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   }
   .matrix-card strong { color: var(--c-night); }
 
-  /* ── 3. ISOMETRIC EXPLODED PYRAMID BLUEPRINT ── */
+  /* ── 3. ISOMETRIC EXPLODED PYRAMID (ENLARGED & LEADER LINES) ── */
   .pyramid-showcase {
     display: grid;
-    grid-template-columns: 1.05fr 1fr;
+    grid-template-columns: 1.35fr 1fr;
     gap: 2.5rem;
     align-items: center;
     background: var(--c-surface-subtle);
     border: 2px solid var(--c-border);
     border-radius: 2px;
-    padding: 2.5rem;
+    padding: 2.5rem 2rem;
     margin-bottom: 3.5rem;
   }
   @media (max-width: 960px) {
@@ -734,10 +768,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
   }
   .isometric-pyramid-svg {
     width: 100%;
-    max-width: 540px;
+    max-width: 680px;
     height: auto;
     overflow: visible;
   }
@@ -760,25 +795,46 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     transform: translateY(-4px);
   }
 
-  /* Right-hand Stack Cards */
+  /* Leader lines styling */
+  .leader-line {
+    stroke: #ffd9da;
+    stroke-width: 1.5;
+    fill: none;
+    transition: stroke 0.2s, stroke-width 0.2s, filter 0.2s;
+  }
+  .leader-line.is-active {
+    stroke: var(--c-burgundy);
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 3px rgba(137, 2, 62, 0.4));
+  }
+  .leader-dot, .leader-end {
+    fill: var(--c-burgundy);
+    transition: fill 0.2s, r 0.2s;
+  }
+  .leader-dot.is-active, .leader-end.is-active {
+    fill: var(--c-rose);
+    r: 5;
+  }
+
+  /* Right-hand Stack Cards (Compact & Dense) */
   .pyramid-stack-col {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
   }
 
   .stack-tier-card {
     background: #ffffff;
     border: 1.5px solid var(--c-border);
     border-radius: 2px;
-    padding: 1.4rem 1.6rem;
+    padding: 0.95rem 1.25rem;
     transition: all 0.2s;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(27, 32, 33, 0.04);
   }
   .stack-tier-card:hover, .stack-tier-card.is-active {
     border-color: var(--c-burgundy);
-    box-shadow: 0 6px 20px rgba(137, 2, 62, 0.12);
+    box-shadow: 0 6px 18px rgba(137, 2, 62, 0.12);
   }
   .card-tier-3.is-active {
     border: 2px solid var(--c-burgundy);
@@ -795,20 +851,20 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.4rem;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.3rem;
   }
   .st-tier-badge {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.65rem;
     font-weight: 800;
     color: var(--c-burgundy);
     letter-spacing: 0.06em;
   }
   .st-status {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--c-slate);
     font-weight: 700;
   }
@@ -816,73 +872,74 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.5rem;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
   .st-title code {
     font-family: var(--font-mono);
-    font-size: 1.05rem;
+    font-size: 0.88rem;
     font-weight: 900;
     color: var(--c-night);
   }
   .st-telemetry {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--c-rose);
     font-weight: 700;
   }
 
-  .st-content { display: flex; flex-direction: column; gap: 0.75rem; }
-  .st-field { display: flex; flex-direction: column; gap: 0.2rem; }
-  .st-k { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 800; color: var(--c-burgundy); }
-  .st-v { font-size: 0.92rem; color: var(--c-night); margin: 0; line-height: 1.5; }
+  .st-content { display: flex; flex-direction: column; gap: 0.55rem; }
+  .st-field { display: flex; flex-direction: column; gap: 0.15rem; }
+  .st-k { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 800; color: var(--c-burgundy); }
+  .st-v { font-size: 0.84rem; color: var(--c-night); margin: 0; line-height: 1.45; }
   .directive-box {
     font-family: var(--font-mono) !important;
-    font-size: 0.88rem !important;
+    font-size: 0.78rem !important;
     background: #fff4f6;
     border-left: 3px solid var(--c-burgundy);
-    padding: 0.65rem 0.85rem;
+    padding: 0.5rem 0.75rem;
     color: var(--c-burgundy) !important;
     font-weight: 600;
+    line-height: 1.5;
   }
 
   /* Chips and Anchors */
   .st-chips-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
   @media (max-width: 600px) { .st-chips-grid { grid-template-columns: 1fr; } }
   .st-chip {
     background: var(--c-surface-subtle);
     border: 1px solid var(--c-border);
-    padding: 0.5rem 0.75rem;
+    padding: 0.35rem 0.6rem;
     border-radius: 2px;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
   }
-  .chip-k { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 800; color: var(--c-burgundy); }
-  .chip-v { font-size: 0.82rem; color: var(--c-night); font-weight: 600; }
+  .chip-k { font-family: var(--font-mono); font-size: 0.65rem; font-weight: 800; color: var(--c-burgundy); }
+  .chip-v { font-size: 0.75rem; color: var(--c-night); font-weight: 600; }
   .chip-tool { border-color: var(--c-rose); background: #fffbfa; }
   .chip-tool .chip-k { color: var(--c-rose); }
 
-  .st-anchors-list { display: flex; flex-direction: column; gap: 0.45rem; }
+  .st-anchors-list { display: flex; flex-direction: column; gap: 0.35rem; }
   .st-anchor {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
     background: var(--c-surface-subtle);
     border: 1px solid var(--c-border);
-    padding: 0.45rem 0.75rem;
+    padding: 0.35rem 0.65rem;
     border-radius: 2px;
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     flex-wrap: wrap;
   }
-  .anchor-glyph { font-size: 0.85rem; }
+  .anchor-glyph { font-size: 0.8rem; }
   .st-anchor code { font-family: var(--font-mono); font-weight: 700; color: var(--c-night); }
-  .anchor-meta { font-family: var(--font-mono); font-size: 0.72rem; color: var(--c-slate); margin-left: auto; }
+  .anchor-meta { font-family: var(--font-mono); font-size: 0.66rem; color: var(--c-slate); margin-left: auto; }
   @media (max-width: 600px) { .anchor-meta { margin-left: 0; width: 100%; } }
 
   /* Specimen Card (Strategic Planning) */
