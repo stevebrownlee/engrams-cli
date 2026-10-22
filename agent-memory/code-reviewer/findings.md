@@ -413,3 +413,20 @@ Verified clean (no findings):
 - Recorded Gate 3 verification filters (`--bin engrams proposal`, `--test cli proposal`, `--test policy s1_fresh_db`) verified non-vacuous via `-- --list` (4, 4, and 1 tests matched respectively).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T13:55:00Z — phase 2 of spec 0007-reviewed-schema-proposals (confirm proposals into schemas and cut over scan and opportunities)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - JSON-only output on all modified subcommands (`schema confirm`, `schema scan`, `schema list`, `schema show`, `brief schema:<id>`, `session close`).
+  - Phase 1's `#[allow(dead_code)]` seam on `ProposalStatus::Confirmed` in `src/ops/schemas/propose.rs` removed now that `confirm_proposal` wires it; no new `#[allow(dead_code)]` attributes introduced.
+  - Explicit `--db` used across all CLI and memory integration tests; no live database or commit-excluded paths touched.
+- All Phase 2 ACs (`AC-3`, `AC-8`) and API surface items 2, 6, 7, and 8 (`statement`, `scope`, and `origin` on schema payloads) met in code and pinned with behavioral unit tests (`src/ops/schemas/confirm.rs`, `src/ops/schemas/scan.rs`, `src/ops/schemas/opportunities.rs`, `src/ops/schemas/assimilate.rs`) and CLI/memory integration tests (`tests/cli.rs`, `tests/memory.rs`):
+  - `AC-3`: `confirm_proposal` re-validates checks 1–6 (`validate_proposal`) and check 9 (`claimed_territory`) on merged inline edits (preserving the unedited half of `scope` when only `--scope-tags` or `--scope-paths` is supplied), inserts the `schemas` row (`summary_source = 'agent'`, `kind = 'schema'`, `status = 'active'`, `statement`, `scope_json`, `centroid_json`), writes `member_of` links, and marks the proposal `confirmed` with `schema_id` and `decided_at` in one transaction. Collision handling via `unique_name` suffixes (`mara-2`, `mara-broken-leader-2`) and emits `renamed_from`. `schema show` and `brief schema:<id>` join `origin` from `schema_proposals` (`null` for pre-v16 schemas), and `prime`, `advise`, `query`, `list`, `show`, and `brief` include `statement` and `scope`. Pinned by `confirm_proposal_creates_agent_schema_links_members_and_records_origin`, `confirm_proposal_applies_inline_edits_and_preserves_unedited_scope_half`, `confirm_proposal_suffixes_taken_name_and_reports_renamed_from`, and `test_schema_proposal_ac3_confirm_creates_schema_with_origin_edits_and_rename`.
+  - `AC-8`: `SchemaCmd::Scan` removes `--apply` and `scan::scan(conn)` returns `{"status": "success", "candidates": [...]}` without creating schemas; `schema confirm <detector-sig>` fails with `"detector groups are evidence, not schemas: run engrams schema propose --from <sig> --statement ... --summary ..."`; `confirm <schema id|name>` preserves re-confirmation bump and rejects proposal-only edit flags; `opportunities::find_opportunities` emits `propose_command` in place of `confirm_command`. Pinned by `scan_stages_all_kinds_and_creates_no_schemas`, `confirm_refuses_detector_candidate_signature_with_propose_command`, `confirm_existing_schema_bumps_and_rejects_edit_flags`, `eligible_unconfirmed_candidate_is_returned`, `test_session_close_opportunity_workflow_actionable`, and `test_schema_proposal_ac8_scan_and_confirm_cutover_and_session_close_propose_command`.
+- Rules 002–006 and `./target/debug/engrams check --paths src` (0 violations across 60 files) satisfied; obsolete candidate-promotion helpers (`Member::key`, `dominant_tag`, `kind_histogram`, `draft_summary`, `promote`) cleanly removed from `src/ops/schemas/confirm.rs`.
+- Recorded Gate 3 verification filters (`--bin engrams schemas`, `--test cli schema`, `--test memory schema`) match all new and updated unit, CLI, and memory integration tests for Phase 2.
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
