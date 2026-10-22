@@ -347,3 +347,19 @@ Verified clean (no findings):
 - Recorded Gate 3 verification filters (`workspace_`, `test_pr_provenance`) verified non-vacuous via `-- --list` (6 and 2 tests matched respectively).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-21T16:45:00Z — phase 2 of spec 0006-workspace-scoped-git-and-safe-import (staged checks, coverage, hooks, doctor scoped to Workspace root)
+
+_No findings._
+
+Verified clean (no findings):
+- `db::workspace_root()` CWD fallback removed from `src/db.rs`; all remaining callers (`advise.rs`, `anchor.rs`, `brief.rs`, `check.rs`, `coverage.rs`, `doctor.rs`, `install.rs`, `rules/mod.rs`, `rules/export.rs`, `pattern.rs`) now take `ws.root.as_deref()` from `ops::dispatch`.
+- All Phase 2 ACs (`AC-3`, `AC-6`, `AC-8`) and `doctor` `skipped_checks` contract met and pinned with behavioral tests in `tests/cli.rs` and `tests/policy.rs`:
+  - `AC-3`: `workspace_staged_checks_only_named_workspace_files_ac3` verifies `check --staged` checks only repository A's staged file when invoked from repository B, both when A has a violation and after A is cleaned while B retains a staged violation.
+  - `AC-6`: `workspace_refuses_git_only_operations_without_workspace_ac6` and `s10_install_hooks_without_workspace_fails_closed` verify `check --staged`, `advise --staged`, `relevant --staged`, `coverage --diff HEAD`, and `install --harness omp --hooks` fail with the exact missing-workspace error message and leave the shell repository's hooks untouched.
+  - `AC-8`: `workspace_installs_hooks_only_into_named_workspace_ac8` and `s10_install_hooks_writes_into_named_workspace_only` verify `install --harness omp --hooks` writes `.git/hooks/pre-commit` and `.omp/extensions/engrams-advisor/index.ts` into the named workspace A and leaves shell repository B untouched.
+  - `doctor`: `test_doctor` and `workspace_doctor_skips_stale_decisions_without_workspace` verify `"skipped_checks": ["stale_decisions: no workspace"]` and empty `stale_decisions` when no workspace is known, and absence of `skipped_checks` when a workspace is provided.
+- Rules 002–006 satisfied: `git.rs` (`staged_files`, `changed_since`) and `coverage.rs` (`diff_files`) keep `Cow<str>` borrowed through `.lines().map(str::trim).filter(...)` before `.map(str::to_owned)` (rule 003), `changed_since` eliminates the intermediate `args` `Vec` (rule 005), and `doctor.rs` `skipped_checks` holds `&'static str` (rule 006).
+- All recorded Gate 3 verification filters (`workspace_`, `test_doctor`, `--test policy`) match the phase's new/updated tests (zero vacuous filters).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
