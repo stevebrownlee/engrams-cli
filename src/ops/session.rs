@@ -25,8 +25,11 @@ pub fn close(
     note: Option<String>,
     pr: Option<String>,
     session: Option<String>,
+    lens: Option<&str>,
     root: Option<&std::path::Path>,
 ) -> Result<Value> {
+    let loaded_lens = crate::ops::schemas::prompts::load_lens(lens, root)?;
+
     let (pr_url, pr_validation) = match &pr {
         Some(p) => {
             let url = crate::ops::pr::resolve_pr_url(p, root)?;
@@ -62,7 +65,14 @@ pub fn close(
 
     let rollup = usage_rollup(conn, sid.as_deref())?;
 
-    let opportunities = crate::ops::schemas::opportunities::find_opportunities(conn)?;
+    let schema_prompts = crate::ops::schemas::prompts::collect_prompts(
+        conn,
+        &loaded_lens,
+        crate::ops::schemas::prompts::PROMPTS_PER_CLOSE,
+    )?;
+    // Record shown prompts AFTER collecting so the stamped set is exactly what
+    // was surfaced this close; record_prompt_notices no-ops on an empty list.
+    crate::ops::schemas::prompts::record_prompt_notices(conn, &schema_prompts, &now)?;
 
     let mut out = json!({
         "closed": true,
@@ -75,15 +85,11 @@ pub fn close(
         "pr": pr_url,
         "retrievals_this_session": rollup,
         "schema_value": schema_val,
-        "schema_opportunities": opportunities,
+        "schema_prompts": schema_prompts,
     });
     if let Some(v) = pr_validation {
         out["pr_validation"] = json!(v);
     }
-    // Stamp AFTER building the output so the stamped set is exactly what was
-    // surfaced this close; stamp_notified no-ops on an empty list.
-    let sigs: Vec<&str> = opportunities.iter().map(|o| o.signature.as_str()).collect();
-    crate::ops::schemas::opportunities::stamp_notified(conn, &sigs)?;
     Ok(out)
 }
 
@@ -236,19 +242,40 @@ fn schema_value_rollup(conn: &Connection, session: Option<&str>) -> Result<Value
         })?,
     };
 
-    let (guided, distinct) = match start_ts {
-        Some(ts) => conn.query_row(
-            "SELECT COUNT(*), COUNT(DISTINCT node_id) FROM retrieval_surfaces \
-             WHERE node_kind = 'schema' AND ts >= ?1",
-            params![ts],
-            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-        )?,
-        None => (0, 0),
+    let (guided, distinct, schemas) = match start_ts {
+        Some(ts) => {
+            let (guided, distinct) = conn.query_row(
+                "SELECT COUNT(*), COUNT(DISTINCT node_id) FROM retrieval_surfaces \
+                 WHERE node_kind = 'schema' AND ts >= ?1",
+                params![&ts],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+            )?;
+            let mut stmt = conn.prepare(
+                "SELECT s.id, s.name, COUNT(*) AS guided \
+                 FROM retrieval_surfaces rs \
+                 JOIN schemas s ON s.id = rs.node_id \
+                 WHERE rs.node_kind = 'schema' AND rs.ts >= ?1 \
+                 GROUP BY s.id, s.name \
+                 ORDER BY guided DESC, s.id ASC",
+            )?;
+            let rows = stmt
+                .query_map(params![&ts], |r| {
+                    Ok(json!({
+                        "id": r.get::<_, i64>(0)?,
+                        "name": r.get::<_, String>(1)?,
+                        "guided": r.get::<_, i64>(2)?,
+                    }))
+                })?
+                .collect::<rusqlite::Result<Vec<Value>>>()?;
+            (guided, distinct, rows)
+        }
+        None => (0, 0, Vec::new()),
     };
 
     Ok(json!({
         "guided_retrievals": guided,
-        "distinct_schemas": distinct
+        "distinct_schemas": distinct,
+        "schemas": schemas,
     }))
 }
 
@@ -265,6 +292,7 @@ pub fn handle(
             note,
             pr,
             session,
+            lens,
         } => close(
             conn,
             reads_skipped,
@@ -273,6 +301,7 @@ pub fn handle(
             note,
             pr,
             session,
+            lens.as_deref(),
             root,
         ),
         crate::cli::SessionCmd::History => history(conn),

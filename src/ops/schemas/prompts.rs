@@ -24,8 +24,8 @@ use serde_json::{json, Value};
 
 use super::gates::{claimed_territory, gates_pass, jaccard, JACCARD_IDENTITY};
 use super::propose::{
-    is_timestamp_newer, normalize_note_kind, parse_note_key, sanitize_kebab,
-    suggest_base_schema_name, ProposalStatus, MIN_EVIDENCE,
+    is_timestamp_newer, normalize_note_kind, parse_note_key, sanitize_kebab, suggest_schema_name,
+    ProposalStatus, MIN_EVIDENCE,
 };
 use super::retrieval::parse_scope;
 
@@ -47,7 +47,7 @@ pub struct Lens {
     pub order: Order,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Order {
     Story,
@@ -55,12 +55,17 @@ pub enum Order {
 }
 
 impl Order {
-    #[allow(dead_code)] // Phase 3 session close & lens vocabulary helper (rule 006)
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Story => "story",
             Self::Time => "time",
         }
+    }
+}
+
+impl Serialize for Order {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
     }
 }
 
@@ -941,7 +946,7 @@ pub fn collect_prompts(conn: &Connection, lens: &Lens, limit: usize) -> Result<V
         let members_csv = join_note_keys(&ordered_indices, &notes);
         let suggested_name = match item.source_kind {
             PromptSourceKind::Thread => sanitize_kebab(&item.source_ref),
-            PromptSourceKind::Candidate => suggest_base_schema_name(conn, &item.uncovered_keys)?,
+            PromptSourceKind::Candidate => suggest_schema_name(conn, &item.uncovered_keys)?,
         };
         let propose_command = match item.source_kind {
             PromptSourceKind::Thread => format!(
@@ -1032,7 +1037,6 @@ fn try_qualify_prompt(
 /// Record shown prompts in `schema_prompt_notices` at session close.
 /// Upserts on `source_key` so revived threads or candidates refresh their
 /// evidence snapshot and `notified_at` timestamp (review finding F-1).
-#[allow(dead_code)] // wired in Phase 3 by src/ops/session.rs
 pub fn record_prompt_notices(
     conn: &Connection,
     prompts: &[SchemaPrompt],

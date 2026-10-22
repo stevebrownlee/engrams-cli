@@ -10,7 +10,6 @@ pub mod confirm;
 pub(crate) mod gates;
 pub mod kind;
 pub mod list;
-pub(crate) mod opportunities;
 pub mod prompts;
 pub mod propose;
 pub mod retrieval;

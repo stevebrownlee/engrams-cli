@@ -173,6 +173,24 @@ pub fn handle(
         }
     }
     schemas.sort_by_key(|s| s["id"].as_i64().unwrap_or(0));
+    let schema_ids: Vec<i64> = schemas.iter().filter_map(|s| s["id"].as_i64()).collect();
+    if !schema_ids.is_empty() {
+        let co: Vec<(&str, i64)> = matched
+            .iter()
+            .filter_map(|(itype, id)| match itype.as_str() {
+                "decision" => Some(("decision", *id)),
+                "system_pattern" => Some(("system_pattern", *id)),
+                _ => None,
+            })
+            .collect();
+        crate::ops::schemas::retrieval::record_surface(
+            conn,
+            "advise",
+            Some(&cleaned.join(",")),
+            &schema_ids,
+            &co,
+        )?;
+    }
     Ok(json!({
         "schemas": schemas,
         "constraints": constraints,

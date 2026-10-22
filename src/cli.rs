@@ -1015,7 +1015,7 @@ pub enum BatchType {
 #[derive(Subcommand, Debug)]
 pub enum SessionCmd {
     /// Record an end-of-session ROI rollup (optionally gates a PR); reports
-    /// schema-guided retrievals and unconfirmed schema opportunities
+    /// schema-guided retrievals and session-close schema prompts
     Close {
         /// Reads the KB made unnecessary this session (estimate)
         #[arg(long, default_value_t = 0)]
@@ -1035,6 +1035,9 @@ pub enum SessionCmd {
         /// Session key (defaults to ENGRAMS_SESSION)
         #[arg(long)]
         session: Option<String>,
+        /// Project lens name for schema prompts (default: general)
+        #[arg(long)]
+        lens: Option<String>,
     },
     /// Show recorded session rollups
     History,

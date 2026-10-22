@@ -4786,11 +4786,11 @@ fn test_brief_schema_truncates_members_over_cap() {
     }
 }
 
-// --- Session close: schema_value + schema_opportunities (spec 0005) ---
+// --- Session close: schema_value + schema_prompts (spec 0005 / spec 0008) ---
 
-/// Seeds one `kind='schema'` candidate that clears the gates, plus retrieval
-/// surfaces and a usage row for the given session. Returns the candidate's
-/// signature so assertions can stay data-driven.
+/// Seeds one `kind='schema'` candidate that clears the gates (backed by 3 active
+/// decisions across 3 days), plus retrieval surfaces and a usage row for the
+/// given session.
 fn seed_schema_candidate(
     db: &std::path::Path,
     signature: &str,
@@ -4799,10 +4799,28 @@ fn seed_schema_candidate(
     session: &str,
 ) {
     let conn = rusqlite::Connection::open(db).unwrap();
+    for (id, ts, path) in [
+        (1i64, "2020-01-01T00:00:00Z", "src/a.rs"),
+        (2i64, "2020-01-02T00:00:00Z", "src/b.rs"),
+        (3i64, "2020-01-03T00:00:00Z", "src/c.rs"),
+    ] {
+        conn.execute(
+            "INSERT OR IGNORE INTO decisions (id, uuid, timestamp, summary, status, archived) \
+             VALUES (?1, ?2, ?3, ?4, 'active', 0)",
+            rusqlite::params![id, format!("u-cand-{id}"), ts, format!("Decision {id}")],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', ?1, ?2, ?3)",
+            rusqlite::params![id, path, ts],
+        )
+        .unwrap();
+    }
     conn.execute(
         "INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, stability_count, reward_hits, last_drift_removed, last_drift_added, first_seen_at, last_seen_at, kind) \
-         VALUES (?1, ?2, 0.8, 3, 1, 0, 0, '2020-01-01T00:00:00Z', '2020-01-01T00:00:00Z', 'schema')",
-        rusqlite::params![signature, r#"["decision:1","decision:2"]"#],
+         VALUES (?1, ?2, 0.8, 3, 1, 0, 0, '2020-01-01T00:00:00Z', '2020-01-03T00:00:00Z', 'schema')",
+        rusqlite::params![signature, r#"["decision:1","decision:2","decision:3"]"#],
     )
     .unwrap();
     for (ts, node_id) in surface_ts {
@@ -4856,14 +4874,20 @@ fn test_session_close_surfaces_schema_value_and_opportunities() {
     // Windowed guided-retrieval counts for the named session.
     assert_eq!(parsed["schema_value"]["guided_retrievals"], 3);
     assert_eq!(parsed["schema_value"]["distinct_schemas"], 2);
+    assert_eq!(parsed["schema_value"]["schemas"], serde_json::json!([]));
+    assert!(parsed.get("schema_opportunities").is_none());
 
-    // The gated candidate is surfaced with a suggestion.
-    let opps = parsed["schema_opportunities"].as_array().unwrap();
-    assert_eq!(opps.len(), 1, "one gated candidate surfaces");
-    assert_eq!(opps[0]["signature"], "decision:1|decision:2");
-    assert!(opps[0]["suggested_name"].as_str().is_some());
-    assert!(opps[0]["propose_command"].as_str().is_some());
-    assert!(opps[0].get("confirm_command").is_none());
+    // The gated candidate is surfaced as a schema prompt.
+    let prompts = parsed["schema_prompts"].as_array().unwrap();
+    assert_eq!(prompts.len(), 1, "one gated candidate surfaces");
+    assert_eq!(prompts[0]["key"], "candidate:decision:1|decision:2");
+    assert_eq!(
+        prompts[0]["source"],
+        serde_json::json!({"kind": "candidate", "ref": "decision:1|decision:2"})
+    );
+    assert_eq!(prompts[0]["label"], "schema");
+    assert!(prompts[0]["propose_command"].as_str().is_some());
+    assert!(prompts[0].get("confirm_command").is_none());
 
     // Surfaced == stamped: notified_at is set for exactly what was emitted.
     let conn = rusqlite::Connection::open(&db).unwrap();
@@ -4902,6 +4926,7 @@ fn test_session_close_manual_close_before_any_closes_is_zero_window() {
 
     assert_eq!(parsed["schema_value"]["guided_retrievals"], 0);
     assert_eq!(parsed["schema_value"]["distinct_schemas"], 0);
+    assert_eq!(parsed["schema_value"]["schemas"], serde_json::json!([]));
 }
 
 #[test]
@@ -4958,7 +4983,7 @@ fn test_session_close_second_close_does_not_resurface_stamped_candidates() {
         .unwrap();
     assert!(out.status.success());
     let first: Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(first["schema_opportunities"].as_array().unwrap().len(), 1);
+    assert_eq!(first["schema_prompts"].as_array().unwrap().len(), 1);
 
     // The candidate is unchanged (notified_at was stamped at first close), so
     // the next close must not surface it again.
@@ -4969,7 +4994,7 @@ fn test_session_close_second_close_does_not_resurface_stamped_candidates() {
     assert!(out.status.success());
     let second: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(
-        second["schema_opportunities"].as_array().unwrap().len(),
+        second["schema_prompts"].as_array().unwrap().len(),
         0,
         "stamped candidates are not re-surfaced"
     );
@@ -5075,18 +5100,19 @@ fn test_session_close_opportunity_workflow_actionable() {
         .unwrap();
     assert!(out.status.success());
     let val: Value = serde_json::from_slice(&out.stdout).unwrap();
-    let opps = val["schema_opportunities"].as_array().unwrap();
-    assert_eq!(opps.len(), 1, "one gate-passing candidate surfaces: {val}");
+    let prompts = val["schema_prompts"].as_array().unwrap();
+    assert_eq!(
+        prompts.len(),
+        1,
+        "one gate-passing candidate surfaces: {val}"
+    );
 
-    let name = opps[0]["suggested_name"].as_str().unwrap();
-    let cmd_str = opps[0]["propose_command"].as_str().unwrap();
+    let cmd_str = prompts[0]["propose_command"].as_str().unwrap();
     assert_eq!(
         cmd_str,
-        format!(
-            "engrams schema propose --from decision:10,decision:11 --name {name} --statement \"<claim>\" --summary \"When <condition>: <directive>\""
-        )
+        "engrams schema propose --from decision:10,decision:11 --lens general --members decision:10,decision:11,decision:12 --name ast --statement \"<claim>\" --summary \"When <condition>: <directive>\""
     );
-    assert!(opps[0].get("confirm_command").is_none());
+    assert!(prompts[0].get("confirm_command").is_none());
 
     // Fill the placeholders in the emitted propose command and confirm the resulting proposal.
     let prop_out = engrams(&db)
@@ -5095,8 +5121,12 @@ fn test_session_close_opportunity_workflow_actionable() {
             "propose",
             "--from",
             "decision:10,decision:11",
+            "--lens",
+            "general",
+            "--members",
+            "decision:10,decision:11,decision:12",
             "--name",
-            name,
+            "ast",
             "--statement",
             "AST lexer, parser, and diagnostics share span-preserving pipeline invariants",
             "--summary",
@@ -5110,7 +5140,7 @@ fn test_session_close_opportunity_workflow_actionable() {
     let confirm_args: Vec<&str> = confirm_cmd.split_whitespace().skip(1).collect();
     engrams(&db).args(&confirm_args).assert().success();
     let show_out = engrams(&db)
-        .args(["schema", "show", name])
+        .args(["schema", "show", "ast"])
         .output()
         .unwrap();
     assert!(
@@ -5125,9 +5155,9 @@ fn test_session_close_opportunity_workflow_actionable() {
         .unwrap();
     assert!(out2.status.success());
     let val2: Value = serde_json::from_slice(&out2.stdout).unwrap();
-    let opps2 = val2["schema_opportunities"].as_array().unwrap();
+    let prompts2 = val2["schema_prompts"].as_array().unwrap();
     assert!(
-        opps2.is_empty(),
+        prompts2.is_empty(),
         "promoted/notified candidate must not re-nag: {val2}"
     );
 }
@@ -6594,29 +6624,27 @@ fn test_schema_proposal_ac8_scan_and_confirm_cutover_and_session_close_propose_c
         "detector groups are evidence, not schemas: run engrams schema propose --from decision:1,decision:2 --statement ... --summary ..."
     );
 
-    // 4. `session close` offers a ready-to-fill `propose_command` for each group instead of `confirm_command`.
+    // 4. `session close` offers a ready-to-fill `propose_command` for each prompt instead of `confirm_command`.
     let close_out = engrams(&db)
         .args(["session", "close", "--note", "ac8 check"])
         .output()
         .unwrap();
     assert!(close_out.status.success());
     let close_json: Value = serde_json::from_slice(&close_out.stdout).unwrap();
-    let opps = close_json["schema_opportunities"].as_array().unwrap();
-    assert!(
-        !opps.is_empty(),
-        "expected schema_opportunities: {close_json}"
-    );
-    for opp in opps {
-        let cmd = opp["propose_command"].as_str().unwrap();
+    let prompts = close_json["schema_prompts"].as_array().unwrap();
+    assert!(!prompts.is_empty(), "expected schema_prompts: {close_json}");
+    for prompt in prompts {
+        let cmd = prompt["propose_command"].as_str().unwrap();
         assert!(
-            cmd.starts_with("engrams schema propose --from ")
+            cmd.starts_with("engrams schema propose ")
+                && cmd.contains(" --lens general --members ")
                 && cmd.contains(" --name ")
                 && cmd.ends_with(
                     " --statement \"<claim>\" --summary \"When <condition>: <directive>\""
                 ),
             "unexpected propose_command: {cmd}"
         );
-        assert!(opp.get("confirm_command").is_none());
+        assert!(prompt.get("confirm_command").is_none());
     }
 }
 
@@ -7680,4 +7708,556 @@ fn test_schema_prompts_ac8_preview_never_writes_notices_and_respects_limit() {
     let limited_json: Value = serde_json::from_slice(&limited.stdout).unwrap();
     assert_eq!(limited_json["prompts"].as_array().unwrap().len(), 1);
     assert_eq!(limited_json["prompts"][0]["key"], "thread:mara");
+
+    // Subsequent `session close --lens fiction` still returns the same 3 previewed prompts.
+    let close_out = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close_out.status.success());
+    let close_json: Value = serde_json::from_slice(&close_out.stdout).unwrap();
+    assert_eq!(close_json["schema_prompts"], first_json["prompts"]);
+}
+
+// ── Spec 0008 Phase 3: Session Close Schema Prompts, Notices, Value & Loop ──
+
+/// Split a CLI command line respecting double-quoted arguments.
+fn split_printed_command(cmd: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut cur = String::new();
+    let mut in_quotes = false;
+    for ch in cmd.chars() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            c if c.is_whitespace() && !in_quotes => {
+                if !cur.is_empty() {
+                    args.push(std::mem::take(&mut cur));
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.is_empty() {
+        args.push(cur);
+    }
+    args
+}
+
+#[test]
+fn test_session_close_schema_prompts_ac1_fiction_novel_top_three_and_invalid_lens_guard() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // Invalid --lens fails before recording a session_closes row.
+    let bad_out = engrams(&db)
+        .args(["session", "close", "--lens", "fantasy"])
+        .output()
+        .unwrap();
+    assert!(!bad_out.status.success());
+    let bad_err: Value = serde_json::from_slice(&bad_out.stderr).unwrap();
+    assert_eq!(
+        bad_err["error"],
+        "unknown lens 'fantasy': available general, fiction, software"
+    );
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let closes: i64 = conn
+            .query_row("SELECT COUNT(*) FROM session_closes", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            closes, 0,
+            "failed lens load must not record a session close"
+        );
+    }
+
+    // AC-1: Closing with `--lens fiction` returns at most 3 prompts, includes
+    // the protagonist's storyline (`thread:mara`), and includes no decoy notes.
+    let close_out = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close_out.status.success());
+    let close_json: Value = serde_json::from_slice(&close_out.stdout).unwrap();
+    assert_eq!(close_json["closed"], true);
+    assert!(close_json.get("schema_opportunities").is_none());
+
+    let prompts = close_json["schema_prompts"].as_array().unwrap();
+    assert_eq!(prompts.len(), 3);
+    assert!(
+        prompts.iter().any(|p| p["key"] == "thread:mara"),
+        "expected protagonist storyline thread:mara in top 3 prompts"
+    );
+    for p in prompts {
+        for ev in p["evidence"].as_array().unwrap() {
+            let key = format!(
+                "{}:{}",
+                ev["kind"].as_str().unwrap(),
+                ev["id"].as_i64().unwrap()
+            );
+            assert!(
+                !matches!(
+                    key.as_str(),
+                    "decision:25"
+                        | "decision:26"
+                        | "progress_entry:1"
+                        | "progress_entry:2"
+                        | "custom_data:1"
+                ),
+                "decoy note {key} must not appear in prompt {}",
+                p["key"]
+            );
+        }
+    }
+}
+
+#[test]
+fn test_session_close_schema_prompts_ac3_holds_back_until_newly_created_note_joins() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        for (id, ts, summary, tags, path) in [
+            (
+                1i64,
+                "2026-08-01T10:00:00Z",
+                "Mara hides her scarred hands during the council oath",
+                "[\"mara\"]",
+                "manuscript/ch01.md",
+            ),
+            (
+                2i64,
+                "2026-08-02T10:00:00Z",
+                "Mara insists the watch captain take credit for the river patrol",
+                "[\"mara\"]",
+                "manuscript/ch02.md",
+            ),
+            (
+                3i64,
+                "2026-08-03T10:00:00Z",
+                "Mara stands the eastern rampart alone during the night squall",
+                "[\"mara\"]",
+                "manuscript/ch03.md",
+            ),
+            (
+                4i64,
+                "2026-08-04T10:00:00Z",
+                "Mara attributes the salvaged grain wagons to Soren's scouts",
+                "[\"mara\"]",
+                "manuscript/ch04.md",
+            ),
+            (
+                5i64,
+                "2026-08-05T10:00:00Z",
+                "Earlier ungrouped note from the same week",
+                "[\"other\"]",
+                "manuscript/ch05.md",
+            ),
+        ] {
+            conn.execute(
+                "INSERT INTO decisions (id, uuid, timestamp, summary, tags, status, archived) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'active', 0)",
+                rusqlite::params![id, format!("u-ac3-{id}"), ts, summary, tags],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES ('decision', ?1, ?2, ?3)",
+                rusqlite::params![id, path, ts],
+            )
+            .unwrap();
+        }
+    }
+
+    // 1. First session close shows thread:mara and records its notice.
+    let close1 = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close1.status.success());
+    let json1: Value = serde_json::from_slice(&close1.stdout).unwrap();
+    let prompts1 = json1["schema_prompts"].as_array().unwrap();
+    assert_eq!(prompts1.len(), 1);
+    assert_eq!(prompts1[0]["key"], "thread:mara");
+    assert_eq!(prompts1[0]["spread"]["notes"], 4);
+
+    // Pin notified_at to 2026-08-10 (after decisions 1..5, before now) so CLI
+    // `decision log` timestamps are deterministically newer without sleeping.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "UPDATE schema_prompt_notices SET notified_at = '2026-08-10T00:00:00Z' \
+             WHERE source_key = 'thread:mara'",
+            [],
+        )
+        .unwrap();
+
+        // Remove a note (archive decision:4) and regroup an existing older note
+        // (decision:5 from 2026-08-05 <= notified_at) into `mara`.
+        conn.execute("UPDATE decisions SET archived = 1 WHERE id = 4", [])
+            .unwrap();
+        conn.execute("UPDATE decisions SET tags = '[\"mara\"]' WHERE id = 5", [])
+            .unwrap();
+    }
+
+    // 2. Second session close: notes were removed/regrouped, but no note was
+    // created after notified_at, so the prompt is NOT shown again.
+    let close2 = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close2.status.success());
+    let json2: Value = serde_json::from_slice(&close2.stdout).unwrap();
+    assert_eq!(json2["schema_prompts"], serde_json::json!([]));
+
+    // 3. Log a newly created note (timestamp > notified_at) joining `mara`.
+    engrams(&db)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Mara rallies the broken gate crew while insisting anyone would have held the line",
+            "--rationale",
+            "Shows her leadership under fire paired with persistent self-effacement",
+            "--tags",
+            "mara",
+            "--anchor",
+            "manuscript/ch06.md",
+            "--force",
+        ])
+        .assert()
+        .success();
+
+    // 4. First session close after the newly created note shows `thread:mara`
+    // again and upserts `schema_prompt_notices`.
+    let close3 = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close3.status.success());
+    let json3: Value = serde_json::from_slice(&close3.stdout).unwrap();
+    let prompts3 = json3["schema_prompts"].as_array().unwrap();
+    assert_eq!(prompts3.len(), 1);
+    assert_eq!(prompts3[0]["key"], "thread:mara");
+    assert_eq!(prompts3[0]["spread"]["notes"], 5);
+
+    // 5. Subsequent session close without another new note stays quiet.
+    let close4 = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close4.status.success());
+    let json4: Value = serde_json::from_slice(&close4.stdout).unwrap();
+    assert_eq!(json4["schema_prompts"], serde_json::json!([]));
+}
+
+#[test]
+fn test_session_close_schema_value_ac10_names_guided_schemas_most_used_first() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // Confirm two active schemas: id 1 (`mara-broken-leader`) and id 2 (`aether-cost`).
+    for (name, statement, summary, members, tags) in [
+        (
+            "mara-broken-leader",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "When writing Mara under pressure: she doubts herself aloud and credits others",
+            "decision:1,decision:2,decision:3",
+            "mara",
+        ),
+        (
+            "aether-cost",
+            "Aether draws chill iron and exacts a cumulative cold cost unless grounded",
+            "When writing aether casting: show frost buildup and require salt-iron grounding",
+            "decision:13,decision:14,decision:15",
+            "aether",
+        ),
+    ] {
+        let prop = engrams(&db)
+            .args([
+                "schema",
+                "propose",
+                "--name",
+                name,
+                "--statement",
+                statement,
+                "--summary",
+                summary,
+                "--members",
+                members,
+                "--scope-tags",
+                tags,
+                "--scope-paths",
+                "manuscript",
+            ])
+            .output()
+            .unwrap();
+        assert!(prop.status.success());
+        let prop_json: Value = serde_json::from_slice(&prop.stdout).unwrap();
+        let confirm_args = split_printed_command(prop_json["confirm_command"].as_str().unwrap());
+        engrams(&db).args(&confirm_args[1..]).assert().success();
+    }
+
+    // Establish session close baseline window.
+    engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .assert()
+        .success();
+
+    // Surface `aether-cost` 4 times (prime, advise manuscript/ch19.md, query aether x2)
+    // and `mara-broken-leader` 3 times (prime, advise manuscript/ch19.md, query Mara).
+    engrams(&db)
+        .args(["prime", "--tags", "aether"])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["advise", "manuscript/ch19.md"])
+        .assert()
+        .success();
+    engrams(&db).args(["query", "aether"]).assert().success();
+    engrams(&db).args(["query", "aether"]).assert().success();
+    engrams(&db).args(["query", "Mara"]).assert().success();
+
+    let close_out = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close_out.status.success());
+    let close_json: Value = serde_json::from_slice(&close_out.stdout).unwrap();
+    assert_eq!(close_json["schema_value"]["guided_retrievals"], 7);
+    assert_eq!(close_json["schema_value"]["distinct_schemas"], 2);
+    assert_eq!(
+        close_json["schema_value"]["schemas"],
+        serde_json::json!([
+            {"id": 2, "name": "aether-cost", "guided": 4},
+            {"id": 1, "name": "mara-broken-leader", "guided": 3}
+        ])
+    );
+}
+
+#[test]
+fn test_schema_loop_session_close_prompt_to_confirmed_schema_ac9_and_ac11() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // Step 1: Close session with fiction lens; find protagonist prompt (`thread:mara`).
+    let close1_out = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close1_out.status.success());
+    let close1_json: Value = serde_json::from_slice(&close1_out.stdout).unwrap();
+    let prompts = close1_json["schema_prompts"].as_array().unwrap();
+    assert_eq!(prompts.len(), 3);
+    let mara_prompt = prompts
+        .iter()
+        .find(|p| p["key"] == "thread:mara")
+        .expect("protagonist prompt thread:mara must be offered");
+
+    // Step 2: Run the exact `propose_command` printed in the protagonist's prompt,
+    // substituting only `<claim>` and `When <condition>: <directive>`.
+    let claim =
+        "Mara believes she is broken; that hurt carries with her as she grows into a leader";
+    let instruction =
+        "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger";
+    let filled_propose_cmd = mara_prompt["propose_command"]
+        .as_str()
+        .unwrap()
+        .replace("<claim>", claim)
+        .replace("When <condition>: <directive>", instruction);
+    let propose_args = split_printed_command(&filled_propose_cmd);
+    assert_eq!(propose_args[0], "engrams");
+
+    let prop_out = engrams(&db).args(&propose_args[1..]).output().unwrap();
+    assert!(
+        prop_out.status.success(),
+        "printed propose_command failed: {}",
+        String::from_utf8_lossy(&prop_out.stderr)
+    );
+    let prop_json: Value = serde_json::from_slice(&prop_out.stdout).unwrap();
+    assert_eq!(prop_json["inserted"], true);
+    // AC-9: Proposal records the storyline thread as its source and the lens it used.
+    assert_eq!(
+        prop_json["proposal"]["source"],
+        serde_json::json!({"kind": "thread", "ref": "mara"})
+    );
+    assert_eq!(prop_json["proposal"]["lens"], "fiction");
+
+    // Step 3: Run the exact `confirm_command` printed by `schema propose`.
+    let confirm_cmd = prop_json["confirm_command"].as_str().unwrap();
+    let confirm_args = split_printed_command(confirm_cmd);
+    assert_eq!(confirm_args[0], "engrams");
+    let confirm_out = engrams(&db).args(&confirm_args[1..]).output().unwrap();
+    assert!(
+        confirm_out.status.success(),
+        "printed confirm_command failed: {}",
+        String::from_utf8_lossy(&confirm_out.stderr)
+    );
+
+    // Step 4 (AC-11): Next primed session and pre-edit advice for a new chapter
+    // (`manuscript/ch19.md`) both show the confirmed claim and instruction.
+    let prime_out = engrams(&db)
+        .args(["prime", "--paths", "manuscript/ch19.md", "--tags", "mara"])
+        .output()
+        .unwrap();
+    assert!(prime_out.status.success());
+    let prime_json: Value = serde_json::from_slice(&prime_out.stdout).unwrap();
+    let prime_schemas = prime_json["schemas"].as_array().unwrap();
+    assert_eq!(prime_schemas.len(), 1);
+    assert_eq!(prime_schemas[0]["name"], "mara");
+    assert_eq!(prime_schemas[0]["statement"], claim);
+    assert_eq!(prime_schemas[0]["summary"], instruction);
+
+    let advise_out = engrams(&db)
+        .args(["advise", "manuscript/ch19.md"])
+        .output()
+        .unwrap();
+    assert!(advise_out.status.success());
+    let advise_json: Value = serde_json::from_slice(&advise_out.stdout).unwrap();
+    let advise_schemas = advise_json["schemas"].as_array().unwrap();
+    assert_eq!(advise_schemas.len(), 1);
+    assert_eq!(advise_schemas[0]["name"], "mara");
+    assert_eq!(advise_schemas[0]["statement"], claim);
+    assert_eq!(advise_schemas[0]["summary"], instruction);
+
+    // Step 5: Subsequent `session close --lens fiction` no longer prompts the
+    // protagonist's storyline, and `schema_value.schemas` names the protagonist schema.
+    let close2_out = engrams(&db)
+        .args(["session", "close", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(close2_out.status.success());
+    let close2_json: Value = serde_json::from_slice(&close2_out.stdout).unwrap();
+    let prompts2 = close2_json["schema_prompts"].as_array().unwrap();
+    assert!(
+        !prompts2.iter().any(|p| p["key"] == "thread:mara"),
+        "confirmed protagonist storyline must not be prompted again: {prompts2:?}"
+    );
+    assert_eq!(
+        close2_json["schema_value"]["schemas"],
+        serde_json::json!([{"id": 1, "name": "mara", "guided": 2}])
+    );
+}
+
+#[test]
+fn test_migration_v16_to_v17_session_close_ac12_holds_back_notified_candidate_until_new_note() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Rewind database to v16 with a shown `kind = 'schema'` candidate
+    // (`notified_at >= last_seen_at`) and 3 active member notes.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "DROP TABLE schema_prompt_notices;
+             ALTER TABLE schema_proposals DROP COLUMN lens;
+             ALTER TABLE schema_candidates ADD COLUMN notified_at TEXT;
+             PRAGMA user_version = 16;",
+        )
+        .unwrap();
+
+        for (id, ts, summary, path) in [
+            (
+                1i64,
+                "2026-09-01T10:00:00Z",
+                "Socket pool bounds idle connections",
+                "src/net/pool.rs",
+            ),
+            (
+                2i64,
+                "2026-09-02T10:00:00Z",
+                "Retry policy backs off exponentially on pool timeout",
+                "src/net/retry.rs",
+            ),
+            (
+                3i64,
+                "2026-09-03T10:00:00Z",
+                "Health probe evicts half-open sockets before reuse",
+                "src/net/pool.rs",
+            ),
+        ] {
+            conn.execute(
+                "INSERT INTO decisions (id, uuid, timestamp, summary, status, archived) \
+                 VALUES (?1, ?2, ?3, ?4, 'active', 0)",
+                rusqlite::params![id, format!("u-mig-{id}"), ts, summary],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES ('decision', ?1, ?2, ?3)",
+                rusqlite::params![id, path, ts],
+            )
+            .unwrap();
+        }
+
+        conn.execute(
+            "INSERT INTO schema_candidates \
+             (cluster_sig, member_keys_json, density, stability_count, reward_hits, \
+              first_seen_at, last_seen_at, kind, notified_at) \
+             VALUES ('decision:1,decision:2,decision:3', \
+                     '[\"decision:1\",\"decision:2\",\"decision:3\"]', \
+                     0.8, 3, 1, '2026-09-01T10:00:00Z', '2026-09-05T10:00:00Z', \
+                     'schema', '2026-09-05T12:00:00Z')",
+            [],
+        )
+        .unwrap();
+    }
+
+    // Upgrade the v16 database and close the next session: the previously shown
+    // candidate must NOT be prompted.
+    engrams(&db).arg("migrate").assert().success();
+    let close1 = engrams(&db)
+        .args(["session", "close", "--lens", "software"])
+        .output()
+        .unwrap();
+    assert!(close1.status.success());
+    let json1: Value = serde_json::from_slice(&close1.stdout).unwrap();
+    assert_eq!(
+        json1["schema_prompts"],
+        serde_json::json!([]),
+        "carried-over v16 notice must suppress candidate until a new note joins"
+    );
+
+    // Once a newly created note (timestamp > notified_at) joins the candidate's
+    // evidence, the next session close prompts it.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, status, archived) \
+             VALUES (4, 'u-mig-4', '2026-09-10T10:00:00Z', 'Pool metrics track saturation latency', 'active', 0)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', 4, 'src/net/pool.rs', '2026-09-10T10:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE schema_candidates \
+             SET cluster_sig = 'decision:1,decision:2,decision:3,decision:4', \
+                 member_keys_json = '[\"decision:1\",\"decision:2\",\"decision:3\",\"decision:4\"]', \
+                 last_seen_at = '2026-09-10T11:00:00Z' \
+             WHERE cluster_sig = 'decision:1,decision:2,decision:3'",
+            [],
+        )
+        .unwrap();
+    }
+
+    let close2 = engrams(&db)
+        .args(["session", "close", "--lens", "software"])
+        .output()
+        .unwrap();
+    assert!(close2.status.success());
+    let json2: Value = serde_json::from_slice(&close2.stdout).unwrap();
+    let prompts2 = json2["schema_prompts"].as_array().unwrap();
+    assert_eq!(prompts2.len(), 1);
+    assert_eq!(prompts2[0]["key"], "candidate:decision:1,decision:2");
+    assert_eq!(prompts2[0]["spread"]["notes"], 4);
 }
