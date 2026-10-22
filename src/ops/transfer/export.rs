@@ -135,6 +135,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     fs::create_dir_all(path.join("links"))?;
     fs::create_dir_all(path.join("anchors"))?;
     fs::create_dir_all(path.join("schemas"))?;
+    fs::create_dir_all(path.join("schema_proposals"))?;
 
     let mut counts = serde_json::Map::new();
 
@@ -532,15 +533,18 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     let mut stmt = conn.prepare(
         "SELECT id, uuid, name, summary, summary_source, status, centroid_json, \
          confidence, importance, access_count, last_accessed_at, last_confirmed_at, \
-         created_at, updated_at, kind, kind_reasons_json FROM schemas ORDER BY id",
+         created_at, updated_at, kind, kind_reasons_json, statement, scope_json \
+         FROM schemas ORDER BY id",
     )?;
     let schema_rows = stmt.query_map([], |row| {
         Ok(serde_json::json!({
             "id": row.get::<_, i64>(0)?,
             "uuid": row.get::<_, String>(1)?,
             "name": row.get::<_, String>(2)?,
+            "statement": row.get::<_, Option<String>>(16)?,
             "summary": row.get::<_, String>(3)?,
             "summary_source": row.get::<_, String>(4)?,
+            "scope_json": row.get::<_, String>(17)?,
             "status": row.get::<_, String>(5)?,
             "centroid_json": row.get::<_, String>(6)?,
             "confidence": row.get::<_, f64>(7)?,
@@ -640,6 +644,68 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         schemas_count += 1;
     }
     counts.insert("schemas".to_string(), serde_json::json!(schemas_count));
+
+    // Export Schema Proposals (spec 0007, AC-10): pending, confirmed, and
+    // rejected proposals travel with their evidence snapshots and schema_id
+    // linkage so `origin` and territory checks survive export/import.
+    let mut stmt = conn.prepare(
+        "SELECT id, uuid, name, statement, summary, scope_json, members_json, \
+         contrary_json, evidence_json, source_kind, source_ref, session, status, \
+         decision_note, schema_id, created_at, decided_at \
+         FROM schema_proposals ORDER BY id ASC",
+    )?;
+    let proposal_rows = stmt.query_map([], |row| {
+        Ok(serde_json::json!({
+            "id": row.get::<_, i64>(0)?,
+            "uuid": row.get::<_, String>(1)?,
+            "name": row.get::<_, String>(2)?,
+            "statement": row.get::<_, String>(3)?,
+            "summary": row.get::<_, String>(4)?,
+            "scope_json": row.get::<_, String>(5)?,
+            "members_json": row.get::<_, String>(6)?,
+            "contrary_json": row.get::<_, String>(7)?,
+            "evidence_json": row.get::<_, String>(8)?,
+            "source_kind": row.get::<_, String>(9)?,
+            "source_ref": row.get::<_, Option<String>>(10)?,
+            "session": row.get::<_, Option<String>>(11)?,
+            "status": row.get::<_, String>(12)?,
+            "decision_note": row.get::<_, Option<String>>(13)?,
+            "schema_id": row.get::<_, Option<i64>>(14)?,
+            "created_at": row.get::<_, String>(15)?,
+            "decided_at": row.get::<_, Option<String>>(16)?,
+        }))
+    })?;
+    let mut proposals_count = 0;
+    for row in proposal_rows {
+        let row = row?;
+        let id = row.get("id").unwrap().as_i64().unwrap();
+        let name = row.get("name").unwrap().as_str().unwrap();
+        let mut fields = vec![
+            ("identifier", FmValue::Scalar(id.to_string())),
+            ("title", FmValue::Scalar(name.to_string())),
+        ];
+        if let Some(ts) = opt_str(&row, "created_at") {
+            fields.push(("created", FmValue::Scalar(ts)));
+        }
+        if let Some(stmt_text) = opt_str(&row, "statement") {
+            fields.push(("description", FmValue::Scalar(stmt_text)));
+        }
+        let content = format!(
+            "{}# {}\n\n```json\n{}\n```\n",
+            yaml_frontmatter(&fields),
+            name,
+            serde_json::to_string_pretty(&row)?
+        );
+        fs::write(
+            path.join("schema_proposals").join(format!("{id}.md")),
+            content,
+        )?;
+        proposals_count += 1;
+    }
+    counts.insert(
+        "schema_proposals".to_string(),
+        serde_json::json!(proposals_count),
+    );
 
     // Reward telemetry (AC-11 "telemetry intact"): the rolling-window
     // table is bounded, so the whole thing exports as one file.

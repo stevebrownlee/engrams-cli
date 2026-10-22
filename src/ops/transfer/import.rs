@@ -6,6 +6,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+const DEFAULT_SCOPE_JSON: &str = "{\"tags\":[],\"paths\":[]}";
+
 fn extract_json_block(content: &str) -> Option<Value> {
     let start_tag = "```json";
     let end_tag = "```";
@@ -164,6 +166,7 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
     let links_files = parse_dir(path, "links", &mut errors)?;
     let anchors_files = parse_dir(path, "anchors", &mut errors)?;
     let schemas_files = parse_dir(path, "schemas", &mut errors)?;
+    let schema_proposals_files = parse_dir(path, "schema_proposals", &mut errors)?;
 
     let suggestions_path = path.join("schemas").join("suggestions.json");
     let standalone_suggestions: Option<Vec<Value>> = if suggestions_path.exists() {
@@ -454,8 +457,8 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
                 "INSERT OR REPLACE INTO schemas (id, uuid, name, summary, summary_source, \
                  status, centroid_json, confidence, importance, access_count, \
                  last_accessed_at, last_confirmed_at, created_at, updated_at, \
-                 kind, kind_reasons_json) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                 kind, kind_reasons_json, statement, scope_json) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 params![
                     id,
                     json.get("uuid")
@@ -500,6 +503,12 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
                     json.get("kind_reasons_json")
                         .and_then(|v| v.as_str())
                         .unwrap_or("[]"),
+                    // spec 0007 AC-10: statement and scope_json round-trip verbatim;
+                    // pre-v16 exports fall back to NULL and the empty scope JSON.
+                    json.get("statement").and_then(|v| v.as_str()),
+                    json.get("scope_json")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(DEFAULT_SCOPE_JSON),
                 ],
             )?;
             Ok(id)
@@ -586,6 +595,11 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
                     add_candidate_id(&mut candidate_ids, item_kind, item_id);
                 }
             }
+        }
+    }
+    for pf in &schema_proposals_files {
+        if let Some(sid) = pf.json.get("schema_id").and_then(|v| v.as_i64()) {
+            add_candidate_id(&mut candidate_ids, "schema", sid);
         }
     }
     if let Some(rows) = &standalone_suggestions {
@@ -907,6 +921,113 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
     }
     imported.insert("schemas".to_string(), serde_json::json!(schemas_count));
 
+    let mut proposals_count = 0;
+    for pf in &schema_proposals_files {
+        let res: Result<()> = (|| {
+            let json = &pf.json;
+            let id = json
+                .get("id")
+                .and_then(|v| v.as_i64())
+                .ok_or_else(|| anyhow::anyhow!("missing id"))?;
+            let uuid = json
+                .get("uuid")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("missing uuid"))?;
+            let name = json
+                .get("name")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("missing name"))?;
+            let statement = json
+                .get("statement")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("missing statement"))?;
+            let summary = json
+                .get("summary")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow::anyhow!("missing summary"))?;
+            let scope_json = json
+                .get("scope_json")
+                .and_then(|v| v.as_str())
+                .unwrap_or(DEFAULT_SCOPE_JSON);
+            let members_json = json
+                .get("members_json")
+                .and_then(|v| v.as_str())
+                .unwrap_or("[]");
+            let contrary_json = json
+                .get("contrary_json")
+                .and_then(|v| v.as_str())
+                .unwrap_or("[]");
+            let evidence_json = json
+                .get("evidence_json")
+                .and_then(|v| v.as_str())
+                .unwrap_or("{\"notes\":0,\"files\":0,\"days\":0,\"contrary\":0}");
+            let source_kind = json
+                .get("source_kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("manual");
+            let source_ref = json.get("source_ref").and_then(|v| v.as_str());
+            let session = json.get("session").and_then(|v| v.as_str());
+            let status = json
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("proposed");
+            let decision_note = json.get("decision_note").and_then(|v| v.as_str());
+            let schema_id = match json.get("schema_id").and_then(|v| v.as_i64()) {
+                Some(sid) if entity_exists(&existing_by_table, "schema", sid) => Some(sid),
+                Some(sid) => {
+                    skipped_references.push(serde_json::json!({
+                        "file": pf.rel_file,
+                        "reference": format!("schema:{sid}"),
+                        "reason": format!("no schema {sid}; proposal imported without schema_id"),
+                    }));
+                    None
+                }
+                None => None,
+            };
+            let created_at = json
+                .get("created_at")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let decided_at = json.get("decided_at").and_then(|v| v.as_str());
+
+            tx.execute(
+                "INSERT OR REPLACE INTO schema_proposals \
+                 (id, uuid, name, statement, summary, scope_json, members_json, \
+                  contrary_json, evidence_json, source_kind, source_ref, session, \
+                  status, decision_note, schema_id, created_at, decided_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                params![
+                    id,
+                    uuid,
+                    name,
+                    statement,
+                    summary,
+                    scope_json,
+                    members_json,
+                    contrary_json,
+                    evidence_json,
+                    source_kind,
+                    source_ref,
+                    session,
+                    status,
+                    decision_note,
+                    schema_id,
+                    created_at,
+                    decided_at,
+                ],
+            )?;
+            Ok(())
+        })();
+        match res {
+            Ok(()) => proposals_count += 1,
+            Err(e) => errors.push(format!("Error importing {}: {}", pf.full_path.display(), e)),
+        }
+    }
+    imported.insert(
+        "schema_proposals".to_string(),
+        serde_json::json!(proposals_count),
+    );
+
     if let Some(rows) = standalone_suggestions {
         for s in rows {
             let schema_id = s.get("schema_id").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -1020,4 +1141,194 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
         "skipped_references": skipped_references,
         "errors": errors,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ops::schemas::{confirm, list, propose};
+    use crate::schema::SCHEMA;
+    use tempfile::TempDir;
+
+    fn mem_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        conn
+    }
+
+    #[test]
+    fn proposal_and_schema_statement_scope_export_import_round_trip_ac10() {
+        let src = mem_db();
+        src.execute_batch(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+             (1, 'u1', '2026-10-01T00:00:00Z', 'Mara hesitates before her first command', '[\"mara\",\"wound\"]'),
+             (2, 'u2', '2026-10-02T00:00:00Z', 'Mara calls herself just the one left standing', '[\"mara\",\"wound\"]'),
+             (3, 'u3', '2026-10-03T00:00:00Z', 'Mara doubts her tactical judgment under siege', '[\"mara\",\"wound\"]'),
+             (4, 'u4', '2026-10-04T00:00:00Z', 'Mara rallies the rear guard without hesitation', '[\"mara\",\"courage\"]'),
+             (5, 'u5', '2026-10-05T00:00:00Z', 'Soren waits in silence beside the parapet', '[\"soren\",\"trust\"]'),
+             (6, 'u6', '2026-10-06T00:00:00Z', 'Soren shares rations without speaking', '[\"soren\",\"trust\"]'),
+             (7, 'u7', '2026-10-07T00:00:00Z', 'Soren guards Mara while she sleeps', '[\"soren\",\"trust\"]'),
+             (8, 'u8', '2026-10-08T00:00:00Z', 'Aether draws chill iron and frost', '[\"aether\",\"magic\"]'),
+             (9, 'u9', '2026-10-09T00:00:00Z', 'Salt-iron rods ground excess aether', '[\"aether\",\"magic\"]'),
+             (10, 'u10', '2026-10-10T00:00:00Z', 'Unshielded aether casting leaves frostbite', '[\"aether\",\"magic\"]');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'manuscript/ch01.md', '2026-10-01T00:00:00Z'),
+             ('decision', 2, 'manuscript/ch02.md', '2026-10-02T00:00:00Z'),
+             ('decision', 3, 'manuscript/ch03.md', '2026-10-03T00:00:00Z'),
+             ('decision', 4, 'manuscript/ch04.md', '2026-10-04T00:00:00Z'),
+             ('decision', 5, 'manuscript/ch05.md', '2026-10-05T00:00:00Z'),
+             ('decision', 6, 'manuscript/ch06.md', '2026-10-06T00:00:00Z'),
+             ('decision', 7, 'manuscript/ch07.md', '2026-10-07T00:00:00Z'),
+             ('decision', 8, 'world/magic-01.md', '2026-10-08T00:00:00Z'),
+             ('decision', 9, 'world/magic-02.md', '2026-10-09T00:00:00Z'),
+             ('decision', 10, 'world/magic-03.md', '2026-10-10T00:00:00Z');
+             INSERT INTO schemas (id, uuid, name, statement, summary, summary_source, scope_json, status, kind, centroid_json, created_at, updated_at) VALUES
+             (10, 'u-legacy', 'legacy-style', 'Legacy prose stays spare and concrete',
+              'When editing prose chapters: cut ornamental adverbs', 'agent',
+              '{\"tags\":[\"style\"],\"paths\":[\"manuscript\"]}', 'active', 'schema', '{}',
+              '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');",
+        )
+        .unwrap();
+
+        // Proposal 1: confirmed into schema
+        propose::propose(
+            &src,
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            Some("When writing Mara under pressure: she doubts herself aloud and credits others"),
+            None,
+            None,
+            &[
+                "decision:1".into(),
+                "decision:2".into(),
+                "decision:3".into(),
+            ],
+            None,
+            Some("mara-broken-leader"),
+            Some(&["mara".into(), "wound".into()]),
+            Some(&["manuscript".into()]),
+            &["decision:4".into()],
+            Some("sess-ac10"),
+            false,
+        )
+        .unwrap();
+        confirm::confirm(&src, "proposal:1", None, None, None, None, None, None, None).unwrap();
+
+        // Proposal 2: rejected with a reason
+        propose::propose(
+            &src,
+            "Soren's loyalty shows through silent action rather than speeches",
+            Some("When writing Soren in group scenes: keep his dialogue minimal and physical"),
+            None,
+            None,
+            &[
+                "decision:5".into(),
+                "decision:6".into(),
+                "decision:7".into(),
+            ],
+            None,
+            Some("soren-silence"),
+            Some(&["soren".into()]),
+            Some(&["manuscript".into()]),
+            &[],
+            Some("sess-ac10"),
+            false,
+        )
+        .unwrap();
+        propose::reject(&src, "proposal:2", Some("Wait for act two betrayal beats")).unwrap();
+
+        // Proposal 3: left pending
+        propose::propose(
+            &src,
+            "Aether magic exacts a physical cold cost unless grounded through salt-iron",
+            Some("When writing aether casting: show frost buildup and salt-iron grounding"),
+            None,
+            None,
+            &[
+                "decision:8".into(),
+                "decision:9".into(),
+                "decision:10".into(),
+            ],
+            None,
+            Some("aether-cost"),
+            Some(&["aether".into(), "magic".into()]),
+            Some(&["world".into()]),
+            &[],
+            Some("sess-ac10"),
+            false,
+        )
+        .unwrap();
+        let temp = TempDir::new().unwrap();
+        let exp_dir = temp.path().join("export");
+        let exp_out = super::super::export::handle(&src, &exp_dir).unwrap();
+        assert_eq!(exp_out["counts"]["schemas"], 2);
+        assert_eq!(exp_out["counts"]["schema_proposals"], 3);
+
+        let dst = mem_db();
+        let imp_out = super::handle(&dst, &exp_dir, None).unwrap();
+        assert_eq!(imp_out["errors"], serde_json::json!([]));
+        assert_eq!(imp_out["imported"]["schemas"], 2);
+        assert_eq!(imp_out["imported"]["schema_proposals"], 3);
+
+        let src_props = propose::proposals(&src, Some("all")).unwrap();
+        let dst_props = propose::proposals(&dst, Some("all")).unwrap();
+        assert_eq!(src_props, dst_props, "all proposals round-trip identically");
+
+        for name in ["mara-broken-leader", "legacy-style"] {
+            let src_show = list::show(&src, name).unwrap();
+            let dst_show = list::show(&dst, name).unwrap();
+            assert_eq!(
+                src_show["schema"]["statement"],
+                dst_show["schema"]["statement"]
+            );
+            assert_eq!(src_show["schema"]["scope"], dst_show["schema"]["scope"]);
+            assert_eq!(src_show["schema"]["origin"], dst_show["schema"]["origin"]);
+        }
+    }
+
+    #[test]
+    fn import_legacy_schema_defaults_statement_and_scope_and_clears_missing_proposal_schema_id() {
+        let temp = TempDir::new().unwrap();
+        let exp_dir = temp.path().join("export");
+        fs::create_dir_all(exp_dir.join("schemas")).unwrap();
+        fs::create_dir_all(exp_dir.join("schema_proposals")).unwrap();
+
+        fs::write(
+            exp_dir.join("schemas/7.md"),
+            "---\nidentifier: 7\ntitle: pre-v16\n---\n# pre-v16\n\n```json\n{\n  \"id\": 7,\n  \"uuid\": \"u-7\",\n  \"name\": \"pre-v16\",\n  \"summary\": \"When x: y\",\n  \"centroid_json\": \"{}\",\n  \"created_at\": \"2025-01-01T00:00:00Z\",\n  \"updated_at\": \"2025-01-01T00:00:00Z\"\n}\n```\n",
+        )
+        .unwrap();
+
+        fs::write(
+            exp_dir.join("schema_proposals/3.md"),
+            "---\nidentifier: 3\ntitle: orphan-schema-ref\n---\n# orphan-schema-ref\n\n```json\n{\n  \"id\": 3,\n  \"uuid\": \"up-3\",\n  \"name\": \"orphan-schema-ref\",\n  \"statement\": \"Claim text\",\n  \"summary\": \"When x: y\",\n  \"scope_json\": \"{\\\"tags\\\":[\\\"a\\\"],\\\"paths\\\":[\\\"src\\\"]}\",\n  \"members_json\": \"[\\\"decision:1\\\",\\\"decision:2\\\",\\\"decision:3\\\"]\",\n  \"contrary_json\": \"[]\",\n  \"evidence_json\": \"{\\\"notes\\\":3,\\\"files\\\":2,\\\"days\\\":2,\\\"contrary\\\":0}\",\n  \"source_kind\": \"manual\",\n  \"source_ref\": null,\n  \"session\": \"s1\",\n  \"status\": \"confirmed\",\n  \"decision_note\": null,\n  \"schema_id\": 99,\n  \"created_at\": \"2026-10-01T00:00:00Z\",\n  \"decided_at\": \"2026-10-02T00:00:00Z\"\n}\n```\n",
+        )
+        .unwrap();
+
+        let conn = mem_db();
+        let out = super::handle(&conn, &exp_dir, None).unwrap();
+        assert_eq!(out["errors"], serde_json::json!([]));
+        assert_eq!(out["imported"]["schemas"], 1);
+        assert_eq!(out["imported"]["schema_proposals"], 1);
+        assert_eq!(out["skipped_references"].as_array().unwrap().len(), 1);
+        assert_eq!(out["skipped_references"][0]["reference"], "schema:99");
+
+        let (stmt, scope): (Option<String>, String) = conn
+            .query_row(
+                "SELECT statement, scope_json FROM schemas WHERE id = 7",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(stmt, None);
+        assert_eq!(scope, "{\"tags\":[],\"paths\":[]}");
+
+        let schema_id: Option<i64> = conn
+            .query_row(
+                "SELECT schema_id FROM schema_proposals WHERE id = 3",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(schema_id, None);
+    }
 }

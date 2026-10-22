@@ -6806,3 +6806,195 @@ fn test_schema_proposal_ac11_prime_surfaces_pending_proposals_oldest_first_cappe
         "engrams schema reject proposal:2 --reason \"<why>\""
     );
 }
+
+#[test]
+fn test_schema_proposal_ac10_export_import_round_trips_proposals_and_schema_claims() {
+    let temp = TempDir::new().unwrap();
+    let src_ws = temp.path().join("src_ws");
+    let src_db = src_ws.join("engrams").join("context.db");
+    load_manuscript_book(&src_db);
+
+    // 1. Confirmed proposal (proposal:1 -> schema:1)
+    engrams(&src_db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4,decision:5,decision:6,progress_entry:1,progress_entry:2",
+            "--contrary",
+            "decision:7,decision:8",
+            "--scope-tags",
+            "mara,wound",
+            "--scope-paths",
+            "manuscript",
+            "--session",
+            "sess-book-1",
+        ])
+        .assert()
+        .success();
+    engrams(&src_db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
+
+    // 2. Rejected proposal (proposal:2)
+    engrams(&src_db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-soren-trust",
+            "--statement",
+            "Trust between Mara and Soren grows through unguarded silence rather than confessions",
+            "--summary",
+            "When writing Mara and Soren together: use shared quiet beats instead of overt reassurance",
+            "--members",
+            "decision:9,decision:10,decision:11",
+            "--scope-tags",
+            "mara,soren",
+            "--scope-paths",
+            "manuscript",
+            "--session",
+            "sess-book-1",
+        ])
+        .assert()
+        .success();
+    engrams(&src_db)
+        .args([
+            "schema",
+            "reject",
+            "proposal:2",
+            "--reason",
+            "Too early before the bridge chapter lands",
+        ])
+        .assert()
+        .success();
+
+    // 3. Pending proposal (proposal:3)
+    engrams(&src_db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "aether-cost",
+            "--statement",
+            "Aether draws chill iron and exacts a cumulative cold cost unless grounded through salt-iron",
+            "--summary",
+            "When writing aether casting: show frost buildup and require salt-iron grounding",
+            "--members",
+            "decision:13,decision:14,decision:15",
+            "--scope-tags",
+            "aether,magic",
+            "--scope-paths",
+            "manuscript",
+            "--session",
+            "sess-book-2",
+        ])
+        .assert()
+        .success();
+
+    let src_proposals_out = engrams(&src_db)
+        .args(["schema", "proposals", "--status", "all"])
+        .output()
+        .unwrap();
+    assert!(src_proposals_out.status.success());
+    let src_proposals: Value = serde_json::from_slice(&src_proposals_out.stdout).unwrap();
+
+    let src_show_out = engrams(&src_db)
+        .args(["schema", "show", "mara-broken-leader"])
+        .output()
+        .unwrap();
+    assert!(src_show_out.status.success());
+    let src_show: Value = serde_json::from_slice(&src_show_out.stdout).unwrap();
+
+    // Export to directory
+    let exp_dir = temp.path().join("export");
+    engrams(&src_db)
+        .args(["export", "--path", exp_dir.to_str().unwrap()])
+        .assert()
+        .success();
+
+    for pid in 1..=3 {
+        assert!(
+            exp_dir.join(format!("schema_proposals/{pid}.md")).exists(),
+            "expected exported schema_proposals/{pid}.md"
+        );
+    }
+    let exported_schema = std::fs::read_to_string(exp_dir.join("schemas/1.md")).unwrap();
+    assert!(exported_schema.contains("\"statement\":"));
+    assert!(exported_schema.contains("\"scope_json\":"));
+
+    // Import into a fresh workspace
+    let dst_ws = temp.path().join("dst_ws");
+    let dst_db = dst_ws.join("engrams").join("context.db");
+    engrams(&dst_db).arg("init").assert().success();
+    let imp_out = engrams(&dst_db)
+        .args(["import", "--path", exp_dir.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(imp_out.status.success());
+    let imp_json: Value = serde_json::from_slice(&imp_out.stdout).unwrap();
+    assert_eq!(imp_json["errors"], serde_json::json!([]));
+    assert_eq!(imp_json["imported"]["schemas"], 1);
+    assert_eq!(imp_json["imported"]["schema_proposals"], 3);
+
+    // AC-10: Every proposal returns with its status, claim, instruction, scope, cited notes,
+    // evidence counts, and decision note.
+    let dst_proposals_out = engrams(&dst_db)
+        .args(["schema", "proposals", "--status", "all"])
+        .output()
+        .unwrap();
+    assert!(dst_proposals_out.status.success());
+    let dst_proposals: Value = serde_json::from_slice(&dst_proposals_out.stdout).unwrap();
+    assert_eq!(src_proposals, dst_proposals);
+
+    let props = dst_proposals["proposals"].as_array().unwrap();
+    assert_eq!(props.len(), 3);
+    assert_eq!(props[0]["status"], "confirmed");
+    assert_eq!(props[0]["schema_id"], 1);
+    assert_eq!(
+        props[0]["evidence"],
+        serde_json::json!({"notes": 8, "files": 6, "days": 8, "contrary": 2})
+    );
+    assert_eq!(props[1]["status"], "rejected");
+    assert_eq!(
+        props[1]["decision_note"],
+        "Too early before the bridge chapter lands"
+    );
+    assert_eq!(props[2]["status"], "proposed");
+
+    // AC-10: Every schema returns with its claim, its scope, and the proposal it came from.
+    let dst_show_out = engrams(&dst_db)
+        .args(["schema", "show", "mara-broken-leader"])
+        .output()
+        .unwrap();
+    assert!(dst_show_out.status.success());
+    let dst_show: Value = serde_json::from_slice(&dst_show_out.stdout).unwrap();
+    assert_eq!(
+        dst_show["schema"]["statement"],
+        src_show["schema"]["statement"]
+    );
+    assert_eq!(dst_show["schema"]["scope"], src_show["schema"]["scope"]);
+    assert_eq!(dst_show["schema"]["origin"], src_show["schema"]["origin"]);
+    assert_eq!(dst_show["schema"]["origin"]["proposal_id"], 1);
+    assert_eq!(dst_show["schema"]["origin"]["session"], "sess-book-1");
+
+    // Pre-edit advice on a new file in the imported workspace surfaces the schema via scope_path.
+    let advise_out = engrams(&dst_db)
+        .args(["advise", "manuscript/ch19.md"])
+        .output()
+        .unwrap();
+    assert!(advise_out.status.success());
+    let advise_json: Value = serde_json::from_slice(&advise_out.stdout).unwrap();
+    assert_eq!(advise_json["schemas"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        advise_json["schemas"][0]["matched_by"],
+        serde_json::json!({"via": "scope_path", "value": "manuscript"})
+    );
+}

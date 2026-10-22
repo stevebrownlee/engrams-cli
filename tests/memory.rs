@@ -1789,3 +1789,216 @@ fn import_skips_missing_references_preserves_existing_rows_and_scans_ac10_ac11()
         );
     }
 }
+
+// --- S17: export/import round-trips proposals and schema claims (spec 0007 AC-10) ---
+
+#[test]
+fn s17_export_import_round_trips_schema_proposals_statement_scope_and_origin_ac10() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("source.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+             (1, 'u1', '2026-10-01T00:00:00Z', 'Mara hesitates before her first command', '[\"mara\",\"wound\"]'),
+             (2, 'u2', '2026-10-02T00:00:00Z', 'Mara calls herself just the one left standing', '[\"mara\",\"wound\"]'),
+             (3, 'u3', '2026-10-03T00:00:00Z', 'Mara doubts her tactical judgment under siege', '[\"mara\",\"wound\"]'),
+             (4, 'u4', '2026-10-04T00:00:00Z', 'Mara rallies the rear guard without hesitation', '[\"mara\",\"courage\"]'),
+             (5, 'u5', '2026-10-05T00:00:00Z', 'Soren waits in silence beside the parapet', '[\"soren\",\"trust\"]'),
+             (6, 'u6', '2026-10-06T00:00:00Z', 'Soren shares rations without speaking', '[\"soren\",\"trust\"]'),
+             (7, 'u7', '2026-10-07T00:00:00Z', 'Soren guards Mara while she sleeps', '[\"soren\",\"trust\"]'),
+             (8, 'u8', '2026-10-08T00:00:00Z', 'Aether draws chill iron and frost', '[\"aether\",\"magic\"]'),
+             (9, 'u9', '2026-10-09T00:00:00Z', 'Salt-iron rods ground excess aether', '[\"aether\",\"magic\"]'),
+             (10, 'u10', '2026-10-10T00:00:00Z', 'Unshielded aether casting leaves frostbite', '[\"aether\",\"magic\"]');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+             ('decision', 1, 'manuscript/ch01.md', '2026-10-01T00:00:00Z'),
+             ('decision', 2, 'manuscript/ch02.md', '2026-10-02T00:00:00Z'),
+             ('decision', 3, 'manuscript/ch03.md', '2026-10-03T00:00:00Z'),
+             ('decision', 4, 'manuscript/ch04.md', '2026-10-04T00:00:00Z'),
+             ('decision', 5, 'manuscript/ch05.md', '2026-10-05T00:00:00Z'),
+             ('decision', 6, 'manuscript/ch06.md', '2026-10-06T00:00:00Z'),
+             ('decision', 7, 'manuscript/ch07.md', '2026-10-07T00:00:00Z'),
+             ('decision', 8, 'world/magic-01.md', '2026-10-08T00:00:00Z'),
+             ('decision', 9, 'world/magic-02.md', '2026-10-09T00:00:00Z'),
+             ('decision', 10, 'world/magic-03.md', '2026-10-10T00:00:00Z');
+             -- Pre-v16 schema refined with a claim and scope
+             INSERT INTO schemas (id, uuid, name, summary, summary_source, status, kind, centroid_json, created_at, updated_at) VALUES
+             (10, 'u-legacy', 'prose-style', 'When editing prose chapters: cut ornamental adverbs', 'agent', 'active', 'schema', '{}', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "prose-style",
+            "--statement",
+            "Prose chapters stay spare and concrete under siege tension",
+            "--scope-tags",
+            "style,prose",
+            "--scope-paths",
+            "manuscript",
+        ])
+        .assert()
+        .success();
+
+    // Proposal 1: confirmed into schema
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud and credits others",
+            "--members",
+            "decision:1,decision:2,decision:3",
+            "--contrary",
+            "decision:4",
+            "--scope-tags",
+            "mara,wound",
+            "--scope-paths",
+            "manuscript",
+            "--session",
+            "sess-ac10",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
+
+    // Proposal 2: rejected with decision_note
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "soren-silence",
+            "--statement",
+            "Soren's loyalty shows through silent action rather than speeches",
+            "--summary",
+            "When writing Soren in group scenes: keep his dialogue minimal and physical",
+            "--members",
+            "decision:5,decision:6,decision:7",
+            "--scope-tags",
+            "soren",
+            "--scope-paths",
+            "manuscript",
+            "--session",
+            "sess-ac10",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args([
+            "schema",
+            "reject",
+            "proposal:2",
+            "--reason",
+            "Hold until act two betrayal notes land",
+        ])
+        .assert()
+        .success();
+
+    // Proposal 3: left pending
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "aether-cost",
+            "--statement",
+            "Aether magic exacts a physical cold cost unless grounded through salt-iron",
+            "--summary",
+            "When writing aether casting: show frost buildup and salt-iron grounding",
+            "--members",
+            "decision:8,decision:9,decision:10",
+            "--scope-tags",
+            "aether,magic",
+            "--scope-paths",
+            "world",
+            "--session",
+            "sess-ac10",
+        ])
+        .assert()
+        .success();
+
+    let src_proposals = json(engrams(&db).args(["schema", "proposals", "--status", "all"]));
+    let src_mara = json(engrams(&db).args(["schema", "show", "mara-broken-leader"]));
+    let src_style = json(engrams(&db).args(["schema", "show", "prose-style"]));
+
+    let exp_dir = temp.path().join("export");
+    let exp_out = json(engrams(&db).args(["export", "--path"]).arg(&exp_dir));
+    assert_eq!(exp_out["counts"]["schemas"], 2);
+    assert_eq!(exp_out["counts"]["schema_proposals"], 3);
+    for pid in 1..=3 {
+        assert!(
+            exp_dir.join(format!("schema_proposals/{pid}.md")).exists(),
+            "schema_proposals/{pid}.md must be exported"
+        );
+    }
+
+    let fresh = temp.path().join("fresh.db");
+    engrams(&fresh).arg("init").assert().success();
+    let imp_out = json(engrams(&fresh).args(["import", "--path"]).arg(&exp_dir));
+    assert_eq!(imp_out["errors"], serde_json::json!([]));
+    assert_eq!(imp_out["imported"]["schemas"], 2);
+    assert_eq!(imp_out["imported"]["schema_proposals"], 3);
+
+    let dst_proposals = json(engrams(&fresh).args(["schema", "proposals", "--status", "all"]));
+    assert_eq!(
+        src_proposals, dst_proposals,
+        "every proposal must round-trip with status, statement, summary, scope, members, evidence, and decision_note"
+    );
+
+    let dst_mara = json(engrams(&fresh).args(["schema", "show", "mara-broken-leader"]));
+    assert_eq!(
+        dst_mara["schema"]["statement"],
+        src_mara["schema"]["statement"]
+    );
+    assert_eq!(dst_mara["schema"]["scope"], src_mara["schema"]["scope"]);
+    assert_eq!(dst_mara["schema"]["origin"], src_mara["schema"]["origin"]);
+    assert_eq!(dst_mara["schema"]["origin"]["proposal_id"], 1);
+
+    let dst_style = json(engrams(&fresh).args(["schema", "show", "prose-style"]));
+    assert_eq!(
+        dst_style["schema"]["statement"],
+        src_style["schema"]["statement"]
+    );
+    assert_eq!(dst_style["schema"]["scope"], src_style["schema"]["scope"]);
+    assert_eq!(dst_style["schema"]["origin"], serde_json::Value::Null);
+
+    // Brief also surfaces the round-tripped statement, scope, and origin.
+    let brief_mara = json(engrams(&fresh).args(["brief", "schema:mara-broken-leader"]));
+    assert_eq!(
+        brief_mara["brief"]["statement"],
+        src_mara["schema"]["statement"]
+    );
+    assert_eq!(brief_mara["brief"]["scope"], src_mara["schema"]["scope"]);
+    assert_eq!(brief_mara["brief"]["origin"], src_mara["schema"]["origin"]);
+
+    // Rejected proposal territory is remembered after import.
+    let re_propose = json(engrams(&fresh).args([
+        "schema",
+        "propose",
+        "--statement",
+        "Soren's loyalty shows through silent action",
+        "--summary",
+        "When writing Soren: keep dialogue minimal",
+        "--members",
+        "decision:5,decision:6,decision:7",
+    ]));
+    assert_eq!(re_propose["inserted"], false);
+    assert_eq!(re_propose["rejected_before"][0]["id"], 2);
+    assert_eq!(
+        re_propose["rejected_before"][0]["reason"],
+        "Hold until act two betrayal notes land"
+    );
+}
