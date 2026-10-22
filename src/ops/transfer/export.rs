@@ -138,6 +138,14 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
 
     let mut counts = serde_json::Map::new();
 
+    let code_paths: std::collections::HashMap<i64, String> = {
+        let mut stmt = conn.prepare("SELECT id, path FROM code_nodes")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        rows.collect::<rusqlite::Result<_>>()?
+    };
+
     // Export Product Context
     let product_context = crate::ops::context::get(conn, "product_context")?;
     if product_context
@@ -386,18 +394,69 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     // origin='manual' (with provenance source='schema_confirm').
     let mut stmt = conn.prepare("SELECT id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, source FROM context_links WHERE origin = 'manual'")?;
     let rows = stmt.query_map([], |row| {
-        Ok(serde_json::json!({
-            "id": row.get::<_, i64>(0)?,
-            "source_item_type": row.get::<_, String>(1)?,
-            "source_item_id": row.get::<_, String>(2)?,
-            "target_item_type": row.get::<_, String>(3)?,
-            "target_item_id": row.get::<_, String>(4)?,
-            "relationship_type": row.get::<_, String>(5)?,
-            "description": row.get::<_, Option<String>>(6)?,
-            "timestamp": row.get::<_, String>(7)?,
-            "origin": row.get::<_, String>(8)?,
-            "source": row.get::<_, Option<String>>(9)?,
-        }))
+        let id: i64 = row.get(0)?;
+        let source_item_type: String = row.get(1)?;
+        let source_item_id: String = row.get(2)?;
+        let target_item_type: String = row.get(3)?;
+        let target_item_id: String = row.get(4)?;
+        let relationship_type: String = row.get(5)?;
+        let description: Option<String> = row.get(6)?;
+        let timestamp: String = row.get(7)?;
+        let origin: String = row.get(8)?;
+        let source: Option<String> = row.get(9)?;
+
+        let source_path = if source_item_type == "code" {
+            source_item_id
+                .parse::<i64>()
+                .ok()
+                .and_then(|cid| code_paths.get(&cid))
+                .map(String::as_str)
+        } else {
+            None
+        };
+        let target_path = if target_item_type == "code" {
+            target_item_id
+                .parse::<i64>()
+                .ok()
+                .and_then(|cid| code_paths.get(&cid))
+                .map(String::as_str)
+        } else {
+            None
+        };
+
+        let mut obj = serde_json::Map::new();
+        obj.insert("id".to_string(), serde_json::json!(id));
+        obj.insert(
+            "source_item_type".to_string(),
+            serde_json::json!(source_item_type),
+        );
+        obj.insert(
+            "source_item_id".to_string(),
+            serde_json::json!(source_item_id),
+        );
+        if let Some(p) = source_path {
+            obj.insert("source_path".to_string(), serde_json::json!(p));
+        }
+        obj.insert(
+            "target_item_type".to_string(),
+            serde_json::json!(target_item_type),
+        );
+        obj.insert(
+            "target_item_id".to_string(),
+            serde_json::json!(target_item_id),
+        );
+        if let Some(p) = target_path {
+            obj.insert("target_path".to_string(), serde_json::json!(p));
+        }
+        obj.insert(
+            "relationship_type".to_string(),
+            serde_json::json!(relationship_type),
+        );
+        obj.insert("description".to_string(), serde_json::json!(description));
+        obj.insert("timestamp".to_string(), serde_json::json!(timestamp));
+        obj.insert("origin".to_string(), serde_json::json!(origin));
+        obj.insert("source".to_string(), serde_json::json!(source));
+        Ok(Value::Object(obj))
     })?;
     let mut links_count = 0;
     for r in rows {
@@ -413,6 +472,12 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         }
         if let Some(desc) = opt_str(&r, "description") {
             fields.push(("description", FmValue::Scalar(desc)));
+        }
+        if let Some(sp) = opt_str(&r, "source_path") {
+            fields.push(("source_path", FmValue::Scalar(sp)));
+        }
+        if let Some(tp) = opt_str(&r, "target_path") {
+            fields.push(("target_path", FmValue::Scalar(tp)));
         }
         let content = format!(
             "{}# {}\n\n```json\n{}\n```\n",
@@ -507,12 +572,27 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
              CAST(source_item_id AS INTEGER)",
         )?;
         let member_rows = link_stmt.query_map([id], |l| {
-            Ok(serde_json::json!({
-                "kind": l.get::<_, String>(0)?,
-                "id": l.get::<_, String>(1)?,
-                "origin": l.get::<_, String>(2)?,
-                "source": l.get::<_, Option<String>>(3)?,
-            }))
+            let kind: String = l.get(0)?;
+            let mid: String = l.get(1)?;
+            let origin: String = l.get(2)?;
+            let source: Option<String> = l.get(3)?;
+            let code_path = if kind == "code" {
+                mid.parse::<i64>()
+                    .ok()
+                    .and_then(|cid| code_paths.get(&cid))
+                    .map(String::as_str)
+            } else {
+                None
+            };
+            let mut obj = serde_json::Map::new();
+            obj.insert("kind".to_string(), serde_json::json!(kind));
+            obj.insert("id".to_string(), serde_json::json!(mid));
+            if let Some(p) = code_path {
+                obj.insert("path".to_string(), serde_json::json!(p));
+            }
+            obj.insert("origin".to_string(), serde_json::json!(origin));
+            obj.insert("source".to_string(), serde_json::json!(source));
+            Ok(Value::Object(obj))
         })?;
         for m in member_rows {
             members.push(m?);
@@ -567,13 +647,23 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         "SELECT ts, cmd, arg, node_kind, node_id FROM retrieval_surfaces ORDER BY rowid",
     )?;
     let surface_rows = stmt.query_map([], |r| {
-        Ok(serde_json::json!({
-            "ts": r.get::<_, String>(0)?,
-            "cmd": r.get::<_, String>(1)?,
-            "arg": r.get::<_, Option<String>>(2)?,
-            "node_kind": r.get::<_, String>(3)?,
-            "node_id": r.get::<_, i64>(4)?,
-        }))
+        let ts: String = r.get(0)?;
+        let cmd: String = r.get(1)?;
+        let arg: Option<String> = r.get(2)?;
+        let node_kind: String = r.get(3)?;
+        let node_id: i64 = r.get(4)?;
+        let mut obj = serde_json::Map::new();
+        obj.insert("ts".to_string(), serde_json::json!(ts));
+        obj.insert("cmd".to_string(), serde_json::json!(cmd));
+        obj.insert("arg".to_string(), serde_json::json!(arg));
+        obj.insert("node_kind".to_string(), serde_json::json!(node_kind));
+        obj.insert("node_id".to_string(), serde_json::json!(node_id));
+        if node_kind == "code" {
+            if let Some(p) = code_paths.get(&node_id).map(String::as_str) {
+                obj.insert("path".to_string(), serde_json::json!(p));
+            }
+        }
+        Ok(Value::Object(obj))
     })?;
     let mut surfaces: Vec<Value> = Vec::new();
     for r in surface_rows {

@@ -1208,3 +1208,150 @@ fn s16_export_import_round_trips_schema_kind() {
         "reasons snapshot arrived: {res}"
     );
 }
+
+// --- Spec 0006 AC-9: export and restore code references by path -------------
+
+#[test]
+fn import_restores_code_references_by_path_ac9() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("source.db");
+    engrams(&db).arg("init").assert().success();
+
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO code_nodes (id, kind, path, symbol, first_seen, last_seen) VALUES
+             (31975, 'file', 'src/ops', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+             INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+             (1, 'u-d1', '2026-01-01T00:00:00Z', 'borrow sql params', '[\"performance\"]');
+             INSERT INTO schemas (id, uuid, name, summary, summary_source, status, centroid_json, created_at, updated_at, kind, kind_reasons_json) VALUES
+             (1, 'u-s1', 'performance-rules', 'Fires when editing Rust code under src/ops', 'agent', 'active', '{\"tags\":{\"performance\":1},\"anchors\":{\"src/ops\":1}}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'schema', '[]');
+             INSERT INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, timestamp, origin, source) VALUES
+             (10, 'code', '31975', 'schema', '1', 'member_of', '2026-01-01T00:00:00Z', 'manual', 'schema_confirm'),
+             (11, 'decision', '1', 'schema', '1', 'member_of', '2026-01-01T00:00:00Z', 'manual', 'schema_confirm'),
+             (12, 'decision', '1', 'code', '31975', 'relates_to', '2026-01-01T00:00:00Z', 'manual', NULL);
+             INSERT INTO retrieval_surfaces (ts, cmd, arg, node_kind, node_id) VALUES
+             ('2026-02-15T00:00:00Z', 'prime', NULL, 'code', 31975);",
+        )
+        .unwrap();
+    }
+
+    let exp_dir = temp.path().join("export");
+    engrams(&db)
+        .args(["export", "--path"])
+        .arg(&exp_dir)
+        .assert()
+        .success();
+
+    // Verify exported schema member, manual links, and retrieval surface carry path fields.
+    let schema_md = std::fs::read_to_string(exp_dir.join("schemas/1.md")).unwrap();
+    assert!(
+        schema_md.contains("\"path\": \"src/ops\""),
+        "exported schema member must carry path: {schema_md}"
+    );
+    let link_source_md = std::fs::read_to_string(exp_dir.join("links/10.md")).unwrap();
+    assert!(
+        link_source_md.contains("\"source_path\": \"src/ops\""),
+        "exported source-code link must carry source_path: {link_source_md}"
+    );
+    let link_target_md = std::fs::read_to_string(exp_dir.join("links/12.md")).unwrap();
+    assert!(
+        link_target_md.contains("\"target_path\": \"src/ops\""),
+        "exported target-code link must carry target_path: {link_target_md}"
+    );
+    let surfaces_json =
+        std::fs::read_to_string(exp_dir.join("schemas/retrieval_surfaces.json")).unwrap();
+    assert!(
+        surfaces_json.contains("\"path\": \"src/ops\""),
+        "exported code retrieval surface must carry path: {surfaces_json}"
+    );
+
+    // Seed a fresh database with pre-existing dummy code_nodes so the imported
+    // code file gets a different code_nodes.id than 31975.
+    let fresh = temp.path().join("fresh.db");
+    engrams(&fresh).arg("init").assert().success();
+    {
+        let conn = Connection::open(&fresh).unwrap();
+        conn.execute_batch(
+            "INSERT INTO code_nodes (id, kind, path, symbol, first_seen, last_seen) VALUES
+             (1, 'file', 'src/main.rs', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'),
+             (2, 'file', 'src/lib.rs', '', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+    }
+
+    engrams(&fresh)
+        .args(["import", "--path"])
+        .arg(&exp_dir)
+        .assert()
+        .success();
+
+    let new_code_id: i64 = {
+        let conn = Connection::open(&fresh).unwrap();
+        conn.query_row(
+            "SELECT id FROM code_nodes WHERE kind = 'file' AND path = 'src/ops' AND symbol = ''",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    assert_ne!(new_code_id, 31975, "fresh DB assigns a new code_nodes.id");
+
+    // AC-9: inspecting the schema shows the code member with its path.
+    let show = json(engrams(&fresh).args(["schema", "show", "performance-rules"]));
+    let members = show["schema"]["members"].as_array().unwrap();
+    let code_member = members
+        .iter()
+        .find(|m| m["kind"] == "code")
+        .expect("schema show must include the restored code member");
+    assert_eq!(code_member["id"], new_code_id);
+    assert_eq!(code_member["path"], "src/ops");
+
+    // Verify links and retrieval_surfaces point to new_code_id and not 31975,
+    // and that re-importing is idempotent.
+    engrams(&fresh)
+        .args(["import", "--path"])
+        .arg(&exp_dir)
+        .assert()
+        .success();
+    {
+        let conn = Connection::open(&fresh).unwrap();
+        let code_member_edges: Vec<String> = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT source_item_id FROM context_links \
+                     WHERE relationship_type = 'member_of' AND source_item_type = 'code'",
+                )
+                .unwrap();
+            stmt.query_map([], |r| r.get(0))
+                .unwrap()
+                .map(|r| r.unwrap())
+                .collect()
+        };
+        assert_eq!(
+            code_member_edges,
+            vec![new_code_id.to_string()],
+            "code member_of edge must be remapped to new_code_id without duplication"
+        );
+
+        let target_code_id: String = conn
+            .query_row(
+                "SELECT target_item_id FROM context_links WHERE id = 12",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(target_code_id, new_code_id.to_string());
+
+        let surface_ids: Vec<i64> = {
+            let mut stmt = conn
+                .prepare("SELECT node_id FROM retrieval_surfaces WHERE node_kind = 'code'")
+                .unwrap();
+            stmt.query_map([], |r| r.get(0))
+                .unwrap()
+                .map(|r| r.unwrap())
+                .collect()
+        };
+        assert_eq!(surface_ids, vec![new_code_id]);
+    }
+}

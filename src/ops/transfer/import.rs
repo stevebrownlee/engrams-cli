@@ -1,6 +1,7 @@
 use anyhow::Result;
 use rusqlite::{params, Connection};
 use serde_json::Value;
+use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
@@ -20,7 +21,7 @@ fn extract_json_block(content: &str) -> Option<Value> {
     None
 }
 
-pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
+pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Value> {
     if !path.exists() {
         anyhow::bail!("Export path does not exist: {}", path.display());
     }
@@ -273,7 +274,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .get("source_item_type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing source_item_type"))?;
-        let source_item_id = json
+        let raw_source_id = json
             .get("source_item_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing source_item_id"))?;
@@ -281,7 +282,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .get("target_item_type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing target_item_type"))?;
-        let target_item_id = json
+        let raw_target_id = json
             .get("target_item_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing target_item_id"))?;
@@ -300,6 +301,34 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             .unwrap_or("manual");
 
         let source = json.get("source").and_then(|v| v.as_str());
+        let source_item_id: Cow<'_, str> = if source_item_type == "code" {
+            if let Some(sp) = json
+                .get("source_path")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+            {
+                let new_id = crate::ops::graph::code::upsert_file(&tx, sp, timestamp, root)?;
+                Cow::Owned(new_id.to_string())
+            } else {
+                Cow::Borrowed(raw_source_id)
+            }
+        } else {
+            Cow::Borrowed(raw_source_id)
+        };
+        let target_item_id: Cow<'_, str> = if target_item_type == "code" {
+            if let Some(tp) = json
+                .get("target_path")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+            {
+                let new_id = crate::ops::graph::code::upsert_file(&tx, tp, timestamp, root)?;
+                Cow::Owned(new_id.to_string())
+            } else {
+                Cow::Borrowed(raw_target_id)
+            }
+        } else {
+            Cow::Borrowed(raw_target_id)
+        };
         tx.execute(
             "INSERT OR REPLACE INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin, source],
@@ -398,15 +427,38 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         // Membership travels with the schema (the generic links export only
         // carries manual edges).
         if let Some(members) = json.get("members").and_then(|v| v.as_array()) {
+            let created_at = json
+                .get("created_at")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             for m in members {
                 let kind = m
                     .get("kind")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("missing member kind"))?;
-                let mid = m
+                let raw_mid = m
                     .get("id")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("missing member id"))?;
+                let mid: Cow<'_, str> = if kind == "code" {
+                    if let Some(member_path) = m
+                        .get("path")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                    {
+                        let new_id = crate::ops::graph::code::upsert_file(
+                            &tx,
+                            member_path,
+                            created_at,
+                            root,
+                        )?;
+                        Cow::Owned(new_id.to_string())
+                    } else {
+                        Cow::Borrowed(raw_mid)
+                    }
+                } else {
+                    Cow::Borrowed(raw_mid)
+                };
                 let origin = m
                     .get("origin")
                     .and_then(|v| v.as_str())
@@ -427,7 +479,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
                         kind,
                         mid,
                         id,
-                        json.get("created_at").and_then(|v| v.as_str()).unwrap_or(""),
+                        created_at,
                         origin,
                         provenance,
                     ],
@@ -460,6 +512,24 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
         let content = fs::read_to_string(&surfaces_path)?;
         let rows: Vec<Value> = serde_json::from_str(&content)?;
         for r in rows {
+            let ts = r.get("ts").and_then(|v| v.as_str()).unwrap_or("");
+            let cmd = r.get("cmd").and_then(|v| v.as_str()).unwrap_or("");
+            let arg = r.get("arg").and_then(|v| v.as_str());
+            let node_kind = r.get("node_kind").and_then(|v| v.as_str()).unwrap_or("");
+            let raw_node_id = r.get("node_id").and_then(|v| v.as_i64()).unwrap_or(0);
+            let node_id = if node_kind == "code" {
+                if let Some(surface_path) = r
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                {
+                    crate::ops::graph::code::upsert_file(&tx, surface_path, ts, root)?
+                } else {
+                    raw_node_id
+                }
+            } else {
+                raw_node_id
+            };
             // No unique key on this table; the natural key (ts, cmd, arg,
             // node_kind, node_id) guards against double-import duplication.
             tx.execute(
@@ -467,13 +537,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
                  SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (\
                    SELECT 1 FROM retrieval_surfaces WHERE ts = ?1 AND cmd = ?2 \
                    AND arg IS ?3 AND node_kind = ?4 AND node_id = ?5)",
-                params![
-                    r.get("ts").and_then(|v| v.as_str()).unwrap_or(""),
-                    r.get("cmd").and_then(|v| v.as_str()).unwrap_or(""),
-                    r.get("arg").and_then(|v| v.as_str()),
-                    r.get("node_kind").and_then(|v| v.as_str()).unwrap_or(""),
-                    r.get("node_id").and_then(|v| v.as_i64()).unwrap_or(0),
-                ],
+                params![ts, cmd, arg, node_kind, node_id],
             )?;
         }
     }

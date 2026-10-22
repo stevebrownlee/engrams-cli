@@ -93,7 +93,7 @@ pub fn dispatch(
         Command::Activity(args) => activity::handle(conn, args),
         Command::Batch { r#type, items } => batch::handle(conn, r#type, items, ws),
         Command::Export { path } => transfer::export::handle(conn, &path),
-        Command::Import { path } => transfer::import::handle(conn, &path),
+        Command::Import { path } => transfer::import::handle(conn, &path, ws.root.as_deref()),
         Command::Report { cmd, topic, limit } => match cmd {
             Some(ReportCmd::Open { no_browser, out }) => {
                 report::open(conn, &ws.db_path, no_browser, out)
