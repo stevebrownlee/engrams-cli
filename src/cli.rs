@@ -405,6 +405,59 @@ pub enum SchemaCmd {
         #[arg(long)]
         apply: bool,
     },
+    /// Propose a reviewed schema over cited knowledge notes
+    Propose {
+        /// Human-level claim in plain words
+        #[arg(long)]
+        statement: String,
+        /// Manual instruction text; must open with a conditional trigger phrase
+        #[arg(long)]
+        summary: Option<String>,
+        /// Activation condition; pairs with --rule to synthesize the instruction
+        #[arg(long)]
+        trigger: Option<String>,
+        /// Operational directive; pairs with --trigger to synthesize the instruction
+        #[arg(long)]
+        rule: Option<String>,
+        /// Cited knowledge notes (`kind:id,...`)
+        #[arg(long, value_delimiter = ',')]
+        members: Vec<String>,
+        /// Seed members from a staged candidate signature or prefix
+        #[arg(long)]
+        from: Option<String>,
+        /// Proposed schema name (defaults to dominant member tag/directory)
+        #[arg(long)]
+        name: Option<String>,
+        /// Scope tags (defaults to tags carried by at least two cited notes)
+        #[arg(long, value_delimiter = ',')]
+        scope_tags: Option<Vec<String>>,
+        /// Scope path prefixes (defaults to deepest shared anchor directory)
+        #[arg(long, value_delimiter = ',')]
+        scope_paths: Option<Vec<String>>,
+        /// Counter-evidence knowledge notes (`kind:id,...`)
+        #[arg(long, value_delimiter = ',')]
+        contrary: Vec<String>,
+        /// Session key (defaults to ENGRAMS_SESSION)
+        #[arg(long)]
+        session: Option<String>,
+        /// Bypass pending and rejected proposal overlap checks
+        #[arg(long)]
+        force: bool,
+    },
+    /// Reject a pending schema proposal
+    Reject {
+        /// Proposal target (`proposal:<id>`)
+        target: String,
+        /// Rejection reason
+        #[arg(long)]
+        reason: Option<String>,
+    },
+    /// List schema proposals
+    Proposals {
+        /// Filter by status (proposed, confirmed, rejected, all)
+        #[arg(long)]
+        status: Option<String>,
+    },
     /// Promote a passing candidate into a confirmed schema
     Confirm {
         /// Candidate id or unique signature prefix (`decision:1,dec…`)

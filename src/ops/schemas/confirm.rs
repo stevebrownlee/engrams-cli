@@ -73,6 +73,7 @@ pub(crate) fn confirmed_schemas(conn: &Connection) -> Result<Vec<Confirmed>> {
          FROM schemas s \
          JOIN context_links l ON l.relationship_type = 'member_of' \
           AND l.target_item_type = 'schema' AND l.target_item_id = s.id \
+         WHERE s.status = 'active' \
          ORDER BY s.id, l.source_item_type, l.source_item_id",
     )?;
     let rows = stmt.query_map([], |row| {
@@ -101,6 +102,7 @@ pub(crate) fn confirmed_schemas(conn: &Connection) -> Result<Vec<Confirmed>> {
 
 /// The staged candidate row to promote.
 pub(crate) struct Candidate {
+    pub(crate) cluster_sig: String,
     pub(crate) members: Vec<String>,
     density: f64,
     stability_count: i64,
@@ -137,6 +139,7 @@ pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Opti
         exact
     {
         return Ok(Some(Candidate {
+            cluster_sig: sig.to_string(),
             members: serde_json::from_str(&members_json)?,
             density,
             stability_count,
@@ -158,6 +161,7 @@ pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Opti
     );
     let rows = stmt.query_map(params![pattern], |row| {
         Ok((
+            row.get::<_, String>(0)?,
             row.get::<_, String>(1)?,
             row.get::<_, f64>(2)?,
             row.get::<_, i64>(3)?,
@@ -168,8 +172,17 @@ pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Opti
     })?;
     let mut matches: Vec<Candidate> = Vec::new();
     for r in rows {
-        let (members_json, density, stability_count, reward_hits, kind, kind_reasons_json) = r?;
+        let (
+            cluster_sig,
+            members_json,
+            density,
+            stability_count,
+            reward_hits,
+            kind,
+            kind_reasons_json,
+        ) = r?;
         matches.push(Candidate {
+            cluster_sig,
             members: serde_json::from_str(&members_json)?,
             density,
             stability_count,
@@ -359,7 +372,7 @@ fn draft_summary(
 
 /// Tag/anchor frequencies over the member set — the lexical centroid the
 /// phase-6 assimilation matcher scores new items against.
-fn centroid(conn: &Connection, members: &[Member]) -> Result<String> {
+pub(crate) fn centroid(conn: &Connection, members: &[Member]) -> Result<String> {
     let mut tags: BTreeMap<String, usize> = BTreeMap::new();
     let mut anchors: BTreeMap<String, usize> = BTreeMap::new();
     for m in members {

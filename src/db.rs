@@ -5,7 +5,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-pub const LATEST_VERSION: i32 = 15;
+pub const LATEST_VERSION: i32 = 16;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -96,6 +96,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             }
             15 => {
                 tx.execute_batch(crate::schema::MIGRATION_V15)?;
+            }
+            16 => {
+                tx.execute_batch(crate::schema::MIGRATION_V16)?;
             }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }
@@ -307,7 +310,7 @@ mod tests {
         // Baseline SCHEMA is DDL only; open() stamps user_version separately.
         set_user_version(&conn, LATEST_VERSION).unwrap();
         let user_ver = get_user_version(&conn).unwrap();
-        assert_eq!(user_ver, 15);
+        assert_eq!(user_ver, 16);
 
         let has_col: bool = conn
             .prepare("PRAGMA table_info(schema_candidates)")
@@ -319,5 +322,52 @@ mod tests {
             has_col,
             "schema_candidates must have notified_at in baseline"
         );
+    }
+
+    #[test]
+    fn test_proposal_migration_v16_adds_table_and_schema_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::SCHEMA).unwrap();
+        let schema_cols: Vec<String> = conn
+            .prepare("PRAGMA table_info(schemas)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .map(|c| c.unwrap())
+            .collect();
+        assert!(schema_cols.contains(&"statement".to_string()));
+        assert!(schema_cols.contains(&"scope_json".to_string()));
+
+        let prop_cols: Vec<String> = conn
+            .prepare("PRAGMA table_info(schema_proposals)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .map(|c| c.unwrap())
+            .collect();
+        for col in [
+            "id",
+            "uuid",
+            "name",
+            "statement",
+            "summary",
+            "scope_json",
+            "members_json",
+            "contrary_json",
+            "evidence_json",
+            "source_kind",
+            "source_ref",
+            "session",
+            "status",
+            "decision_note",
+            "schema_id",
+            "created_at",
+            "decided_at",
+        ] {
+            assert!(
+                prop_cols.contains(&col.to_string()),
+                "schema_proposals missing column {col}"
+            );
+        }
     }
 }

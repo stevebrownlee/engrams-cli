@@ -767,11 +767,11 @@ mod tests {
             .collect();
         assert!(cols.contains(&"kind".to_string()));
         assert!(cols.contains(&"kind_reasons_json".to_string()));
-        // New columns are appended last — the same order the baseline
-        // CREATE uses, so fresh and migrated databases match.
+        // New columns are appended in migration order — v14 adds kind and
+        // kind_reasons_json, and v16 appends statement and scope_json.
         assert_eq!(
-            cols[cols.len() - 2..].to_vec(),
-            ["kind", "kind_reasons_json"]
+            cols[cols.len() - 4..].to_vec(),
+            ["kind", "kind_reasons_json", "statement", "scope_json"]
         );
 
         // Defaults backfill; prior columns keep their data.

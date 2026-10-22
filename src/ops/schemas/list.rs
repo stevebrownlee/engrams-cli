@@ -244,7 +244,7 @@ const TRIGGER_PREFIXES: [&str; 4] = ["Fires when", "When", "Applies if", "Activa
 /// together synthesize `"Fires when <CONDITION>: <DIRECTIVE>"`. Every other
 /// flag combination is an error. The manual form stays borrowed; only the
 /// synthesized form allocates, once, at this ownership boundary.
-fn refine_text<'a>(
+pub(crate) fn refine_text<'a>(
     summary: Option<&'a str>,
     trigger: Option<&str>,
     rule: Option<&str>,

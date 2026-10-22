@@ -2211,7 +2211,10 @@ fn test_migration_v13_to_v14() {
         conn.execute_batch(
             "ALTER TABLE schemas DROP COLUMN kind;
              ALTER TABLE schemas DROP COLUMN kind_reasons_json;
-             ALTER TABLE schema_candidates DROP COLUMN notified_at;",
+             ALTER TABLE schemas DROP COLUMN statement;
+             ALTER TABLE schemas DROP COLUMN scope_json;
+             ALTER TABLE schema_candidates DROP COLUMN notified_at;
+             DROP TABLE schema_proposals;",
         )
         .unwrap();
         conn.execute(
@@ -2228,12 +2231,12 @@ fn test_migration_v13_to_v14() {
     // pin — derived from command output), which this contract pins at 15.
     let out = engrams(&db).arg("migrate").output().unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(parsed["version"].as_i64().unwrap(), 15);
+    assert_eq!(parsed["version"].as_i64().unwrap(), 16);
     let conn = rusqlite::Connection::open(&db).unwrap();
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 15);
+    assert_eq!(version, 16);
 
     // The kind columns exist post-migration.
     let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
@@ -5424,4 +5427,704 @@ fn workspace_doctor_skips_stale_decisions_without_workspace() {
         serde_json::json!(["stale_decisions: no workspace"])
     );
     assert_eq!(doc["missing_anchor_paths"], serde_json::json!([]));
+}
+
+// ── Spec 0007 Phase 1: Reviewed Schema Proposals (AC-1, AC-2, AC-4, AC-7) ──
+
+fn load_manuscript_book(db: &std::path::Path) {
+    engrams(db).arg("init").assert().success();
+    let fixture_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/manuscript-book.json"
+    );
+    let fixture: Value =
+        serde_json::from_str(&std::fs::read_to_string(fixture_path).unwrap()).unwrap();
+    let facts = &fixture["facts"];
+    let conn = rusqlite::Connection::open(db).unwrap();
+
+    for d in facts["decisions"].as_array().unwrap() {
+        let id = d["id"].as_i64().unwrap();
+        conn.execute(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags, status, archived) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'active', 0)",
+            rusqlite::params![
+                id,
+                format!("u-dec-{id}"),
+                d["timestamp"].as_str().unwrap(),
+                d["summary"].as_str().unwrap(),
+                d["tags"].as_str(),
+            ],
+        )
+        .unwrap();
+    }
+    for p in facts["patterns"].as_array().unwrap() {
+        let id = p["id"].as_i64().unwrap();
+        conn.execute(
+            "INSERT INTO system_patterns (id, uuid, timestamp, name, description, tags, check_kind, check_expr, severity, archived) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0)",
+            rusqlite::params![
+                id,
+                format!("u-pat-{id}"),
+                p["timestamp"].as_str().unwrap(),
+                p["name"].as_str().unwrap(),
+                p["description"].as_str(),
+                p["tags"].as_str(),
+                p["check_kind"].as_str(),
+                p["check_expr"].as_str(),
+                p["severity"].as_str().unwrap_or("warn"),
+            ],
+        )
+        .unwrap();
+    }
+    for g in facts["progress"].as_array().unwrap() {
+        let id = g["id"].as_i64().unwrap();
+        conn.execute(
+            "INSERT INTO progress_entries (id, timestamp, status, description) \
+             VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                id,
+                g["timestamp"].as_str().unwrap(),
+                g["status"].as_str().unwrap_or("Done"),
+                g["description"].as_str().unwrap(),
+            ],
+        )
+        .unwrap();
+    }
+    for c in facts["custom"].as_array().unwrap() {
+        let id = c["id"].as_i64().unwrap();
+        conn.execute(
+            "INSERT INTO custom_data (id, timestamp, category, key, value) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                id,
+                c["timestamp"].as_str().unwrap(),
+                c["category"].as_str().unwrap(),
+                c["key"].as_str().unwrap(),
+                c["value"].as_str().unwrap(),
+            ],
+        )
+        .unwrap();
+    }
+    for code in facts["code"].as_array().unwrap() {
+        let id = code["id"].as_i64().unwrap();
+        conn.execute(
+            "INSERT INTO code_nodes (id, kind, path, symbol, first_seen, last_seen) \
+             VALUES (?1, 'file', ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                id,
+                code["path"].as_str().unwrap(),
+                code["symbol"].as_str().unwrap_or(""),
+                code["first_seen"].as_str().unwrap(),
+                code["last_seen"].as_str().unwrap(),
+            ],
+        )
+        .unwrap();
+    }
+    for a in facts["anchors"].as_array().unwrap() {
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                a["item_type"].as_str().unwrap(),
+                a["item_id"].as_i64().unwrap(),
+                a["path"].as_str().unwrap(),
+                a["timestamp"].as_str().unwrap_or(""),
+            ],
+        )
+        .unwrap();
+    }
+    for l in facts["links"].as_array().unwrap() {
+        conn.execute(
+            "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, timestamp, origin) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'manual')",
+            rusqlite::params![
+                l["source_type"].as_str().unwrap(),
+                l["source_id"].as_str().unwrap(),
+                l["target_type"].as_str().unwrap(),
+                l["target_id"].as_str().unwrap(),
+                l["rel"].as_str().unwrap(),
+                l["timestamp"].as_str().unwrap_or(""),
+            ],
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn test_proposal_ac1_records_pending_without_surfacing_as_schema() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4,decision:5,decision:6,decision:7,decision:8",
+            "--scope-tags",
+            "mara",
+            "--scope-paths",
+            "manuscript",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "propose failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let prop_json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(prop_json["status"], "success");
+    assert_eq!(prop_json["inserted"], true);
+    assert_eq!(prop_json["proposal"]["id"], 1);
+    assert_eq!(prop_json["proposal"]["name"], "mara-broken-leader");
+    assert_eq!(
+        prop_json["proposal"]["statement"],
+        "Mara believes she is broken; that hurt carries with her as she grows into a leader"
+    );
+    assert_eq!(
+        prop_json["proposal"]["summary"],
+        "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger"
+    );
+    assert_eq!(
+        prop_json["proposal"]["scope"]["tags"],
+        serde_json::json!(["mara"])
+    );
+    assert_eq!(
+        prop_json["proposal"]["scope"]["paths"],
+        serde_json::json!(["manuscript"])
+    );
+    assert_eq!(
+        prop_json["proposal"]["evidence"],
+        serde_json::json!({"notes": 8, "files": 8, "days": 8, "contrary": 0})
+    );
+    assert_eq!(
+        prop_json["confirm_command"],
+        "engrams schema confirm proposal:1"
+    );
+    assert_eq!(
+        prop_json["reject_command"],
+        "engrams schema reject proposal:1 --reason \"<why>\""
+    );
+
+    // Listed as pending in `schema proposals` with enriched members.
+    let list_out = engrams(&db).args(["schema", "proposals"]).output().unwrap();
+    assert!(list_out.status.success());
+    let listed: Value = serde_json::from_slice(&list_out.stdout).unwrap();
+    let proposals = listed["proposals"].as_array().unwrap();
+    assert_eq!(proposals.len(), 1);
+    assert_eq!(proposals[0]["id"], 1);
+    assert_eq!(proposals[0]["status"], "proposed");
+    assert_eq!(proposals[0]["members"].as_array().unwrap().len(), 8);
+    assert_eq!(proposals[0]["truncated"], false);
+    assert_eq!(
+        proposals[0]["evidence"],
+        serde_json::json!({"notes": 8, "files": 8, "days": 8, "contrary": 0})
+    );
+
+    // No schema exists for it, and no note gains a schema membership.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let schema_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(schema_count, 0);
+    let member_link_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(member_link_count, 0);
+
+    // Pre-edit advice and search return no schemas.
+    let advise_out = engrams(&db)
+        .args(["advise", "manuscript/ch01.md"])
+        .output()
+        .unwrap();
+    assert!(advise_out.status.success());
+    let advise_json: Value = serde_json::from_slice(&advise_out.stdout).unwrap();
+    assert_eq!(advise_json["schemas"].as_array().unwrap().len(), 0);
+
+    let query_out = engrams(&db)
+        .args(["query", "mara broken leader"])
+        .output()
+        .unwrap();
+    assert!(query_out.status.success());
+    let query_json: Value = serde_json::from_slice(&query_out.stdout).unwrap();
+    assert!(
+        query_json
+            .get("schemas")
+            .and_then(|s| s.as_array())
+            .is_none_or(|a| a.is_empty()),
+        "pending proposal must not surface in query schemas"
+    );
+}
+
+#[test]
+fn test_proposal_ac2_refuses_each_failing_evidence_or_wording_check() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // Seed a single-file, single-day trio (decisions 101..103) plus a superseded
+    // decision (104) and an archived pattern (10) to test every check in isolation.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        for id in 101..=103 {
+            conn.execute(
+                "INSERT INTO decisions (id, uuid, timestamp, summary, tags, status, archived) \
+                 VALUES (?1, ?2, '2026-09-20T10:00:00Z', ?3, '[\"single\"]', 'active', 0)",
+                rusqlite::params![
+                    id,
+                    format!("u-{id}"),
+                    format!("Distinct note {id} on same day")
+                ],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES ('decision', ?1, 'manuscript/ch01.md', '2026-09-20T10:00:00Z')",
+                rusqlite::params![id],
+            )
+            .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags, status, archived) \
+             VALUES (104, 'u-104', '2026-09-20T10:00:00Z', 'Superseded note', '[]', 'superseded', 0)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO system_patterns (id, uuid, timestamp, name, description, archived) \
+             VALUES (10, 'u-p10', '2026-09-20T10:00:00Z', 'Archived rule', 'old', 1)",
+            [],
+        )
+        .unwrap();
+    }
+
+    let cases: &[(&[&str], &str)] = &[
+        // 1. Fewer than three notes
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2",
+            ],
+            "proposal needs at least 3 notes (got 2)",
+        ),
+        // 2. Notes on one file and one day
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about same day notes",
+                "--summary",
+                "When writing chapter one: keep pacing tight",
+                "--members",
+                "decision:101,decision:102,decision:103",
+            ],
+            "cited notes must span 2 files or 2 days",
+        ),
+        // 3. Missing note
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,decision:99",
+            ],
+            "decision:99 does not exist",
+        ),
+        // 4. Retired / superseded note
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,decision:104",
+            ],
+            "decision:104 is not current",
+        ),
+        // 5. Code file cited as a note
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,code:14",
+            ],
+            "code:14 is a file, not a note: cite notes and put files in --scope-paths",
+        ),
+        // 6a. Counter-evidence note that is missing
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,decision:3",
+                "--contrary",
+                "decision:999",
+            ],
+            "decision:999 does not exist",
+        ),
+        // 6b. Counter-evidence note that is retired (archived pattern)
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,decision:3",
+                "--contrary",
+                "system-pattern:10",
+            ],
+            "system_pattern:10 is not current",
+        ),
+        // 6c. Counter-evidence note also cited as evidence
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,decision:3",
+                "--contrary",
+                "decision:2",
+            ],
+            "decision:2 is cited as both evidence and contrary",
+        ),
+        // 7. Claim that repeats one cited note
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Mara steadies panicking recruits on the parapet while privately expecting her own nerve to give way",
+                "--summary",
+                "When writing Mara: keep her dialogue understated",
+                "--members",
+                "decision:1,decision:2,decision:7",
+            ],
+            "statement repeats decision:7 (overlap 1.00 >= 0.8)",
+        ),
+        // 8. Instruction without a trigger phrase
+        (
+            &[
+                "schema",
+                "propose",
+                "--statement",
+                "Synthesized claim about Mara",
+                "--summary",
+                "She doubts herself aloud and credits others",
+                "--members",
+                "decision:1,decision:2,decision:3",
+            ],
+            "summary must begin with a conditional trigger phrase",
+        ),
+    ];
+
+    for (args, expected_err) in cases {
+        let out = engrams(&db).args(*args).output().unwrap();
+        assert!(
+            !out.status.success(),
+            "expected failure for {args:?}, got stdout: {}",
+            String::from_utf8_lossy(&out.stdout)
+        );
+        let err_json: Value = serde_json::from_slice(&out.stderr).unwrap();
+        let msg = err_json["error"].as_str().unwrap_or("");
+        assert!(
+            msg.contains(expected_err),
+            "expected error containing '{expected_err}', got '{msg}'"
+        );
+    }
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let prop_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schema_proposals", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(prop_count, 0, "no proposal row should be recorded");
+}
+
+#[test]
+fn test_proposal_ac4_refuses_pending_rejected_and_confirmed_territory() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // 1. Create pending proposal #1 over decisions 1,2,3,4
+    let out1 = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-wound",
+            "--statement",
+            "Mara believes she is broken and hides behind her squad",
+            "--summary",
+            "When writing Mara in early chapters: show her deflecting credit",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4",
+        ])
+        .output()
+        .unwrap();
+    assert!(out1.status.success());
+
+    // 2. Proposing mostly the same notes (decisions 1,2,3 -> overlap 3/4 = 0.75 >= 0.7)
+    // returns inserted: false with `similar`.
+    let dup_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--statement",
+            "Another claim covering the same Mara notes",
+            "--summary",
+            "When writing Mara: show her deflecting credit",
+            "--members",
+            "decision:1,decision:2,decision:3",
+        ])
+        .output()
+        .unwrap();
+    assert!(dup_out.status.success());
+    let dup_json: Value = serde_json::from_slice(&dup_out.stdout).unwrap();
+    assert_eq!(dup_json["inserted"], false);
+    assert_eq!(dup_json["similar"][0]["id"], 1);
+    assert_eq!(dup_json["similar"][0]["overlap"], 0.75);
+
+    // 3. Reject proposal:1 with a reason.
+    let rej_out = engrams(&db)
+        .args([
+            "schema",
+            "reject",
+            "proposal:1",
+            "--reason",
+            "Wait until Part II is drafted",
+        ])
+        .output()
+        .unwrap();
+    assert!(rej_out.status.success());
+    let rej_json: Value = serde_json::from_slice(&rej_out.stdout).unwrap();
+    assert_eq!(rej_json["proposal"]["id"], 1);
+    assert_eq!(rej_json["proposal"]["status"], "rejected");
+    assert_eq!(
+        rej_json["proposal"]["decision_note"],
+        "Wait until Part II is drafted"
+    );
+    let decided_at = rej_json["proposal"]["decided_at"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // Rejecting a non-pending proposal is an error.
+    let rej_again = engrams(&db)
+        .args(["schema", "reject", "proposal:1", "--reason", "duplicate"])
+        .output()
+        .unwrap();
+    assert!(!rej_again.status.success());
+    let rej_err: Value = serde_json::from_slice(&rej_again.stderr).unwrap();
+    assert!(rej_err["error"]
+        .as_str()
+        .unwrap()
+        .contains("proposal 1 is already rejected"));
+
+    // 4. Proposing the rejected territory with no note newer than decided_at
+    // returns inserted: false with `rejected_before` naming id, decided_at, and reason.
+    let blocked_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--statement",
+            "Another claim covering the rejected Mara notes",
+            "--summary",
+            "When writing Mara: show her deflecting credit",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4",
+        ])
+        .output()
+        .unwrap();
+    assert!(blocked_out.status.success());
+    let blocked_json: Value = serde_json::from_slice(&blocked_out.stdout).unwrap();
+    assert_eq!(blocked_json["inserted"], false);
+    assert_eq!(blocked_json["rejected_before"][0]["id"], 1);
+    assert_eq!(blocked_json["rejected_before"][0]["decided_at"], decided_at);
+    assert_eq!(
+        blocked_json["rejected_before"][0]["reason"],
+        "Wait until Part II is drafted"
+    );
+    assert_eq!(blocked_json["rejected_before"][0]["overlap"], 1.0);
+
+    // 5. Seed an active confirmed schema (id 3, "mara-arc") covering decisions 13, 14, 15, 16
+    // plus a pre-v16 code member (code:1), and verify Check 9 refuses the proposal even with --force.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "INSERT INTO schemas (id, uuid, name, summary, summary_source, status, centroid_json, created_at, updated_at, kind) \
+             VALUES (3, 'u-s3', 'mara-arc', 'When channeling aether: pay salt-iron cost', 'agent', 'active', '{}', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z', 'schema')",
+            [],
+        )
+        .unwrap();
+        for (kind, id) in [
+            ("decision", "13"),
+            ("decision", "14"),
+            ("decision", "15"),
+            ("decision", "16"),
+            ("code", "1"),
+        ] {
+            conn.execute(
+                "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, timestamp, origin) \
+                 VALUES (?1, ?2, 'schema', '3', 'member_of', '2026-09-01T00:00:00Z', 'manual')",
+                rusqlite::params![kind, id],
+            )
+            .unwrap();
+        }
+    }
+
+    let territory_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--statement",
+            "Aether draws chill iron and require salt-iron grounding rings",
+            "--summary",
+            "When writing aether casting: show frost and grounding",
+            "--members",
+            "decision:13,decision:14,decision:15",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    assert!(!territory_out.status.success());
+    let territory_err: Value = serde_json::from_slice(&territory_out.stderr).unwrap();
+    assert_eq!(
+        territory_err["error"],
+        "notes already covered by schema 3 (mara-arc)"
+    );
+
+    // Verify only proposal:1 exists in schema_proposals.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schema_proposals", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn test_proposal_ac7_seeds_from_detector_group_drops_code_and_snapshots_evidence() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // Stage a detector candidate containing knowledge notes AND code files.
+    let initial_sig = "code:6,code:9,decision:17,decision:18,decision:19";
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "INSERT INTO schema_candidates \
+             (cluster_sig, member_keys_json, density, stability_count, reward_hits, first_seen_at, last_seen_at, kind) \
+             VALUES (?1, ?2, 0.85, 3, 1, '2026-09-01T00:00:00Z', '2026-09-10T00:00:00Z', 'schema')",
+            rusqlite::params![
+                initial_sig,
+                r#"["code:6","code:9","decision:17","decision:18","decision:19"]"#
+            ],
+        )
+        .unwrap();
+    }
+
+    // Propose from a unique prefix of the candidate signature.
+    let out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "code:6,code:9",
+            "--statement",
+            "Winter siege survival depends on strict barley, water, and axle-rest rations",
+            "--trigger",
+            "writing garrison supply scenes",
+            "--rule",
+            "check the forty-two-day grain math, third-night well brigades, and four-day mule rest",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "propose --from failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let prop: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(prop["inserted"], true);
+    assert_eq!(
+        prop["proposal"]["members"],
+        serde_json::json!(["decision:17", "decision:18", "decision:19"])
+    );
+    assert_eq!(
+        prop["dropped_code_members"],
+        serde_json::json!(["code:6", "code:9"])
+    );
+    assert_eq!(prop["proposal"]["source"]["kind"], "candidate");
+    assert_eq!(prop["proposal"]["source"]["ref"], initial_sig);
+
+    // Later scans that mutate or replace schema_candidates leave the proposal's
+    // evidence and source_ref snapshot untouched.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "UPDATE schema_candidates SET cluster_sig = 'decision:17,decision:18,decision:19,decision:20', \
+             member_keys_json = '[\"decision:17\",\"decision:18\",\"decision:19\",\"decision:20\"]' \
+             WHERE cluster_sig = ?1",
+            rusqlite::params![initial_sig],
+        )
+        .unwrap();
+    }
+    engrams(&db).args(["schema", "scan"]).assert().success();
+
+    let list_out = engrams(&db).args(["schema", "proposals"]).output().unwrap();
+    assert!(list_out.status.success());
+    let listed: Value = serde_json::from_slice(&list_out.stdout).unwrap();
+    let p = &listed["proposals"][0];
+    assert_eq!(p["member_count"], 3);
+    let member_ids: Vec<i64> = p["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| m["id"].as_i64().unwrap())
+        .collect();
+    assert_eq!(member_ids, vec![17, 18, 19]);
+    assert_eq!(p["source"]["kind"], "candidate");
+    assert_eq!(p["source"]["ref"], initial_sig);
 }

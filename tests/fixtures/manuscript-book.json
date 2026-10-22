@@ -1,0 +1,490 @@
+{
+  "provenance": {
+    "source": "synthetic novel fixture for spec 0007 and spec 0008 (18 chapters, 32 notes across 6 storylines plus decoys)",
+    "protagonist_claim": "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+    "protagonist_instruction": "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger"
+  },
+  "chapters": [
+    "manuscript/ch01.md",
+    "manuscript/ch02.md",
+    "manuscript/ch03.md",
+    "manuscript/ch04.md",
+    "manuscript/ch05.md",
+    "manuscript/ch06.md",
+    "manuscript/ch07.md",
+    "manuscript/ch08.md",
+    "manuscript/ch09.md",
+    "manuscript/ch10.md",
+    "manuscript/ch11.md",
+    "manuscript/ch12.md",
+    "manuscript/ch13.md",
+    "manuscript/ch14.md",
+    "manuscript/ch15.md",
+    "manuscript/ch16.md",
+    "manuscript/ch17.md",
+    "manuscript/ch18.md"
+  ],
+  "groups": [
+    {
+      "id": "mara-wound",
+      "members": [
+        "decision:1",
+        "decision:2",
+        "decision:3",
+        "decision:4",
+        "decision:5",
+        "decision:6",
+        "decision:7",
+        "decision:8"
+      ],
+      "expected": "schema",
+      "note": "Protagonist Mara's wound and self-doubt across chapters 1..18 as she grows into command"
+    },
+    {
+      "id": "mara-romance",
+      "members": [
+        "decision:9",
+        "decision:10",
+        "decision:11",
+        "decision:12"
+      ],
+      "expected": "story",
+      "note": "Slow-burn trust arc between Mara and cartographer Toren across chapters 2, 7, 12, 17"
+    },
+    {
+      "id": "magic-rules",
+      "members": [
+        "decision:13",
+        "decision:14",
+        "decision:15",
+        "decision:16",
+        "system_pattern:1"
+      ],
+      "expected": "schema",
+      "note": "Aether conduit rules and salt-iron price across chapters 1, 4, 9, 14, 16"
+    },
+    {
+      "id": "siege-logistics",
+      "members": [
+        "decision:17",
+        "decision:18",
+        "decision:19",
+        "decision:20"
+      ],
+      "expected": "schema",
+      "note": "Grain ration math, cistern levels, and winter wagon timetables across chapters 6, 9, 11, 15"
+    },
+    {
+      "id": "style-rules",
+      "members": [
+        "decision:21",
+        "system_pattern:2",
+        "system_pattern:3"
+      ],
+      "expected": "schema",
+      "note": "Close third-person POV and dialogue attribution conventions across chapters 2, 6, 13"
+    },
+    {
+      "id": "voss-betrayal",
+      "members": [
+        "decision:22",
+        "decision:23",
+        "decision:24"
+      ],
+      "expected": "story",
+      "note": "Quartermaster Voss's secret signal-fire compact across chapters 4, 11, 16"
+    }
+  ],
+  "facts": {
+    "decisions": [
+      {
+        "id": 1,
+        "timestamp": "2026-08-01T10:00:00Z",
+        "summary": "Mara cannot channel the spire-seal that her academy peers complete on their first attempt",
+        "tags": "[\"mara\",\"wound\",\"academy\"]"
+      },
+      {
+        "id": 2,
+        "timestamp": "2026-08-04T11:00:00Z",
+        "summary": "Mara's dialogue in council scenes stays downcast and deflects praise onto her squadmates",
+        "tags": "[\"mara\",\"wound\",\"dialogue\"]"
+      },
+      {
+        "id": 3,
+        "timestamp": "2026-08-08T09:30:00Z",
+        "summary": "Mara hesitates before issuing her first field command at the flooded river crossing",
+        "tags": "[\"mara\",\"wound\",\"command\"]"
+      },
+      {
+        "id": 4,
+        "timestamp": "2026-08-14T15:20:00Z",
+        "summary": "After the night sortie succeeds, Mara credits Toren's range map instead of her own flanking call",
+        "tags": "[\"mara\",\"wound\",\"guilt\"]"
+      },
+      {
+        "id": 5,
+        "timestamp": "2026-08-21T16:45:00Z",
+        "summary": "Mara refuses the silver officer's clasp after the wall breach, insisting a cracked conduit should not lead",
+        "tags": "[\"mara\",\"wound\",\"broken\"]"
+      },
+      {
+        "id": 6,
+        "timestamp": "2026-09-02T12:10:00Z",
+        "summary": "When made captain after the ravine ambush, Mara still calls herself 'just the one left standing'",
+        "tags": "[\"mara\",\"wound\",\"leadership\"]"
+      },
+      {
+        "id": 7,
+        "timestamp": "2026-09-09T18:00:00Z",
+        "summary": "Mara steadies panicking recruits on the parapet while privately expecting her own nerve to give way",
+        "tags": "[\"mara\",\"wound\",\"care\"]"
+      },
+      {
+        "id": 8,
+        "timestamp": "2026-09-18T14:00:00Z",
+        "summary": "Mara takes command of the northern relief column but speaks as though filling in for someone whole",
+        "tags": "[\"mara\",\"wound\",\"leadership\"]"
+      },
+      {
+        "id": 9,
+        "timestamp": "2026-08-02T13:00:00Z",
+        "summary": "Toren leaves corrected range sketches on Mara's dispatch table without signing them",
+        "tags": "[\"mara\",\"toren\",\"romance\"]"
+      },
+      {
+        "id": 10,
+        "timestamp": "2026-08-11T20:00:00Z",
+        "summary": "Mara and Toren share watch over the western survey tower and trade childhood maps",
+        "tags": "[\"mara\",\"toren\",\"romance\"]"
+      },
+      {
+        "id": 11,
+        "timestamp": "2026-08-26T21:15:00Z",
+        "summary": "Toren refuses evacuation with the civilian train so he can keep sighting artillery for Mara's company",
+        "tags": "[\"mara\",\"toren\",\"romance\"]"
+      },
+      {
+        "id": 12,
+        "timestamp": "2026-09-15T19:40:00Z",
+        "summary": "On the eve of the northern march, Mara entrusts her brother's compass to Toren",
+        "tags": "[\"mara\",\"toren\",\"romance\"]"
+      },
+      {
+        "id": 13,
+        "timestamp": "2026-08-01T14:00:00Z",
+        "summary": "Every aether draw chills surrounding iron and leaves frost-score marks on the caster's wrists",
+        "tags": "[\"magic\",\"aether\"]"
+      },
+      {
+        "id": 14,
+        "timestamp": "2026-08-06T10:30:00Z",
+        "summary": "Salt-iron rings ground stray current; an unringed conduit shatters stone within three paces",
+        "tags": "[\"magic\",\"aether\"]"
+      },
+      {
+        "id": 15,
+        "timestamp": "2026-08-18T11:00:00Z",
+        "summary": "Two casters cannot draw from the same relay stone simultaneously without deafening feedback",
+        "tags": "[\"magic\",\"aether\"]"
+      },
+      {
+        "id": 16,
+        "timestamp": "2026-09-12T08:45:00Z",
+        "summary": "Fog dampens long-range aether projection to line-of-sight lantern distance",
+        "tags": "[\"magic\",\"aether\"]"
+      },
+      {
+        "id": 17,
+        "timestamp": "2026-08-09T16:00:00Z",
+        "summary": "The garrison granary holds forty-two days of barley at half-ration once the river freezes",
+        "tags": "[\"siege\",\"logistics\"]"
+      },
+      {
+        "id": 18,
+        "timestamp": "2026-08-19T17:30:00Z",
+        "summary": "Lower cistern seepage forces bucket brigades from the inner well every third night",
+        "tags": "[\"siege\",\"logistics\"]"
+      },
+      {
+        "id": 19,
+        "timestamp": "2026-08-24T12:00:00Z",
+        "summary": "Mule teams require four days rest between mountain pass hauls or axle timber splinters",
+        "tags": "[\"siege\",\"logistics\"]"
+      },
+      {
+        "id": 20,
+        "timestamp": "2026-09-10T10:00:00Z",
+        "summary": "Charcoal stores for the signal braziers must be rationed to two watches per night",
+        "tags": "[\"siege\",\"logistics\"]"
+      },
+      {
+        "id": 21,
+        "timestamp": "2026-08-03T09:00:00Z",
+        "summary": "Keep battle scenes in tight third-person limited on the chapter's point-of-view officer",
+        "tags": "[\"style\",\"prose\"]"
+      },
+      {
+        "id": 22,
+        "timestamp": "2026-08-06T18:00:00Z",
+        "summary": "Quartermaster Voss alters the tallow ledger after the eastern postern gate is left unbarred",
+        "tags": "[\"voss\",\"betrayal\"]"
+      },
+      {
+        "id": 23,
+        "timestamp": "2026-08-25T22:00:00Z",
+        "summary": "A hooded figure flashes three shuttered lantern beats from Voss's storehouse roof",
+        "tags": "[\"voss\",\"betrayal\"]"
+      },
+      {
+        "id": 24,
+        "timestamp": "2026-09-13T23:10:00Z",
+        "summary": "Mara discovers siege-ink cipher strips sewn into Voss's spare saddlebags",
+        "tags": "[\"voss\",\"betrayal\"]"
+      },
+      {
+        "id": 25,
+        "timestamp": "2026-08-05T08:00:00Z",
+        "summary": "Early autumn sleet turns the parade ground to red mud during morning muster",
+        "tags": "[\"plot\",\"weather\"]"
+      },
+      {
+        "id": 26,
+        "timestamp": "2026-08-12T08:30:00Z",
+        "summary": "The copper kettle in thegatehouse kitchen whistles whenever the wind shifts north",
+        "tags": "[\"chapter\",\"tavern\"]"
+      }
+    ],
+    "patterns": [
+      {
+        "id": 1,
+        "timestamp": "2026-09-06T11:00:00Z",
+        "name": "Aether Cast Requires Physical Cost",
+        "description": "Every scene where a character channels aether must show frostbite, tremor, or salt-iron grounding within the same beat.",
+        "tags": "[\"magic\",\"aether\"]",
+        "check_kind": null,
+        "check_expr": null,
+        "severity": "warn"
+      },
+      {
+        "id": 2,
+        "timestamp": "2026-08-10T10:00:00Z",
+        "name": "No Modern Idioms in Dialogue",
+        "description": "Avoid anachronistic military slang such as 'okay' or 'Roger' in manuscript chapters.",
+        "tags": "[\"style\",\"prose\"]",
+        "check_kind": "regex",
+        "check_expr": "\\b(okay|OK|roger that)\\b",
+        "severity": "error"
+      },
+      {
+        "id": 3,
+        "timestamp": "2026-09-03T15:00:00Z",
+        "name": "Said-Bookism Restraint",
+        "description": "Prefer plain 'said' or action beats over ornate dialogue verbs in council scenes.",
+        "tags": "[\"style\",\"prose\"]",
+        "check_kind": null,
+        "check_expr": null,
+        "severity": "warn"
+      }
+    ],
+    "progress": [
+      {
+        "id": 1,
+        "timestamp": "2026-08-07T19:00:00Z",
+        "status": "Done",
+        "description": "Trimmed opening barracks exposition in chapter 3 by four hundred words"
+      },
+      {
+        "id": 2,
+        "timestamp": "2026-08-29T19:00:00Z",
+        "status": "Done",
+        "description": "Renamed the eastern ford to Greywater Crossing across Part I"
+      }
+    ],
+    "custom": [
+      {
+        "id": 1,
+        "timestamp": "2026-08-01T08:00:00Z",
+        "category": "worldbuilding",
+        "key": "calendar-eras",
+        "value": "Three moons mark the winter siege months"
+      }
+    ],
+    "code": [
+      {
+        "id": 1,
+        "first_seen": "2026-08-01T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch01.md",
+        "symbol": ""
+      },
+      {
+        "id": 2,
+        "first_seen": "2026-08-02T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch02.md",
+        "symbol": ""
+      },
+      {
+        "id": 3,
+        "first_seen": "2026-08-04T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch03.md",
+        "symbol": ""
+      },
+      {
+        "id": 4,
+        "first_seen": "2026-08-06T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch04.md",
+        "symbol": ""
+      },
+      {
+        "id": 5,
+        "first_seen": "2026-08-08T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch05.md",
+        "symbol": ""
+      },
+      {
+        "id": 6,
+        "first_seen": "2026-08-09T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch06.md",
+        "symbol": ""
+      },
+      {
+        "id": 7,
+        "first_seen": "2026-08-11T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch07.md",
+        "symbol": ""
+      },
+      {
+        "id": 8,
+        "first_seen": "2026-08-14T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch08.md",
+        "symbol": ""
+      },
+      {
+        "id": 9,
+        "first_seen": "2026-08-18T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch09.md",
+        "symbol": ""
+      },
+      {
+        "id": 10,
+        "first_seen": "2026-08-21T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch10.md",
+        "symbol": ""
+      },
+      {
+        "id": 11,
+        "first_seen": "2026-08-24T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch11.md",
+        "symbol": ""
+      },
+      {
+        "id": 12,
+        "first_seen": "2026-08-26T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch12.md",
+        "symbol": ""
+      },
+      {
+        "id": 13,
+        "first_seen": "2026-09-02T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch13.md",
+        "symbol": ""
+      },
+      {
+        "id": 14,
+        "first_seen": "2026-09-06T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch14.md",
+        "symbol": ""
+      },
+      {
+        "id": 15,
+        "first_seen": "2026-09-09T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch15.md",
+        "symbol": ""
+      },
+      {
+        "id": 16,
+        "first_seen": "2026-09-12T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch16.md",
+        "symbol": ""
+      },
+      {
+        "id": 17,
+        "first_seen": "2026-09-15T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch17.md",
+        "symbol": ""
+      },
+      {
+        "id": 18,
+        "first_seen": "2026-09-18T09:00:00Z",
+        "last_seen": "2026-09-18T15:00:00Z",
+        "path": "manuscript/ch18.md",
+        "symbol": ""
+      }
+    ],
+    "anchors": [
+      { "item_type": "decision", "item_id": 1, "path": "manuscript/ch01.md", "timestamp": "2026-08-01T10:00:00Z" },
+      { "item_type": "decision", "item_id": 2, "path": "manuscript/ch03.md", "timestamp": "2026-08-04T11:00:00Z" },
+      { "item_type": "decision", "item_id": 3, "path": "manuscript/ch05.md", "timestamp": "2026-08-08T09:30:00Z" },
+      { "item_type": "decision", "item_id": 4, "path": "manuscript/ch08.md", "timestamp": "2026-08-14T15:20:00Z" },
+      { "item_type": "decision", "item_id": 5, "path": "manuscript/ch10.md", "timestamp": "2026-08-21T16:45:00Z" },
+      { "item_type": "decision", "item_id": 6, "path": "manuscript/ch13.md", "timestamp": "2026-09-02T12:10:00Z" },
+      { "item_type": "decision", "item_id": 7, "path": "manuscript/ch15.md", "timestamp": "2026-09-09T18:00:00Z" },
+      { "item_type": "decision", "item_id": 8, "path": "manuscript/ch18.md", "timestamp": "2026-09-18T14:00:00Z" },
+      { "item_type": "decision", "item_id": 9, "path": "manuscript/ch02.md", "timestamp": "2026-08-02T13:00:00Z" },
+      { "item_type": "decision", "item_id": 10, "path": "manuscript/ch07.md", "timestamp": "2026-08-11T20:00:00Z" },
+      { "item_type": "decision", "item_id": 11, "path": "manuscript/ch12.md", "timestamp": "2026-08-26T21:15:00Z" },
+      { "item_type": "decision", "item_id": 12, "path": "manuscript/ch17.md", "timestamp": "2026-09-15T19:40:00Z" },
+      { "item_type": "decision", "item_id": 13, "path": "manuscript/ch01.md", "timestamp": "2026-08-01T14:00:00Z" },
+      { "item_type": "decision", "item_id": 14, "path": "manuscript/ch04.md", "timestamp": "2026-08-06T10:30:00Z" },
+      { "item_type": "decision", "item_id": 15, "path": "manuscript/ch09.md", "timestamp": "2026-08-18T11:00:00Z" },
+      { "item_type": "decision", "item_id": 16, "path": "manuscript/ch16.md", "timestamp": "2026-09-12T08:45:00Z" },
+      { "item_type": "system_pattern", "item_id": 1, "path": "manuscript/ch14.md", "timestamp": "2026-09-06T11:00:00Z" },
+      { "item_type": "decision", "item_id": 17, "path": "manuscript/ch06.md", "timestamp": "2026-08-09T16:00:00Z" },
+      { "item_type": "decision", "item_id": 18, "path": "manuscript/ch09.md", "timestamp": "2026-08-19T17:30:00Z" },
+      { "item_type": "decision", "item_id": 19, "path": "manuscript/ch11.md", "timestamp": "2026-08-24T12:00:00Z" },
+      { "item_type": "decision", "item_id": 20, "path": "manuscript/ch15.md", "timestamp": "2026-09-10T10:00:00Z" },
+      { "item_type": "decision", "item_id": 21, "path": "manuscript/ch02.md", "timestamp": "2026-08-03T09:00:00Z" },
+      { "item_type": "system_pattern", "item_id": 2, "path": "manuscript/ch06.md", "timestamp": "2026-08-10T10:00:00Z" },
+      { "item_type": "system_pattern", "item_id": 3, "path": "manuscript/ch13.md", "timestamp": "2026-09-03T15:00:00Z" },
+      { "item_type": "decision", "item_id": 22, "path": "manuscript/ch04.md", "timestamp": "2026-08-06T18:00:00Z" },
+      { "item_type": "decision", "item_id": 23, "path": "manuscript/ch11.md", "timestamp": "2026-08-25T22:00:00Z" },
+      { "item_type": "decision", "item_id": 24, "path": "manuscript/ch16.md", "timestamp": "2026-09-13T23:10:00Z" },
+      { "item_type": "decision", "item_id": 25, "path": "manuscript/ch03.md", "timestamp": "2026-08-05T08:00:00Z" },
+      { "item_type": "decision", "item_id": 26, "path": "manuscript/ch07.md", "timestamp": "2026-08-12T08:30:00Z" },
+      { "item_type": "progress_entry", "item_id": 1, "path": "manuscript/ch03.md", "timestamp": "2026-08-07T19:00:00Z" },
+      { "item_type": "progress_entry", "item_id": 2, "path": "manuscript/ch05.md", "timestamp": "2026-08-29T19:00:00Z" }
+    ],
+    "links": [
+      { "source_type": "decision", "source_id": "1", "target_type": "decision", "target_id": "2", "rel": "relates_to", "timestamp": "2026-08-04T11:00:00Z" },
+      { "source_type": "decision", "source_id": "2", "target_type": "decision", "target_id": "3", "rel": "relates_to", "timestamp": "2026-08-08T09:30:00Z" },
+      { "source_type": "decision", "source_id": "1", "target_type": "decision", "target_id": "3", "rel": "relates_to", "timestamp": "2026-08-08T09:30:00Z" },
+      { "source_type": "decision", "source_id": "4", "target_type": "decision", "target_id": "5", "rel": "relates_to", "timestamp": "2026-08-21T16:45:00Z" },
+      { "source_type": "decision", "source_id": "5", "target_type": "decision", "target_id": "6", "rel": "relates_to", "timestamp": "2026-09-02T12:10:00Z" },
+      { "source_type": "decision", "source_id": "6", "target_type": "decision", "target_id": "7", "rel": "relates_to", "timestamp": "2026-09-09T18:00:00Z" },
+      { "source_type": "decision", "source_id": "7", "target_type": "decision", "target_id": "8", "rel": "relates_to", "timestamp": "2026-09-18T14:00:00Z" },
+      { "source_type": "decision", "source_id": "13", "target_type": "decision", "target_id": "14", "rel": "relates_to", "timestamp": "2026-08-06T10:30:00Z" },
+      { "source_type": "decision", "source_id": "14", "target_type": "decision", "target_id": "15", "rel": "relates_to", "timestamp": "2026-08-18T11:00:00Z" },
+      { "source_type": "decision", "source_id": "13", "target_type": "decision", "target_id": "15", "rel": "relates_to", "timestamp": "2026-08-18T11:00:00Z" },
+      { "source_type": "decision", "source_id": "17", "target_type": "decision", "target_id": "18", "rel": "relates_to", "timestamp": "2026-08-19T17:30:00Z" },
+      { "source_type": "decision", "source_id": "18", "target_type": "decision", "target_id": "19", "rel": "relates_to", "timestamp": "2026-08-24T12:00:00Z" },
+      { "source_type": "decision", "source_id": "17", "target_type": "decision", "target_id": "19", "rel": "relates_to", "timestamp": "2026-08-24T12:00:00Z" }
+    ],
+    "retrievals": []
+  }
+}

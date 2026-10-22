@@ -11,6 +11,7 @@ pub(crate) mod gates;
 pub mod kind;
 pub mod list;
 pub(crate) mod opportunities;
+pub mod propose;
 pub mod retrieval;
 pub mod scan;
 
@@ -24,6 +25,36 @@ pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
     match cmd {
         SchemaCmd::Scan { apply } => scan::scan(conn, apply),
         SchemaCmd::Confirm { target, name } => confirm::confirm(conn, &target, name.as_deref()),
+        SchemaCmd::Propose {
+            statement,
+            summary,
+            trigger,
+            rule,
+            members,
+            from,
+            name,
+            scope_tags,
+            scope_paths,
+            contrary,
+            session,
+            force,
+        } => propose::propose(
+            conn,
+            &statement,
+            summary.as_deref(),
+            trigger.as_deref(),
+            rule.as_deref(),
+            &members,
+            from.as_deref(),
+            name.as_deref(),
+            scope_tags.as_deref(),
+            scope_paths.as_deref(),
+            &contrary,
+            session.as_deref(),
+            force,
+        ),
+        SchemaCmd::Reject { target, reason } => propose::reject(conn, &target, reason.as_deref()),
+        SchemaCmd::Proposals { status } => propose::proposals(conn, status.as_deref()),
         SchemaCmd::List { status } => list::list(conn, status.as_deref()),
         SchemaCmd::Show { target } => list::show(conn, &target),
         SchemaCmd::Refine {

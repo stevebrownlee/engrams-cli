@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS schemas (
   name              TEXT NOT NULL UNIQUE,
   summary           TEXT NOT NULL,
   summary_source    TEXT NOT NULL DEFAULT 'drafted',  -- 'drafted' | 'agent'
-  status            TEXT NOT NULL DEFAULT 'active',   -- 'proposed' | 'active' | 'needs_review' | 'archived'
+  status            TEXT NOT NULL DEFAULT 'active',   -- 'active' | 'needs_review' | 'retired'
   centroid_json     TEXT NOT NULL,                    -- tag/anchor/token centroid for matching
   confidence        REAL NOT NULL DEFAULT 0.0,        -- scoring.rs multiplication extends here
   importance        REAL NOT NULL DEFAULT 0.0,
@@ -191,8 +191,31 @@ CREATE TABLE IF NOT EXISTS schemas (
   created_at        TEXT NOT NULL,
   updated_at        TEXT NOT NULL,
   kind              TEXT NOT NULL DEFAULT 'unclear',  -- spec 0004: 'schema'|'story'|'inventory'|'unclear'
-  kind_reasons_json TEXT NOT NULL DEFAULT '[]'        -- reasons copied from the candidate at confirm
+  kind_reasons_json TEXT NOT NULL DEFAULT '[]',       -- reasons copied from the candidate at confirm
+  statement         TEXT,                             -- human-level claim; NULL for schemas confirmed before v16
+  scope_json        TEXT NOT NULL DEFAULT '{"tags":[],"paths":[]}'
 );
+CREATE TABLE IF NOT EXISTS schema_proposals (
+  id            INTEGER PRIMARY KEY,
+  uuid          TEXT NOT NULL UNIQUE,
+  name          TEXT NOT NULL,                  -- proposed schema name; confirm settles the final name (API surface 2)
+  statement     TEXT NOT NULL,                  -- the claim
+  summary       TEXT NOT NULL,                  -- instruction; opens with a TRIGGER_PREFIXES phrase
+  scope_json    TEXT NOT NULL,                  -- {"tags":[...],"paths":[...]}, sorted and deduplicated
+  members_json  TEXT NOT NULL,                  -- sorted "kind:id" knowledge keys: the evidence snapshot
+  contrary_json TEXT NOT NULL DEFAULT '[]',     -- sorted "kind:id" counter-evidence, informational
+  evidence_json TEXT NOT NULL,                  -- {"notes":n,"files":n,"days":n,"contrary":n}, computed
+  source_kind   TEXT NOT NULL,                  -- 'manual' | 'candidate'
+  source_ref    TEXT,                           -- detector signature at propose time; provenance text, never a key
+  session       TEXT,                           -- --session or ENGRAMS_SESSION when known
+  status        TEXT NOT NULL DEFAULT 'proposed', -- 'proposed' | 'confirmed' | 'rejected'
+  decision_note TEXT,                           -- rejection reason
+  schema_id     INTEGER,                        -- set on confirm; origin joins on it
+  created_at    TEXT NOT NULL,
+  decided_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_schema_proposals_status ON schema_proposals(status);
+CREATE INDEX IF NOT EXISTS ix_schema_proposals_schema ON schema_proposals(schema_id);
 CREATE TABLE IF NOT EXISTS schema_candidates (
   cluster_sig        TEXT PRIMARY KEY,    -- sorted member-key signature
   member_keys_json   TEXT NOT NULL,
@@ -504,4 +527,33 @@ pub const MIGRATION_V15: &str = r#"
 -- Session-close schema opportunity notification timestamp.
 -- NULL = never notified; timestamp allows re-notification only if candidate drifts (last_seen_at > notified_at).
 ALTER TABLE schema_candidates ADD COLUMN notified_at TEXT;
+"#;
+
+pub const MIGRATION_V16: &str = r#"
+-- Spec 0007 (reviewed schema proposals): schemas gain statement and scope_json;
+-- proposals live in schema_proposals until confirmed or rejected.
+ALTER TABLE schemas ADD COLUMN statement TEXT;  -- human-level claim; NULL for schemas confirmed before v16
+ALTER TABLE schemas ADD COLUMN scope_json TEXT NOT NULL DEFAULT '{"tags":[],"paths":[]}';
+
+CREATE TABLE IF NOT EXISTS schema_proposals (
+  id            INTEGER PRIMARY KEY,
+  uuid          TEXT NOT NULL UNIQUE,
+  name          TEXT NOT NULL,                  -- proposed schema name; confirm settles the final name (API surface 2)
+  statement     TEXT NOT NULL,                  -- the claim
+  summary       TEXT NOT NULL,                  -- instruction; opens with a TRIGGER_PREFIXES phrase
+  scope_json    TEXT NOT NULL,                  -- {"tags":[...],"paths":[...]}, sorted and deduplicated
+  members_json  TEXT NOT NULL,                  -- sorted "kind:id" knowledge keys: the evidence snapshot
+  contrary_json TEXT NOT NULL DEFAULT '[]',     -- sorted "kind:id" counter-evidence, informational
+  evidence_json TEXT NOT NULL,                  -- {"notes":n,"files":n,"days":n,"contrary":n}, computed
+  source_kind   TEXT NOT NULL,                  -- 'manual' | 'candidate'
+  source_ref    TEXT,                           -- detector signature at propose time; provenance text, never a key
+  session       TEXT,                           -- --session or ENGRAMS_SESSION when known
+  status        TEXT NOT NULL DEFAULT 'proposed', -- 'proposed' | 'confirmed' | 'rejected'
+  decision_note TEXT,                           -- rejection reason
+  schema_id     INTEGER,                        -- set on confirm; origin joins on it
+  created_at    TEXT NOT NULL,
+  decided_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_schema_proposals_status ON schema_proposals(status);
+CREATE INDEX IF NOT EXISTS ix_schema_proposals_schema ON schema_proposals(schema_id);
 "#;

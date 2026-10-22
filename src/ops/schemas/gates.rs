@@ -81,21 +81,23 @@ pub(crate) fn claimed_territory(
 ) -> Result<Option<(i64, String)>> {
     let knowledge_strs: Vec<&str> = knowledge_members.iter().map(String::as_str).collect();
     for s in super::confirm::confirmed_schemas(conn)? {
-        let s_knowledge: Vec<&String> = s
+        let s_knowledge: Vec<&str> = s
             .members
             .iter()
-            .filter(|m| !m.starts_with("schema:"))
+            .map(String::as_str)
+            .filter(|m| !m.starts_with("schema:") && !m.starts_with("code:"))
             .collect();
-        let covered = knowledge_members
+        let covered = knowledge_strs
             .iter()
             .filter(|m| s_knowledge.contains(m))
             .count();
         let covers = s_knowledge
             .iter()
-            .filter(|k| knowledge_members.contains(k))
+            .filter(|k| knowledge_strs.contains(k))
             .count();
-        if covered == knowledge_members.len()
+        if covered == knowledge_strs.len()
             || (!s_knowledge.is_empty() && covers == s_knowledge.len())
+            || jaccard(&knowledge_strs, &s_knowledge) >= JACCARD_IDENTITY
             || jaccard(
                 &knowledge_strs,
                 &s.members.iter().map(String::as_str).collect::<Vec<_>>(),
