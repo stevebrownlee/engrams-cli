@@ -11,7 +11,7 @@ fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
-pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
+pub fn handle(conn: &Connection, cmd: ProgressCmd, ws: &crate::db::Workspace) -> Result<Value> {
     match cmd {
         ProgressCmd::Log {
             status,
@@ -59,7 +59,7 @@ pub fn handle(conn: &Connection, cmd: ProgressCmd) -> Result<Value> {
             }
 
             let timestamp = now();
-            let commit_sha = crate::ops::git::head_sha();
+            let commit_sha = ws.head_sha();
             conn.execute(
                 "INSERT INTO progress_entries (timestamp, status, description, parent_id, commit_sha) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![timestamp, status, description, parent_id, commit_sha],

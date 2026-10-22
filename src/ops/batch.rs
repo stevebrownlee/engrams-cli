@@ -9,7 +9,7 @@ pub fn handle(
     conn: &Connection,
     batch_type: BatchType,
     items_arg: String,
-    db_path: &std::path::Path,
+    ws: &crate::db::Workspace,
 ) -> Result<Value> {
     let items_json = if items_arg == "-" {
         let mut buffer = String::new();
@@ -77,6 +77,7 @@ pub fn handle(
                             contract: None,
                             schema: None,
                         },
+                        ws,
                     )?;
                     if let Value::Object(mut res_map) = res {
                         if let Some(id_val) = res_map.remove("id") {
@@ -112,6 +113,7 @@ pub fn handle(
                             force: false,
                             schema: None,
                         },
+                        ws,
                     )?;
                     if let Value::Object(mut res_map) = res {
                         if let Some(id_val) = res_map.remove("id") {
@@ -172,7 +174,7 @@ pub fn handle(
                             importance: None,
                             schema: None,
                         },
-                        db_path,
+                        ws,
                     )?;
                     if let Value::Object(mut res_map) = res {
                         if let Some(id_val) = res_map.remove("id") {

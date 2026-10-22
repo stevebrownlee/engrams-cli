@@ -52,7 +52,13 @@ struct Existing {
     evidence: Vec<i64>,
 }
 
-pub fn handle(conn: &Connection, apply: bool, min_repeats: i64, min_days: i64) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    apply: bool,
+    min_repeats: i64,
+    min_days: i64,
+    root: Option<&std::path::Path>,
+) -> Result<Value> {
     if min_repeats < 1 {
         anyhow::bail!("--min-repeats must be >= 1");
     }
@@ -231,7 +237,7 @@ pub fn handle(conn: &Connection, apply: bool, min_repeats: i64, min_days: i64) -
                 ],
             )?;
             let pid = tx.last_insert_rowid();
-            crate::ops::anchor::attach(&tx, "system_pattern", pid, &cand.anchors)?;
+            crate::ops::anchor::attach(&tx, "system_pattern", pid, &cand.anchors, root)?;
             for eid in &cand.evidence {
                 crate::ops::decision::insert_link_if_absent(
                     &tx,
@@ -242,7 +248,7 @@ pub fn handle(conn: &Connection, apply: bool, min_repeats: i64, min_days: i64) -
                     "derived_from",
                 )?;
             }
-            crate::ops::graph::rebuild::touch_item(&tx, "system_pattern", pid)?;
+            crate::ops::graph::rebuild::touch_item(&tx, "system_pattern", pid, root)?;
             applied.push(json!({
                 "id": pid,
                 "name": cand.name,

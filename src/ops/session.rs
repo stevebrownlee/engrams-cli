@@ -25,10 +25,11 @@ pub fn close(
     note: Option<String>,
     pr: Option<String>,
     session: Option<String>,
+    root: Option<&std::path::Path>,
 ) -> Result<Value> {
     let (pr_url, pr_validation) = match &pr {
         Some(p) => {
-            let url = crate::ops::pr::resolve_pr_url(p)?;
+            let url = crate::ops::pr::resolve_pr_url(p, root)?;
             let v = validate_pr(conn, &url)?;
             (Some(url), Some(v))
         }
@@ -251,7 +252,11 @@ fn schema_value_rollup(conn: &Connection, session: Option<&str>) -> Result<Value
     }))
 }
 
-pub fn handle(conn: &Connection, cmd: crate::cli::SessionCmd) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    cmd: crate::cli::SessionCmd,
+    root: Option<&std::path::Path>,
+) -> Result<Value> {
     match cmd {
         crate::cli::SessionCmd::Close {
             reads_skipped,
@@ -268,6 +273,7 @@ pub fn handle(conn: &Connection, cmd: crate::cli::SessionCmd) -> Result<Value> {
             note,
             pr,
             session,
+            root,
         ),
         crate::cli::SessionCmd::History => history(conn),
     }

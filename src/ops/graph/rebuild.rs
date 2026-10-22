@@ -6,12 +6,12 @@
 //! `rebuild` is the source of truth for exact weights; `touch_item` keeps the
 //! graph warm incrementally on writes.
 
-use std::collections::{HashMap, HashSet};
-
 use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 use crate::ops::git;
 
@@ -55,9 +55,11 @@ fn insert_edges(conn: &Connection, source: &str, edges: &[DerivedEdge], ts: &str
 // AnchorSource: item_anchors rows → anchored_to edges to code file nodes
 // ---------------------------------------------------------------------------
 
-pub struct AnchorSource;
+pub struct AnchorSource<'a> {
+    pub root: Option<&'a Path>,
+}
 
-impl EdgeSource for AnchorSource {
+impl EdgeSource for AnchorSource<'_> {
     fn name(&self) -> &'static str {
         "anchor"
     }
@@ -76,7 +78,7 @@ impl EdgeSource for AnchorSource {
         let mut edges = Vec::new();
         for r in rows {
             let (item_type, item_id, path) = r?;
-            let fid = code::upsert_file(conn, &path, &ts)?;
+            let fid = code::upsert_file(conn, &path, &ts, self.root)?;
             edges.push(DerivedEdge {
                 src_type: item_type,
                 src_id: item_id.to_string(),
@@ -195,20 +197,21 @@ impl EdgeSource for CoAnchorSource {
 // CoChangeSource: git co-change → co_changes edges between code file nodes
 // ---------------------------------------------------------------------------
 
-pub struct CoChangeSource {
+pub struct CoChangeSource<'a> {
+    pub root: &'a Path,
     pub since: Option<String>,
     pub max_commits: usize,
     pub min_cochange: i64,
 }
 
-impl EdgeSource for CoChangeSource {
+impl EdgeSource for CoChangeSource<'_> {
     fn name(&self) -> &'static str {
         "cochange"
     }
 
     fn emit(&self, conn: &Connection) -> Result<Vec<DerivedEdge>> {
-        let groups = git::commit_file_groups(self.since.as_deref(), self.max_commits)?;
-        let toplevel = git::toplevel().unwrap_or_default();
+        let groups = git::commit_file_groups(self.root, self.since.as_deref(), self.max_commits)?;
+        let toplevel = git::toplevel(self.root).unwrap_or_default();
         let ts = now();
         let mut pair_counts: HashMap<(i64, i64), i64> = HashMap::new();
         for group in &groups {
@@ -227,7 +230,7 @@ impl EdgeSource for CoChangeSource {
                 if !toplevel.is_empty() && !std::path::Path::new(&toplevel).join(path).exists() {
                     continue;
                 }
-                ids.push(code::upsert_file(conn, path, &ts)?);
+                ids.push(code::upsert_file(conn, path, &ts, Some(self.root))?);
             }
             ids.sort_unstable();
             for i in 0..ids.len() {
@@ -250,7 +253,7 @@ impl EdgeSource for CoChangeSource {
                 weight: count as f64,
             })
             .collect();
-        if let Some(sha) = git::head_sha() {
+        if let Some(sha) = git::head_sha(self.root) {
             conn.execute(
                 "INSERT INTO graph_meta (id, last_ingest_sha) VALUES (1, ?1) \
                  ON CONFLICT(id) DO UPDATE SET last_ingest_sha = excluded.last_ingest_sha",
@@ -332,21 +335,24 @@ pub struct RebuildOpts {
     pub max_commits: i64,
 }
 
-pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts) -> Result<Value> {
+pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts, root: Option<&Path>) -> Result<Value> {
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM context_links WHERE origin = 'derived'", [])?;
 
-    let mut sources: Vec<Box<dyn EdgeSource>> = vec![
-        Box::new(AnchorSource),
+    let mut sources: Vec<Box<dyn EdgeSource + '_>> = vec![
+        Box::new(AnchorSource { root }),
         Box::new(CoAnchorSource),
         Box::new(InverseEdgeSource),
     ];
     if !opts.no_git {
-        sources.push(Box::new(CoChangeSource {
-            since: None,
-            max_commits: opts.max_commits.max(0) as usize,
-            min_cochange: opts.min_cochange,
-        }));
+        if let Some(r) = root {
+            sources.push(Box::new(CoChangeSource {
+                root: r,
+                since: None,
+                max_commits: opts.max_commits.max(0) as usize,
+                min_cochange: opts.min_cochange,
+            }));
+        }
     }
 
     let ts = now();
@@ -378,11 +384,15 @@ pub fn rebuild(conn: &mut Connection, opts: &RebuildOpts) -> Result<Value> {
     )?;
     tx.commit()?;
 
-    Ok(json!({
+    let mut out = json!({
         "rebuilt": true,
         "edges_by_source": Value::Object(edges_by_source),
         "code_nodes_pruned": pruned,
-    }))
+    });
+    if root.is_none() {
+        out["cochange_skipped"] = json!("no workspace");
+    }
+    Ok(out)
 }
 
 pub fn ingest(
@@ -390,8 +400,15 @@ pub fn ingest(
     since: Option<String>,
     max_commits: i64,
     min_cochange: i64,
+    root: Option<&Path>,
 ) -> Result<Value> {
-    // Default to incremental: resume from the last ingested commit.
+    let Some(root) = root else {
+        return Ok(json!({
+            "ingested": false,
+            "reason": "no workspace named",
+            "edges_by_source": { "cochange": 0 },
+        }));
+    };
     let since = match since {
         Some(s) => Some(s),
         None => conn
@@ -407,7 +424,7 @@ pub fn ingest(
     // Guard: no-op when there is nothing new to ingest. Without this,
     // delete-then-window would wipe full-history co_changes edges whenever
     // the window is empty (e.g. right after `rebuild`, or off-repo).
-    let head = git::head_sha();
+    let head = git::head_sha(root);
     match (&since, &head) {
         (Some(s), Some(h)) if s == h => {
             return Ok(json!({
@@ -432,6 +449,7 @@ pub fn ingest(
         [],
     )?;
     let source = CoChangeSource {
+        root,
         since,
         max_commits: max_commits.max(0) as usize,
         min_cochange,
@@ -453,11 +471,11 @@ pub fn ingest(
 /// manual links touching it, and recomputes its `relates_to` edges against
 /// all other knowledge items. Idempotent (`INSERT OR IGNORE`), never deletes
 /// — `rebuild` remains the source of truth for exact weights.
-pub fn touch_item(conn: &Connection, item_type: &str, id: i64) -> Result<()> {
+pub fn touch_item(conn: &Connection, item_type: &str, id: i64, root: Option<&Path>) -> Result<()> {
     let ts = now();
     let anchors = crate::ops::anchor::anchors_for(conn, item_type, id)?;
     for path in &anchors {
-        let fid = code::upsert_file(conn, path, &ts)?;
+        let fid = code::upsert_file(conn, path, &ts, root)?;
         conn.execute(
             INSERT_DERIVED,
             params![
@@ -639,6 +657,7 @@ mod tests {
                 min_cochange: 2,
                 max_commits: 500,
             },
+            None,
         )
         .unwrap()
     }
@@ -745,7 +764,7 @@ mod tests {
         let b = add_decision(&conn, "b");
         add_manual_link(&conn, "decision", a, "decision", b, "supersedes", 1.0);
 
-        touch_item(&conn, "decision", b).unwrap();
+        touch_item(&conn, "decision", b, None).unwrap();
         let edges = derived_inverse_edges(&conn);
         assert_eq!(edges.len(), 1);
         assert_eq!(
@@ -761,8 +780,8 @@ mod tests {
         );
 
         // Touching either endpoint again must not duplicate the edge.
-        touch_item(&conn, "decision", a).unwrap();
-        touch_item(&conn, "decision", b).unwrap();
+        touch_item(&conn, "decision", a, None).unwrap();
+        touch_item(&conn, "decision", b, None).unwrap();
         assert_eq!(derived_inverse_edges(&conn).len(), 1);
     }
 }

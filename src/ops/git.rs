@@ -1,36 +1,28 @@
 use anyhow::{Context, Result};
+use std::path::Path;
 use std::process::Command;
-use std::sync::LazyLock;
 
-/// Owned decode of subprocess output: `String::from_utf8` moves the buffer
-/// (zero copy) on the UTF-8 happy path; only invalid bytes fall back to a
-/// lossy allocation. Preferred over lossy-then-copy conversion, which doubles
-/// the allocation.
-fn decode(bytes: Vec<u8>) -> String {
-    String::from_utf8(bytes)
-        .unwrap_or_else(|e| String::from_utf8_lossy(&e.into_bytes()).into_owned())
-}
-
-pub fn head_sha() -> Option<String> {
-    static HEAD_SHA: LazyLock<Option<String>> = LazyLock::new(|| {
-        let output = Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .output()
-            .ok()?;
-        if output.status.success() {
-            let sha = decode(output.stdout);
-            let sha = sha.trim().to_string();
-            if !sha.is_empty() {
-                return Some(sha);
-            }
-        }
-        None
-    });
-    (*HEAD_SHA).clone()
-}
-
-pub fn origin_base() -> Result<String> {
+pub fn head_sha(root: &Path) -> Option<String> {
     let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let sha = stdout.trim();
+        if !sha.is_empty() {
+            return Some(sha.to_owned());
+        }
+    }
+    None
+}
+
+pub fn origin_base(root: &Path) -> Result<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
         .args(["remote", "get-url", "origin"])
         .output()
         .context("git command unavailable")?;
@@ -41,33 +33,30 @@ pub fn origin_base() -> Result<String> {
             stderr.trim()
         );
     }
-    let url = decode(output.stdout);
-    let url = url.trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let url = stdout.trim();
     if url.is_empty() {
         anyhow::bail!("cannot derive PR URL: origin remote URL is empty; pass the full URL");
     }
 
-    let mut normalized = url;
-    if normalized.starts_with("ssh://") {
-        normalized = normalized["ssh://".len()..].to_string();
-    }
-    if normalized.starts_with("git@") {
-        normalized = normalized["git@".len()..].to_string();
-        if let Some(colon_pos) = normalized.find(':') {
-            if !normalized[..colon_pos].contains('/') {
-                let host = &normalized[..colon_pos];
-                let path = &normalized[colon_pos + 1..];
-                normalized = format!("{}/{}", host, path);
+    let url = url.strip_prefix("ssh://").unwrap_or(url);
+    let url = url.strip_suffix(".git").unwrap_or(url);
+    if let Some(rest) = url.strip_prefix("git@") {
+        if let Some((host, path)) = rest.split_once(':') {
+            if !host.contains('/') {
+                return Ok(format!("https://{}/{}", host, path));
             }
         }
+        if rest.starts_with("http://") || rest.starts_with("https://") {
+            return Ok(rest.to_owned());
+        }
+        return Ok(format!("https://{}", rest));
     }
-    if !normalized.starts_with("http://") && !normalized.starts_with("https://") {
-        normalized = format!("https://{}", normalized);
+    if url.starts_with("http://") || url.starts_with("https://") {
+        Ok(url.to_owned())
+    } else {
+        Ok(format!("https://{}", url))
     }
-    if normalized.ends_with(".git") {
-        normalized.truncate(normalized.len() - 4);
-    }
-    Ok(normalized)
 }
 
 pub fn staged_files() -> Result<Vec<String>> {
@@ -114,8 +103,10 @@ pub fn changed_since(sha: &str, paths: &[String]) -> Result<Vec<String>> {
 }
 
 /// Absolute path of the repository root; errors when not inside a repo.
-pub fn toplevel() -> Result<String> {
+pub fn toplevel(root: &Path) -> Result<String> {
     let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
         .args(["rev-parse", "--show-toplevel"])
         .output()
         .context("git command failed")?;
@@ -123,7 +114,8 @@ pub fn toplevel() -> Result<String> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         anyhow::bail!("git rev-parse --show-toplevel failed: {}", stderr.trim());
     }
-    Ok(decode(output.stdout).trim().to_string())
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout.trim().to_owned())
 }
 
 /// Files touched per commit, one `Vec<String>` per commit (newest first).
@@ -132,22 +124,26 @@ pub fn toplevel() -> Result<String> {
 /// `max_commits`, optionally restricted to `<since>..HEAD`. Returns an empty
 /// vec when git fails (not a repo / no commits / bad range) so ingest is a
 /// safe no-op off-repo.
-pub fn commit_file_groups(since: Option<&str>, max_commits: usize) -> Result<Vec<Vec<String>>> {
-    let mut args: Vec<String> = vec![
-        "log".to_string(),
-        "--no-merges".to_string(),
-        "--name-only".to_string(),
-        "--format=%x1e%H".to_string(),
-        "-n".to_string(),
-        max_commits.to_string(),
-    ];
-    if let Some(s) = since {
-        args.push(format!("{}..HEAD", s));
+pub fn commit_file_groups(
+    root: &Path,
+    since: Option<&str>,
+    max_commits: usize,
+) -> Result<Vec<Vec<String>>> {
+    let max_str = max_commits.to_string();
+    let range = since.map(|s| format!("{}..HEAD", s));
+    let mut cmd = Command::new("git");
+    cmd.arg("-C").arg(root).args([
+        "log",
+        "--no-merges",
+        "--name-only",
+        "--format=%x1e%H",
+        "-n",
+        &max_str,
+    ]);
+    if let Some(r) = &range {
+        cmd.arg(r);
     }
-    let output = Command::new("git")
-        .args(&args)
-        .output()
-        .context("git command failed")?;
+    let output = cmd.output().context("git command failed")?;
     if !output.status.success() {
         return Ok(Vec::new());
     }

@@ -24,21 +24,21 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
-    let db_path = db::resolve_db_path(cli.db.as_deref(), cli.workspace.as_deref())?;
+    let ws = db::resolve_workspace(cli.db.as_deref(), cli.workspace.as_deref())?;
 
-    let db_existed = db_path.exists();
+    let db_existed = ws.db_path.exists();
 
     // We open (and create) the db for all commands.
-    let mut conn = db::open(&db_path)?;
+    let mut conn = db::open(&ws.db_path)?;
 
     // Instantiate UpdateChecker (spawns background thread if check is needed)
-    let checker = release::UpdateChecker::new(&db_path);
+    let checker = release::UpdateChecker::new(&ws.db_path);
 
     let is_migrate_or_init = matches!(cli.command, cli::Command::Migrate | cli::Command::Init);
     let is_check = matches!(cli.command, cli::Command::Check { .. });
     db::validate_version(&conn, is_migrate_or_init)?;
 
-    let mut result = ops::dispatch(&mut conn, cli.command, &db_path, !db_existed)?;
+    let mut result = ops::dispatch(&mut conn, cli.command, &ws, !db_existed)?;
 
     if !cli.fields.is_empty() {
         project_fields(&mut result, &cli.fields);

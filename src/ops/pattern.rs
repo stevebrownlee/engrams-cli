@@ -47,7 +47,7 @@ fn validate_check(
     }
 }
 
-pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> Result<Value> {
+pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> Result<Value> {
     match cmd {
         PatternCmd::Log {
             name,
@@ -63,7 +63,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
         } => {
             let mut resolved_prs = Vec::new();
             for pr in prs {
-                resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr)?);
+                resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr, ws.root.as_deref())?);
             }
 
             let (check_kind, check_expr, severity) =
@@ -92,12 +92,18 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
                 crate::ops::pr::attach(conn, "system_pattern", id, &resolved_prs)?;
             }
             if !anchors.is_empty() {
-                crate::ops::anchor::attach(conn, "system_pattern", id, &anchors)?;
+                crate::ops::anchor::attach(
+                    conn,
+                    "system_pattern",
+                    id,
+                    &anchors,
+                    ws.root.as_deref(),
+                )?;
             }
-            crate::ops::graph::rebuild::touch_item(conn, "system_pattern", id)?;
+            crate::ops::graph::rebuild::touch_item(conn, "system_pattern", id, ws.root.as_deref())?;
 
             // Write-through (S7): keep any installed omp rulebook in sync.
-            crate::ops::rules::write_through(conn, db_path);
+            crate::ops::rules::write_through(conn, &ws.db_path);
             // Schema assimilation (AC-8): explicit attach / decline wins;
             // otherwise match the centroid and fire suggestions.
             let schema_block = crate::ops::schemas::assimilate::at_log_time(
@@ -182,7 +188,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, db_path: &std::path::Path) -> 
             tx.commit()?;
 
             // Write-through (S7): prune removed pattern from any installed rulebook.
-            crate::ops::rules::write_through(conn, db_path);
+            crate::ops::rules::write_through(conn, &ws.db_path);
 
             Ok(serde_json::json!({
                 "deleted": true,

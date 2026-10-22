@@ -29,7 +29,7 @@ where
     }
 }
 
-pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
+pub fn handle(conn: &Connection, cmd: DecisionCmd, ws: &crate::db::Workspace) -> Result<Value> {
     match cmd {
         DecisionCmd::Log {
             summary,
@@ -56,7 +56,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
 
             let mut resolved_prs = Vec::new();
             for pr in prs {
-                resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr)?);
+                resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr, ws.root.as_deref())?);
             }
 
             // Resolution flags imply intent: validate targets, then skip the gate.
@@ -86,7 +86,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 Some(serde_json::to_string(&tags)?)
             };
 
-            let commit_sha = crate::ops::git::head_sha();
+            let commit_sha = ws.head_sha();
 
             let id = with_transaction(conn, |tx| {
                 tx.execute(
@@ -100,9 +100,9 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                     crate::ops::pr::attach(tx, "decision", id, &resolved_prs)?;
                 }
                 if !anchors.is_empty() {
-                    crate::ops::anchor::attach(tx, "decision", id, &anchors)?;
+                    crate::ops::anchor::attach(tx, "decision", id, &anchors, ws.root.as_deref())?;
                 }
-                crate::ops::graph::rebuild::touch_item(tx, "decision", id)?;
+                crate::ops::graph::rebuild::touch_item(tx, "decision", id, ws.root.as_deref())?;
 
                 if let Some(old) = supersedes {
                     tx.execute(
@@ -219,15 +219,11 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
             for r in rows {
                 results.push(r?);
             }
-            let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
-            let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
+            let mut prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
+            let mut anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
             for d in &mut results {
-                if let Some(urls) = prs_map.get(&d.id) {
-                    d.pr_urls = urls.clone();
-                }
-                if let Some(paths) = anchors_map.get(&d.id) {
-                    d.anchors = paths.clone();
-                }
+                d.pr_urls = prs_map.remove(&d.id).unwrap_or_default();
+                d.anchors = anchors_map.remove(&d.id).unwrap_or_default();
             }
             Ok(serde_json::to_value(results)?)
         }
@@ -340,15 +336,11 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd) -> Result<Value> {
                 for r in rows {
                     results.push(r?);
                 }
-                let prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
-                let anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
+                let mut prs_map = crate::ops::pr::pr_urls_map(conn, "decision")?;
+                let mut anchors_map = crate::ops::anchor::anchors_map(conn, "decision")?;
                 for d in &mut results {
-                    if let Some(urls) = prs_map.get(&d.id) {
-                        d.pr_urls = urls.clone();
-                    }
-                    if let Some(paths) = anchors_map.get(&d.id) {
-                        d.anchors = paths.clone();
-                    }
+                    d.pr_urls = prs_map.remove(&d.id).unwrap_or_default();
+                    d.anchors = anchors_map.remove(&d.id).unwrap_or_default();
                 }
                 Ok(serde_json::to_value(results)?)
             }

@@ -29,22 +29,23 @@ pub mod session;
 pub mod status;
 pub mod transfer;
 pub mod usage;
+use crate::cli::{ActiveContextCmd, Command, ContextCmd, HistoryDoc, ReportCmd};
+use crate::db::Workspace;
 use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::json;
 use serde_json::Value;
-use std::path::Path;
-
-use crate::cli::{ActiveContextCmd, Command, ContextCmd, HistoryDoc, ReportCmd};
 
 pub fn dispatch(
     conn: &mut Connection,
     cmd: Command,
-    db_path: &Path,
+    ws: &Workspace,
     created: bool,
 ) -> Result<Value> {
     match cmd {
-        Command::Init => Ok(json!({"db_path": db_path.display().to_string(), "created": created})),
+        Command::Init => {
+            Ok(json!({"db_path": ws.db_path.display().to_string(), "created": created}))
+        }
         Command::Migrate => {
             crate::db::run_migrations(conn)?;
             Ok(json!({
@@ -79,41 +80,45 @@ pub fn dispatch(
                 }
             }
         },
-        Command::Decision { cmd } => decision::handle(conn, cmd),
-        Command::Progress { cmd } => progress::handle(conn, cmd),
-        Command::Pattern { cmd } => pattern::handle(conn, cmd, db_path),
-        Command::Rules { cmd } => rules::handle(conn, cmd, db_path),
-        Command::Install { harness, hooks } => install::handle(conn, &harness, hooks, db_path),
-        Command::Check { staged, paths } => check::handle(conn, staged, &paths, db_path),
+        Command::Decision { cmd } => decision::handle(conn, cmd, ws),
+        Command::Progress { cmd } => progress::handle(conn, cmd, ws),
+        Command::Pattern { cmd } => pattern::handle(conn, cmd, ws),
+        Command::Rules { cmd } => rules::handle(conn, cmd, &ws.db_path),
+        Command::Install { harness, hooks } => install::handle(conn, &harness, hooks, &ws.db_path),
+        Command::Check { staged, paths } => check::handle(conn, staged, &paths, &ws.db_path),
         Command::Custom { cmd } => custom::handle(conn, cmd),
         Command::Link { cmd } => link::handle(conn, cmd),
         Command::Activity(args) => activity::handle(conn, args),
-        Command::Batch { r#type, items } => batch::handle(conn, r#type, items, db_path),
+        Command::Batch { r#type, items } => batch::handle(conn, r#type, items, ws),
         Command::Export { path } => transfer::export::handle(conn, &path),
         Command::Import { path } => transfer::import::handle(conn, &path),
         Command::Report { cmd, topic, limit } => match cmd {
             Some(ReportCmd::Open { no_browser, out }) => {
-                report::open(conn, db_path, no_browser, out)
+                report::open(conn, &ws.db_path, no_browser, out)
             }
             None => report::handle(conn, topic, limit),
         },
-        Command::Pr { cmd } => pr::handle(conn, cmd),
-        Command::Anchor { cmd } => anchor::handle(conn, cmd),
+        Command::Pr { cmd } => pr::handle(conn, cmd, ws.root.as_deref()),
+        Command::Anchor { cmd } => anchor::handle(conn, cmd, ws.root.as_deref()),
         Command::Relevant { paths, staged, all } => {
             anchor::handle_relevant(conn, paths, staged, all)
         }
-        Command::Advise { paths, staged } => advise::handle(conn, paths, staged, db_path),
+        Command::Advise { paths, staged } => advise::handle(conn, paths, staged, &ws.db_path),
         Command::Prune(cmd) => prune::handle(conn, cmd),
-        Command::Consolidate(cmd) => {
-            consolidate::handle(conn, cmd.apply, cmd.min_repeats, cmd.min_days)
-        }
+        Command::Consolidate(cmd) => consolidate::handle(
+            conn,
+            cmd.apply,
+            cmd.min_repeats,
+            cmd.min_days,
+            ws.root.as_deref(),
+        ),
         Command::Prime {
             budget,
             paths,
             tags,
         } => prime::handle(conn, budget, paths, tags),
-        Command::Doctor => doctor::handle(conn, db_path),
-        Command::Graph { cmd } => graph::handle(conn, cmd, db_path),
+        Command::Doctor => doctor::handle(conn, &ws.db_path),
+        Command::Graph { cmd } => graph::handle(conn, cmd, ws.root.as_deref()),
         Command::Schema { cmd } => schemas::handle(conn, cmd),
         Command::Query {
             query,
@@ -131,7 +136,7 @@ pub fn dispatch(
             misses,
         } => usage::handle(conn, since, daily, misses),
         Command::Coverage { paths, diff } => coverage::handle(conn, paths, diff),
-        Command::Session { cmd } => session::handle(conn, cmd),
+        Command::Session { cmd } => session::handle(conn, cmd, ws.root.as_deref()),
         Command::Instructions => unreachable!("handled in main before dispatch"),
     }
 }

@@ -1209,9 +1209,9 @@ fn test_pr_provenance_git_derivation() {
         .output()
         .unwrap();
 
-    // Log a decision with a numeric PR ID, passing custom current_dir
+    // Log a decision with a numeric PR ID, passing explicit workspace
     let mut cmd = engrams(&db);
-    cmd.current_dir(repo_path).args([
+    cmd.arg("--workspace").arg(repo_path).args([
         "decision",
         "log",
         "--summary",
@@ -4879,4 +4879,279 @@ fn test_session_close_opportunity_workflow_actionable() {
         opps2.is_empty(),
         "promoted/notified candidate must not re-nag: {val2}"
     );
+}
+
+fn init_git_repo_with_commit(dir: &std::path::Path, filename: &str, content: &str) -> String {
+    let run = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+    run(&["init"]);
+    run(&["config", "user.email", "test@example.com"]);
+    run(&["config", "user.name", "Test"]);
+    std::fs::write(dir.join(filename), content).unwrap();
+    run(&["add", filename]);
+    run(&["commit", "-m", "initial"]);
+    run(&["rev-parse", "HEAD"])
+}
+
+#[test]
+fn workspace_stamps_named_workspace_commit_not_shell_repo_ac1() {
+    let repo_a = TempDir::new().unwrap();
+    let repo_b = TempDir::new().unwrap();
+    let sha_a = init_git_repo_with_commit(repo_a.path(), "a.rs", "pub fn a() {}\n");
+    let sha_b = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
+    assert_ne!(sha_a, sha_b);
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Scoped decision",
+            "--contract",
+            "fn a()",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let dec: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(dec["commit_sha"].as_str(), Some(sha_a.as_str()));
+
+    let out_prog = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args([
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Scoped progress",
+        ])
+        .output()
+        .unwrap();
+    assert!(out_prog.status.success());
+    let prog: Value = serde_json::from_slice(&out_prog.stdout).unwrap();
+    assert_eq!(prog["commit_sha"].as_str(), Some(sha_a.as_str()));
+}
+
+#[test]
+fn workspace_rebuild_uses_named_workspace_history_only_ac2() {
+    let repo_a = TempDir::new().unwrap();
+    let repo_b = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_a.path(), "a1.rs", "pub fn a1() {}\n");
+    let _ = init_git_repo_with_commit(repo_b.path(), "b1.rs", "pub fn b1() {}\n");
+
+    for (repo, f1, f2) in [
+        (repo_a.path(), "a1.rs", "a2.rs"),
+        (repo_b.path(), "b1.rs", "b2.rs"),
+    ] {
+        for step in 1..=2 {
+            std::fs::write(repo.join(f1), format!("// step {step}\npub fn x() {{}}\n")).unwrap();
+            std::fs::write(repo.join(f2), format!("// step {step}\npub fn y() {{}}\n")).unwrap();
+            std::process::Command::new("git")
+                .args(["add", f1, f2])
+                .current_dir(repo)
+                .output()
+                .unwrap();
+            std::process::Command::new("git")
+                .args(["commit", "-m", &format!("cochange {step}")])
+                .current_dir(repo)
+                .output()
+                .unwrap();
+        }
+    }
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args(["graph", "rebuild", "--min-cochange", "2"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let rebuilt: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(rebuilt["edges_by_source"]["cochange"], 1);
+    assert!(rebuilt.get("cochange_skipped").is_none());
+
+    let conn = rusqlite::Connection::open(repo_a.path().join("engrams/context.db")).unwrap();
+    let mut stmt = conn
+        .prepare("SELECT path FROM code_nodes ORDER BY path ASC")
+        .unwrap();
+    let paths: Vec<String> = stmt
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    assert_eq!(paths, vec!["a1.rs".to_string(), "a2.rs".to_string()]);
+}
+
+#[test]
+fn workspace_standard_db_layout_derives_root_ac4() {
+    let repo_a = TempDir::new().unwrap();
+    let repo_b = TempDir::new().unwrap();
+    let sha_a = init_git_repo_with_commit(repo_a.path(), "a.rs", "pub fn a() {}\n");
+    let _sha_b = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
+
+    let standard_db = repo_a.path().join("engrams").join("context.db");
+    let out = engrams(&standard_db)
+        .current_dir(repo_b.path())
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Standard DB layout",
+            "--contract",
+            "fn a()",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let dec: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(dec["commit_sha"].as_str(), Some(sha_a.as_str()));
+}
+
+#[test]
+fn workspace_nonstandard_db_withholds_git_commit_ac5() {
+    let repo_b = TempDir::new().unwrap();
+    let _sha_b = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
+    let isolated = TempDir::new().unwrap();
+    let db = isolated.path().join("copy.db");
+
+    let out = engrams(&db)
+        .current_dir(repo_b.path())
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Isolated DB decision",
+            "--contract",
+            "none",
+            "--anchor",
+            "b.rs",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let dec: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(
+        dec["commit_sha"].is_null(),
+        "nonstandard --db must not record shell repo commit: {dec}"
+    );
+
+    // Also verify code_nodes enrichment did not read b.rs from shell CWD.
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let line_count: Option<i64> = conn
+        .query_row(
+            "SELECT line_count FROM code_nodes WHERE path = 'b.rs'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(
+        line_count.is_none(),
+        "upsert_file must not read shell CWD when root is None"
+    );
+
+    let out_prog = engrams(&db)
+        .current_dir(repo_b.path())
+        .args([
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Isolated progress",
+        ])
+        .output()
+        .unwrap();
+    assert!(out_prog.status.success());
+    let prog: Value = serde_json::from_slice(&out_prog.stdout).unwrap();
+    assert!(prog["commit_sha"].is_null());
+}
+
+#[test]
+fn workspace_refuses_pr_number_resolution_without_workspace_ac6() {
+    let repo_b = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
+    std::process::Command::new("git")
+        .args(["remote", "add", "origin", "git@github.com:acme/b.git"])
+        .current_dir(repo_b.path())
+        .output()
+        .unwrap();
+
+    let isolated = TempDir::new().unwrap();
+    let db = isolated.path().join("copy.db");
+
+    let out = engrams(&db)
+        .current_dir(repo_b.path())
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Needs PR number",
+            "--pr",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let err: Value = serde_json::from_slice(&out.stderr).unwrap();
+    assert_eq!(
+        err["error"].as_str(),
+        Some(
+            "PR number resolution needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+        )
+    );
+}
+
+#[test]
+fn workspace_skips_cochange_without_workspace_ac7() {
+    let repo_b = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_b.path(), "b1.rs", "pub fn b1() {}\n");
+    let isolated = TempDir::new().unwrap();
+    let db = isolated.path().join("copy.db");
+
+    let out_rebuild = engrams(&db)
+        .current_dir(repo_b.path())
+        .args(["graph", "rebuild"])
+        .output()
+        .unwrap();
+    assert!(out_rebuild.status.success());
+    let rebuilt: Value = serde_json::from_slice(&out_rebuild.stdout).unwrap();
+    assert_eq!(rebuilt["rebuilt"], true);
+    assert_eq!(rebuilt["cochange_skipped"], "no workspace");
+    assert!(rebuilt["edges_by_source"].get("cochange").is_none());
+
+    let out_ingest = engrams(&db)
+        .current_dir(repo_b.path())
+        .args(["graph", "ingest"])
+        .output()
+        .unwrap();
+    assert!(out_ingest.status.success());
+    let ingested: Value = serde_json::from_slice(&out_ingest.stdout).unwrap();
+    assert_eq!(ingested["ingested"], false);
+    assert_eq!(ingested["reason"], "no workspace named");
+    assert_eq!(ingested["edges_by_source"]["cochange"], 0);
 }

@@ -6,7 +6,7 @@ use chrono::{SecondsFormat, Utc};
 use rusqlite::{params, Connection};
 use serde_json::Value;
 use std::collections::HashMap;
-
+use std::path::Path;
 pub fn clean_path(path: &str) -> String {
     if let Some(stripped) = path.strip_prefix("./") {
         stripped.to_string()
@@ -20,6 +20,7 @@ pub fn attach(
     item_type: &str,
     item_id: i64,
     paths: &[String],
+    root: Option<&Path>,
 ) -> Result<Vec<String>> {
     let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     for path in paths {
@@ -30,7 +31,7 @@ pub fn attach(
         )?;
     }
     // Anchors changed the graph: refresh this item's derived edges.
-    crate::ops::graph::rebuild::touch_item(conn, item_type, item_id)?;
+    crate::ops::graph::rebuild::touch_item(conn, item_type, item_id, root)?;
     anchors_for(conn, item_type, item_id)
 }
 
@@ -76,7 +77,7 @@ fn ref_item_exists(conn: &Connection, item_type: &RefItemType, id: i64) -> Resul
     Ok(count > 0)
 }
 
-pub fn handle(conn: &Connection, cmd: AnchorCmd) -> Result<Value> {
+pub fn handle(conn: &Connection, cmd: AnchorCmd, root: Option<&Path>) -> Result<Value> {
     match cmd {
         AnchorCmd::Add {
             item_type,
@@ -86,7 +87,7 @@ pub fn handle(conn: &Connection, cmd: AnchorCmd) -> Result<Value> {
             if !ref_item_exists(conn, &item_type, id)? {
                 anyhow::bail!("{} {} does not exist", item_type.as_str(), id);
             }
-            let urls = attach(conn, item_type.as_str(), id, &paths)?;
+            let urls = attach(conn, item_type.as_str(), id, &paths, root)?;
             Ok(serde_json::to_value(urls)?)
         }
         AnchorCmd::List { item_type, id } => {

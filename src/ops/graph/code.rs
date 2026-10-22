@@ -1,10 +1,10 @@
 //! Code nodes: files (and later symbols) as first-class graph nodes.
 
-use std::sync::LazyLock;
-
 use anyhow::Result;
 use regex::Regex;
 use rusqlite::{params, Connection, OptionalExtension};
+use std::path::Path;
+use std::sync::LazyLock;
 
 use crate::ops::anchor::clean_path;
 
@@ -15,9 +15,9 @@ const MAX_DOC_CHARS: usize = 1200;
 /// Upsert a file code node, refreshing `last_seen` and re-scanning enrichment
 /// (symbols, module doc, line count), then return its row id. Enrichment is
 /// best-effort: unreadable or missing files store NULLs, never error.
-pub fn upsert_file(conn: &Connection, path: &str, ts: &str) -> Result<i64> {
+pub fn upsert_file(conn: &Connection, path: &str, ts: &str, root: Option<&Path>) -> Result<i64> {
     let cleaned = clean_path(path);
-    let (symbols, module_doc, line_count) = scan(&cleaned);
+    let (symbols, module_doc, line_count) = scan(&cleaned, root);
     conn.execute(
         "INSERT INTO code_nodes (kind, path, symbol, first_seen, last_seen, symbols, module_doc, line_count) \
          VALUES ('file', ?1, '', ?2, ?2, ?3, ?4, ?5) \
@@ -40,12 +40,10 @@ pub fn upsert_file(conn: &Connection, path: &str, ts: &str) -> Result<i64> {
 /// Returns `(symbols_json, module_doc, line_count)`; any element is None when
 /// unavailable (no workspace root, unreadable, or not a scannable source file
 /// for symbols).
-fn scan(rel: &str) -> (Option<String>, Option<String>, Option<i64>) {
-    // Anchors are workspace-root-relative; resolve via the same climb
-    // `resolve_db_path` uses. Missing root ⇒ no enrichment (NULLs).
-    let root = match crate::db::workspace_root() {
-        Ok(r) => r,
-        Err(_) => return (None, None, None),
+fn scan(rel: &str, root: Option<&Path>) -> (Option<String>, Option<String>, Option<i64>) {
+    // Anchors are workspace-root-relative; missing root ⇒ no enrichment (NULLs).
+    let Some(root) = root else {
+        return (None, None, None);
     };
     let full = root.join(rel);
     let Ok(content) = std::fs::read_to_string(&full) else {

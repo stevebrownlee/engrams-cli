@@ -1,9 +1,9 @@
+use crate::schema::SCHEMA;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::env;
 use std::path::{Path, PathBuf};
-
-use crate::schema::SCHEMA;
+use std::sync::OnceLock;
 
 pub const LATEST_VERSION: i32 = 15;
 
@@ -131,25 +131,60 @@ fn resolve_git_worktree(path: &Path) -> Option<PathBuf> {
     None
 }
 
-pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Result<PathBuf> {
-    if let Some(path) = db_arg {
-        return Ok(PathBuf::from(path));
-    }
+pub struct Workspace {
+    pub db_path: PathBuf,
+    pub root: Option<PathBuf>,
+    head_sha: OnceLock<Option<String>>,
+}
 
-    // ENGRAMS_DB routes every command at an explicit database without a
-    // per-invocation flag; semantics are identical to --db, including
-    // creating a nonexistent path on first use. An empty value is unset.
-    if let Ok(path) = env::var("ENGRAMS_DB") {
-        if !path.is_empty() {
-            return Ok(PathBuf::from(path));
+impl Workspace {
+    pub fn new(db_path: PathBuf, root: Option<PathBuf>) -> Self {
+        Self {
+            db_path,
+            root,
+            head_sha: OnceLock::new(),
         }
     }
 
+    pub fn head_sha(&self) -> Option<String> {
+        self.head_sha
+            .get_or_init(|| {
+                let root = self.root.as_deref()?;
+                crate::ops::git::head_sha(root)
+            })
+            .clone()
+    }
+}
+
+pub fn resolve_workspace(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Result<Workspace> {
+    // ENGRAMS_DB routes every command at an explicit database without a
+    // per-invocation flag; semantics are identical to --db, including
+    // creating a nonexistent path on first use. An empty value is unset.
+    let db_override = match db_arg {
+        Some(path) => Some(PathBuf::from(path)),
+        None => env::var("ENGRAMS_DB")
+            .ok()
+            .filter(|p| !p.is_empty())
+            .map(PathBuf::from),
+    };
+
     if let Some(workspace) = workspace_arg {
-        return Ok(Path::new(workspace).join("engrams").join("context.db"));
+        let root = PathBuf::from(workspace);
+        let db_path = db_override.unwrap_or_else(|| root.join("engrams").join("context.db"));
+        return Ok(Workspace::new(db_path, Some(root)));
     }
 
-    // Auto-detect workspace
+    if let Some(db_path) = db_override {
+        let root = workspace_root_from_db(&db_path);
+        return Ok(Workspace::new(db_path, root));
+    }
+
+    let root = discover_workspace_root()?;
+    let db_path = root.join("engrams").join("context.db");
+    Ok(Workspace::new(db_path, Some(root)))
+}
+
+fn discover_workspace_root() -> Result<PathBuf> {
     let cwd = env::current_dir().context("Failed to get current directory")?;
     let mut current = cwd.clone();
     let mut check_path = current.clone();
@@ -199,7 +234,7 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
         }
 
         if found {
-            return Ok(current.join("engrams").join("context.db"));
+            return Ok(current);
         }
 
         match current.parent() {
@@ -207,7 +242,7 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
                 current = parent.to_path_buf();
                 check_path = current.clone();
             }
-            None => return Ok(cwd.join("engrams").join("context.db")), // Default to cwd if none found
+            None => return Ok(cwd), // Default to cwd if none found
         }
     }
 }
@@ -215,11 +250,18 @@ pub fn resolve_db_path(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Res
 /// Derive the workspace root from a resolved db path of the form `<root>/engrams/context.db`.
 /// Returns `None` for `--db` paths that don't follow this convention.
 pub fn workspace_root_from_db(db_path: &Path) -> Option<PathBuf> {
+    if db_path.file_name()?.to_str()? != "context.db" {
+        return None;
+    }
     let engrams_dir = db_path.parent()?;
     if engrams_dir.file_name()?.to_str()? != "engrams" {
         return None;
     }
-    engrams_dir.parent().map(PathBuf::from)
+    let root = engrams_dir.parent()?;
+    if root.as_os_str().is_empty() {
+        return Some(PathBuf::from("."));
+    }
+    Some(root.to_path_buf())
 }
 
 /// Discover the workspace root by walking up from the cwd looking for known markers.

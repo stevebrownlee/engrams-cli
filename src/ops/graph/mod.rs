@@ -17,7 +17,7 @@ use crate::cli::GraphCmd;
 
 use model::NodeKey;
 
-pub fn handle(conn: &mut Connection, cmd: GraphCmd, _db_path: &Path) -> Result<Value> {
+pub fn handle(conn: &mut Connection, cmd: GraphCmd, root: Option<&Path>) -> Result<Value> {
     match cmd {
         GraphCmd::Rebuild {
             no_git,
@@ -30,12 +30,13 @@ pub fn handle(conn: &mut Connection, cmd: GraphCmd, _db_path: &Path) -> Result<V
                 min_cochange,
                 max_commits,
             },
+            root,
         ),
         GraphCmd::Ingest {
             since,
             max_commits,
             min_cochange,
-        } => rebuild::ingest(conn, since, max_commits, min_cochange),
+        } => rebuild::ingest(conn, since, max_commits, min_cochange, root),
         GraphCmd::Stats => stats(conn),
         GraphCmd::Central { limit, node_type } => central(conn, limit, node_type),
         GraphCmd::Clusters { limit } => clusters(conn, limit),

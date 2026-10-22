@@ -5,13 +5,19 @@ use chrono::{SecondsFormat, Utc};
 use rusqlite::{params, Connection};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::path::Path;
 
-pub fn resolve_pr_url(value: &str) -> Result<String> {
+pub fn resolve_pr_url(value: &str, root: Option<&Path>) -> Result<String> {
     if value.starts_with("http://") || value.starts_with("https://") {
         return Ok(value.to_string());
     }
-    if value.chars().all(|c| c.is_ascii_digit()) {
-        let base = git::origin_base()?;
+    if !value.is_empty() && value.chars().all(|c| c.is_ascii_digit()) {
+        let root = root.ok_or_else(|| {
+            anyhow::anyhow!(
+                "PR number resolution needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+            )
+        })?;
+        let base = git::origin_base(root)?;
         let host_lower = base.to_lowercase();
         if host_lower.contains("github") {
             Ok(format!("{}/pull/{}", base, value))
@@ -109,7 +115,7 @@ fn ref_item_exists(conn: &Connection, item_type: &RefItemType, id: i64) -> Resul
     Ok(count > 0)
 }
 
-pub fn handle(conn: &Connection, cmd: PrCmd) -> Result<Value> {
+pub fn handle(conn: &Connection, cmd: PrCmd, root: Option<&Path>) -> Result<Value> {
     match cmd {
         PrCmd::Add { item_type, id, prs } => {
             if !ref_item_exists(conn, &item_type, id)? {
@@ -117,7 +123,7 @@ pub fn handle(conn: &Connection, cmd: PrCmd) -> Result<Value> {
             }
             let mut resolved = Vec::new();
             for pr in prs {
-                resolved.push(resolve_pr_url(&pr)?);
+                resolved.push(resolve_pr_url(&pr, root)?);
             }
             let urls = attach(conn, item_type.as_str(), id, &resolved)?;
             Ok(serde_json::to_value(urls)?)
@@ -149,7 +155,11 @@ pub fn handle(conn: &Connection, cmd: PrCmd) -> Result<Value> {
             if !ref_item_exists(conn, &item_type, id)? {
                 anyhow::bail!("{} {} does not exist", item_type.as_str(), id);
             }
-            let target_url = resolve_pr_url(&url).unwrap_or(url.clone());
+            let target_url = if !url.is_empty() && url.chars().all(|c| c.is_ascii_digit()) {
+                resolve_pr_url(&url, root)?
+            } else {
+                resolve_pr_url(&url, root).unwrap_or_else(|_| url.clone())
+            };
             let count = conn.execute(
                 "DELETE FROM context_links \
                  WHERE source_item_type = ?1 AND source_item_id = ?2 AND target_item_type = 'pr' AND target_item_id = ?3",
@@ -169,7 +179,7 @@ pub fn handle(conn: &Connection, cmd: PrCmd) -> Result<Value> {
             }))
         }
         PrCmd::Find { pr } => {
-            let url = resolve_pr_url(&pr)?;
+            let url = resolve_pr_url(&pr, root)?;
             let suffix = format!("%/{}", url.rsplit('/').next().unwrap_or(&url));
             let mut stmt = conn.prepare(
                 "SELECT source_item_type, source_item_id, timestamp FROM context_links \
