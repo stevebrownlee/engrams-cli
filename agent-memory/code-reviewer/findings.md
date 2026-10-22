@@ -363,3 +363,17 @@ Verified clean (no findings):
 - All recorded Gate 3 verification filters (`workspace_`, `test_doctor`, `--test policy`) match the phase's new/updated tests (zero vacuous filters).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-21T17:02:00Z — phase 3 of spec 0006-workspace-scoped-git-and-safe-import (export and restore code references by path)
+
+_No findings._
+
+Verified clean (no findings):
++- `AC-9` and API surface item 7 met in code and pinned with `import_restores_code_references_by_path_ac9` in `tests/memory.rs`:
++  - `export.rs` builds a `code_nodes` `id -> path` lookup once and attaches `path` to `code` schema members and `code` `retrieval_surfaces` rows, and `source_path` / `target_path` (plus YAML frontmatter keys) to manual `context_links` whose source/target endpoint is `code`.
++  - `import.rs` accepts `root: Option<&Path>` (wired from `ws.root.as_deref()` in `src/ops/mod.rs`) and resolves `code` endpoints carrying a non-empty `source_path`, `target_path`, or `path` through `graph::code::upsert_file(&tx, ..., root)`, rewriting the stored ID in `context_links`, schema `member_of` links, and `retrieval_surfaces` while falling back to the raw ID when no path is present (backward-compatible with older exports).
++  - `import_restores_code_references_by_path_ac9` seeds dummy `code_nodes` in the fresh target DB so the restored `src/ops` node gets a different `code_nodes.id` (`3 != 31975`), verifies `schema show performance-rules` surfaces the `code` member with `id == new_code_id` and `path == "src/ops"`, and verifies re-importing is idempotent across `member_of` links, `relates_to` target links, and `retrieval_surfaces`.
++- Rules 002–006 and `engrams check --paths src/ops/mod.rs,src/ops/transfer/export.rs,src/ops/transfer/import.rs` (0 violations across 3 files) satisfied: `import.rs` keeps non-remapped IDs borrowed via `Cow::Borrowed` and allocates only when `upsert_file` remaps a `code` ID; `export.rs` borrows `&str` from `code_paths` across three consumer loops without `.get().clone()`.
++- Recorded Gate 3 verification filters (`import_`, `--test memory s14`) verified non-vacuous via `-- --list` (matched 6 tests including `import_restores_code_references_by_path_ac9`, and `s14_export_import_preserves_schemas_with_identity_and_telemetry`).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
