@@ -1,0 +1,27 @@
+# Review report: 0006 — Workspace-Scoped Git and Safe Import
+
+**Verdict:** pass with findings
+**Reviewed at:** 2026-10-21T16:00:00Z
+**Reviewer:** spec-reviewer v1
+
+## Summary
+
+The spec is well-formed across all nine required sections, grounds its design in verified file paths and line numbers (`src/db.rs:217,227`, `src/ops/git.rs:15`, `src/ops/mod.rs:40`, `src/ops/transfer/export.rs:509-515`, `src/ops/transfer/import.rs:90-98`, `src/ops/schemas/confirm.rs:56`, `tests/cli.rs:1194,1495`), and directly upholds the `AGENTS.md` invariants (no migrations, JSON-only output, upward-only discovery with no CWD fallback when `--db` is named). The seven non-blocking findings (five moderate, two minor) cover an entity-kind spelling mismatch between `confirm::kind_table` and `schema_suggestions.item_kind`, an `ON CONFLICT` ID-preservation edge case in `import.rs` for patterns and custom data, two workspace-file lookups in `doctor.rs` and `rules/mod.rs` omitted from the root-parameter caller list, unspecified no-root behavior for non-git paths in `install`/`coverage`/`check`, two minor output-shape underspecifications, and an on-demand Rust rule gap (`003-cow-string-chains.md`).
+
+[Rule sources consulted: `AGENTS.md`, `.agents/rules/001-memory.md`, `002-borrowed-sql-params.md`, `003-cow-string-chains.md`, `004-enrich-by-move.md`, `005-no-throwaway-collections.md`, `006-static-vocabulary-borrowed.md`, `007-relevant-before-edit.md`, `global.md` (Elixir/React rules in `.agents/rules/` target `backend/` and `frontend/` trees absent from this Rust CLI repo).]
+
+## Findings
+
+| ID  | Severity | Category             | Location                                          | Message |
+| --- | -------- | -------------------- | ------------------------------------------------- | ------- |
+| F-1 | moderate | internal-consistency | Architecture, paragraph 5 (`kind_table`)          | `kind_table` in `src/ops/schemas/confirm.rs:56-66` matches only `"system_pattern"` and `"progress_entry"`, whereas `schema_suggestions.item_kind` stores `"pattern"` (`src/ops/pattern.rs:105`) and `"progress-entry"` (`src/ops/progress.rs:74`), so reusing `kind_table` without normalizing those spellings (`src/ops/graph/louvain.rs:257-264`) will fail to map suggestion rows to their tables. |
+| F-2 | moderate | internal-consistency | Architecture, paragraph 5 (`INSERT OR REPLACE`)   | Architecture states that item inserts use `INSERT OR REPLACE` so parsed item IDs always exist after import, but `system_patterns` (`src/ops/transfer/import.rs:230-233`) and `custom_data` (`src/ops/transfer/import.rs:260-263`) use `ON CONFLICT(name)` and `ON CONFLICT(category, key) DO UPDATE`, which retain the existing database row's `id` and never insert the export file's `id` when a unique key collides across different IDs. |
+| F-3 | moderate | internal-consistency | Architecture, paragraphs 2 and 4; API surface, 6  | `doctor.rs:18-19` checks `std::path::Path::new(&path).exists()` against CWD for `missing_anchor_paths` and `rules/mod.rs:49,65` (`write_through`, `staleness`) call `db::workspace_root_from_db(db_path)` directly instead of taking the resolved `Workspace.root`, leaving CWD anchor checks in `doctor` and ignoring `--workspace <dir> --db <path>` in rules sync/staleness. |
+| F-4 | moderate | api-incomplete       | Architecture, paragraphs 2–3; API surface, item 2 | `install.rs:24` calls `rules::resolve_rules_dir` (which errors with `"could not determine workspace root; pass --out <DIR> explicitly"`) before checking `if hooks` (`install.rs:48`), and neither `coverage` without `--diff` (`coverage.rs:21,26,44`) nor `check` without `--staged` (`check.rs:93,107,141`, which falls back to `Path::new(".")`) has defined behavior when `root` is `None`. |
+| F-5 | moderate | arch-rule-gap        | Architecture, paragraph 2 (`src/ops/git.rs`)      | Architecture cites rules `002` and `006` but is silent on `.agents/rules/003-cow-string-chains.md` ("keep `Cow<str>` borrowed through string-transform chains; allocate once at the ownership boundary — the worst offender today is the git boundary (`src/ops/git.rs`)") and `004-enrich-by-move.md` for consuming lookup maps during export/import enrichment. |
+| F-6 | minor    | api-incomplete       | API surface, item 2                               | The missing-workspace error template `{"error": "<operation> needs a workspace: ..."}` does not specify the exact `<operation>` string for each of the six callers (especially `resolve_pr_url` in `src/ops/pr.rs:9`, which is invoked by `decision log`, `pattern log`, `pr add`, `pr remove`, `pr find`, and `session close`). |
+| F-7 | minor    | api-incomplete       | API surface, item 8 (`skipped_references`)        | The `skipped_references` examples show `reference` and `reason` strings only for `item_anchors` and `progress.parent_id`, leaving the exact `reference`/`reason` formatting for `context_links` (when one or both endpoints are missing), schema `members`, `schema_suggestions`, and `retrieval_surfaces` unspecified. |
+
+## Recommended next steps
+
+Proceed to Gate 2 (`spec-json-builder`). Findings are surfaced for the developer's and planner's awareness but do not block the pipeline; `spec-json-builder` should account for F-1 through F-5 in the phase acceptance criteria and implementation details so that `kind_table` normalizes `"pattern"`/`"progress-entry"`, `doctor` and `rules` use the resolved `Workspace.root`, `install --hooks` surfaces the missing-workspace error before `resolve_rules_dir`, and `src/ops/git.rs` edits respect rule `003`.
