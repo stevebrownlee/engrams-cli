@@ -11,6 +11,7 @@ pub(crate) mod gates;
 pub mod kind;
 pub mod list;
 pub(crate) mod opportunities;
+pub mod prompts;
 pub mod propose;
 pub mod retrieval;
 pub mod scan;
@@ -21,7 +22,11 @@ use serde_json::Value;
 
 use crate::cli::SchemaCmd;
 
-pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    cmd: SchemaCmd,
+    workspace_root: Option<&std::path::Path>,
+) -> Result<Value> {
     match cmd {
         SchemaCmd::Scan => scan::scan(conn),
         SchemaCmd::Confirm {
@@ -98,5 +103,8 @@ pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
             scope_tags.as_deref(),
             scope_paths.as_deref(),
         ),
+        SchemaCmd::Prompts { lens, limit } => {
+            prompts::prompts_cmd(conn, lens.as_deref(), limit, workspace_root)
+        }
     }
 }

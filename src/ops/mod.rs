@@ -123,7 +123,7 @@ pub fn dispatch(
         } => prime::handle(conn, budget, paths, tags),
         Command::Doctor => doctor::handle(conn, ws.root.as_deref()),
         Command::Graph { cmd } => graph::handle(conn, cmd, ws.root.as_deref()),
-        Command::Schema { cmd } => schemas::handle(conn, cmd),
+        Command::Schema { cmd } => schemas::handle(conn, cmd, ws.root.as_deref()),
         Command::Query {
             query,
             types,

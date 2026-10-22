@@ -1,0 +1,11 @@
+{
+  "name": "general",
+  "description": "General workspaces and knowledge bases",
+  "questions": [
+    "What recurring rule or pattern connects {subject}?",
+    "When does this pattern apply, and where does it stop applying?",
+    "What breaks or contradicts it?"
+  ],
+  "ignore_tags": ["note", "notes", "general", "misc", "todo", "wip", "draft"],
+  "order": "time"
+}

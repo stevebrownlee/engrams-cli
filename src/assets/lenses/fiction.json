@@ -1,0 +1,12 @@
+{
+  "name": "fiction",
+  "description": "Novels and long-form narrative",
+  "questions": [
+    "What false belief does {subject} hold about themselves or the world?",
+    "What wound or past event caused it?",
+    "How does it show in dialogue and in action?",
+    "Which notes contradict it, and is it changing?"
+  ],
+  "ignore_tags": ["plot", "chapter", "scene", "character", "dialogue", "draft", "pov", "style", "voice", "prose"],
+  "order": "story"
+}

@@ -510,7 +510,7 @@ fn explicit_paths_slice(scope_paths: Option<&[String]>) -> Option<&[String]> {
     scope_paths
 }
 
-fn is_timestamp_newer(note_ts: &str, decided_at: &str) -> bool {
+pub(crate) fn is_timestamp_newer(note_ts: &str, decided_at: &str) -> bool {
     if let (Ok(n), Ok(d)) = (
         chrono::DateTime::parse_from_rfc3339(note_ts),
         chrono::DateTime::parse_from_rfc3339(decided_at),

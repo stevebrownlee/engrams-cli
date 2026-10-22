@@ -522,6 +522,15 @@ pub enum SchemaCmd {
         #[arg(long, value_delimiter = ',')]
         scope_paths: Option<Vec<String>>,
     },
+    /// Preview session-close schema prompts without recording notices
+    Prompts {
+        /// Project lens name (defaults to general)
+        #[arg(long)]
+        lens: Option<String>,
+        /// Maximum number of prompts to return
+        #[arg(long, default_value_t = crate::ops::schemas::prompts::PROMPTS_PER_CLOSE)]
+        limit: usize,
+    },
 }
 
 #[derive(Subcommand, Debug)]

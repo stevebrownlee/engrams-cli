@@ -7121,3 +7121,563 @@ fn test_schema_proposal_ac10_export_import_round_trips_proposals_and_schema_clai
         serde_json::json!({"via": "scope_path", "value": "manuscript"})
     );
 }
+
+// ── Spec 0008 Phase 2: Lenses, Natural Reading Order & Schema Prompts Preview ──
+
+#[test]
+fn test_schema_prompts_ac1_fiction_novel_top_three_has_protagonist_and_no_decoys() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    let out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(body["status"], "success");
+    assert_eq!(body["lens"], "fiction");
+
+    let prompts = body["prompts"].as_array().unwrap();
+    assert_eq!(prompts.len(), 3);
+
+    // Protagonist storyline (thread:mara) is among top 3 prompts (rank 1 with 12 notes).
+    let mara = prompts
+        .iter()
+        .find(|p| p["key"] == "thread:mara")
+        .expect("expected thread:mara in top 3 prompts");
+    assert_eq!(
+        mara["source"],
+        serde_json::json!({"kind": "thread", "ref": "mara"})
+    );
+    assert!(mara["label"].is_null());
+    assert_eq!(
+        mara["spread"],
+        serde_json::json!({"notes": 12, "files": 12, "days": 12})
+    );
+
+    // Decoy notes (decision:25, decision:26, progress_entry:1, progress_entry:2, custom_data:1)
+    // must not appear in any returned prompt.
+    for p in prompts {
+        for ev in p["evidence"].as_array().unwrap() {
+            let key = format!(
+                "{}:{}",
+                ev["kind"].as_str().unwrap(),
+                ev["id"].as_i64().unwrap()
+            );
+            assert!(
+                !matches!(
+                    key.as_str(),
+                    "decision:25"
+                        | "decision:26"
+                        | "progress_entry:1"
+                        | "progress_entry:2"
+                        | "custom_data:1"
+                ),
+                "decoy note {key} appeared in prompt {}",
+                p["key"]
+            );
+        }
+    }
+}
+
+#[test]
+fn test_schema_prompts_ac2_reading_order_questions_and_propose_command() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    engrams(&db).arg("init").assert().success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    // Log 3 notes attached to chapters 2, 10, and 1 in chronological order ch2 -> ch10 -> ch1.
+    for (id, ts, summary, path) in [
+        (
+            1i64,
+            "2026-08-01T10:00:00Z",
+            "Mara hides her trembling hands in chapter 2",
+            "manuscript/ch2.md",
+        ),
+        (
+            2i64,
+            "2026-08-05T10:00:00Z",
+            "Mara refuses the silver clasp in chapter 10",
+            "manuscript/ch10.md",
+        ),
+        (
+            3i64,
+            "2026-08-09T10:00:00Z",
+            "Mara fails the academy spire-seal in chapter 1",
+            "manuscript/ch1.md",
+        ),
+    ] {
+        conn.execute(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags, status, archived) \
+             VALUES (?1, ?2, ?3, ?4, '[\"mara\"]', 'active', 0)",
+            rusqlite::params![id, format!("u-{id}"), ts, summary],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', ?1, ?2, ?3)",
+            rusqlite::params![id, path, ts],
+        )
+        .unwrap();
+    }
+    drop(conn);
+
+    // Under fiction lens (order: story), evidence sorts naturally: ch1, ch2, ch10.
+    let out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let prompt = &body["prompts"][0];
+    assert_eq!(prompt["key"], "thread:mara");
+
+    let ev = prompt["evidence"].as_array().unwrap();
+    let anchor_order: Vec<&str> = ev
+        .iter()
+        .map(|item| item["anchors"][0].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        anchor_order,
+        vec![
+            "manuscript/ch1.md",
+            "manuscript/ch2.md",
+            "manuscript/ch10.md"
+        ]
+    );
+    let id_order: Vec<i64> = ev.iter().map(|item| item["id"].as_i64().unwrap()).collect();
+    assert_eq!(id_order, vec![3, 1, 2]);
+
+    // Questions have {subject} replaced with "mara".
+    let questions = prompt["questions"].as_array().unwrap();
+    assert_eq!(
+        questions[0].as_str().unwrap(),
+        "What false belief does mara hold about themselves or the world?"
+    );
+    assert_eq!(questions.len(), 4);
+
+    // Propose command names the storyline, lens, and reading-ordered notes.
+    let cmd = prompt["propose_command"].as_str().unwrap();
+    assert!(cmd.contains("--thread mara"));
+    assert!(cmd.contains("--lens fiction"));
+    assert!(cmd.contains("--members decision:3,decision:1,decision:2"));
+    assert!(cmd.contains("--name mara"));
+
+    // Under software lens (order: time), evidence sorts chronologically: ch2, ch10, ch1.
+    let time_out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "software"])
+        .output()
+        .unwrap();
+    assert!(time_out.status.success());
+    let time_body: Value = serde_json::from_slice(&time_out.stdout).unwrap();
+    let time_ev = time_body["prompts"][0]["evidence"].as_array().unwrap();
+    let time_ids: Vec<i64> = time_ev
+        .iter()
+        .map(|item| item["id"].as_i64().unwrap())
+        .collect();
+    assert_eq!(time_ids, vec![1, 2, 3]);
+}
+
+#[test]
+fn test_schema_prompts_ac4_skips_handled_subjects_and_covered_candidates() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // 1. Active confirmed schema covering scope tag "mara" (andwound) over decision:1..8
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud and credits others",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4,decision:5,decision:6,decision:7,decision:8",
+            "--scope-tags",
+            "mara,wound",
+            "--scope-paths",
+            "manuscript",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
+
+    // 2. Pending proposal covering scope tag "aether" and "magic" over decision:13..15
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "aether-cost",
+            "--statement",
+            "Aether draws chill iron and exacts a cumulative cold cost unless grounded",
+            "--summary",
+            "When writing aether casting: show frost buildup and require salt-iron grounding",
+            "--members",
+            "decision:13,decision:14,decision:15",
+            "--scope-tags",
+            "aether,magic",
+            "--scope-paths",
+            "manuscript",
+        ])
+        .assert()
+        .success();
+
+    // 3. Rejected proposal matching voss/betrayal (decision:22..24) with no newer note
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "voss-compact",
+            "--statement",
+            "Voss signals the besiegers through storehouse lanterns and ledger alterations",
+            "--summary",
+            "When writing Voss scenes: plant subtle supply discrepancies before the reveal",
+            "--members",
+            "decision:22,decision:23,decision:24",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args([
+            "schema",
+            "reject",
+            "proposal:3",
+            "--reason",
+            "Hold until Part III",
+        ])
+        .assert()
+        .success();
+
+    // 4. Detector candidate whose notes are mostly members of the active schema (3 of 4 covered)
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    conn.execute(
+        "INSERT INTO schema_candidates \
+         (cluster_sig, member_keys_json, density, stability_count, reward_hits, \
+          last_drift_removed, last_drift_added, first_seen_at, last_seen_at, kind, kind_reasons_json) \
+         VALUES ('decision:1,decision:2,decision:3,decision:9', \
+                 '[\"decision:1\",\"decision:2\",\"decision:3\",\"decision:9\"]', \
+                 0.8, 3, 2, 0, 0, '2026-09-18T10:00:00Z', '2026-09-18T15:00:00Z', 'schema', '[]')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let prompts = body["prompts"].as_array().unwrap();
+    let keys: Vec<&str> = prompts.iter().map(|p| p["key"].as_str().unwrap()).collect();
+
+    assert!(
+        !keys.contains(&"thread:mara"),
+        "active schema tag mara must be skipped: {keys:?}"
+    );
+    assert!(
+        !keys.contains(&"thread:wound"),
+        "active schema tag wound must be skipped: {keys:?}"
+    );
+    assert!(
+        !keys.contains(&"thread:aether"),
+        "pending proposal tag aether must be skipped: {keys:?}"
+    );
+    assert!(
+        !keys.contains(&"thread:magic"),
+        "pending proposal tag magic must be skipped: {keys:?}"
+    );
+    assert!(
+        !keys.contains(&"thread:voss"),
+        "rejected storyline voss must be skipped: {keys:?}"
+    );
+    assert!(
+        !keys.contains(&"thread:betrayal"),
+        "rejected storyline betrayal must be skipped: {keys:?}"
+    );
+    assert!(
+        !keys.iter().any(|k| k.starts_with("candidate:")),
+        "mostly-covered candidate must be skipped: {keys:?}"
+    );
+    // Unhandled storylines (logistics/siege and romance/toren) are still prompted.
+    assert!(!keys.is_empty());
+}
+
+#[test]
+fn test_schema_prompts_ac5_ignores_generic_lens_tags_while_keeping_subject_prompts() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    engrams(&db).arg("init").assert().success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    for (id, ts, summary, tags, path) in [
+        (
+            1i64,
+            "2026-08-01T10:00:00Z",
+            "Elena burns her father's letter before crossing the border",
+            "[\"plot\",\"chapter\",\"elena\"]",
+            "manuscript/ch01.md",
+        ),
+        (
+            2i64,
+            "2026-08-03T10:00:00Z",
+            "Elena gives a false name to the harbor magistrate",
+            "[\"plot\",\"chapter\",\"elena\"]",
+            "manuscript/ch04.md",
+        ),
+        (
+            3i64,
+            "2026-08-06T10:00:00Z",
+            "Elena flinches when a bell-tower chime matches the capital's curfew",
+            "[\"plot\",\"chapter\",\"elena\"]",
+            "manuscript/ch07.md",
+        ),
+        (
+            4i64,
+            "2026-08-10T10:00:00Z",
+            "Harbor watch patrols double at dusk",
+            "[\"plot\",\"harbor\"]",
+            "manuscript/ch08.md",
+        ),
+    ] {
+        conn.execute(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags, status, archived) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'active', 0)",
+            rusqlite::params![id, format!("u-{id}"), ts, summary, tags],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', ?1, ?2, ?3)",
+            rusqlite::params![id, path, ts],
+        )
+        .unwrap();
+    }
+    drop(conn);
+
+    let out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let prompts = body["prompts"].as_array().unwrap();
+    let keys: Vec<&str> = prompts.iter().map(|p| p["key"].as_str().unwrap()).collect();
+
+    assert!(!keys.contains(&"thread:plot"));
+    assert!(!keys.contains(&"thread:chapter"));
+    assert_eq!(keys, vec!["thread:elena"]);
+    assert_eq!(prompts[0]["evidence"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn test_schema_prompts_ac6_includes_gate_passing_unclear_candidate_with_label() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    engrams(&db).arg("init").assert().success();
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    for (id, ts, desc, path) in [
+        (
+            1i64,
+            "2026-08-01T10:00:00Z",
+            "Refactored socket pool",
+            "src/net/pool.rs",
+        ),
+        (
+            2i64,
+            "2026-08-03T10:00:00Z",
+            "Added retry backoff on pool timeout",
+            "src/net/retry.rs",
+        ),
+        (
+            3i64,
+            "2026-08-06T10:00:00Z",
+            "Bounded idle socket eviction",
+            "src/net/pool.rs",
+        ),
+    ] {
+        conn.execute(
+            "INSERT INTO progress_entries (id, timestamp, status, description) \
+             VALUES (?1, ?2, 'Done', ?3)",
+            rusqlite::params![id, ts, desc],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('progress_entry', ?1, ?2, ?3)",
+            rusqlite::params![id, path, ts],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO schema_candidates \
+         (cluster_sig, member_keys_json, density, stability_count, reward_hits, \
+          last_drift_removed, last_drift_added, first_seen_at, last_seen_at, kind, kind_reasons_json) \
+         VALUES ('progress_entry:1,progress_entry:2,progress_entry:3', \
+                 '[\"progress_entry:1\",\"progress_entry:2\",\"progress_entry:3\"]', \
+                 0.75, 3, 0, 0, 0, '2026-08-01T10:00:00Z', '2026-08-06T10:00:00Z', 'unclear', \
+                 '[\"3 progress entries share src/net\"]')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "software"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let prompts = body["prompts"].as_array().unwrap();
+    assert_eq!(prompts.len(), 1);
+
+    let p = &prompts[0];
+    assert_eq!(p["source"]["kind"], "candidate");
+    assert_eq!(p["source"]["ref"], "progress_entry:1,progress_entry:2");
+    assert_eq!(p["label"], "unclear");
+    assert_eq!(p["lens"], "software");
+    assert!(
+        p["questions"][0].as_str().unwrap().contains("these notes"),
+        "candidate prompt questions should substitute 'these notes' for {{subject}}"
+    );
+    assert!(p["propose_command"]
+        .as_str()
+        .unwrap()
+        .contains("--from progress_entry:1,progress_entry:2 --lens software --members progress_entry:1,progress_entry:2,progress_entry:3"));
+}
+
+#[test]
+fn test_schema_prompts_ac7_workspace_lens_override_and_error_cases() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    let lenses_dir = temp.path().join("engrams").join("lenses");
+    std::fs::create_dir_all(&lenses_dir).unwrap();
+    std::fs::write(
+        lenses_dir.join("fiction.json"),
+        r#"{
+  "name": "fiction",
+  "description": "Custom workspace fiction lens",
+  "questions": [
+    "What unspoken oath binds {subject}?"
+  ],
+  "ignore_tags": ["mara", "wound", "plot", "chapter", "style", "prose"],
+  "order": "story"
+}"#,
+    )
+    .unwrap();
+
+    // 1. Workspace lens overrides built-in fiction lens questions and ignore_tags.
+    let out = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let body: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let prompts = body["prompts"].as_array().unwrap();
+    let keys: Vec<&str> = prompts.iter().map(|p| p["key"].as_str().unwrap()).collect();
+    assert!(
+        !keys.contains(&"thread:mara"),
+        "custom ignore_tags should ignore mara"
+    );
+    assert_eq!(
+        prompts[0]["questions"],
+        serde_json::json!(["What unspoken oath binds aether?"])
+    );
+
+    // 2. Unknown lens error lists available lenses.
+    let unknown = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fantasy"])
+        .output()
+        .unwrap();
+    assert!(!unknown.status.success());
+    let err_json: Value = serde_json::from_slice(&unknown.stderr).unwrap();
+    assert_eq!(
+        err_json["error"],
+        "unknown lens 'fantasy': available general, fiction, software"
+    );
+
+    // 3. Malformed lens file with unknown field `qestions` fails with clear error.
+    std::fs::write(
+        lenses_dir.join("fiction.json"),
+        r#"{
+  "name": "fiction",
+  "description": "Broken lens",
+  "qestions": [],
+  "ignore_tags": [],
+  "order": "story"
+}"#,
+    )
+    .unwrap();
+    let malformed = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(!malformed.status.success());
+    let mal_json: Value = serde_json::from_slice(&malformed.stderr).unwrap();
+    let mal_msg = mal_json["error"].as_str().unwrap();
+    assert!(
+        mal_msg.starts_with("lens file engrams/lenses/fiction.json: unknown field `qestions`"),
+        "unexpected error: {mal_msg}"
+    );
+}
+
+#[test]
+fn test_schema_prompts_ac8_preview_never_writes_notices_and_respects_limit() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    let first = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(first.status.success());
+    let first_json: Value = serde_json::from_slice(&first.stdout).unwrap();
+
+    let second = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction"])
+        .output()
+        .unwrap();
+    assert!(second.status.success());
+    let second_json: Value = serde_json::from_slice(&second.stdout).unwrap();
+    assert_eq!(first_json, second_json);
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let notice_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM schema_prompt_notices", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        notice_count, 0,
+        "schema prompts preview must never write notices"
+    );
+
+    let limited = engrams(&db)
+        .args(["schema", "prompts", "--lens", "fiction", "--limit", "1"])
+        .output()
+        .unwrap();
+    assert!(limited.status.success());
+    let limited_json: Value = serde_json::from_slice(&limited.stdout).unwrap();
+    assert_eq!(limited_json["prompts"].as_array().unwrap().len(), 1);
+    assert_eq!(limited_json["prompts"][0]["key"], "thread:mara");
+}

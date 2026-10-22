@@ -1,0 +1,11 @@
+{
+  "name": "software",
+  "description": "Software architecture and engineering projects",
+  "questions": [
+    "What invariant or rule must always hold true for {subject}?",
+    "Where is the boundary where this rule applies, and what sits outside it?",
+    "What breaks if this rule is violated?"
+  ],
+  "ignore_tags": ["code", "refactor", "test", "tests", "bug", "fix", "docs", "chore", "cleanup", "todo"],
+  "order": "time"
+}
