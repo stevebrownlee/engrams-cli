@@ -14,7 +14,7 @@ pub(crate) struct SchemaOpportunity {
     pub stability_count: i64,
     pub reward_hits: i64,
     pub suggested_name: String,
-    pub confirm_command: String,
+    pub propose_command: String,
 }
 
 /// Find unconfirmed, gate-passing schema candidates eligible for notification.
@@ -71,8 +71,9 @@ pub(crate) fn find_opportunities(conn: &Connection) -> Result<Vec<SchemaOpportun
         } else {
             &sig
         };
-        let confirm_command =
-            format!("engrams schema confirm {sig_prefix} --name {suggested_name}");
+        let propose_command = format!(
+            "engrams schema propose --from {sig_prefix} --name {suggested_name} --statement \"<claim>\" --summary \"When <condition>: <directive>\""
+        );
 
         opportunities.push(SchemaOpportunity {
             signature: sig,
@@ -80,7 +81,7 @@ pub(crate) fn find_opportunities(conn: &Connection) -> Result<Vec<SchemaOpportun
             stability_count: stability,
             reward_hits: reward,
             suggested_name,
-            confirm_command,
+            propose_command,
         });
     }
 
@@ -375,10 +376,10 @@ mod tests {
         assert_eq!(o.stability_count, 4);
         assert_eq!(o.reward_hits, 2);
         assert_eq!(o.suggested_name, "auth");
-        // Confirm command carries the unique two-member prefix of the signature.
+        // Propose command carries the unique two-member prefix of the signature.
         assert_eq!(
-            o.confirm_command,
-            "engrams schema confirm decision:1,decision:2 --name auth"
+            o.propose_command,
+            "engrams schema propose --from decision:1,decision:2 --name auth --statement \"<claim>\" --summary \"When <condition>: <directive>\""
         );
     }
 

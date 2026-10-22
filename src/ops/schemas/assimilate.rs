@@ -522,8 +522,8 @@ mod tests {
         for i in 1..=3 {
             conn.execute(
                 "INSERT INTO decisions (uuid, timestamp, summary) \
-                 VALUES (?1, '2026-01-01T00:00:00Z', 'gateway routing note')",
-                params![format!("u{i}")],
+                 VALUES (?1, ?2, 'gateway routing note')",
+                params![format!("u{i}"), format!("2026-01-0{i}T00:00:00Z")],
             )
             .unwrap();
             conn.execute(
@@ -549,24 +549,38 @@ mod tests {
         // New item attaches at log time (member growth through the seam).
         conn.execute(
             "INSERT INTO decisions (uuid, timestamp, summary) \
-             VALUES ('u4', '2026-01-01T00:00:00Z', 'api-gateway routing')",
+             VALUES ('u4', '2026-01-02T00:00:00Z', 'api-gateway routing')",
             [],
         )
         .unwrap();
         attach(&conn, "decision", 4, &sid.to_string()).unwrap();
 
         // Scan stages the enlarged cluster (three sightings to clear the
-        // stability gate); scan --apply must NOT duplicate the schema — the
-        // confirmed-Jaccard covenant rejects it (AC-9).
+        // stability gate); proposing from it is rejected by the
+        // confirmed-territory covenant (AC-4 / AC-9).
         for _ in 0..3 {
-            super::super::scan::scan(&conn, false).unwrap();
+            super::super::scan::scan(&conn).unwrap();
         }
-        let out = super::super::scan::scan(&conn, true).unwrap();
-        let applied = out["applied"].as_array().unwrap();
-        let skipped = out["skipped"].as_array().unwrap();
+        let err = super::super::propose::propose(
+            &conn,
+            "Gateway routing rules across services and endpoints",
+            Some("When touching gateway routing: follow the shared routing table"),
+            None,
+            None,
+            &[],
+            Some("decision:1"),
+            None,
+            None,
+            None,
+            &[],
+            None,
+            false,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(
-            applied.is_empty() && !skipped.is_empty(),
-            "re-apply must be rejected, not duplicated: {out}"
+            err.contains("notes already covered by schema"),
+            "enlarged cluster must be rejected as already covered: {err}"
         );
         let schemas: i64 = conn
             .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))

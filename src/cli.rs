@@ -400,11 +400,7 @@ pub enum GraphCmd {
 #[derive(Subcommand, Debug)]
 pub enum SchemaCmd {
     /// Run detection and staging upsert; report candidates with gate detail
-    Scan {
-        /// Promote gate-passing, schema-kind candidates after staging; other kinds await `schema confirm`
-        #[arg(long)]
-        apply: bool,
-    },
+    Scan,
     /// Propose a reviewed schema over cited knowledge notes
     Propose {
         /// Human-level claim in plain words
@@ -458,13 +454,31 @@ pub enum SchemaCmd {
         #[arg(long)]
         status: Option<String>,
     },
-    /// Promote a passing candidate into a confirmed schema
+    /// Confirm a pending proposal (`proposal:<id>`) or re-confirm an existing schema
     Confirm {
-        /// Candidate id or unique signature prefix (`decision:1,dec…`)
+        /// Proposal (`proposal:<id>`) or existing schema id/name
         target: String,
-        /// Schema name (defaults to the drafted lexical-centroid name)
+        /// Schema name override (proposal targets only)
         #[arg(long)]
         name: Option<String>,
+        /// Human-level claim override (proposal targets only)
+        #[arg(long)]
+        statement: Option<String>,
+        /// Manual instruction override; must open with a conditional trigger phrase (proposal targets only)
+        #[arg(long)]
+        summary: Option<String>,
+        /// Activation condition; pairs with --rule to synthesize the instruction (proposal targets only)
+        #[arg(long)]
+        trigger: Option<String>,
+        /// Operational directive; pairs with --trigger to synthesize the instruction (proposal targets only)
+        #[arg(long)]
+        rule: Option<String>,
+        /// Scope tags override (proposal targets only)
+        #[arg(long, value_delimiter = ',')]
+        scope_tags: Option<Vec<String>>,
+        /// Scope path prefixes override (proposal targets only)
+        #[arg(long, value_delimiter = ',')]
+        scope_paths: Option<Vec<String>>,
     },
     /// List confirmed schemas, agent-authored above drafted
     List {

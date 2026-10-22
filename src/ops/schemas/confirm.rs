@@ -46,12 +46,6 @@ pub(crate) struct Member {
     pub(crate) id: i64,
 }
 
-impl Member {
-    fn key(&self) -> String {
-        format!("{}:{}", self.kind, self.id)
-    }
-}
-
 pub(super) use crate::models::kind_table;
 
 /// A confirmed schema with its member set read from the `member_of` links
@@ -100,15 +94,10 @@ pub(crate) fn confirmed_schemas(conn: &Connection) -> Result<Vec<Confirmed>> {
     Ok(out)
 }
 
-/// The staged candidate row to promote.
+/// A staged candidate row resolved from `schema_candidates`.
 pub(crate) struct Candidate {
     pub(crate) cluster_sig: String,
     pub(crate) members: Vec<String>,
-    density: f64,
-    stability_count: i64,
-    reward_hits: i64,
-    kind: String,
-    kind_reasons_json: String,
 }
 
 /// Resolve a candidate by exact signature first — an exact match always
@@ -117,40 +106,21 @@ pub(crate) struct Candidate {
 /// missing signature yields `None` so the caller can fall through to the
 /// existing-schema bump path.
 pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Option<Candidate>> {
-    let exact: Option<(String, f64, i64, i64, String, String)> = conn
+    let exact: Option<String> = conn
         .query_row(
-            "SELECT member_keys_json, density, stability_count, reward_hits, \
-             kind, kind_reasons_json \
-             FROM schema_candidates WHERE cluster_sig = ?1",
+            "SELECT member_keys_json FROM schema_candidates WHERE cluster_sig = ?1",
             params![sig],
-            |r| {
-                Ok((
-                    r.get(0)?,
-                    r.get(1)?,
-                    r.get(2)?,
-                    r.get(3)?,
-                    r.get(4)?,
-                    r.get(5)?,
-                ))
-            },
+            |r| r.get(0),
         )
         .optional()?;
-    if let Some((members_json, density, stability_count, reward_hits, kind, kind_reasons_json)) =
-        exact
-    {
+    if let Some(members_json) = exact {
         return Ok(Some(Candidate {
             cluster_sig: sig.to_string(),
             members: serde_json::from_str(&members_json)?,
-            density,
-            stability_count,
-            reward_hits,
-            kind,
-            kind_reasons_json,
         }));
     }
     let mut stmt = conn.prepare(
-        "SELECT cluster_sig, member_keys_json, density, stability_count, reward_hits, \
-         kind, kind_reasons_json \
+        "SELECT cluster_sig, member_keys_json \
          FROM schema_candidates WHERE cluster_sig LIKE ?1 ESCAPE '\\' ORDER BY cluster_sig",
     )?;
     let pattern = format!(
@@ -160,35 +130,14 @@ pub(crate) fn try_resolve_candidate(conn: &Connection, sig: &str) -> Result<Opti
             .replace('_', "\\_")
     );
     let rows = stmt.query_map(params![pattern], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, f64>(2)?,
-            row.get::<_, i64>(3)?,
-            row.get::<_, i64>(4)?,
-            row.get::<_, String>(5)?,
-            row.get::<_, String>(6)?,
-        ))
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
     let mut matches: Vec<Candidate> = Vec::new();
     for r in rows {
-        let (
-            cluster_sig,
-            members_json,
-            density,
-            stability_count,
-            reward_hits,
-            kind,
-            kind_reasons_json,
-        ) = r?;
+        let (cluster_sig, members_json) = r?;
         matches.push(Candidate {
             cluster_sig,
             members: serde_json::from_str(&members_json)?,
-            density,
-            stability_count,
-            reward_hits,
-            kind,
-            kind_reasons_json,
         });
     }
     match matches.len() {
@@ -236,34 +185,6 @@ pub(crate) fn parse_members(conn: &Connection, members: &[String]) -> Result<Vec
     Ok(out)
 }
 
-/// Most frequent tag across member decisions/patterns (highest count,
-/// lexicographic tiebreak), or `None` when members carry no tags.
-fn dominant_tag(conn: &Connection, members: &[Member]) -> Result<Option<String>> {
-    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
-    for m in members {
-        let table = kind_table(&m.kind);
-        if !matches!(table, Some("decisions") | Some("system_patterns")) {
-            continue;
-        }
-        let tags: Option<Option<String>> = conn
-            .query_row(
-                &format!("SELECT tags FROM {} WHERE id = ?1", table.unwrap()),
-                params![m.id],
-                |r| r.get(0),
-            )
-            .optional()?;
-        if let Some(Some(t)) = tags {
-            for tag in crate::models::parse_tags(Some(&t)) {
-                *counts.entry(tag).or_insert(0) += 1;
-            }
-        }
-    }
-    Ok(counts
-        .into_iter()
-        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.as_str().cmp(a.0.as_str())))
-        .map(|(t, _)| t))
-}
-
 /// First unused `base`, `base-2`, `base-3`, … against `schemas.name`.
 pub(crate) fn unique_name(conn: &Connection, base: &str) -> Result<String> {
     let taken = |name: &str| -> Result<bool> {
@@ -287,89 +208,6 @@ pub(crate) fn unique_name(conn: &Connection, base: &str) -> Result<String> {
     }
     unreachable!("name space exhausted")
 }
-
-/// Member-kind histogram for the drafted summary.
-fn kind_histogram(members: &[Member]) -> Vec<(String, usize)> {
-    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    for m in members {
-        let label = match m.kind.as_str() {
-            "decision" => "decisions",
-            "system_pattern" => "patterns",
-            "progress_entry" => "progress entries",
-            "custom_data" => "custom data",
-            "code" => "code nodes",
-            "schema" => "schemas",
-            _ => "items",
-        };
-        *counts.entry(label).or_insert(0) += 1;
-    }
-    counts
-        .into_iter()
-        .map(|(k, n)| (k.to_string(), n))
-        .collect()
-}
-
-/// The mechanically drafted summary: member census, up to three member
-/// summaries in member order, and the copied gate metrics. Deterministic
-/// for a given member set and candidate row.
-fn draft_summary(
-    conn: &Connection,
-    members: &[Member],
-    density: f64,
-    stability_count: i64,
-    reward_hits: i64,
-) -> Result<String> {
-    let mut titles: Vec<String> = Vec::new();
-    for m in members {
-        if titles.len() == 3 {
-            break;
-        }
-        let text: Option<String> = match kind_table(&m.kind) {
-            Some("decisions") => conn
-                .query_row(
-                    "SELECT summary FROM decisions WHERE id = ?1",
-                    params![m.id],
-                    |r| r.get(0),
-                )
-                .optional()?,
-            Some("system_patterns") => conn
-                .query_row(
-                    "SELECT description FROM system_patterns WHERE id = ?1",
-                    params![m.id],
-                    |r| r.get(0),
-                )
-                .optional()?,
-            _ => None,
-        };
-        if let Some(t) = text {
-            titles.push(t);
-        }
-    }
-    let mut out = format!("Drafted from {} members (", members.len());
-    let census = kind_histogram(members);
-    for (i, (k, n)) in census.iter().enumerate() {
-        if i > 0 {
-            out.push_str(", ");
-        }
-        out.push_str(&format!("{n} {k}"));
-    }
-    out.push_str("): ");
-    if titles.is_empty() {
-        out.push_str("no titled members");
-    } else {
-        for (i, t) in titles.iter().enumerate() {
-            if i > 0 {
-                out.push_str("; ");
-            }
-            out.push_str(&format!("\"{t}\""));
-        }
-    }
-    out.push_str(&format!(
-        ". Density {density:.2}, stability {stability_count}, reward hits {reward_hits}."
-    ));
-    Ok(out)
-}
-
 /// Tag/anchor frequencies over the member set — the lexical centroid the
 /// phase-6 assimilation matcher scores new items against.
 pub(crate) fn centroid(conn: &Connection, members: &[Member]) -> Result<String> {
@@ -414,93 +252,202 @@ pub(crate) fn centroid(conn: &Connection, members: &[Member]) -> Result<String> 
     }))?)
 }
 
-/// Promote a staged candidate or re-confirm an existing schema (spec API
-/// surface). Resolution order: staged-candidate signature/prefix first, then
-/// existing schema numeric id or exact name — a hit there bumps
-/// `last_confirmed_at` only (no new promotion).
-pub fn confirm(conn: &Connection, sig: &str, name: Option<&str>) -> Result<Value> {
-    let cand = try_resolve_candidate(conn, sig)?;
-    let Some(cand) = cand else {
-        return bump_existing_schema(conn, sig);
-    };
-    let members = parse_members(conn, &cand.members)?;
+/// Confirm a pending proposal (`proposal:<id>`) or re-confirm an existing
+/// schema (spec 0007 API surface item 2). Detector candidate signatures are
+/// refused with the `schema propose --from` command (AC-8).
+#[allow(clippy::too_many_arguments)]
+pub fn confirm(
+    conn: &Connection,
+    target: &str,
+    name: Option<&str>,
+    statement: Option<&str>,
+    summary: Option<&str>,
+    trigger: Option<&str>,
+    rule: Option<&str>,
+    scope_tags: Option<&[String]>,
+    scope_paths: Option<&[String]>,
+) -> Result<Value> {
+    let trimmed = target.trim();
+    if trimmed.starts_with("proposal:") {
+        let Some(proposal_id) = super::propose::parse_proposal_target(trimmed) else {
+            bail!("invalid proposal target '{trimmed}' (expected proposal:<id>)");
+        };
+        return confirm_proposal(
+            conn,
+            proposal_id,
+            name,
+            statement,
+            summary,
+            trigger,
+            rule,
+            scope_tags,
+            scope_paths,
+        );
+    }
 
-    // Compare knowledge-item members only: a candidate that already
-    // contains the confirmed schema's own node must not dilute its
-    // Jaccard below the identity threshold.
-    let knowledge_members: Vec<String> = cand
-        .members
-        .iter()
-        .filter(|m| !m.starts_with("schema:"))
-        .cloned()
-        .collect();
-    if let Some((claimed_id, claimed_name)) =
-        super::gates::claimed_territory(conn, &knowledge_members)?
+    if try_resolve_candidate(conn, trimmed)
+        .ok()
+        .flatten()
+        .is_some()
+        || trimmed.contains(':')
     {
         bail!(
-            "candidate already confirmed as schema {} ({})",
-            claimed_id,
-            claimed_name
+            "detector groups are evidence, not schemas: run engrams schema propose --from {trimmed} --statement ... --summary ..."
         );
     }
 
-    // The propose-confirm covenant: only gate-passing candidates promote.
-    let failed = super::gates::failed_gates(cand.density, cand.stability_count, cand.reward_hits);
-    if !failed.is_empty() {
-        bail!(
-            "candidate has not passed the gates (failing: {}); only passing candidates confirm",
-            failed.join(", ")
-        );
+    if name.is_some()
+        || statement.is_some()
+        || summary.is_some()
+        || trigger.is_some()
+        || rule.is_some()
+        || scope_tags.is_some()
+        || scope_paths.is_some()
+    {
+        bail!("edit flags are only valid when confirming a proposal (proposal:<id>)");
     }
 
-    promote(conn, &cand, &members, name)
+    bump_existing_schema(conn, trimmed)
 }
 
-/// Create the schema row with a mechanical draft and the candidate's kind
-/// snapshot (spec 0004), link every member with `member_of`, and leave the
-/// candidate row and member rows untouched.
-pub(crate) fn promote(
+#[allow(clippy::too_many_arguments)]
+fn confirm_proposal(
     conn: &Connection,
-    cand: &Candidate,
-    members: &[Member],
+    proposal_id: i64,
     name: Option<&str>,
+    statement: Option<&str>,
+    summary: Option<&str>,
+    trigger: Option<&str>,
+    rule: Option<&str>,
+    scope_tags: Option<&[String]>,
+    scope_paths: Option<&[String]>,
 ) -> Result<Value> {
-    let ts = now();
-    let name = match name {
-        Some(n) => unique_name(conn, n)?,
-        None => {
-            let base = dominant_tag(conn, members)?.unwrap_or_else(|| "schema".to_string());
-            unique_name(conn, &base)?
-        }
+    let row = conn
+        .query_row(
+            "SELECT name, statement, summary, scope_json, members_json, contrary_json, \
+                    source_kind, source_ref, session, status, created_at \
+             FROM schema_proposals WHERE id = ?1",
+            params![proposal_id],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
+                    r.get::<_, Option<String>>(7)?,
+                    r.get::<_, Option<String>>(8)?,
+                    r.get::<_, String>(9)?,
+                    r.get::<_, String>(10)?,
+                ))
+            },
+        )
+        .optional()?;
+    let Some((
+        stored_name,
+        stored_statement,
+        stored_summary,
+        stored_scope_json,
+        stored_members_json,
+        stored_contrary_json,
+        source_kind,
+        source_ref,
+        session,
+        status,
+        created_at,
+    )) = row
+    else {
+        bail!("proposal {proposal_id} does not exist");
     };
-    let summary = draft_summary(
+
+    if status != super::propose::ProposalStatus::Proposed.as_str() {
+        bail!("proposal {proposal_id} is already {status}");
+    }
+
+    let stored_scope: super::propose::Scope =
+        serde_json::from_str(&stored_scope_json).unwrap_or_default();
+    let stored_members: Vec<String> =
+        serde_json::from_str(&stored_members_json).unwrap_or_default();
+    let stored_contrary: Vec<String> =
+        serde_json::from_str(&stored_contrary_json).unwrap_or_default();
+
+    let eff_name = name
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&stored_name);
+    let eff_statement = statement.unwrap_or(&stored_statement);
+    let (eff_summary, eff_trigger, eff_rule) =
+        if summary.is_some() || trigger.is_some() || rule.is_some() {
+            (summary, trigger, rule)
+        } else {
+            (Some(stored_summary.as_str()), None, None)
+        };
+    let eff_tags = scope_tags.unwrap_or(&stored_scope.tags);
+    let eff_paths = scope_paths.unwrap_or(&stored_scope.paths);
+
+    // Re-run checks 1–6 on the possibly edited values (skipping self-overlap checks 7–8 per F-1).
+    let validated = super::propose::validate_proposal(
         conn,
-        members,
-        cand.density,
-        cand.stability_count,
-        cand.reward_hits,
+        eff_statement,
+        eff_summary,
+        eff_trigger,
+        eff_rule,
+        &stored_members,
+        &stored_contrary,
+        Some(eff_tags),
+        Some(eff_paths),
+        Some(eff_name),
     )?;
-    let centroid_json = centroid(conn, members)?;
+
+    // Re-run check 9: active-schema territory check.
+    if let Some((schema_id, schema_name)) =
+        super::gates::claimed_territory(conn, &validated.members)?
+    {
+        bail!("notes already covered by schema {schema_id} ({schema_name})");
+    }
+
+    let final_name = unique_name(conn, &validated.name)?;
+    let renamed_from = (final_name != validated.name).then(|| validated.name.clone());
+
+    let members = parse_members(conn, &validated.members)?;
+    let centroid_json = centroid(conn, &members)?;
+    let scope_json = serde_json::to_string(&validated.scope)?;
+    let kind_reasons_json: String = match source_ref.as_deref() {
+        Some(sig) if source_kind == "candidate" => conn
+            .query_row(
+                "SELECT kind_reasons_json FROM schema_candidates WHERE cluster_sig = ?1",
+                params![sig],
+                |r| r.get(0),
+            )
+            .optional()?
+            .unwrap_or_else(|| "[]".to_string()),
+        _ => "[]".to_string(),
+    };
+    let ts = now();
 
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "INSERT INTO schemas \
-         (uuid, name, summary, summary_source, status, centroid_json, last_confirmed_at, \
-          created_at, updated_at, kind, kind_reasons_json) \
-         VALUES (?1, ?2, ?3, 'drafted', 'active', ?4, ?5, ?5, ?5, ?6, ?7)",
+         (uuid, name, summary, summary_source, statement, scope_json, centroid_json, \
+          status, kind, kind_reasons_json, last_confirmed_at, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, 'agent', ?4, ?5, ?6, 'active', 'schema', ?7, ?8, ?8, ?8)",
         params![
             Uuid::new_v4().to_string(),
-            name,
-            summary,
+            final_name,
+            validated.summary,
+            validated.statement,
+            scope_json,
             centroid_json,
+            kind_reasons_json,
             ts,
-            cand.kind,
-            cand.kind_reasons_json
         ],
     )
     .context("inserting schema row")?;
     let schema_id = tx.last_insert_rowid();
-    for m in members {
+
+    for m in &members {
         tx.execute(
             "INSERT INTO context_links \
              (source_item_type, source_item_id, target_item_type, target_item_id, \
@@ -510,28 +457,64 @@ pub(crate) fn promote(
         )
         .context("inserting member_of edge")?;
     }
+
+    tx.execute(
+        "UPDATE schema_proposals \
+         SET name = ?1, statement = ?2, summary = ?3, scope_json = ?4, \
+             status = ?5, schema_id = ?6, decided_at = ?7 \
+         WHERE id = ?8",
+        params![
+            final_name,
+            validated.statement,
+            validated.summary,
+            scope_json,
+            super::propose::ProposalStatus::Confirmed.as_str(),
+            schema_id,
+            ts,
+            proposal_id,
+        ],
+    )
+    .context("updating confirmed proposal")?;
     tx.commit()?;
 
-    Ok(json!({
+    let origin = json!({
+        "proposal_id": proposal_id,
+        "source": {
+            "kind": source_kind,
+            "ref": source_ref,
+        },
+        "proposed_at": created_at,
+        "confirmed_at": ts,
+        "session": session,
+    });
+
+    let mut out = json!({
         "status": "success",
         "schema": {
             "id": schema_id,
-            "name": name,
-            "summary": summary,
-            "summary_source": "drafted",
-            "kind": cand.kind.as_str(),
-            "member_count": members.len(),
-            "members": members.iter().map(|m| m.key()).collect::<Vec<_>>(),
-            "density": cand.density,
-            "stability_count": cand.stability_count,
-            "reward_hits": cand.reward_hits,
+            "name": final_name,
+            "statement": validated.statement,
+            "summary": validated.summary,
+            "summary_source": "agent",
+            "scope": validated.scope,
+            "kind": "schema",
+            "member_count": validated.members.len(),
+            "members": validated.members,
+            "origin": origin,
         },
-    }))
+        "proposal": {
+            "id": proposal_id,
+            "status": super::propose::ProposalStatus::Confirmed.as_str(),
+        },
+    });
+    if let Some(orig) = renamed_from {
+        out["renamed_from"] = json!(orig);
+    }
+    Ok(out)
 }
 
-/// The no-candidate-match arm of [`confirm`]: an existing schema id or
-/// exact name re-confirms in place — `last_confirmed_at` bumps, nothing
-/// else changes (spec API surface, line 195).
+/// Re-confirm an existing schema id or exact name in place:
+/// `last_confirmed_at` bumps, nothing else changes.
 fn bump_existing_schema(conn: &Connection, target: &str) -> Result<Value> {
     let resolved: Option<(i64, String, String)> = match target.parse::<i64>() {
         Ok(id) => conn
@@ -550,7 +533,7 @@ fn bump_existing_schema(conn: &Connection, target: &str) -> Result<Value> {
             .optional()?,
     };
     let Some((id, name, kind_b)) = resolved else {
-        bail!("no staged candidate or schema matches '{target}' (run `engrams schema scan`)");
+        bail!("no schema matches '{target}'");
     };
     let ts = now();
     conn.execute(
@@ -580,8 +563,14 @@ mod tests {
         conn
     }
 
-    fn add_decision(conn: &Connection, id: i64, summary: &str, tags: &str) {
-        // Real `decision log` stores tags as a JSON array.
+    fn add_decision_with_anchor(
+        conn: &Connection,
+        id: i64,
+        summary: &str,
+        tags: &str,
+        ts: &str,
+        path: &str,
+    ) {
         let stored = serde_json::to_string(
             &tags
                 .split(',')
@@ -592,43 +581,68 @@ mod tests {
         .unwrap();
         conn.execute(
             "INSERT INTO decisions (id, uuid, timestamp, summary, tags) \
-             VALUES (?1, ?2, '2026-01-01T00:00:00Z', ?3, ?4)",
-            params![id, format!("u{id}"), summary, stored],
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![id, format!("u{id}"), ts, summary, stored],
         )
         .unwrap();
-    }
-
-    fn link(conn: &Connection, a: i64, b: i64) {
         conn.execute(
-            "INSERT INTO context_links (source_item_type, source_item_id, target_item_type, \
-             target_item_id, relationship_type, timestamp) \
-             VALUES ('decision', ?1, 'decision', ?2, 'relates_to', '2026-01-01T00:00:00Z')",
-            params![a, b],
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', ?1, ?2, ?3)",
+            params![id, path, ts],
         )
         .unwrap();
     }
 
-    /// Dense passing trio staged at stability 3 by three real scans.
-    fn passing_candidate(conn: &Connection) -> String {
-        for (id, summary) in [
-            (1, "alpha gateway"),
-            (2, "beta rendering"),
-            (3, "gamma policy"),
-        ] {
-            add_decision(conn, id, summary, "core,graph");
-        }
-        link(conn, 1, 2);
-        link(conn, 2, 3);
-        link(conn, 1, 3);
-        for _ in 0..3 {
-            super::super::scan::scan(conn, false).unwrap();
-        }
-        let sig: String = conn
-            .query_row("SELECT cluster_sig FROM schema_candidates", [], |r| {
-                r.get(0)
-            })
-            .unwrap();
-        sig
+    fn seed_three_notes(conn: &Connection) {
+        add_decision_with_anchor(
+            conn,
+            1,
+            "alpha gateway routing",
+            "core,graph",
+            "2026-01-01T00:00:00Z",
+            "src/gateway/a.rs",
+        );
+        add_decision_with_anchor(
+            conn,
+            2,
+            "beta rendering pipeline",
+            "core,graph",
+            "2026-01-02T00:00:00Z",
+            "src/gateway/b.rs",
+        );
+        add_decision_with_anchor(
+            conn,
+            3,
+            "gamma policy engine",
+            "core,graph",
+            "2026-01-03T00:00:00Z",
+            "src/gateway/c.rs",
+        );
+    }
+
+    fn propose_default(conn: &Connection, name: Option<&str>) -> i64 {
+        let members = vec![
+            "decision:1".to_string(),
+            "decision:2".to_string(),
+            "decision:3".to_string(),
+        ];
+        let out = super::super::propose::propose(
+            conn,
+            "Gateway routing, rendering, and policy share one core pipeline",
+            Some("When touching gateway routing: follow the shared core pipeline"),
+            None,
+            None,
+            &members,
+            None,
+            name,
+            None,
+            None,
+            &[],
+            Some("ses-test"),
+            false,
+        )
+        .unwrap();
+        out["proposal"]["id"].as_i64().unwrap()
     }
 
     fn member_of_count(conn: &Connection, schema_id: i64) -> i64 {
@@ -642,417 +656,225 @@ mod tests {
     }
 
     #[test]
-    fn confirm_creates_schema_links_members_and_spares_members() {
+    fn confirm_proposal_creates_agent_schema_links_members_and_records_origin() {
         let conn = mem_db();
-        let sig = passing_candidate(&conn);
+        seed_three_notes(&conn);
+        let pid = propose_default(&conn, Some("gateway-design"));
 
-        let members_before: Vec<String> = (1..=3)
-            .map(|id| {
-                conn.query_row(
-                    "SELECT summary || '|' || tags FROM decisions WHERE id = ?1",
-                    params![id],
-                    |r| r.get(0),
-                )
-                .unwrap()
-            })
-            .collect();
-
-        let out = confirm(&conn, &sig, Some("Gateway design")).unwrap();
-        let schema = &out["schema"];
-        assert_eq!(schema["name"], "Gateway design");
-        assert_eq!(schema["summary_source"], "drafted");
-        assert_eq!(schema["member_count"], 3);
-        assert_eq!(member_of_count(&conn, schema["id"].as_i64().unwrap()), 3);
-
-        // AC-5: members referenced, never absorbed — fact rows unchanged.
-        for (id, before) in (1..=3).zip(&members_before) {
-            let after: String = conn
-                .query_row(
-                    "SELECT summary || '|' || tags FROM decisions WHERE id = ?1",
-                    params![id],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            assert_eq!(after, *before, "decision {id} was mutated by confirm");
-        }
-
-        // Candidate row left in place (no consumed column; it goes dormant).
-        let rows: i64 = conn
-            .query_row("SELECT COUNT(*) FROM schema_candidates", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(rows, 1);
-
-        // Status uses the DDL vocabulary; confirm sets the timestamp.
-        let (status, confirmed_at): (String, String) = conn
-            .query_row("SELECT status, last_confirmed_at FROM schemas", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
-            .unwrap();
-        assert_eq!(status, "active");
-        assert!(!confirmed_at.is_empty());
-    }
-    #[test]
-    fn drafted_name_defaults_to_dominant_tag_and_suffixes_on_collision() {
-        let conn = mem_db();
-        let sig = passing_candidate(&conn); // members all tagged "core,graph"
-        let out = confirm(&conn, &sig, None).unwrap();
-        // "core" and "graph" tie at 3; the lexicographic tiebreak takes core.
-        assert_eq!(out["schema"]["name"], "core");
-
-        // A second candidate with the same dominant tag gets a suffix.
-        add_decision(&conn, 4, "delta ingest", "core");
-        add_decision(&conn, 5, "epsilon export", "core");
-        link(&conn, 4, 5);
-        for _ in 0..3 {
-            super::super::scan::scan(&conn, false).unwrap();
-        }
-        let sig2: String = conn
-            .query_row(
-                "SELECT cluster_sig FROM schema_candidates WHERE cluster_sig LIKE 'decision:4%'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        let out = confirm(&conn, &sig2, None).unwrap();
-        assert_eq!(out["schema"]["name"], "core-2");
-    }
-
-    #[test]
-    fn prefix_resolution_works_and_ambiguity_errors() {
-        let conn = mem_db();
-        let sig = passing_candidate(&conn);
-        assert!(sig.starts_with("decision:1,"));
-
-        // A unique prefix resolves to the same row.
-        let out = confirm(&conn, &sig[..12], Some("Gateway design")).unwrap();
-        assert_eq!(out["schema"]["member_count"], 3);
-
-        // Two rows sharing a prefix are ambiguous (seeded directly: distinct
-        // detected clusters never share a signature prefix, since identity
-        // assignment updates a matched row in place).
-        add_decision(&conn, 9, "zeta ninth", "");
-        conn.execute(
-            "INSERT INTO schema_candidates \
-             (cluster_sig, member_keys_json, density, stability_count, first_seen_at, \
-              last_seen_at) \
-             VALUES ('decision:1,decision:2,decision:9', ?1, 1.0, 3, 't0', 't0')",
-            params![serde_json::to_string(&["decision:1", "decision:2", "decision:9"]).unwrap()],
+        let out = confirm(
+            &conn,
+            &format!("proposal:{pid}"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         )
         .unwrap();
-        let err = confirm(&conn, &sig[..12], None).unwrap_err().to_string();
-        assert!(err.contains("ambiguous"), "unexpected error: {err}");
 
-        // The exact signature still resolves uniquely.
-        let out = confirm(&conn, &sig, None).unwrap_err();
-        assert!(
-            out.to_string().contains("already confirmed"),
-            "first confirm consumed the row: {out}"
-        );
-    }
+        assert_eq!(out["status"], "success");
+        assert_eq!(out["proposal"]["id"], pid);
+        assert_eq!(out["proposal"]["status"], "confirmed");
+        assert!(out.get("renamed_from").is_none());
 
-    #[test]
-    fn non_passing_candidate_is_rejected_with_failing_gates() {
-        let conn = mem_db();
-        for (id, summary) in [
-            (1, "alpha gateway"),
-            (2, "beta rendering"),
-            (3, "gamma policy"),
-        ] {
-            add_decision(&conn, id, summary, "core,graph");
-        }
-        link(&conn, 1, 2);
-        link(&conn, 2, 3);
-        link(&conn, 1, 3);
-        // One scan only: density passes, stability (1 of 3) does not.
-        super::super::scan::scan(&conn, false).unwrap();
-        let sig: String = conn
-            .query_row("SELECT cluster_sig FROM schema_candidates", [], |r| {
-                r.get(0)
-            })
-            .unwrap();
-
-        let err = confirm(&conn, &sig, None).unwrap_err().to_string();
-        assert!(err.contains("not passed the gates"), "unexpected: {err}");
-        assert!(
-            err.contains("stability"),
-            "must name the failing gate: {err}"
-        );
-
-        // Rejection writes nothing: no schema row, no member_of edges.
-        let schemas: i64 = conn
-            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(schemas, 0);
-        let edges: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(edges, 0);
-    }
-
-    #[test]
-    fn scan_after_confirm_excludes_confirmed_candidate_but_keeps_members() {
-        let conn = mem_db();
-        let sig = passing_candidate(&conn);
-        confirm(&conn, &sig, Some("gateway design")).unwrap();
-
-        // The confirmed candidate is no longer staged for promotion.
-        let out = super::super::scan::scan(&conn, false).unwrap();
-        let cands = out["candidates"].as_array().unwrap();
-        assert!(
-            !cands
-                .iter()
-                .any(|c| c["cluster_sig"].as_str() == Some(sig.as_str())),
-            "confirmed candidate must not re-stage: {cands:?}"
-        );
-
-        // The confirmed identity is never re-detected as such — but the
-        // schema node it created now participates in the graph, so the
-        // members cohere *with it* instead.
-        assert_eq!(cands.len(), 1);
+        let schema = &out["schema"];
+        let schema_id = schema["id"].as_i64().unwrap();
+        assert_eq!(schema["name"], "gateway-design");
         assert_eq!(
-            cands[0]["cluster_sig"].as_str(),
-            Some("decision:1,decision:2,decision:3,schema:1")
+            schema["statement"],
+            "Gateway routing, rendering, and policy share one core pipeline"
         );
-        // Member rows and their declared edges are untouched.
-        let decisions: i64 = conn
-            .query_row("SELECT COUNT(*) FROM decisions", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(decisions, 3);
+        assert_eq!(
+            schema["summary"],
+            "When touching gateway routing: follow the shared core pipeline"
+        );
+        assert_eq!(schema["summary_source"], "agent");
+        assert_eq!(schema["kind"], "schema");
+        assert_eq!(
+            schema["scope"],
+            json!({"tags": ["core", "graph"], "paths": ["src/gateway"]})
+        );
+        assert_eq!(
+            schema["members"],
+            json!(["decision:1", "decision:2", "decision:3"])
+        );
+        assert_eq!(schema["origin"]["proposal_id"], pid);
+        assert_eq!(schema["origin"]["source"]["kind"], "manual");
+        assert_eq!(schema["origin"]["session"], "ses-test");
+        assert_eq!(member_of_count(&conn, schema_id), 3);
+
+        // Confirming again fails with already confirmed.
+        let err = confirm(
+            &conn,
+            &format!("proposal:{pid}"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("proposal 1 is already confirmed"), "{err}");
     }
 
     #[test]
-    fn distinct_candidate_with_overlapping_members_is_rejected() {
+    fn confirm_proposal_applies_inline_edits_and_preserves_unedited_scope_half() {
         let conn = mem_db();
-        let sig = passing_candidate(&conn);
-        confirm(&conn, &sig, Some("gateway design")).unwrap();
+        seed_three_notes(&conn);
+        let pid = propose_default(&conn, Some("gateway-design"));
 
-        // A *distinct* cluster sharing 3 of 4 members (J = 0.6 < 0.7 — no;
-        // share 3 of 3 plus one new = 0.75 ≥ 0.7): stage a second candidate
-        // whose member set is a near-copy of the confirmed one.
-        add_decision(&conn, 4, "delta ingest", "core,graph");
-        link(&conn, 1, 4);
-        link(&conn, 2, 4);
-        link(&conn, 3, 4);
-        for _ in 0..3 {
-            super::super::scan::scan(&conn, false).unwrap();
-        }
-        let cands: Vec<String> = {
-            let mut stmt = conn
-                .prepare("SELECT cluster_sig FROM schema_candidates ORDER BY cluster_sig")
-                .unwrap();
-            let rows = stmt.query_map([], |r| r.get(0)).unwrap();
-            rows.map(|r| r.unwrap()).collect()
-        };
-        assert_eq!(cands.len(), 2, "expected both staged rows: {cands:?}");
+        let new_tags = vec!["custom-tag".to_string()];
+        let out = confirm(
+            &conn,
+            &format!("proposal:{pid}"),
+            Some("edited-gateway"),
+            Some("Edited human claim over the three gateway notes"),
+            None,
+            Some("editing gateway modules"),
+            Some("keep routing and policy aligned"),
+            Some(&new_tags),
+            None,
+        )
+        .unwrap();
 
-        // The *new* near-copy candidate: knowledge members {1,2,3,4} vs
-        // confirmed {1,2,3} (its own schema node excluded): J = 3/4 >= 0.7.
-        let new_sig = cands
-            .iter()
-            .find(|s| s.contains("decision:4"))
-            .expect("new candidate staged");
-        let err = confirm(&conn, new_sig, None).unwrap_err().to_string();
-        assert!(
-            err.contains("already confirmed"),
-            "overlapping candidate must be rejected: {err}"
+        let schema = &out["schema"];
+        assert_eq!(schema["name"], "edited-gateway");
+        assert_eq!(
+            schema["statement"],
+            "Edited human claim over the three gateway notes"
+        );
+        assert_eq!(
+            schema["summary"],
+            "Fires when editing gateway modules: keep routing and policy aligned"
+        );
+        assert_eq!(
+            schema["scope"],
+            json!({"tags": ["custom-tag"], "paths": ["src/gateway"]}),
+            "passing --scope-tags replaces tags while preserving stored scope.paths"
         );
     }
 
-    /// Stage a candidate row directly (no Louvain): members must reference
-    /// existing decision rows, gates pre-passed so only the covenant runs.
-    fn stage(conn: &Connection, members: &[i64], density: f64) -> String {
-        let keys: Vec<String> = members.iter().map(|id| format!("decision:{id}")).collect();
-        let sig = keys.join(",");
+    #[test]
+    fn confirm_proposal_suffixes_taken_name_and_reports_renamed_from() {
+        let conn = mem_db();
+        seed_three_notes(&conn);
+        let pid = propose_default(&conn, Some("mara"));
+
+        // Another schema claims "mara" before proposal confirmation.
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, centroid_json, created_at, updated_at) \
+             VALUES ('u-taken', 'mara', 'When x: y', '{}', 't0', 't0')",
+            [],
+        )
+        .unwrap();
+
+        let out = confirm(
+            &conn,
+            &format!("proposal:{pid}"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(out["schema"]["name"], "mara-2");
+        assert_eq!(out["renamed_from"], "mara");
+    }
+
+    #[test]
+    fn confirm_refuses_detector_candidate_signature_with_propose_command() {
+        let conn = mem_db();
+        seed_three_notes(&conn);
         conn.execute(
             "INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, \
-             stability_count, reward_hits, first_seen_at, last_seen_at) \
-             VALUES (?1, ?2, ?3, 3, 0, 't0', 't0')",
-            params![sig, serde_json::to_string(&keys).unwrap(), density],
+             stability_count, reward_hits, first_seen_at, last_seen_at, kind) \
+             VALUES ('decision:1,decision:2,decision:3', '[\"decision:1\",\"decision:2\",\"decision:3\"]', \
+                     1.0, 3, 1, 't0', 't0', 'schema')",
+            [],
         )
         .unwrap();
-        sig
+
+        let err = confirm(
+            &conn,
+            "decision:1,decision:2",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
+        assert_eq!(
+            err,
+            "detector groups are evidence, not schemas: run engrams schema propose --from decision:1,decision:2 --statement ... --summary ..."
+        );
+    }
+
+    #[test]
+    fn confirm_existing_schema_bumps_and_rejects_edit_flags() {
+        let conn = mem_db();
+        conn.execute(
+            "INSERT INTO schemas (id, uuid, name, summary, centroid_json, created_at, updated_at, kind) \
+             VALUES (1, 'u-1', 'core', 'When x: y', '{}', 't0', 't0', 'schema')",
+            [],
+        )
+        .unwrap();
+
+        let bump = confirm(&conn, "core", None, None, None, None, None, None, None).unwrap();
+        assert_eq!(bump["schema"]["bumped"], true);
+        assert_eq!(bump["schema"]["name"], "core");
+
+        let err = confirm(
+            &conn,
+            "core",
+            Some("renamed"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.contains("edit flags are only valid when confirming a proposal"),
+            "{err}"
+        );
     }
 
     #[test]
     fn exact_signature_wins_over_ambiguous_prefix() {
         let conn = mem_db();
-        for id in 1..=2 {
-            add_decision(&conn, id, &format!("d{id}"), "x");
-        }
-        // `abc` is an exact candidate AND a prefix of `abc,decision:2` — the
-        // exact match must resolve, not error ambiguous.
-        let sig = stage(&conn, &[1], 1.0);
-        stage(&conn, &[1, 2], 1.0);
-        assert_eq!(sig, "decision:1");
-        let got = try_resolve_candidate(&conn, &sig).unwrap().unwrap();
-        assert_eq!(got.members, vec!["decision:1".to_string()]);
-    }
-
-    #[test]
-    fn strict_subset_of_confirmed_bails_already_confirmed() {
-        let conn = mem_db();
-        for id in 1..=3 {
-            add_decision(&conn, id, &format!("d{id}"), "core");
-        }
-        link(&conn, 1, 2);
-        link(&conn, 2, 3);
-        link(&conn, 1, 3);
-        let whole = stage(&conn, &[1, 2, 3], 1.0);
-        confirm(&conn, &whole, Some("core")).unwrap();
-
-        // Strict subset {1,2}: every member already claimed by core. This is
-        // the branch Jaccard alone misses (J = 1/3 < 0.7) — the subset-bail
-        // is what pins members-already-claimed territory.
-        let part = stage(&conn, &[1, 2], 1.0);
-        let err = confirm(&conn, &part, None).unwrap_err().to_string();
-        assert!(
-            err.contains("already confirmed"),
-            "subset of a confirmed schema must bail: {err}"
-        );
-        let schemas: i64 = conn
-            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(schemas, 1, "no second schema row may exist");
-    }
-
-    #[test]
-    fn strict_superset_of_confirmed_bails_already_confirmed() {
-        // Reviewer repro: core-2 {4,5} confirmed, then a candidate {4,5,7}
-        // escapes the J >= 0.7 rule by dilution (J = 2/3 < 0.7) and would
-        // swallow the smaller schema as a "new" cluster. The containment
-        // check mirrored onto the confirmed side rejects it.
-        let conn = mem_db();
-        for id in 4..=5 {
-            add_decision(&conn, id, &format!("d{id}"), "infra");
-        }
-        link(&conn, 4, 5);
-        let small = stage(&conn, &[4, 5], 1.0);
-        confirm(&conn, &small, Some("core-2")).unwrap();
-
-        add_decision(&conn, 7, "delta seven", "infra");
-        link(&conn, 4, 7);
-        link(&conn, 5, 7);
-        let big = stage(&conn, &[4, 5, 7], 1.0);
-        let err = confirm(&conn, &big, None).unwrap_err().to_string();
-        assert!(
-            err.contains("already confirmed"),
-            "superset must not swallow the confirmed schema: {err}"
-        );
-        let schemas: i64 = conn
-            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(schemas, 1, "core-2 stays the only schema");
-    }
-
-    #[test]
-    fn overlap_without_containment_still_promotes() {
-        // Safe direction of the mirrored coverage clause: plain overlap is
-        // NOT territory — confirmed {1,2} vs candidate {1,3,4} has
-        // covered = 1/3, covers = 1/2, J = 1/4, so it promotes as its own
-        // schema. Over-firing here would strangle legitimate distinct
-        // concepts that share one member.
-        let conn = mem_db();
-        for id in 1..=4 {
-            add_decision(&conn, id, &format!("d{id}"), "x");
-        }
-        let first = stage(&conn, &[1, 2], 1.0);
-        confirm(&conn, &first, Some("core")).unwrap();
-
-        let second = stage(&conn, &[1, 3, 4], 1.0);
-        let out = confirm(&conn, &second, Some("adjacent")).unwrap();
-        assert_eq!(out["schema"]["name"], "adjacent");
-        let schemas: i64 = conn
-            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(schemas, 2, "overlapping-but-distinct promotes");
-    }
-
-    #[test]
-    fn confirm_copies_candidate_kind_and_reasons_into_schema_row() {
-        let conn = mem_db();
-        for id in 1..=3 {
-            add_decision(&conn, id, &format!("d{id}"), "core");
-        }
-        let sig = stage(&conn, &[1, 2, 3], 1.0);
-
-        // The scan's kind pass (spec 0003) stamps gate-passing candidates
-        // with this same UPDATE; seed a distinct label so the copy into the
-        // schema row is provably verbatim — no remap, no re-derivation.
-        let reasons_json = serde_json::to_string(&[
-            "One awake stretch: a single burst of activity.",
-            "No shared file anchors and no checkable rules.",
-        ])
-        .unwrap();
+        seed_three_notes(&conn);
         conn.execute(
-            "UPDATE schema_candidates SET kind = 'story', kind_reasons_json = ?1 \
-             WHERE cluster_sig = ?2",
-            params![reasons_json, sig],
+            "INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, \
+             stability_count, reward_hits, first_seen_at, last_seen_at) \
+             VALUES ('decision:1', '[\"decision:1\"]', 1.0, 3, 0, 't0', 't0'), \
+                    ('decision:1,decision:2', '[\"decision:1\",\"decision:2\"]', 1.0, 3, 0, 't0', 't0')",
+            [],
         )
         .unwrap();
-
-        let out = confirm(&conn, &sig, Some("campaign notes")).unwrap();
-        let (kind, reasons): (String, String) = conn
-            .query_row("SELECT kind, kind_reasons_json FROM schemas", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
-            .unwrap();
-        assert_eq!(kind, "story");
-        assert_eq!(reasons, reasons_json);
-        assert_eq!(
-            out["schema"]["kind"], "story",
-            "payload echoes the copied kind"
-        );
-        assert!(
-            out["schema"].get("reasons").is_none(),
-            "confirm reports kind only; reason sentences live on schema show"
-        );
-    }
-
-    #[test]
-    fn confirm_of_unlabeled_candidate_defaults_to_unclear() {
-        let conn = mem_db();
-        for id in 1..=2 {
-            add_decision(&conn, id, &format!("d{id}"), "core");
-        }
-        // stage() writes only the pre-kind columns, so the candidate row
-        // keeps the DDL defaults — the unlabeled-candidate state. Confirm
-        // has no error path here; the schema row carries the same defaults.
-        let sig = stage(&conn, &[1, 2], 1.0);
-        let staged: (String, String) = conn
-            .query_row(
-                "SELECT kind, kind_reasons_json FROM schema_candidates WHERE cluster_sig = ?1",
-                params![sig],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .unwrap();
-        assert_eq!(staged.0, "unclear");
-        assert_eq!(staged.1, "[]");
-
-        let out = confirm(&conn, &sig, Some("core")).unwrap();
-        let (kind, reasons): (String, String) = conn
-            .query_row("SELECT kind, kind_reasons_json FROM schemas", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
-            .unwrap();
-        assert_eq!(kind, "unclear");
-        assert_eq!(reasons, "[]");
-        assert_eq!(
-            out["schema"]["kind"], "unclear",
-            "payload echoes the default kind"
-        );
+        let got = try_resolve_candidate(&conn, "decision:1").unwrap().unwrap();
+        assert_eq!(got.members, vec!["decision:1".to_string()]);
     }
 
     #[test]
     fn parse_members_skips_external_pr_nodes_cleanly() {
         let conn = mem_db();
-        add_decision(&conn, 1, "d1", "core");
-        add_decision(&conn, 2, "d2", "core");
+        seed_three_notes(&conn);
 
-        // Candidate member set containing real entity decisions and an external PR node URL.
         let members = vec![
             "decision:1".to_string(),
             "decision:2".to_string(),

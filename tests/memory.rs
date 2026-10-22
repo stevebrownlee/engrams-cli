@@ -796,7 +796,7 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u3','2026-01-02T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
              ('decision','1','src/a.rs','2026-01-01T00:00:00Z'),
              ('decision','2','src/a.rs','2026-01-01T00:00:00Z'),
@@ -815,8 +815,24 @@ fn s14_export_import_preserves_schemas_with_identity_and_telemetry() {
     }
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db)
-        .args(["schema", "scan", "--apply"])
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:1",
+            "--name",
+            "core",
+            "--statement",
+            "Core gateway routing and rendering conventions",
+            "--summary",
+            "When requests hit the gateway: route through the shared table",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
         .assert()
         .success();
     engrams(&db)
@@ -990,7 +1006,7 @@ fn s15_prime_list_show_surface_kind() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u3','2026-01-02T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
              ('decision','1','src/a.rs','2026-01-01T00:00:00Z'),
              ('decision','2','src/a.rs','2026-01-01T00:00:00Z'),
@@ -1009,8 +1025,24 @@ fn s15_prime_list_show_surface_kind() {
     }
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db)
-        .args(["schema", "scan", "--apply"])
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:1",
+            "--name",
+            "core",
+            "--statement",
+            "Core gateway routing and rendering conventions",
+            "--summary",
+            "When requests hit the gateway: route through the shared table",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
         .assert()
         .success();
 
@@ -1080,7 +1112,7 @@ fn s16_export_import_round_trips_schema_kind() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u3','2026-01-02T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
              ('decision','1','src/a.rs','2026-01-01T00:00:00Z'),
              ('decision','2','src/a.rs','2026-01-01T00:00:00Z'),
@@ -1103,8 +1135,24 @@ fn s16_export_import_round_trips_schema_kind() {
     }
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db)
-        .args(["schema", "scan", "--apply"])
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:1",
+            "--name",
+            "core",
+            "--statement",
+            "Core gateway routing and rendering conventions",
+            "--summary",
+            "When requests hit the gateway: route through the shared table",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
         .assert()
         .success();
     {

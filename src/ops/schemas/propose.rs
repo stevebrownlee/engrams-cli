@@ -19,6 +19,7 @@ use super::gates::{claimed_territory, jaccard, JACCARD_IDENTITY};
 use super::retrieval;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct Scope {
     pub tags: Vec<String>,
     pub paths: Vec<String>,
@@ -35,7 +36,6 @@ pub struct Evidence {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProposalStatus {
     Proposed,
-    #[allow(dead_code)] // Wired in spec 0007 Phase 2 (confirm proposal:<id>).
     Confirmed,
     Rejected,
 }

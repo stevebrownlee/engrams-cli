@@ -23,8 +23,27 @@ use crate::cli::SchemaCmd;
 
 pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
     match cmd {
-        SchemaCmd::Scan { apply } => scan::scan(conn, apply),
-        SchemaCmd::Confirm { target, name } => confirm::confirm(conn, &target, name.as_deref()),
+        SchemaCmd::Scan => scan::scan(conn),
+        SchemaCmd::Confirm {
+            target,
+            name,
+            statement,
+            summary,
+            trigger,
+            rule,
+            scope_tags,
+            scope_paths,
+        } => confirm::confirm(
+            conn,
+            &target,
+            name.as_deref(),
+            statement.as_deref(),
+            summary.as_deref(),
+            trigger.as_deref(),
+            rule.as_deref(),
+            scope_tags.as_deref(),
+            scope_paths.as_deref(),
+        ),
         SchemaCmd::Propose {
             statement,
             summary,

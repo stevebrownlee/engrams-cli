@@ -246,10 +246,8 @@ fn upsert(
 
 /// Run detection and staging; report candidates with gate detail. The
 /// output is a report, not promotion: no schema rows, links, or telemetry
-/// are written (AC-4). With `apply`, passing candidates are promoted
-/// (schemas row + member_of edges) after staging commits — the explicit
-/// opt-in path of spec API line 195.
-pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
+/// are written (AC-8).
+pub fn scan(conn: &Connection) -> Result<serde_json::Value> {
     let detected = louvain::clusters(conn, &OverlayWeights::default())?;
     let stored = load_stored(conn)?;
     let telemetry = telemetry_counts(conn)?;
@@ -334,50 +332,9 @@ pub fn scan(conn: &Connection, apply: bool) -> Result<serde_json::Value> {
     // identical. Unlabeled (gate-failing) rows sort last.
     candidates.sort_by_key(|c| kind_rank(c["kind"].as_str().unwrap_or("")));
 
-    // --apply: promote only schema-kind candidates (spec 0003 AC-6).
-    // Staging commits first, then each promotion goes through the same
-    // confirm() covenant a manual `schema confirm` takes — the overlap
-    // guard runs here too, so re-applying an already-confirmed cluster
-    // can never duplicate a schema row. Non-schema kinds are held back
-    // into the skipped list with the kind named: a human confirming
-    // explicitly outranks the machine's label (design choice 1), and a
-    // heuristic mislabel must never make a candidate silently vanish.
-    let mut applied: Vec<serde_json::Value> = Vec::new();
-    let mut skipped: Vec<serde_json::Value> = Vec::new();
-    if apply {
-        for c in &candidates {
-            if c["gates_pass"].as_bool() != Some(true) {
-                continue;
-            }
-            let sig = c["cluster_sig"].as_str().expect("staged sig");
-            let kind = c["kind"].as_str().unwrap_or("");
-            if kind != super::kind::Kind::Schema.as_str() {
-                skipped.push(json!({
-                    "cluster_sig": sig,
-                    "kind": kind,
-                    "reason": format!(
-                        "held back: kind is {kind}, not schema — apply promotes \
-                         only schema-kind candidates (spec 0003 AC-6); confirm \
-                         explicitly to promote anyway"
-                    ),
-                }));
-                continue;
-            }
-            match super::confirm::confirm(conn, sig, None) {
-                Ok(out) => applied.push(out["schema"]["name"].clone()),
-                Err(e) => skipped.push(json!({
-                    "cluster_sig": sig,
-                    "reason": e.to_string(),
-                })),
-            }
-        }
-    }
-
     Ok(json!({
         "status": "success",
         "candidates": candidates,
-        "applied": applied,
-        "skipped": skipped,
     }))
 }
 
@@ -513,7 +470,7 @@ mod tests {
         surface(&conn, 1, "t2");
         surface(&conn, 2, "t3");
 
-        let first = scan(&conn, false).unwrap();
+        let first = scan(&conn).unwrap();
         let c = candidate(&first);
         assert_eq!(c["member_count"], 3);
         assert_eq!(c["stability_count"], 1);
@@ -523,7 +480,7 @@ mod tests {
         // Stability gate needs 3 sightings: not yet on scan one.
         assert_eq!(c["gates_pass"], false);
 
-        let second = scan(&conn, false).unwrap();
+        let second = scan(&conn).unwrap();
         let c2 = candidate(&second);
         assert_eq!(c2["cluster_sig"], c["cluster_sig"]);
         assert_eq!(c2["member_count"], c["member_count"]);
@@ -533,7 +490,7 @@ mod tests {
         assert_eq!(c2["drift_removed"], 0);
         assert_eq!(c2["drift_added"], 0);
         assert_eq!(c2["gates_pass"], false);
-        let third = scan(&conn, false).unwrap();
+        let third = scan(&conn).unwrap();
         let c3 = candidate(&third);
         assert_eq!(c3["stability_count"], 3);
         assert_eq!(c3["gates_pass"], true);
@@ -584,15 +541,15 @@ mod tests {
 
         // Scan one: nothing passes the stability gate yet, so nothing is
         // labeled — the kind pass only runs on gate-passing rows.
-        let first = scan(&conn, false).unwrap();
+        let first = scan(&conn).unwrap();
         assert!(first["candidates"]
             .as_array()
             .unwrap()
             .iter()
             .all(|c| c["kind"] == "" && c["reasons"].as_array().is_some_and(|r| r.is_empty())));
 
-        scan(&conn, false).unwrap();
-        let third = scan(&conn, false).unwrap();
+        scan(&conn).unwrap();
+        let third = scan(&conn).unwrap();
         let cands = third["candidates"].as_array().unwrap();
         assert_eq!(cands.len(), 2);
         assert_eq!(cands[0]["kind"], "schema");
@@ -612,7 +569,7 @@ mod tests {
 
         // AC-7: the fourth scan advances stability but reproduces every
         // label and reason exactly — kind never depends on run count.
-        let fourth = scan(&conn, false).unwrap();
+        let fourth = scan(&conn).unwrap();
         let again = fourth["candidates"].as_array().unwrap();
         for (c, d) in cands.iter().zip(again) {
             assert_eq!(c["kind"], d["kind"]);
@@ -620,13 +577,10 @@ mod tests {
         }
     }
 
-    /// Spec 0003 phase 4 (AC-6): apply promotes only schema-kind
-    /// candidates; story, inventory, and unclear are held back into the
-    /// skipped list with their kind named, and no schema rows or
-    /// membership edges appear for held-back groups — they stay staged
-    /// for an explicit confirm, where a human outranks the label.
+    /// Spec 0007 AC-8: scan stages all four candidate kinds and never
+    /// creates a schema row or membership edge.
     #[test]
-    fn apply_holds_back_non_schema_kinds() {
+    fn scan_stages_all_kinds_and_creates_no_schemas() {
         let conn = mem_db();
         // Cluster A — schema: dense, anchored, re-activated 45 days later.
         for id in 1..=3 {
@@ -693,9 +647,9 @@ mod tests {
         }
 
         // Three scans clear the stability gate for all four clusters.
-        scan(&conn, false).unwrap();
-        scan(&conn, false).unwrap();
-        let staged = scan(&conn, false).unwrap();
+        scan(&conn).unwrap();
+        scan(&conn).unwrap();
+        let staged = scan(&conn).unwrap();
         let kinds: Vec<String> = staged["candidates"]
             .as_array()
             .unwrap()
@@ -706,44 +660,22 @@ mod tests {
             assert!(kinds.contains(&expect.to_string()), "kinds: {kinds:?}");
         }
 
-        let out = scan(&conn, true).unwrap();
-        // Only the schema kind promotes.
-        let applied = out["applied"].as_array().unwrap();
-        assert_eq!(applied.len(), 1, "applied: {applied:?}");
-        // Held-back candidates appear in skipped with their kind named.
-        let held_kinds: Vec<String> = out["skipped"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|s| s["kind"].as_str().is_some())
-            .map(|s| s["kind"].as_str().unwrap().to_string())
-            .collect();
-        for expect in ["story", "unclear", "inventory"] {
-            assert!(
-                held_kinds.contains(&expect.to_string()),
-                "skipped kinds: {held_kinds:?}"
-            );
-        }
-        // Exactly one schema row — the promoted one — and its membership
-        // edges cover only the schema cluster's members.
+        assert!(
+            staged.get("applied").is_none() && staged.get("skipped").is_none(),
+            "scan output must only contain candidates: {staged}"
+        );
         let schemas: i64 = conn
             .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(schemas, 1);
-        let member_of: Vec<String> = {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT source_item_id FROM context_links \
-                     WHERE relationship_type = 'member_of' ORDER BY source_item_id",
-                )
-                .unwrap();
-            stmt.query_map([], |r| r.get::<_, String>(0))
-                .unwrap()
-                .collect::<rusqlite::Result<_>>()
-                .unwrap()
-        };
-        assert_eq!(member_of, ["1", "2", "3"]);
-        // Held-back candidates stay staged for explicit confirm.
+        assert_eq!(schemas, 0, "scan must never create a schema");
+        let member_of: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(member_of, 0, "scan must never create member_of links");
         let staged_kinds: Vec<String> = {
             let mut stmt = conn
                 .prepare("SELECT kind FROM schema_candidates WHERE kind != '' ORDER BY kind")
@@ -760,7 +692,7 @@ mod tests {
     fn member_growth_within_jaccard_budget_stays_same_row() {
         let conn = mem_db();
         dense_trio(&conn);
-        scan(&conn, false).unwrap();
+        scan(&conn).unwrap();
 
         add_decision(&conn, 4);
         anchor(&conn, 4, "src/a.rs");
@@ -768,7 +700,7 @@ mod tests {
         link(&conn, 2, 4);
         link(&conn, 3, 4);
 
-        let out = scan(&conn, false).unwrap();
+        let out = scan(&conn).unwrap();
         let c = candidate(&out);
         // Jaccard {1,2,3} → {1,2,3,4} is 3/4 = 0.75 ≥ 0.7: same identity,
         // refreshed membership, drift recorded.
@@ -795,7 +727,7 @@ mod tests {
         )
         .unwrap();
 
-        let out = scan(&conn, false).unwrap();
+        let out = scan(&conn).unwrap();
         let c = candidate(&out);
         assert_eq!(c["member_count"], 2);
         assert!((c["density"].as_f64().unwrap() - 0.2).abs() < 1e-9);
@@ -822,8 +754,8 @@ mod tests {
         let before = snapshot(&conn);
         assert!(before.iter().any(|(t, _)| t == "schema_candidates"));
 
-        scan(&conn, false).unwrap();
-        scan(&conn, false).unwrap();
+        scan(&conn).unwrap();
+        scan(&conn).unwrap();
 
         let after = snapshot(&conn);
         for ((t, before_rows), (_, after_rows)) in before.iter().zip(after.iter()) {
@@ -965,56 +897,5 @@ mod tests {
             .unwrap();
         assert_eq!(sig, "decision:1,decision:2,decision:3,decision:5");
         assert_eq!((drift_removed, drift_added, row_stability), (1, 1, 3));
-    }
-    #[test]
-    fn double_apply_never_duplicates_a_schema() {
-        let conn = mem_db();
-        dense_trio(&conn);
-        // Re-activation 45 days after creation: the trio is a recurring
-        // practice (schema kind), so apply's kind restraint (spec 0003
-        // AC-6) lets it promote and this test still reaches the
-        // double-apply overlap guard it exists for.
-        for id in 1..=3 {
-            surface(&conn, id, "2026-02-15T00:00:00Z");
-        }
-        scan(&conn, false).unwrap();
-        scan(&conn, false).unwrap();
-
-        let first = scan(&conn, true).unwrap();
-        // applied carries promoted schema names (fixture has no tags, so the
-        // name falls back to the "schema" default).
-        assert_eq!(first["applied"], json!(["schema"]));
-        assert_eq!(first["skipped"], json!([]));
-
-        // Second apply: the same cluster is still staged and gate-passing,
-        // but the confirm covenant's overlap guard rejects the promotion.
-        let second = scan(&conn, true).unwrap();
-        assert_eq!(second["applied"], json!([]));
-        let skipped = second["skipped"].as_array().unwrap();
-        assert_eq!(skipped.len(), 1);
-        // The confirmed schema's own node now participates in the graph, so
-        // the re-staged signature includes it; the knowledge-member filter in
-        // confirm() strips it back out before comparing Jaccard.
-        assert_eq!(
-            skipped[0]["cluster_sig"],
-            "decision:1,decision:2,decision:3,schema:1"
-        );
-        assert!(skipped[0]["reason"]
-            .as_str()
-            .unwrap()
-            .contains("already confirmed"));
-
-        let rows: i64 = conn
-            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(rows, 1);
-        let edges: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(edges, 3);
     }
 }

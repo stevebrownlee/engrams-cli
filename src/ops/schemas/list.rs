@@ -54,8 +54,10 @@ pub(crate) fn member_counts(conn: &Connection) -> Result<std::collections::HashM
 struct Row {
     id: i64,
     name: String,
+    statement: Option<String>,
     summary: String,
     summary_source: String,
+    scope_json: String,
     status: String,
     kind: String,
     kind_reasons_json: String,
@@ -73,8 +75,10 @@ fn row_json(
     json!({
         "id": r.id,
         "name": r.name,
+        "statement": r.statement,
         "summary": r.summary,
         "summary_source": r.summary_source,
+        "scope": retrieval::parse_scope(&r.scope_json),
         "status": r.status,
         "kind": r.kind,
         "member_count": counts.get(&r.id).copied().unwrap_or(0),
@@ -90,8 +94,8 @@ pub fn list(conn: &Connection, status: Option<&str>) -> Result<Value> {
     let counts = member_counts(conn)?;
     let guided = retrieval::surface_counts(conn)?;
     let mut stmt = conn.prepare(&format!(
-        "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.kind, \
-         s.kind_reasons_json, s.updated_at, \
+        "SELECT s.id, s.name, s.statement, s.summary, s.summary_source, s.scope_json, \
+         s.status, s.kind, s.kind_reasons_json, s.updated_at, \
          s.last_confirmed_at, s.centroid_json \
          FROM schemas s {} ORDER BY {}",
         match status {
@@ -104,14 +108,16 @@ pub fn list(conn: &Connection, status: Option<&str>) -> Result<Value> {
         Ok(Row {
             id: r.get(0)?,
             name: r.get(1)?,
-            summary: r.get(2)?,
-            summary_source: r.get(3)?,
-            status: r.get(4)?,
-            kind: r.get(5)?,
-            kind_reasons_json: r.get(6)?,
-            updated_at: r.get(7)?,
-            last_confirmed_at: r.get(8)?,
-            centroid_json: r.get(9)?,
+            statement: r.get(2)?,
+            summary: r.get(3)?,
+            summary_source: r.get(4)?,
+            scope_json: r.get(5)?,
+            status: r.get(6)?,
+            kind: r.get(7)?,
+            kind_reasons_json: r.get(8)?,
+            updated_at: r.get(9)?,
+            last_confirmed_at: r.get(10)?,
+            centroid_json: r.get(11)?,
         })
     };
     let rows: Vec<_> = match status {
@@ -194,22 +200,24 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
     let counts = member_counts(conn)?;
     let guided = retrieval::surface_counts(conn)?;
     let row: Row = conn.query_row(
-        "SELECT name, summary, summary_source, status, kind, kind_reasons_json, \
-         updated_at, last_confirmed_at, \
-         centroid_json, id FROM schemas WHERE id = ?1",
+        "SELECT name, statement, summary, summary_source, scope_json, status, kind, \
+         kind_reasons_json, updated_at, last_confirmed_at, centroid_json, id \
+         FROM schemas WHERE id = ?1",
         [id],
         |r| {
             Ok(Row {
                 name: r.get(0)?,
-                summary: r.get(1)?,
-                summary_source: r.get(2)?,
-                status: r.get(3)?,
-                kind: r.get(4)?,
-                kind_reasons_json: r.get(5)?,
-                updated_at: r.get(6)?,
-                last_confirmed_at: r.get(7)?,
-                centroid_json: r.get(8)?,
-                id: r.get(9)?,
+                statement: r.get(1)?,
+                summary: r.get(2)?,
+                summary_source: r.get(3)?,
+                scope_json: r.get(4)?,
+                status: r.get(5)?,
+                kind: r.get(6)?,
+                kind_reasons_json: r.get(7)?,
+                updated_at: r.get(8)?,
+                last_confirmed_at: r.get(9)?,
+                centroid_json: r.get(10)?,
+                id: r.get(11)?,
             })
         },
     )?;
@@ -219,6 +227,7 @@ pub fn show(conn: &Connection, target: &str) -> Result<Value> {
     let enriched = retrieval::enrich_members(conn, &members[..cap])?;
     let mut out = row_json(&counts, &guided, &row);
     out["members"] = Value::Array(enriched);
+    out["origin"] = retrieval::origin_for_schema(conn, id)?;
     // Confirm-time reason sentences, projected as a JSON array; the v14
     // default '[]' reads as an empty array (spec 0004 AC-5).
     out["reasons"] = serde_json::from_str(&row.kind_reasons_json).unwrap_or(json!([]));

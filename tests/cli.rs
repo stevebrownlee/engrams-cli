@@ -2398,15 +2398,12 @@ fn test_schema_list_show_refine_and_confirm_bump() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u3','2026-01-02T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO context_links (source_item_type, source_item_id, \
               target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
              ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
              ('decision','2','decision','3','relates_to','2026-01-01T00:00:00Z','manual'),
              ('decision','1','decision','3','relates_to','2026-01-01T00:00:00Z','manual');
-             -- Spec 0003: apply now promotes only schema-kind candidates, so
-             -- the trio gets a shared anchor (trigger) and a re-activation
-             -- 45 days later (second awake stretch).
              INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
              ('decision',1,'src/gateway.rs','2026-01-02T00:00:00Z'),
              ('decision',2,'src/gateway.rs','2026-01-02T00:00:00Z'),
@@ -2419,26 +2416,46 @@ fn test_schema_list_show_refine_and_confirm_bump() {
         .unwrap();
     }
 
-    // Stability ramps per sighting; gates pass on the third, so --apply
-    // promotes exactly then.
+    // Stability ramps per sighting; gates pass on the third scan, then
+    // propose + confirm creates the schema.
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
-    let out = engrams(&db)
-        .args(["schema", "scan", "--apply"])
-        .output()
-        .unwrap();
-    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
-    let applied = json["applied"].as_array().unwrap();
-    assert_eq!(applied.len(), 1, "expected one promotion: {json}");
-    assert_eq!(applied[0], "core");
+    engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:1",
+            "--name",
+            "core",
+            "--statement",
+            "Core routing, rendering, and policy share one pipeline",
+            "--summary",
+            "When requests enter the gateway: follow the core pipeline",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
 
-    // list: the draft exists with its member count.
+    // list: the confirmed schema exists with its member count, statement, and scope.
     let out = engrams(&db).args(["schema", "list"]).output().unwrap();
     let json: Value = serde_json::from_slice(&out.stdout).unwrap();
     let schemas = json["schemas"].as_array().unwrap();
     assert_eq!(schemas.len(), 1);
     assert_eq!(schemas[0]["name"], "core");
-    assert_eq!(schemas[0]["summary_source"], "drafted");
+    assert_eq!(schemas[0]["summary_source"], "agent");
+    assert_eq!(
+        schemas[0]["statement"],
+        "Core routing, rendering, and policy share one pipeline"
+    );
+    assert_eq!(
+        schemas[0]["scope"],
+        serde_json::json!({"tags": ["core", "graph"], "paths": ["src"]})
+    );
     assert_eq!(schemas[0]["member_count"], 3);
     assert_eq!(
         schemas[0]["kind"], "schema",
@@ -2752,7 +2769,7 @@ fn test_prime_leads_with_schemas_block() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u3','2026-01-02T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO context_links (source_item_type, source_item_id, \
               target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
              ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
@@ -2771,11 +2788,26 @@ fn test_prime_leads_with_schemas_block() {
     }
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db)
-        .args(["schema", "scan", "--apply"])
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:1",
+            "--name",
+            "core",
+            "--statement",
+            "Core routing, rendering, and policy share one pipeline",
+            "--summary",
+            "When requests enter the gateway: follow the core pipeline",
+        ])
         .assert()
         .success();
-
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
     // The pin: `schemas` is the FIRST key of prime's payload, ahead of the
     // pre-existing blocks (serde_json preserve_order makes key order load-
     // bearing; a HashMap regression here reorders it).
@@ -2817,10 +2849,10 @@ fn test_prime_ranks_context_matching_schemas() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"gateway\",\"core\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta gateway routing','[\"gateway\",\"core\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma gateway routing','[\"gateway\",\"core\"]','abc'),
+             ('u3','2026-01-02T00:00:00Z','gamma gateway routing','[\"gateway\",\"core\"]','abc'),
              ('u4','2026-01-01T00:00:00Z','delta policy engine','[\"policy\",\"core\"]','abc'),
              ('u5','2026-01-01T00:00:00Z','epsilon policy engine','[\"policy\",\"core\"]','abc'),
-             ('u6','2026-01-01T00:00:00Z','zeta policy engine','[\"policy\",\"core\"]','abc');
+             ('u6','2026-01-02T00:00:00Z','zeta policy engine','[\"policy\",\"core\"]','abc');
              INSERT INTO context_links (source_item_type, source_item_id, \
               target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
              ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
@@ -2851,8 +2883,43 @@ fn test_prime_ranks_context_matching_schemas() {
     }
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
+    engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db)
-        .args(["schema", "scan", "--apply"])
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:1",
+            "--name",
+            "gateway",
+            "--statement",
+            "Gateway routing table shared across services",
+            "--summary",
+            "When touching gateway routing: follow the shared table",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:4",
+            "--name",
+            "policy",
+            "--statement",
+            "Policy engine checks rules before commits",
+            "--summary",
+            "When touching policy engine: enforce checkable rules",
+        ])
+        .assert()
+        .success();
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:2"])
         .assert()
         .success();
     // reward_hits counts schema-level surface rows (retrieval_surfaces with
@@ -2940,7 +3007,7 @@ fn test_schema_confirm_payload_carries_kind() {
             "INSERT INTO decisions (uuid, timestamp, summary, tags, commit_sha) VALUES
              ('u1','2026-01-01T00:00:00Z','alpha gateway routing','[\"core\",\"graph\"]','abc'),
              ('u2','2026-01-01T00:00:00Z','beta rendering pipeline','[\"core\",\"graph\"]','abc'),
-             ('u3','2026-01-01T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
+             ('u3','2026-01-02T00:00:00Z','gamma policy engine','[\"core\",\"graph\"]','abc');
              INSERT INTO context_links (source_item_type, source_item_id, \
               target_item_type, target_item_id, relationship_type, timestamp, origin) VALUES
              ('decision','1','decision','2','relates_to','2026-01-01T00:00:00Z','manual'),
@@ -2957,10 +3024,6 @@ fn test_schema_confirm_payload_carries_kind() {
         )
         .unwrap();
     }
-    // Three sightings: stability ramps per scan and the gates pass on the
-    // third, stamping the staged candidate `schema` (plain scan, no --apply,
-    // so nothing is auto-promoted). `confirm` then resolves it by signature
-    // prefix and takes the promote arm.
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
     engrams(&db).args(["schema", "scan"]).assert().success();
@@ -2971,8 +3034,23 @@ fn test_schema_confirm_payload_carries_kind() {
         })
         .unwrap()
     };
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            &sig,
+            "--name",
+            "core",
+            "--statement",
+            "Core routing, rendering, and policy share one pipeline",
+            "--summary",
+            "When requests enter the gateway: follow the core pipeline",
+        ])
+        .assert()
+        .success();
     let out = engrams(&db)
-        .args(["schema", "confirm", &sig, "--name", "core"])
+        .args(["schema", "confirm", "proposal:1"])
         .output()
         .unwrap();
     let json: Value = serde_json::from_slice(&out.stdout).unwrap();
@@ -4661,7 +4739,8 @@ fn test_session_close_surfaces_schema_value_and_opportunities() {
     assert_eq!(opps.len(), 1, "one gated candidate surfaces");
     assert_eq!(opps[0]["signature"], "decision:1|decision:2");
     assert!(opps[0]["suggested_name"].as_str().is_some());
-    assert!(opps[0]["confirm_command"].as_str().is_some());
+    assert!(opps[0]["propose_command"].as_str().is_some());
+    assert!(opps[0].get("confirm_command").is_none());
 
     // Surfaced == stamped: notified_at is set for exactly what was emitted.
     let conn = rusqlite::Connection::open(&db).unwrap();
@@ -4852,19 +4931,21 @@ fn test_session_close_opportunity_workflow_actionable() {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch(
             "INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
-             (10, 'u10', '2026-01-01T00:00:00Z', 'Dec 10', '[\"ast\", \"compiler\"]'),
-             (11, 'u11', '2026-01-01T00:00:00Z', 'Dec 11', '[\"ast\", \"syntax\"]');
+             (10, 'u10', '2026-01-01T00:00:00Z', 'Lexer tokenizes source bytes into spans', '[\"ast\", \"compiler\"]'),
+             (11, 'u11', '2026-01-02T00:00:00Z', 'Parser builds syntax tree from token stream', '[\"ast\", \"syntax\"]'),
+             (12, 'u12', '2026-01-03T00:00:00Z', 'Diagnostics render span offsets on parse errors', '[\"ast\", \"compiler\"]');
              INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
              ('decision', 10, 'src/ast/lexer.rs', '2026-01-01T00:00:00Z'),
-             ('decision', 11, 'src/ast/parser.rs', '2026-01-01T00:00:00Z');
+             ('decision', 11, 'src/ast/parser.rs', '2026-01-02T00:00:00Z'),
+             ('decision', 12, 'src/ast/parser.rs', '2026-01-03T00:00:00Z');
              INSERT INTO schema_candidates (cluster_sig, member_keys_json, density, stability_count, reward_hits, first_seen_at, last_seen_at, kind) VALUES
-             ('decision:10,decision:11', '[\"decision:10\", \"decision:11\"]', 0.8, 3, 1,
-              '2026-01-01T00:00:00Z', '2026-01-01T01:00:00Z', 'schema');",
+             ('decision:10,decision:11,decision:12', '[\"decision:10\", \"decision:11\", \"decision:12\"]', 0.8, 3, 1,
+              '2026-01-01T00:00:00Z', '2026-01-03T01:00:00Z', 'schema');",
         )
         .unwrap();
     }
 
-    // Close surfaces exactly one opportunity with an executable command.
+    // Close surfaces exactly one opportunity with a ready-to-fill propose_command.
     let out = engrams(&db)
         .args(["session", "close", "--note", "first"])
         .output()
@@ -4874,14 +4955,37 @@ fn test_session_close_opportunity_workflow_actionable() {
     let opps = val["schema_opportunities"].as_array().unwrap();
     assert_eq!(opps.len(), 1, "one gate-passing candidate surfaces: {val}");
 
-    // The emitted command runs verbatim: drop the leading "engrams" and pass
-    // the rest as argv (the suggested name is a single kebab-case token).
-    let cmd_str = opps[0]["confirm_command"].as_str().unwrap();
-    let args: Vec<&str> = cmd_str.split_whitespace().skip(1).collect();
-    engrams(&db).args(&args).assert().success();
-
-    // The schema now exists under the suggested name.
     let name = opps[0]["suggested_name"].as_str().unwrap();
+    let cmd_str = opps[0]["propose_command"].as_str().unwrap();
+    assert_eq!(
+        cmd_str,
+        format!(
+            "engrams schema propose --from decision:10,decision:11 --name {name} --statement \"<claim>\" --summary \"When <condition>: <directive>\""
+        )
+    );
+    assert!(opps[0].get("confirm_command").is_none());
+
+    // Fill the placeholders in the emitted propose command and confirm the resulting proposal.
+    let prop_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--from",
+            "decision:10,decision:11",
+            "--name",
+            name,
+            "--statement",
+            "AST lexer, parser, and diagnostics share span-preserving pipeline invariants",
+            "--summary",
+            "When editing AST modules: preserve byte spans from lexer through diagnostics",
+        ])
+        .output()
+        .unwrap();
+    assert!(prop_out.status.success());
+    let prop_val: Value = serde_json::from_slice(&prop_out.stdout).unwrap();
+    let confirm_cmd = prop_val["confirm_command"].as_str().unwrap();
+    let confirm_args: Vec<&str> = confirm_cmd.split_whitespace().skip(1).collect();
+    engrams(&db).args(&confirm_args).assert().success();
     let show_out = engrams(&db)
         .args(["schema", "show", name])
         .output()
@@ -6127,4 +6231,268 @@ fn test_proposal_ac7_seeds_from_detector_group_drops_code_and_snapshots_evidence
     assert_eq!(member_ids, vec![17, 18, 19]);
     assert_eq!(p["source"]["kind"], "candidate");
     assert_eq!(p["source"]["ref"], initial_sig);
+}
+
+#[test]
+fn test_schema_proposal_ac3_confirm_creates_schema_with_origin_edits_and_rename() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // 1. Propose a schema for Mara's arc (decisions 1..=6) with session key.
+    let prop_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4,decision:5,decision:6",
+            "--scope-tags",
+            "mara,protagonist",
+            "--scope-paths",
+            "manuscript",
+            "--session",
+            "ses-book-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(prop_out.status.success());
+    let prop_json: Value = serde_json::from_slice(&prop_out.stdout).unwrap();
+    let proposed_at = prop_json["proposal"]["created_at"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // Confirm proposal:1 with inline edits to statement, instruction (--trigger/--rule), and scope-tags
+    // (omitting --scope-paths so "manuscript" is preserved).
+    let conf_out = engrams(&db)
+        .args([
+            "schema",
+            "confirm",
+            "proposal:1",
+            "--statement",
+            "Mara believes she is broken, and that wound follows her into command",
+            "--trigger",
+            "writing Mara in command scenes",
+            "--rule",
+            "show her doubting herself aloud and crediting her squad while her choices hold firm",
+            "--scope-tags",
+            "mara,wound",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        conf_out.status.success(),
+        "confirm proposal:1 failed: {}",
+        String::from_utf8_lossy(&conf_out.stderr)
+    );
+    let conf: Value = serde_json::from_slice(&conf_out.stdout).unwrap();
+    assert_eq!(conf["status"], "success");
+    assert_eq!(conf["proposal"]["id"], 1);
+    assert_eq!(conf["proposal"]["status"], "confirmed");
+    assert!(conf.get("renamed_from").is_none());
+
+    let schema = &conf["schema"];
+    let schema_id = schema["id"].as_i64().unwrap();
+    assert_eq!(schema["name"], "mara-broken-leader");
+    assert_eq!(
+        schema["statement"],
+        "Mara believes she is broken, and that wound follows her into command"
+    );
+    assert_eq!(
+        schema["summary"],
+        "Fires when writing Mara in command scenes: show her doubting herself aloud and crediting her squad while her choices hold firm"
+    );
+    assert_eq!(schema["summary_source"], "agent");
+    assert_eq!(schema["kind"], "schema");
+    assert_eq!(
+        schema["scope"],
+        serde_json::json!({"tags": ["mara", "wound"], "paths": ["manuscript"]})
+    );
+    assert_eq!(
+        schema["members"],
+        serde_json::json!([
+            "decision:1",
+            "decision:2",
+            "decision:3",
+            "decision:4",
+            "decision:5",
+            "decision:6"
+        ])
+    );
+    let confirmed_at = schema["origin"]["confirmed_at"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        schema["origin"],
+        serde_json::json!({
+            "proposal_id": 1,
+            "source": {"kind": "manual", "ref": null},
+            "proposed_at": proposed_at,
+            "confirmed_at": confirmed_at,
+            "session": "ses-book-1"
+        })
+    );
+
+    // Proposal is now marked confirmed and points to the new schema.
+    let props_out = engrams(&db)
+        .args(["schema", "proposals", "--status", "confirmed"])
+        .output()
+        .unwrap();
+    let props_json: Value = serde_json::from_slice(&props_out.stdout).unwrap();
+    let confirmed_props = props_json["proposals"].as_array().unwrap();
+    assert_eq!(confirmed_props.len(), 1);
+    assert_eq!(confirmed_props[0]["id"], 1);
+    assert_eq!(confirmed_props[0]["status"], "confirmed");
+    assert_eq!(confirmed_props[0]["schema_id"], schema_id);
+    assert_eq!(confirmed_props[0]["decided_at"], confirmed_at);
+
+    // Inspecting via `schema show` and `brief schema:<id>` shows origin, statement, and scope.
+    let show_out = engrams(&db)
+        .args(["schema", "show", "mara-broken-leader"])
+        .output()
+        .unwrap();
+    let show_json: Value = serde_json::from_slice(&show_out.stdout).unwrap();
+    assert_eq!(show_json["schema"]["origin"], schema["origin"]);
+    assert_eq!(show_json["schema"]["statement"], schema["statement"]);
+    assert_eq!(show_json["schema"]["scope"], schema["scope"]);
+    assert_eq!(show_json["schema"]["summary_source"], "agent");
+
+    let brief_out = engrams(&db)
+        .args(["brief", &format!("schema:{schema_id}")])
+        .output()
+        .unwrap();
+    let brief_json: Value = serde_json::from_slice(&brief_out.stdout).unwrap();
+    assert_eq!(brief_json["brief"]["origin"], schema["origin"]);
+    assert_eq!(brief_json["brief"]["statement"], schema["statement"]);
+    assert_eq!(brief_json["brief"]["scope"], schema["scope"]);
+
+    // 2. When the proposed name is taken before confirmation, confirm saves under the
+    // next free variant (`mara-broken-leader-2`) and reports `renamed_from`.
+    let prop2_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Aether draws chill iron and require salt-iron grounding rings",
+            "--summary",
+            "When writing aether casting: show frost and salt-iron grounding",
+            "--members",
+            "decision:13,decision:14,decision:15,decision:16",
+        ])
+        .output()
+        .unwrap();
+    assert!(prop2_out.status.success());
+    let prop2_json: Value = serde_json::from_slice(&prop2_out.stdout).unwrap();
+    assert_eq!(
+        prop2_json["name_conflict"],
+        serde_json::json!({"with": "schema", "id": schema_id})
+    );
+
+    let conf2_out = engrams(&db)
+        .args(["schema", "confirm", "proposal:2"])
+        .output()
+        .unwrap();
+    assert!(conf2_out.status.success());
+    let conf2: Value = serde_json::from_slice(&conf2_out.stdout).unwrap();
+    assert_eq!(conf2["schema"]["name"], "mara-broken-leader-2");
+    assert_eq!(conf2["renamed_from"], "mara-broken-leader");
+}
+
+#[test]
+fn test_schema_proposal_ac8_scan_and_confirm_cutover_and_session_close_propose_command() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // 1. `engrams schema scan --apply` is rejected as an unknown flag.
+    let apply_out = engrams(&db)
+        .args(["schema", "scan", "--apply"])
+        .output()
+        .unwrap();
+    assert!(
+        !apply_out.status.success(),
+        "schema scan --apply must be rejected"
+    );
+    let apply_stderr = String::from_utf8_lossy(&apply_out.stderr);
+    assert!(
+        apply_stderr.contains("--apply"),
+        "error must name the unknown --apply flag: {apply_stderr}"
+    );
+
+    // 2. Running `engrams schema scan` three times stages gate-passing detector groups
+    // and creates no schemas.
+    for _ in 0..3 {
+        let scan_out = engrams(&db).args(["schema", "scan"]).output().unwrap();
+        assert!(scan_out.status.success());
+        let scan_json: Value = serde_json::from_slice(&scan_out.stdout).unwrap();
+        assert!(scan_json["candidates"].as_array().is_some());
+        assert!(scan_json.get("applied").is_none());
+        assert!(scan_json.get("skipped").is_none());
+    }
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let schema_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schemas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(schema_count, 0, "scan must create no schema");
+    }
+
+    // Stage a gate-passing schema-kind group explicitly so its signature is deterministic.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_candidates \
+             (cluster_sig, member_keys_json, density, stability_count, reward_hits, first_seen_at, last_seen_at, kind) \
+             VALUES ('decision:1,decision:2,decision:3', '[\"decision:1\",\"decision:2\",\"decision:3\"]', \
+                     0.9, 3, 2, '2026-09-01T00:00:00Z', '2026-09-15T00:00:00Z', 'schema')",
+            [],
+        )
+        .unwrap();
+    }
+
+    // 3. Asking to confirm a detector group directly fails with the propose --from command.
+    let direct_out = engrams(&db)
+        .args(["schema", "confirm", "decision:1,decision:2"])
+        .output()
+        .unwrap();
+    assert!(!direct_out.status.success());
+    let direct_err: Value = serde_json::from_slice(&direct_out.stderr).unwrap();
+    assert_eq!(
+        direct_err["error"],
+        "detector groups are evidence, not schemas: run engrams schema propose --from decision:1,decision:2 --statement ... --summary ..."
+    );
+
+    // 4. `session close` offers a ready-to-fill `propose_command` for each group instead of `confirm_command`.
+    let close_out = engrams(&db)
+        .args(["session", "close", "--note", "ac8 check"])
+        .output()
+        .unwrap();
+    assert!(close_out.status.success());
+    let close_json: Value = serde_json::from_slice(&close_out.stdout).unwrap();
+    let opps = close_json["schema_opportunities"].as_array().unwrap();
+    assert!(
+        !opps.is_empty(),
+        "expected schema_opportunities: {close_json}"
+    );
+    for opp in opps {
+        let cmd = opp["propose_command"].as_str().unwrap();
+        assert!(
+            cmd.starts_with("engrams schema propose --from ")
+                && cmd.contains(" --name ")
+                && cmd.ends_with(
+                    " --statement \"<claim>\" --summary \"When <condition>: <directive>\""
+                ),
+            "unexpected propose_command: {cmd}"
+        );
+        assert!(opp.get("confirm_command").is_none());
+    }
 }

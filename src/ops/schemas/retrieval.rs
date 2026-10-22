@@ -97,6 +97,47 @@ pub fn reward_hits(conn: &Connection) -> Result<HashMap<i64, i64>> {
         .collect())
 }
 
+pub(crate) fn parse_scope(scope_json: &str) -> super::propose::Scope {
+    serde_json::from_str(scope_json).unwrap_or_default()
+}
+
+/// Provenance joined from `schema_proposals` for a confirmed schema, or `null`
+/// for schemas confirmed before v16.
+pub(crate) fn origin_for_schema(conn: &Connection, schema_id: i64) -> Result<Value> {
+    let row = conn
+        .query_row(
+            "SELECT id, source_kind, source_ref, created_at, decided_at, session \
+             FROM schema_proposals \
+             WHERE schema_id = ?1 AND status = 'confirmed' \
+             ORDER BY id DESC LIMIT 1",
+            rusqlite::params![schema_id],
+            |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                    r.get::<_, Option<String>>(5)?,
+                ))
+            },
+        )
+        .optional()?;
+    Ok(match row {
+        Some((proposal_id, kind, source_ref, proposed_at, confirmed_at, session)) => json!({
+            "proposal_id": proposal_id,
+            "source": {
+                "kind": kind,
+                "ref": source_ref,
+            },
+            "proposed_at": proposed_at,
+            "confirmed_at": confirmed_at,
+            "session": session,
+        }),
+        None => Value::Null,
+    })
+}
+
 /// Prime's leading schema block: top-K (K = [`PRIME_SCHEMA_K`]) active
 /// schemas. With target paths or tags (spec 0005 AC-6), schemas whose member
 /// anchors resolve to a path or whose centroid tags overlap the tag parts rank
@@ -117,7 +158,7 @@ pub fn prime_block(
     tags: &[String],
 ) -> Result<Vec<Value>> {
     let mut stmt = conn.prepare(
-        "SELECT s.id, s.name, s.summary, s.summary_source, s.status, s.kind \
+        "SELECT s.id, s.name, s.statement, s.summary, s.summary_source, s.scope_json, s.status, s.kind \
          FROM schemas s WHERE s.status = 'active'",
     )?;
     let reward = reward_hits(conn)?;
@@ -128,10 +169,12 @@ pub fn prime_block(
         Ok(RankedSchema {
             id: r.get(0)?,
             name: r.get(1)?,
-            summary: r.get(2)?,
-            summary_source: r.get(3)?,
-            status: r.get(4)?,
-            kind: r.get(5)?,
+            statement: r.get(2)?,
+            summary: r.get(3)?,
+            summary_source: r.get(4)?,
+            scope_json: r.get(5)?,
+            status: r.get(6)?,
+            kind: r.get(7)?,
         })
     })?;
     let mut ranked: Vec<(usize, i64, i64, RankedSchema)> = Vec::new();
@@ -158,8 +201,10 @@ pub fn prime_block(
             json!({
                 "id": s.id,
                 "name": s.name,
+                "statement": s.statement,
                 "summary": s.summary,
                 "summary_source": s.summary_source,
+                "scope": parse_scope(&s.scope_json),
                 "status": s.status,
                 "kind": s.kind,
                 "reward_hits": hits,
@@ -173,8 +218,10 @@ pub fn prime_block(
 struct RankedSchema {
     id: i64,
     name: String,
+    statement: Option<String>,
     summary: String,
     summary_source: String,
+    scope_json: String,
     status: String,
     kind: String,
 }
@@ -278,22 +325,24 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
         return Ok(Vec::new());
     }
     let mut stmt = conn.prepare(
-        "SELECT s.id, s.name, s.summary, s.summary_source, s.centroid_json \
+        "SELECT s.id, s.name, s.statement, s.summary, s.summary_source, s.scope_json, s.centroid_json \
          FROM schemas s WHERE s.status = 'active'",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok((
             r.get::<_, i64>(0)?,
             r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
+            r.get::<_, Option<String>>(2)?,
             r.get::<_, String>(3)?,
             r.get::<_, String>(4)?,
+            r.get::<_, String>(5)?,
+            r.get::<_, String>(6)?,
         ))
     })?;
     let reward = reward_hits(conn)?;
     let mut hits: Vec<(usize, i32, i64, i64, Value)> = Vec::new(); // overlap, agent, reward, id, row
     for r in rows {
-        let (id, name, summary, source, centroid_json) = r?;
+        let (id, name, statement, summary, source, scope_json, centroid_json) = r?;
         let centroid: Value = serde_json::from_str(&centroid_json).unwrap_or(Value::Null);
         let mut tag_parts: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         // `centroid()` writes tags as an object of tag → member count; the
@@ -321,8 +370,10 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
                 "type": "schema",
                 "id": id,
                 "name": name,
+                "statement": statement,
                 "summary": summary,
                 "summary_source": source,
+                "scope": parse_scope(&scope_json),
                 "overlap": overlap,
             }),
         ));
@@ -342,16 +393,34 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
 /// an agent needs to act on the concept without a second call.
 pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
     use anyhow::Context as _;
-    let row: (String, String, String, String, String) = conn
+    let row: (
+        String,
+        Option<String>,
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = conn
         .query_row(
-            "SELECT name, summary, summary_source, status, centroid_json \
+            "SELECT name, statement, summary, summary_source, scope_json, status, centroid_json \
              FROM schemas WHERE id = ?1",
             [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            },
         )
         .optional()?
         .with_context(|| format!("schema {id} not found"))?;
-    let centroid: Value = serde_json::from_str(&row.4).unwrap_or(Value::Null);
+    let centroid: Value = serde_json::from_str(&row.6).unwrap_or(Value::Null);
     let reward = reward_hits(conn)?.get(&id).copied().unwrap_or(0);
     let refs = member_refs(conn, id)?;
     let total = refs.len();
@@ -360,9 +429,11 @@ pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
     let mut payload = json!({
         "id": id,
         "name": row.0,
-        "summary": row.1,
-        "summary_source": row.2,
-        "status": row.3,
+        "statement": row.1,
+        "summary": row.2,
+        "summary_source": row.3,
+        "scope": parse_scope(&row.4),
+        "status": row.5,
         "centroid": centroid,
         "member_count": total,
         "members": members,
@@ -370,6 +441,7 @@ pub fn node_payload(conn: &Connection, id: i64) -> Result<Value> {
         "anchors": member_anchors(conn, id)?,
         "related_schemas": neighborhood(conn, id)?,
         "reward_hits": reward,
+        "origin": origin_for_schema(conn, id)?,
     });
     if cap < total {
         payload["total_members"] = json!(total);
@@ -731,7 +803,7 @@ pub fn active_for_members(conn: &Connection, members: &[(String, i64)]) -> Resul
         params_vec.push(item_id);
     }
     let sql = format!(
-        "SELECT DISTINCT s.id, s.name, s.summary, s.kind FROM schemas s \
+        "SELECT DISTINCT s.id, s.name, s.statement, s.summary, s.scope_json, s.kind FROM schemas s \
          JOIN context_links l ON l.relationship_type = 'member_of' \
           AND l.target_item_type = 'schema' AND l.target_item_id = s.id \
          WHERE s.status = 'active' AND ({}) ORDER BY s.id",
@@ -739,11 +811,14 @@ pub fn active_for_members(conn: &Connection, members: &[(String, i64)]) -> Resul
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |r| {
+        let scope_json: String = r.get(4)?;
         Ok(json!({
             "id": r.get::<_, i64>(0)?,
             "name": r.get::<_, String>(1)?,
-            "summary": r.get::<_, String>(2)?,
-            "kind": r.get::<_, String>(3)?,
+            "statement": r.get::<_, Option<String>>(2)?,
+            "summary": r.get::<_, String>(3)?,
+            "scope": parse_scope(&scope_json),
+            "kind": r.get::<_, String>(5)?,
         }))
     })?;
     rows.collect::<std::result::Result<Vec<_>, _>>()
