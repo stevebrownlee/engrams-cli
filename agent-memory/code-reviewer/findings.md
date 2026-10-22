@@ -430,3 +430,22 @@ Verified clean (no findings):
 - Recorded Gate 3 verification filters (`--bin engrams schemas`, `--test cli schema`, `--test memory schema`) match all new and updated unit, CLI, and memory integration tests for Phase 2.
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T14:45:00Z — phase 3 of spec 0007-reviewed-schema-proposals (schema scope matching, matched_by, refine flags, and prime proposals)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - JSON-only output on all modified subcommands (`advise`, `prime`, `query`, `schema refine`).
+  - Phase 1's remaining `#[allow(dead_code)]` seam attributes in `src/ops/schemas/propose.rs` (`MatchVia`, `MatchVia::as_str`, `PENDING_IN_PRIME`) removed now that Phase 3 wires all three; zero `#[allow(dead_code)]` attributes remain across `files_touched`.
+  - Explicit `--db` used across all CLI integration tests; no live database or commit-excluded paths touched.
+- All Phase 3 ACs (`AC-5` CLI `advise` half, `AC-6`, `AC-9`, `AC-11`) and API surface items 5, 8 (`matched_by`), and 9 (`pending_proposals`) met in code and pinned with behavioral unit tests (`src/ops/schemas/retrieval.rs`, `src/ops/schemas/list.rs`, `src/ops/schemas/assimilate.rs`, `src/ops/schemas/propose.rs`) and CLI integration tests (`tests/cli.rs`):
+  - `AC-5` (CLI `advise`): `retrieval::active_for_scope` matches `scope.paths` with exact-or-under semantics (`path_matches`) and emits `"matched_by": {"via": "scope_path", "value": ...}`. `advise::handle` unions `active_for_members` and `active_for_scope`, deduplicating by schema ID so `member_anchor` takes priority over `scope_path`, and ensures `member_anchor` `matched_by.value` resolves to an anchor matching the advised path. Pinned by `active_for_scope_matches_exact_and_under_and_sets_matched_by` (including negative `manuscripts/ch19.md` test) and `test_schema_proposal_ac5_and_ac6_scope_matching_in_advise_query_and_prime`.
+  - `AC-6`: `path_match_counts` and `tag_match_counts` (`prime`), `centroid_match` (`query`), and `match_schemas` (`assimilate`) include `scope.paths` and `scope.tags` in schema vocabulary and emit `matched_by` in priority order (`member_anchor` -> `scope_path` -> `scope_tag` -> `member_tag`), omitting `matched_by` in unscoped `prime` (`context_matches == 0`). Pinned by `prime_block_and_centroid_match_use_scope_and_prioritize_matched_by`, `match_schemas_includes_scope_tags_and_paths`, and `test_schema_proposal_ac5_and_ac6_scope_matching_in_advise_query_and_prime`.
+  - `AC-9`: `SchemaCmd::Refine` gains `--statement`, `--scope-tags`, and `--scope-paths`. `list::refine` requires at least one refine flag, rejects empty `--statement`, preserves `summary` and `summary_source` when no summary/trigger/rule flags are passed, and preserves the untouched half of `scope` when only `--scope-tags` or `--scope-paths` is supplied. Pinned by `refine_updates_statement_and_scope_preserving_untouched_fields` and `test_schema_proposal_ac9_refine_claim_and_scope_on_existing_schema`.
+  - `AC-11`: `propose::pending_for_prime` queries `status = 'proposed'` ordered by `created_at ASC, id ASC LIMIT 3` (`PENDING_IN_PRIME`) with `id`, `name`, `statement`, `evidence`, `created_at`, `confirm_command`, and `reject_command`, and `prime::build_payload` emits `pending_proposals` immediately after `schemas` when non-empty (omitting the key when empty). Pinned by `pending_for_prime_orders_oldest_first_and_caps_at_three` and `test_schema_proposal_ac11_prime_surfaces_pending_proposals_oldest_first_capped_at_three`.
+- Rules 002–006 and `./target/debug/engrams check --paths src` (0 violations across 60 files) satisfied: lookup maps in `prime_block`, `path_match_counts`, and `tag_match_counts` consumed by `remove()` (rule 004), `MatchVia::as_str` returns `&'static str` (rule 006), and dynamic SQL parameters in `retrieval.rs` borrow via `Vec<&dyn ToSql>` + `params_from_iter` (rule 002).
+- Recorded Gate 3 verification filters (`--bin engrams schemas`, `--test cli schema`, `--test cli advise`, `--test cli prime`) verified non-vacuous via `-- --list` (75, 30, 3, and 7 tests matched respectively, covering all new Phase 3 unit and CLI tests).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
