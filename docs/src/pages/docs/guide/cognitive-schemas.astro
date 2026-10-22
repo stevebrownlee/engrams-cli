@@ -108,13 +108,14 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 
   <h2 class="reveal">Proposing, reviewing, and refining a schema</h2>
   <p>
-    Schemas are never auto-promoted in bulk. An agent proposes a schema over cited notes (or seeds the notes from a
-    detector group via <code>--from &lt;sig-prefix&gt;</code>), Engrams validates the evidence and wording gates, and a
+    Schemas are never auto-promoted in bulk. An agent proposes a schema over cited notes (seeded from a
+    session-close prompt with <code>--thread &lt;tag&gt; --lens &lt;name&gt; --members ...</code> or a detector group via
+    <code>--from &lt;sig-prefix&gt; --lens &lt;name&gt;</code>), Engrams validates the evidence and wording gates, and a
     person confirms or rejects the proposal:
   </p>
-  <pre><code># 1. Agent proposes a schema (from a staged detector group or explicit --members)
+  <pre><code># 1. Agent proposes a schema (from a session-close prompt, a staged detector group, or explicit --members)
 engrams schema propose \
-  --from decision:58 \
+  --from decision:58 --lens software \
   --name error-envelope \
   --statement "Public fallible functions share one error envelope so callers never handle raw panics" \
   --trigger "adding or editing a fallible public function in Rust code" \
@@ -261,21 +262,25 @@ engrams schema confirm proposal:1</code></pre>
   <h2 class="reveal">The loop closes itself</h2>
   <p>
     You do not have to remember to look for schemas. Detection runs continuously in the background,
-    and <code>engrams session close</code> tells you two things at the exact moment a session ends:
+    and <code>engrams session close [--lens &lt;name&gt;]</code> (or preview-only
+    <code>engrams schema prompts [--lens &lt;name&gt;] [--limit &lt;n&gt;]</code>) tells you two things at the exact moment a session ends:
   </p>
   <ul>
     <li>
-      <strong>schema_opportunities</strong> — candidate evidence clusters that passed the formation gates and
-      do not overlap any schema you already confirmed. Each one arrives with a suggested name and a
-      ready-to-fill <code>propose_command</code> (<code>engrams schema propose --from &lt;sig-prefix&gt; ...</code>)
-      so the agent can draft a claim and instruction for your review. Any proposal left undecided at session
-      end is raised again in <code>pending_proposals</code> on the next <code>engrams prime</code> (oldest first, up to 3),
-      and rejected proposals are remembered so the same evidence is not proposed again until new notes arrive.
+      <strong>schema_prompts</strong> — up to three unexplained storylines drawn from recurring subject-tag threads
+      and gate-passing detector candidates (of any label) that are not already covered by an active schema or pending
+      proposal. Each prompt lists its <code>evidence</code> in reading order (<code>story</code> natural-sorts by first
+      anchor path so <code>ch2</code> precedes <code>ch10</code>; <code>time</code> sorts chronologically), asks
+      project-type <code>questions</code> from the active lens (built-in <code>general</code>, <code>fiction</code>, or
+      <code>software</code>, or a workspace file at <code>&lt;root&gt;/engrams/lenses/&lt;name&gt;.json</code>), and
+      includes a ready-to-fill <code>propose_command</code> (<code>engrams schema propose --thread &lt;tag&gt; --lens &lt;name&gt; --members ...</code>
+      or <code>--from &lt;sig-prefix&gt; --lens &lt;name&gt; ...</code>). Session close records each prompt's evidence in
+      <code>schema_prompt_notices</code> so a prompt stays quiet until a newly created note joins its storyline.
     </li>
     <li>
-      <strong>schema_value</strong> — how many retrievals this session were guided by schemas, and
-      how many distinct schemas did the guiding. This is the payoff made visible: schemas are doing
-      work, here is the count.
+      <strong>schema_value</strong> — <code>guided_retrievals</code>, <code>distinct_schemas</code>, and
+      <code>schemas: [&#123;"id", "name", "guided"&#125;]</code> naming each schema that guided retrieval during the
+      session, most-used first. This is the payoff made visible: which schemas did the work, and how many times.
     </li>
   </ul>
   <p>
@@ -284,11 +289,22 @@ engrams schema confirm proposal:1</code></pre>
     visible too, and worth refining with a broader <code>--scope-paths</code> / <code>--scope-tags</code> or retiring.
   </p>
 
+  <h3 class="reveal">The six-step agent loop</h3>
+  <ol>
+    <li>When <code>schema_prompts</code> is non-empty, read each prompt's evidence and answer its questions.</li>
+    <li>Draft one claim, instruction, and scope, and run <code>schema propose</code>.</li>
+    <li>Show the person the claim, the instruction, the scope, and the notes behind them in plain words, and ask whether to confirm, edit, or reject.</li>
+    <li>Run <code>schema confirm</code> or <code>schema reject</code> with the person's own words.</li>
+    <li>Raise <code>pending_proposals</code> from <code>prime</code> the same way at session start.</li>
+    <li>When a surfaced schema shapes your work, name it in your reply.</li>
+  </ol>
+
   <div class="callout note reveal">
-    <strong>The loop:</strong> <code>schema scan</code> stages the evidence cluster, <code>schema propose</code> writes
-    the claim, instruction, and scope, <code>schema confirm proposal:&lt;id&gt;</code> seals it with human review,
-    and <code>advise</code> / <code>prime</code> / <code>query</code> deliver the schema wherever its scope or members
-    apply. Each session that follows the schema without re-reading the underlying memories is the compounding payoff.
+    <strong>The loop:</strong> <code>session close</code> (or <code>schema prompts</code>) surfaces unexplained
+    storylines with lens questions, <code>schema propose</code> writes the claim, instruction, and scope,
+    <code>schema confirm proposal:&lt;id&gt;</code> seals it with human review, and <code>advise</code> /
+    <code>prime</code> / <code>query</code> deliver the schema wherever its scope or members apply. Each session
+    that follows the schema without re-reading the underlying memories is the compounding payoff.
   </div>
 </DocsLayout>
 

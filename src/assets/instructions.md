@@ -15,8 +15,8 @@ Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and `camelCase
 
 ### When to Consult Engrams
 
-- **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context (including active schemas with `matched_by` and up to 3 oldest `pending_proposals`).
-- **Before editing files:** `engrams advise <paths>` — get active schemas (`statement`, `summary`, `scope`, `matched_by`), actionable constraints, and violations for those files (compact; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
+- **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context (including active schemas with `matched_by` and up to 3 oldest `pending_proposals`; raise any `pending_proposals` with the person the same way as at session end).
+- **Before editing files:** `engrams advise <paths>` — get active schemas (`statement`, `summary`, `scope`, `matched_by`), actionable constraints, and violations for those files (compact; `--staged` for `git add`ed). When a surfaced schema shapes your work, name it in your reply. For full context with scores, use `engrams relevant <paths>`.
 - **Before designing or fixing:** `engrams brief "<topic>"` · `engrams query "<topic>" --full` · `engrams decision list --filter "<term>"` — composite context in one call; avoid litigating settled choices.
 - **When you make a design choice:** `engrams decision log --summary "..." [--contract "..."] --rationale "..." --tags a,b --anchor <path> [--pr <n>]` — log immediately, not at session end. Always declare `--contract` (signatures, struct shapes) when introducing an abstraction. A contradiction gate blocks near-duplicate active decisions and suggests `supersedes`/`conflicts_with`; resolve inline with `--supersedes <id>` / `--conflicts-with <id>` (or `--force` to bypass). To supersede after the fact: `engrams decision supersede <old-id> --by <new-id>`.
 - **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor <path>` — make it machine-enforceable, not just prose.
@@ -30,7 +30,7 @@ Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and `camelCase
 | Composite read | `engrams brief <node\|query> [--depth 1..3]` — summary, contract, anchors, symbols, 1-hop neighbors |
 | Usage telemetry | `engrams usage [--since <ts\|2w>] [--daily] [--misses]` — retrieval counts and zero-hit query ranking |
 | Knowledge coverage | `engrams coverage <paths> [--diff <base>...HEAD]` — fraction anchored, dead anchors, median hops |
-| Session ROI & PR gate | `engrams session close [--reads-skipped <n>] [--reads-required <n>] [--tokens-saved <n>] [--pr <n>]` |
+| Session ROI & PR gate | `engrams session close [--reads-skipped <n>] [--reads-required <n>] [--tokens-saved <n>] [--pr <n>] [--lens <name>]` |
 | Session history | `engrams session history` — cumulative reads saved and recent close rollups |
 | Decision curation | `engrams decision stats [--most-accessed] [--never-accessed] [--limit <n>]` |
 | PR reverse lookup | `engrams pr find <number\|url>` — which decisions/patterns reference a PR |
@@ -42,7 +42,8 @@ Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and `camelCase
 | Attach PR reference | `engrams pr add --type <decision\|system-pattern> --id <n> --pr <n_or_url>` |
 | Promote repeated progress into patterns | `engrams consolidate [--apply]` — propose by default; `--apply` inserts with evidence links + confidence |
 | Schemas (concepts over items) | `engrams schema list` (confirmed, agent-authored first; `guided` = times surfaced) · `engrams schema show <id-or-name>` (statement, summary, scope, origin, members, centroid) |
-| Propose a schema | `engrams schema propose --statement "..." [--summary "..." \| --trigger "..." --rule "..."] [--members <kind:id,...> \| --from <sig-prefix>] [--name <slug>] [--scope-tags a,b] [--scope-paths p,q] [--contrary <kind:id,...>] [--session <key>] [--force]` — stages a reviewed proposal over ≥3 current notes across ≥2 files or days |
+| Preview schema prompts | `engrams schema prompts [--lens <name>] [--limit <n>]` — preview up to 3 session-close prompts (subject-tag threads and gate-passing candidates with lens questions in reading order and ready-to-fill `propose_command`) without recording notices; lenses: `general` (default), `fiction`, `software`, or `<root>/engrams/lenses/<name>.json` |
+| Propose a schema | `engrams schema propose --statement "..." [--summary "..." \| --trigger "..." --rule "..."] [--members <kind:id,...> \| --from <sig-prefix>] [--thread <tag>] [--lens <name>] [--name <slug>] [--scope-tags a,b] [--scope-paths p,q] [--contrary <kind:id,...>] [--session <key>] [--force]` — stages a reviewed proposal over ≥3 current notes across ≥2 files or days |
 | Review schema proposals | `engrams schema proposals [--status proposed\|confirmed\|rejected\|all]` · `engrams schema confirm proposal:<id>` (or `confirm <schema-id-or-name>` to re-confirm) · `engrams schema reject proposal:<id> [--reason "..."]` |
 | Refine a schema | `engrams schema refine <id-or-name> [--statement "..." --scope-tags a,b --scope-paths p,q --summary "..." \| --trigger "..." --rule "..."]` — update claim, scope, or agent-authored summary |
 | Scan for candidates | `engrams schema scan` — detect and stage candidate evidence clusters from the graph (propose from them via `schema propose --from <sig-prefix>`) |
@@ -69,7 +70,13 @@ Before declaring done:
 2. `link add` new items (`implements`/`depends_on`/`supersedes`)
 3. `progress log --status Done`
 4. `active-context update --patch '<json>'`
-5. `engrams session close --reads-skipped <n> --reads-required <n> --tokens-saved <est> --pr <n>` — validates the PR has linked decisions and anchored files. The close payload also reports `schema_value` (schema-guided retrievals this session) and `schema_opportunities` (gate-passing detector groups, each with a ready-to-fill `propose_command`: `engrams schema propose --from <sig-prefix> --name <suggested> --statement "<claim>" --summary "When <condition>: <directive>"`): draft a proposal when appropriate and present its `confirm_command` / `reject_command` to the developer verbatim — confirmation is a human act
+5. `engrams session close --reads-skipped <n> --reads-required <n> --tokens-saved <est> --pr <n> [--lens <name>]` — validates the PR has linked decisions and anchored files. The close payload also reports `schema_value` (`guided_retrievals`, `distinct_schemas`, and `schemas: [{"id", "name", "guided"}]` most-used first) and `schema_prompts` (up to 3 unexplained storylines from subject-tag threads or detector candidates, each with lens `questions`, `evidence` in reading order, `spread`, and a ready-to-fill `propose_command`). Follow the schema agent loop:
+   1. When `schema_prompts` is non-empty, read each prompt's evidence and answer its questions.
+   2. Draft one claim, instruction, and scope, and run `schema propose`.
+   3. Show the person the claim, the instruction, the scope, and the notes behind them in plain words, and ask whether to confirm, edit, or reject.
+   4. Run `schema confirm` or `schema reject` with the person's own words.
+   5. Raise `pending_proposals` from `prime` the same way at session start.
+   6. When a surfaced schema shapes your work, name it in your reply.
 6. `engrams export`
 7. commit & push `engrams_export/`
 

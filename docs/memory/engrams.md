@@ -319,7 +319,7 @@ Audits the percentage of files with live anchored knowledge, flags dead file anc
 ### Session closure & PR validation (`engrams session close`)
 
 ```text
-engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000 --pr 42
+engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000 --pr 42 [--lens <name>]
 engrams session history
 ```
 
@@ -327,8 +327,8 @@ Records reads skipped vs required and token ROI rollups. When `--pr` is provided
 
 The close payload also carries the schema adoption surface:
 
-- `schema_value`: `{guided_retrievals, distinct_schemas}` — how often schemas guided retrieval in the session window. Derived from `retrieval_surfaces` telemetry; omitted entirely when no session key is known (manual close without `--session`/`ENGRAMS_SESSION`), never silently substituted with an all-time count.
-- `schema_opportunities`: unconfirmed detector groups that passed formation gates, kind-labeled `schema`, sit on unclaimed territory, and have not been notified (or drifted since notification via `notified_at < last_seen_at`). Each carries `suggested_name` and a ready-to-fill `propose_command` (`engrams schema propose --from <sig-prefix> --name <suggested> --statement "<claim>" --summary "When <condition>: <directive>"`); close stamps `notified_at` in the same write path so an unchanged candidate is not re-nagged.
+- `schema_value`: `{guided_retrievals, distinct_schemas, schemas: [{id, name, guided}]}` — how often schemas guided retrieval in the session window, plus the per-schema breakdown ordered most-used first (`guided DESC, id ASC`). Derived from `retrieval_surfaces` telemetry.
+- `schema_prompts`: up to 3 (`PROMPTS_PER_CLOSE = 3`) unexplained storylines ranked from two evidence sources — subject-tag threads (`>= 3` active notes, not in the lens's `ignore_tags`, `<= 80%` of tagged active notes, and not already covered by an active schema's or pending proposal's `scope.tags`) and gate-passing `schema_candidates` of any `kind` (with at least half their knowledge members uncovered). Each prompt carries `key` (`thread:<tag>` or `candidate:<sig-prefix>`), `source` (`{"kind": "thread"|"candidate", "ref": ...}`), `label` (`null` for threads, detector kind label for candidates), `lens`, `questions` (with `{subject}` filled in), `evidence` (notes in the lens's reading order: `story` natural-sorts by first anchor path via `natural_cmp` so `ch2` precedes `ch10`, or `time` by timestamp), `spread` (`{notes, files, days}`), and a ready-to-fill `propose_command`. Session close records shown prompts' evidence in `schema_prompt_notices`; a prompt is held back when an earlier notice or rejected proposal overlaps its evidence at Jaccard `>= 0.7` and none of its notes was created after `notified_at`/`decided_at`.
 
 ### PR reverse lookup (`engrams pr find`)
 
@@ -347,7 +347,8 @@ Three stores stay strictly separated:
 | Store | Holds | Written by | Surfaced to agents |
 |---|---|---|---|
 | `schema_candidates` | detector evidence groups | `schema scan` | never (staging only) |
-| `schema_proposals` | claim, instruction, scope, cited notes snapshot, provenance, decision | `propose`, `confirm`, `reject` | pending ones in `prime` (`pending_proposals`, oldest first, up to 3) |
+| `schema_proposals` | claim, instruction, scope, cited notes snapshot, provenance (`source_kind`, `source_ref`, `lens`), decision | `propose`, `confirm`, `reject` | pending ones in `prime` (`pending_proposals`, oldest first, up to 3) |
+| `schema_prompt_notices` | shown prompt keys, sorted evidence snapshot (`evidence_json`), `notified_at` | `session close` | never (recurrence suppression only) |
 | `schemas` | confirmed concepts | `confirm`, `refine` | `prime`, `advise`, `query`, `brief`, `schema list`/`show`, omp advisor extension |
 
 ### Commands (`engrams schema ...`)
@@ -357,12 +358,18 @@ engrams schema scan
   # Detect clusters from the graph and upsert candidate evidence groups in schema_candidates.
   # Returns {"candidates": [...]}. Never creates schemas directly (no --apply flag).
 
+engrams schema prompts [--lens <name>] [--limit <n>]
+  # Preview session-close schema prompts (default lens: general, default limit: 3) without writing notices.
+  # Returns {"status": "success", "lens": "<name>", "prompts": [...]}.
+
 engrams schema propose --statement "<claim>" \
   [--summary "Fires when <condition>: <directive>" | --trigger "<condition>" --rule "<directive>"] \
   [--members <kind:id,...> | --from <candidate-sig-prefix>] \
+  [--thread <tag>] [--lens <name>] \
   [--name <slug>] [--scope-tags a,b] [--scope-paths p,q] \
   [--contrary <kind:id,...>] [--session <key>] [--force]
   # Validate evidence & wording gates and stage a pending proposal in schema_proposals.
+  # --thread <tag> sets source_kind = 'thread', source_ref = <tag>; --lens <name> records the lens used.
 
 engrams schema proposals [--status proposed|confirmed|rejected|all]
   # List proposals (default: proposed) with enriched members (capped at 20, with truncated/total_members).
@@ -407,7 +414,7 @@ When `--scope-tags` is omitted, it defaults to tags shared by at least two cited
 
 - Every schema surfaced by `prime`, `advise`, or `query` includes `statement`, `scope`, and `"matched_by": {"via": "member_anchor" | "scope_path" | "scope_tag" | "member_tag", "value": "<match>"}` (the first reason matched in that priority order).
 - `advise` combines `active_for_members` (`member_anchor`) and `active_for_scope` (`scope_path` exact-or-under matching), so a confirmed schema fires for new files inside `scope.paths` before any note is anchored to them.
-- `schema show <target>` and `brief schema:<id>` include `"origin": {"proposal_id", "source": {"kind", "ref"}, "proposed_at", "confirmed_at", "session"}` (`null` for schemas confirmed before Schema v16).
+- `schema show <target>` and `brief schema:<id>` include `"origin": {"proposal_id", "source": {"kind": "manual" | "candidate" | "thread", "ref"}, "proposed_at", "confirmed_at", "session"}` (`null` for schemas confirmed before Schema v16).
 - `prime` surfaces up to 3 oldest undecided proposals in `"pending_proposals"` (each with `id`, `name`, `statement`, `evidence`, `created_at`, `confirm_command`, and `reject_command`; omitted when none are pending).
 - `export` and `import` round-trip all proposals via `<path>/schema_proposals/{id}.md` alongside schema `statement` and `scope_json` in `<path>/schemas/{id}.md`.
 
@@ -415,6 +422,21 @@ When `--scope-tags` is omitted, it defaults to tags shared by at least two cited
 
 `decision log`, `pattern log`, and `progress log` take `--schema <id|name>`: the new item is matched against active schemas' lexical centroids and scope vocabulary (fit gate 0.4, top 2 suggestions persisted to `schema_suggestions` with status `suggested`), and the explicit flag attaches `member_of` at write time. `--schema none` declines the fired suggestions. Suggestions are human/agent-confirmed — accepted or declined, never auto-attached.
 
+### Lenses (`general`, `fiction`, `software`)
+
+Lenses shape prompt questions, ignored generic tags, and evidence reading order (`order`: `"story"` or `"time"`):
+
+- Built-in lenses are compiled in from `src/assets/lenses/`: `general` (default, `order: "time"`), `fiction` (`order: "story"`, natural path sort via `natural_cmp`), and `software` (`order: "time"`).
+- A workspace file at `<root>/engrams/lenses/<name>.json` (`{name, description, questions, ignore_tags, order}`, parsed with `serde(deny_unknown_fields)`) overrides the built-in lens of the same name or defines a custom project lens.
+- Requesting an unknown lens fails with `{"error": "unknown lens '<name>': available general, fiction, software"}`; a malformed workspace lens file fails with `{"error": "lens file engrams/lenses/<name>.json: ..."}`.
+
 ### Adoption at session close and session start
 
-Detection runs continuously (`scan` stages candidates; drift tracking re-evaluates them), and `engrams session close` reports `schema_value` and `schema_opportunities` (each with a ready-to-fill `propose_command`). An agent drafts the proposal with `engrams schema propose`, and a person confirms (`engrams schema confirm proposal:<id>`) or rejects (`engrams schema reject proposal:<id> --reason "..."`) it; any proposal left undecided is raised again in `pending_proposals` on the next `engrams prime`.
+Detection runs continuously (`scan` stages candidates; drift tracking re-evaluates them), and `engrams session close [--lens <name>]` reports `schema_value` (including `schemas: [{id, name, guided}]`) and `schema_prompts` (up to 3 unexplained storylines with lens questions, ordered evidence, and a ready-to-fill `propose_command`). Agents follow a six-step loop:
+
+1. When `schema_prompts` is non-empty, read each prompt's evidence and answer its questions.
+2. Draft one claim, instruction, and scope, and run `schema propose`.
+3. Show the person the claim, the instruction, the scope, and the notes behind them in plain words, and ask whether to confirm, edit, or reject.
+4. Run `schema confirm` or `schema reject` with the person's own words.
+5. Raise `pending_proposals` from `prime` the same way at session start.
+6. When a surfaced schema shapes your work, name it in your reply.

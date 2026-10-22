@@ -282,15 +282,18 @@ engrams coverage --diff main...HEAD`}</code></pre>
   <h3>27. <code>session</code></h3>
   <p>Record session ROI rollups (reads skipped vs required) and enforce PR validation gates.</p>
   <pre><code>{`# Close session with PR validation gate
-engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000 --pr 42 [--note "..."]
+engrams session close --reads-skipped 14 --reads-required 2 --tokens-saved 70000 --pr 42 [--note "..."] [--lens <LENS>]
 
 # View session history and cumulative savings
 engrams session history`}</code></pre>
   <p>
-    The close payload also reports <code>schema_value</code> (schema-guided retrievals in the session
-    window; omitted when no session key is known) and <code>schema_opportunities</code> (unconfirmed
-    detector groups that passed formation gates, each with a ready-to-fill
-    <code>propose_command</code>: <code>engrams schema propose --from &lt;sig-prefix&gt; --name &lt;suggested&gt; --statement "&lt;claim&gt;" --summary "When &lt;condition&gt;: &lt;directive&gt;"</code>). See
+    The close payload also reports <code>schema_value</code> (<code>guided_retrievals</code>,
+    <code>distinct_schemas</code>, and <code>schemas: [&#123;"id", "name", "guided"&#125;]</code> ordered most-used first)
+    and <code>schema_prompts</code> (up to 3 unexplained storylines from subject-tag threads and gate-passing detector
+    groups, each with lens <code>questions</code>, <code>evidence</code> in reading order, <code>spread</code>, and a
+    ready-to-fill <code>propose_command</code>). Pass <code>--lens &lt;name&gt;</code> to select a built-in lens
+    (<code>general</code> default, <code>fiction</code>, <code>software</code>) or a workspace lens file at
+    <code>&lt;root&gt;/engrams/lenses/&lt;name&gt;.json</code>. See
     <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>.
   </p>
 
@@ -298,6 +301,8 @@ engrams session history`}</code></pre>
   <p>Form, propose, review, and manage cognitive schemas (higher-order concepts over knowledge items). Detector groups staged by <code>schema scan</code> are evidence; schemas are created only when a reviewed proposal is confirmed via <code>engrams schema confirm proposal:&lt;id&gt;</code>.</p>
   <pre><code>{`# Stage candidate evidence groups from the knowledge graph (never auto-promotes)
 engrams schema scan
+# Preview session-close schema prompts without recording notices (lenses: general, fiction, software, or <root>/engrams/lenses/<name>.json)
+engrams schema prompts [--lens <LENS>] [--limit <N>]
 
 # Propose a reviewed schema over >=3 current notes across >=2 files or days
 engrams schema propose \\
@@ -305,6 +310,7 @@ engrams schema propose \\
   --trigger "writing Mara under pressure" \\
   --rule "she doubts herself aloud and credits others, even as her actions grow stronger" \\
   [--members decision:4,decision:7,decision:9 | --from <CANDIDATE_SIG_PREFIX>] \\
+  [--thread mara] [--lens fiction] \\
   [--name mara-broken-leader] \\
   [--scope-tags mara] [--scope-paths manuscript] \\
   [--contrary decision:15] [--session <KEY>] [--force]

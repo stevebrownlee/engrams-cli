@@ -465,9 +465,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               <span class="cb-cmd">$ engrams session close --pr 42</span>
             </div>
             <pre class="cb-body"><code>&#123;
-  "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
-  "schema_opportunities": [
-    &#123;"propose_command": "engrams schema propose --from decision:88 --name performance-rules --statement \"&lt;claim&gt;\" --summary \"When &lt;condition&gt;: &lt;directive&gt;\""&#125;
+  "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2, "schemas": [&#123;"id": 1, "name": "performance-rules", "guided": 4&#125;]&#125;,
+  "schema_prompts": [
+    &#123;"key": "candidate:decision:88", "lens": "software", "propose_command": "engrams schema propose --from decision:88 --lens software --name performance-rules --statement \"&lt;claim&gt;\" --summary \"When &lt;condition&gt;: &lt;directive&gt;\""&#125;
   ]
 &#125;</code></pre>
           </div>
