@@ -333,3 +333,17 @@ for-agent/retrieving.astro confirmed (lead, callout, reveal, pre/code escapes).
 Gate 1 F-6 (guide/ section absent from sidebar) resolved by this phase.
 
 Counts: 2 findings = 0 severe, 1 moderate, 1 minor. PASS — continue.
+
+## 2026-10-21T16:25:00Z — phase 1 of spec 0006-workspace-scoped-git-and-safe-import (Workspace resolver + scoped commit, PR, and graph git calls)
+
+_No findings._
+
+Verified clean (no findings):
+- All Phase 1 ACs (`AC-1`, `AC-2`, `AC-4`, `AC-5`, `AC-6` PR-number resolution, `AC-7`) met in code and pinned with behavioral CLI tests in `tests/cli.rs` (including negative assertions: no shell-repo commit recorded, no shell-repo file in `code_nodes`, no `code::upsert_file` enrichment from shell CWD when `root` is `None`, non-zero exit + exact error message on numeric PR resolution without workspace, `"cochange_skipped": "no workspace"` on `graph rebuild`, and `"reason": "no workspace named"` on `graph ingest`).
+- `Workspace::head_sha` caches via `OnceLock<Option<String>>` per invocation; global `HEAD_SHA` `LazyLock` removed.
+- `workspace_root_from_db` strictly requires `<root>/engrams/context.db` and normalizes relative `engrams/context.db` parent `""` to `"."` so `git -C` never receives an empty path.
+- `PrCmd::Remove` propagates the missing-workspace error when given a numeric PR instead of silently falling back to `unwrap_or_else`.
+- Rules 002–006 and `engrams check --paths src` (0 violations across 59 files) satisfied; `git.rs` and `decision.rs` also cleaned up pre-existing rule 003/004 sites.
+- Recorded Gate 3 verification filters (`workspace_`, `test_pr_provenance`) verified non-vacuous via `-- --list` (6 and 2 tests matched respectively).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
