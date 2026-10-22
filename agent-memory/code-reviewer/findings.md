@@ -468,3 +468,18 @@ Verified clean (no findings):
 - Recorded Gate 3 verification filters (`--bin engrams transfer`, `--test memory schema`, `--test cli export`, `--test cli import`) verified non-vacuous via `-- --list` (2, 3, 6, and 9 tests matched respectively, covering all new Phase 4 unit, memory, and CLI tests).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T15:52:00Z — phase 5 of spec 0007-reviewed-schema-proposals (surface schemas and match reasons in omp advisor extension)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - Frozen migrations and Rust CLI untouched (`src/schema.rs`, `src/db.rs` not modified).
+  - `runAdvise` and all test helpers pass `--db` explicitly (`Bun.spawn([bin, "--db", dbPath, "advise", targetPath])`, `Bun.spawnSync([bin, "--db", dbPath, ...args])`); tests run against a temporary workspace (`mkdtempSync`), leaving the live workspace database untouched.
+- All Phase 5 ACs (`AC-5` advisor extension half, `AC-12`), API surface item 10, and both Verification strategy layers met in code and pinned in `src/assets/engrams-advisor.test.ts`:
+  - `AC-5` (advisor extension): `parseAdviseOutput` retains `schemas` alongside `constraints` and `violations`. `resolveFilePath` resolves relative paths containing a directory separator (and absolute paths within `cwd`) even when the file does not exist on disk yet, while still skipping ambiguous/unknown bare filenames. `formatSteer` renders each schema's name, claim (`statement`, omitted when `null` for pre-v16 schemas), instruction (`summary`), and `scope: paths ...; tags ... (matched: <via> <value>)` ahead of `engrams constraints for <path>:`, and `engramsAdvisor` sends the steer message when either `schemas` or `constraints` is non-empty. Pinned at both the pure-helper layer (`parseAdviseOutput`, `formatSteer`, `resolveFilePath`) and the `tool_call` integration layer (`AC-5: write of a new manuscript/ch19.md sends the confirmed protagonist schema steer`), including single-send deduplication across repeated writes in the same session.
+  - `AC-12`: `formatBlockReason` renders `formatSchemasSection(path, schemas)` ahead of `engrams check found error-severity violations in <path>.`, and `engramsAdvisor` deletes the blocked path key from `advisedPaths` so the retry after fixing the violation delivers the normal steer message. Pinned at both the pure-helper layer (`formatBlockReason puts schema entries before error-severity violations`) and the `tool_call` integration layer (`AC-12: edit of an existing chapter with an error-severity violation blocks with the schema first, then steers on retry`).
+- `.agents/rules/global.md` and `.agents/rules/clean-expressions.md` conventions satisfied: ASCII-banner section dividers and nested ternary in `resolveEngrams` removed; multi-branch logic extracted to module-scope helpers (`formatSchemaScope`, `formatSchemasSection`, `findEngramsBinary`, `resolveEngrams`, `extractPath`, `runAdvise`, plus exported `parseAdviseOutput`, `formatSteer`, `formatBlockReason`, `resolveFilePath`); JSDoc comments added only on non-trivial exported functions.
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
