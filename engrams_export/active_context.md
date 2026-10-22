@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-10-22T21:05:38Z
+created: 2026-10-22T22:30:08Z
 ---
 # Active Context
 
@@ -9,7 +9,7 @@ created: 2026-10-22T21:05:38Z
 {
   "name": "default",
   "content": {
-    "current_focus": "Spec 0007 complete at Gate 5; next: /spec-implement 0008",
+    "current_focus": "Completed Spec 0008 (Schema Prompts at Session Close) across all 4 phases and Gate 5 verification.",
     "current_task": "v0.10.0 complete: scoring, prune-decay, observability shipped. v0.11.0 advise+hooks shipped. Both verified, 85 tests pass.",
     "current_work": "Spec order: 0006 workspace-scoped git + safe import -> 0007 reviewed schema proposals (test book fixture, propose/confirm/reject, scope) -> 0008 session-close prompts + lenses. Research note custom_data research/human-level-schema-emergence-2026-10; decisions 93-97.",
     "decisions_this_session": [
@@ -80,9 +80,11 @@ created: 2026-10-22T21:05:38Z
     "last_spec_completed": "0007-reviewed-schema-proposals",
     "branch": "spec-0007-reviewed-schema-proposals",
     "pending": "open PR from Gate 5 description; then session close --pr",
-    "schema_runtime": "shipped in v0.15.0"
+    "schema_runtime": "shipped in v0.15.0",
+    "last_completed_spec": "0008-schema-prompts-at-session-close",
+    "schema_version": 17
   },
-  "version": 52,
-  "updated_at": "2026-10-22T21:05:38Z"
+  "version": 53,
+  "updated_at": "2026-10-22T22:30:08Z"
 }
 ```
