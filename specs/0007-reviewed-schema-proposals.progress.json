@@ -1,0 +1,202 @@
+{
+  "schema_version": "1",
+  "spec_id": "0007",
+  "spec_name": "reviewed-schema-proposals",
+  "spec_path": "specs/0007-reviewed-schema-proposals.md",
+  "created_at": "2026-10-22T12:05:00Z",
+  "updated_at": "2026-10-22T12:06:00Z",
+  "status": "in_progress",
+  "mode": "autonomous",
+  "current_phase": 1,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Add migration v16, test book fixture, and schema propose and reject",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [],
+      "exemplars": [
+        "src/schema.rs",
+        "src/db.rs",
+        "src/cli.rs",
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/gates.rs",
+        "src/ops/schemas/list.rs",
+        "src/ops/decision.rs",
+        "tests/fixtures/schema-kind-dogfood.json",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-1",
+        "AC-2",
+        "AC-4",
+        "AC-7"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams proposal",
+        "cargo test --test cli proposal",
+        "cargo test --test policy s1_fresh_db"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 2,
+      "title": "Confirm proposals into schemas and cut over scan and opportunities",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        1
+      ],
+      "exemplars": [
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/scan.rs",
+        "src/ops/schemas/opportunities.rs",
+        "src/ops/schemas/list.rs",
+        "src/ops/schemas/retrieval.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ],
+      "acceptance": [
+        "AC-3",
+        "AC-8"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema",
+        "cargo test --test memory schema"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 3,
+      "title": "Add schema scope matching, matched_by, refine flags, and prime proposals",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        2
+      ],
+      "exemplars": [
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/list.rs",
+        "src/ops/schemas/assimilate.rs",
+        "src/ops/advise.rs",
+        "src/ops/prime.rs",
+        "src/ops/query.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-5",
+        "AC-6",
+        "AC-9",
+        "AC-11"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams schemas",
+        "cargo test --test cli schema",
+        "cargo test --test cli advise",
+        "cargo test --test cli prime"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 4,
+      "title": "Export and import schema proposals and schema statement and scope",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        2,
+        3
+      ],
+      "exemplars": [
+        "src/ops/transfer/export.rs",
+        "src/ops/transfer/import.rs",
+        "tests/memory.rs",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-10"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test --bin engrams transfer",
+        "cargo test --test memory schema",
+        "cargo test --test cli export",
+        "cargo test --test cli import"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 5,
+      "title": "Surface schemas and match reasons in omp advisor extension",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        3
+      ],
+      "exemplars": [
+        "src/assets/engrams-advisor.ts",
+        "src/ops/install.rs",
+        "tests/fixtures/schema-kind-dogfood.json",
+        "tests/policy.rs"
+      ],
+      "acceptance": [
+        "AC-5",
+        "AC-12"
+      ],
+      "verification": [
+        "cargo build",
+        "bun test src/assets/",
+        "cargo test --test policy"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    },
+    {
+      "id": 6,
+      "title": "Update instructions and documentation for reviewed schema proposals",
+      "type": "standard",
+      "status": "pending",
+      "depends_on": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "exemplars": [
+        "AGENTS.md",
+        "src/assets/instructions.md",
+        "docs/memory/engrams.md",
+        "docs/src/pages/index.astro",
+        "docs/src/pages/docs/guide/cognitive-schemas.astro",
+        "docs/src/pages/docs/reference/cli.astro"
+      ],
+      "acceptance": [
+        "AC-8"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "npm --prefix docs run build"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": []
+    }
+  ]
+}
