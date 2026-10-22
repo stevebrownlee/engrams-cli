@@ -449,3 +449,22 @@ Verified clean (no findings):
 - Recorded Gate 3 verification filters (`--bin engrams schemas`, `--test cli schema`, `--test cli advise`, `--test cli prime`) verified non-vacuous via `-- --list` (75, 30, 3, and 7 tests matched respectively, covering all new Phase 3 unit and CLI tests).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T15:20:00Z — phase 4 of spec 0007-reviewed-schema-proposals (export and import schema proposals and schema statement and scope)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - Frozen migrations untouched (`src/schema.rs` and `src/db.rs` not modified).
+  - JSON-only output on `export` and `import` (`counts.schema_proposals` and `imported.schema_proposals` added).
+  - Explicit `--db` used across all CLI and memory integration tests; no live database or commit-excluded paths touched.
+  - Zero `#[allow(dead_code)]` attributes introduced.
+- Phase 4 AC (`AC-10`) and API surface item 11 met in code and pinned with behavioral unit tests (`src/ops/transfer/import.rs`), CLI integration test (`tests/cli.rs`), and memory integration test (`tests/memory.rs`):
+  - `export.rs` exports `statement` and `scope_json` on every `schemas/{id}.md` row and exports `schema_proposals/{id}.md` in the frontmatter-plus-JSON format with all 17 `schema_proposals` columns (`id`, `uuid`, `name`, `statement`, `summary`, `scope_json`, `members_json`, `contrary_json`, `evidence_json`, `source_kind`, `source_ref`, `session`, `status`, `decision_note`, `schema_id`, `created_at`, `decided_at`).
+  - `import.rs` restores `statement` and `scope_json` on `schemas` (falling back to `None` and `DEFAULT_SCOPE_JSON` for pre-v16 exports) and imports `schema_proposals` with evidence snapshots (`members_json`, `contrary_json`, `evidence_json`) verbatim while validating `schema_id` against `existing_by_table` (clearing `schema_id` to `None` and recording a `skipped_references` entry if the referenced schema is missing).
+  - Pinned across pending, confirmed, and rejected proposals and both proposal-backed and legacy/refined schemas by `proposal_and_schema_statement_scope_export_import_round_trip_ac10`, `import_legacy_schema_defaults_statement_and_scope_and_clears_missing_proposal_schema_id`, `test_schema_proposal_ac10_export_import_round_trips_proposals_and_schema_claims`, and `s17_export_import_round_trips_schema_proposals_statement_scope_and_origin_ac10` (including post-import `schema show` and `brief` `origin` checks, `advise` `scope_path` matching, and rejected-territory refusal on re-propose).
+- Rules 002–006 and `./target/debug/engrams check --paths src/ops/transfer/export.rs,src/ops/transfer/import.rs` (0 violations across 2 files) satisfied.
+- Recorded Gate 3 verification filters (`--bin engrams transfer`, `--test memory schema`, `--test cli export`, `--test cli import`) verified non-vacuous via `-- --list` (2, 3, 6, and 9 tests matched respectively, covering all new Phase 4 unit, memory, and CLI tests).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
