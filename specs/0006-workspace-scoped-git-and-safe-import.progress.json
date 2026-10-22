@@ -4,7 +4,7 @@
   "spec_name": "workspace-scoped-git-and-safe-import",
   "spec_path": "specs/0006-workspace-scoped-git-and-safe-import.md",
   "created_at": "2026-10-21T16:05:00Z",
-  "updated_at": "2026-10-21T17:04:00Z",
+  "updated_at": "2026-10-21T17:24:00Z",
   "status": "in_progress",
   "mode": "autonomous",
   "current_phase": 4,
@@ -163,7 +163,9 @@
       "id": 4,
       "title": "Validate import references before write and report skipped_references",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
+      "started_at": "2026-10-21T17:10:00Z",
+      "completed_at": "2026-10-21T17:24:00Z",
       "depends_on": [
         3
       ],
@@ -185,9 +187,16 @@
         "cargo test import_",
         "cargo test --bin engrams schemas"
       ],
+      "files_touched": [
+        "src/models.rs",
+        "src/ops/schemas/confirm.rs",
+        "src/ops/transfer/import.rs",
+        "tests/memory.rs"
+      ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [],
+      "commit_sha": "a4bf5345cb81ed8d96e9b56aaa3d1781a34e324d"
     }
   ]
 }

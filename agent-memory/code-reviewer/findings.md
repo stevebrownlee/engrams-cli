@@ -369,11 +369,28 @@ Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
 _No findings._
 
 Verified clean (no findings):
-+- `AC-9` and API surface item 7 met in code and pinned with `import_restores_code_references_by_path_ac9` in `tests/memory.rs`:
-+  - `export.rs` builds a `code_nodes` `id -> path` lookup once and attaches `path` to `code` schema members and `code` `retrieval_surfaces` rows, and `source_path` / `target_path` (plus YAML frontmatter keys) to manual `context_links` whose source/target endpoint is `code`.
-+  - `import.rs` accepts `root: Option<&Path>` (wired from `ws.root.as_deref()` in `src/ops/mod.rs`) and resolves `code` endpoints carrying a non-empty `source_path`, `target_path`, or `path` through `graph::code::upsert_file(&tx, ..., root)`, rewriting the stored ID in `context_links`, schema `member_of` links, and `retrieval_surfaces` while falling back to the raw ID when no path is present (backward-compatible with older exports).
-+  - `import_restores_code_references_by_path_ac9` seeds dummy `code_nodes` in the fresh target DB so the restored `src/ops` node gets a different `code_nodes.id` (`3 != 31975`), verifies `schema show performance-rules` surfaces the `code` member with `id == new_code_id` and `path == "src/ops"`, and verifies re-importing is idempotent across `member_of` links, `relates_to` target links, and `retrieval_surfaces`.
-+- Rules 002–006 and `engrams check --paths src/ops/mod.rs,src/ops/transfer/export.rs,src/ops/transfer/import.rs` (0 violations across 3 files) satisfied: `import.rs` keeps non-remapped IDs borrowed via `Cow::Borrowed` and allocates only when `upsert_file` remaps a `code` ID; `export.rs` borrows `&str` from `code_paths` across three consumer loops without `.get().clone()`.
-+- Recorded Gate 3 verification filters (`import_`, `--test memory s14`) verified non-vacuous via `-- --list` (matched 6 tests including `import_restores_code_references_by_path_ac9`, and `s14_export_import_preserves_schemas_with_identity_and_telemetry`).
+- `AC-9` and API surface item 7 met in code and pinned with `import_restores_code_references_by_path_ac9` in `tests/memory.rs`:
+  - `export.rs` builds a `code_nodes` `id -> path` lookup once and attaches `path` to `code` schema members and `code` `retrieval_surfaces` rows, and `source_path` / `target_path` (plus YAML frontmatter keys) to manual `context_links` whose source/target endpoint is `code`.
+  - `import.rs` accepts `root: Option<&Path>` (wired from `ws.root.as_deref()` in `src/ops/mod.rs`) and resolves `code` endpoints carrying a non-empty `source_path`, `target_path`, or `path` through `graph::code::upsert_file(&tx, ..., root)`, rewriting the stored ID in `context_links`, schema `member_of` links, and `retrieval_surfaces` while falling back to the raw ID when no path is present (backward-compatible with older exports).
+  - `import_restores_code_references_by_path_ac9` seeds dummy `code_nodes` in the fresh target DB so the restored `src/ops` node gets a different `code_nodes.id` (`3 != 31975`), verifies `schema show performance-rules` surfaces the `code` member with `id == new_code_id` and `path == "src/ops"`, and verifies re-importing is idempotent across `member_of` links, `relates_to` target links, and `retrieval_surfaces`.
+- Rules 002–006 and `engrams check --paths src/ops/mod.rs,src/ops/transfer/export.rs,src/ops/transfer/import.rs` (0 violations across 3 files) satisfied: `import.rs` keeps non-remapped IDs borrowed via `Cow::Borrowed` and allocates only when `upsert_file` remaps a `code` ID; `export.rs` borrows `&str` from `code_paths` across three consumer loops without `.get().clone()`.
+- Recorded Gate 3 verification filters (`import_`, `--test memory s14`) verified non-vacuous via `-- --list` (matched 6 tests including `import_restores_code_references_by_path_ac9`, and `s14_export_import_preserves_schemas_with_identity_and_telemetry`).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-21T17:22:00Z — phase 4 of spec 0006-workspace-scoped-git-and-safe-import (validate import references before write and report skipped_references)
+
+_No findings._
+
+Verified clean (no findings):
+- `AC-10`, `AC-11`, and API surface item 8 met in code and pinned with `import_skips_missing_references_preserves_existing_rows_and_scans_ac10_ac11` in `tests/memory.rs`:
+  - `kind_table` moved from `src/ops/schemas/confirm.rs` to `src/models.rs` returning `Option<&'static str>` (rule 006) and re-exported in `confirm.rs`.
+  - `import.rs` parses all export files up front (sorted deterministically by filename), inserts entity rows (`decisions`, `progress_entries` with `parent_id = NULL`, `system_patterns`, `custom_data`, `schemas`), and queries actual post-insert IDs via `existing_ids_in_table(&tx, ...)` using borrowed `Vec<&dyn rusqlite::ToSql>` + `rusqlite::params_from_iter` and `crate::ops::sql_placeholders` in 900-ID chunks (rules 002, 005).
+  - Querying post-insert IDs in the transaction accurately handles `ON CONFLICT(name)` / `ON CONFLICT(category, key)` updates where a colliding pattern/custom_data row keeps its pre-existing ID rather than creating the exported ID (pinned by `patterns/2.md` id 50 colliding with pre-existing id 5 and skipping `anchors/50.md`).
+  - Missing `progress_entries.parent_id` imports the entry with `parent_id = NULL` and records `{"file": ..., "reference": "progress_entry:<pid>", "reason": "parent missing; entry imported without its parent link"}`.
+  - Reference rows (`context_links`, `item_anchors`, schema `members`, embedded and standalone `schema_suggestions`, and `retrieval_surfaces`) validate all endpoints before write; omitted rows are never inserted, so `INSERT OR REPLACE` never displaces pre-existing rows at the same ID (pinned for `item_anchors` id 41 and `context_links` id 42), and `imported` counts exclude skipped rows.
+  - `engrams schema scan` completes and reports candidates on the imported database after skipping dangling references (`AC-11`).
+- Rules 002–006 and `./target/debug/engrams check --paths src/models.rs,src/ops/schemas/confirm.rs,src/ops/transfer/import.rs` (0 violations across 3 files) satisfied.
+- Recorded Gate 3 verification filters (`import_`, `--bin engrams schemas`) verified non-vacuous via `-- --list` (7 and 74 tests matched respectively, including `import_skips_missing_references_preserves_existing_rows_and_scans_ac10_ac11`).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
