@@ -382,24 +382,24 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             <div class="lc-code"><code>$ engrams schema scan</code></div>
           </div>
 
-          <!-- Step 2: Defines -->
+          <!-- Step 2: Proposes -->
           <div class="loop-card">
-            <h3>2. Defines</h3>
+            <h3>2. Proposes</h3>
             <p>
-              At session close, Engrams nudges you with ready-to-run confirm commands, and authoring enforces
-              strict trigger-and-rule contracts.
+              At session close, Engrams surfaces candidate clusters with ready-to-fill propose commands. Your agent
+              drafts a plain-language claim, trigger-and-rule instruction, and scope over the evidence.
             </p>
-            <div class="lc-code"><code>$ engrams schema confirm decision:88 --name performance-rules</code></div>
+            <div class="lc-code"><code>$ engrams schema propose --from decision:88 --statement "..." --trigger "..." --rule "..."</code></div>
           </div>
 
-          <!-- Step 3: Refines -->
+          <!-- Step 3: Confirms & Refines -->
           <div class="loop-card">
-            <h3>3. Refines</h3>
+            <h3>3. Confirms &amp; Refines</h3>
             <p>
-              Tracks git staleness drift, records retrieval surface counts, and re-notifies when new candidate
-              evidence advances beyond prior notifications.
+              You confirm or edit the reviewed proposal (or refine existing schemas with claims and scope paths),
+              while Engrams tracks drift and retrieval telemetry.
             </p>
-            <div class="lc-code"><code>$ engrams schema refine performance-rules --trigger "..." --rule "..."</code></div>
+            <div class="lc-code"><code>$ engrams schema confirm proposal:1</code></div>
           </div>
 
           <!-- Step 4: Executes -->
@@ -431,7 +431,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     &#123;
       "id": 1,
       "name": "performance-rules",
+      "statement": "Hot retrieval and enrichment paths must avoid avoidable allocations and clones",
       "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections...",
+      "scope": &#123;"tags": ["performance", "rust"], "paths": ["src/ops"]&#125;,
+      "matched_by": &#123;"via": "member_anchor", "value": "src/ops/schemas/retrieval.rs"&#125;,
       "guided": 14
     &#125;
   ],
@@ -445,7 +448,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             </div>
             <pre class="cb-body"><code>&#123;
   "name": "performance-rules",
+  "statement": "Hot retrieval and enrichment paths must avoid avoidable allocations and clones",
   "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections...",
+  "scope": &#123;"tags": ["performance", "rust"], "paths": ["src/ops"]&#125;,
+  "origin": &#123;"proposal_id": 1, "source": &#123;"kind": "candidate", "ref": "decision:88,decision:91"&#125;&#125;,
   "guided": 14,
   "members": [
     &#123;"kind": "decision", "id": 88, "summary": "Borrowed SQL parameter lists"&#125;,
@@ -461,7 +467,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
             <pre class="cb-body"><code>&#123;
   "schema_value": &#123;"guided_retrievals": 6, "distinct_schemas": 2&#125;,
   "schema_opportunities": [
-    &#123;"confirm_command": "engrams schema confirm decision:88 --name performance-rules"&#125;
+    &#123;"propose_command": "engrams schema propose --from decision:88 --name performance-rules --statement \"&lt;claim&gt;\" --summary \"When &lt;condition&gt;: &lt;directive&gt;\""&#125;
   ]
 &#125;</code></pre>
           </div>

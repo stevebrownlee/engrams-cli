@@ -15,8 +15,8 @@ Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and `camelCase
 
 ### When to Consult Engrams
 
-- **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context.
-- **Before editing files:** `engrams advise <paths>` — get only actionable constraints and violations for those files (compact; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
+- **Session start:** `engrams prime [--budget <n>] [--paths p1,p2] [--tags a,b]` — load context (including active schemas with `matched_by` and up to 3 oldest `pending_proposals`).
+- **Before editing files:** `engrams advise <paths>` — get active schemas (`statement`, `summary`, `scope`, `matched_by`), actionable constraints, and violations for those files (compact; `--staged` for `git add`ed). For full context with scores, use `engrams relevant <paths>`.
 - **Before designing or fixing:** `engrams brief "<topic>"` · `engrams query "<topic>" --full` · `engrams decision list --filter "<term>"` — composite context in one call; avoid litigating settled choices.
 - **When you make a design choice:** `engrams decision log --summary "..." [--contract "..."] --rationale "..." --tags a,b --anchor <path> [--pr <n>]` — log immediately, not at session end. Always declare `--contract` (signatures, struct shapes) when introducing an abstraction. A contradiction gate blocks near-duplicate active decisions and suggests `supersedes`/`conflicts_with`; resolve inline with `--supersedes <id>` / `--conflicts-with <id>` (or `--force` to bypass). To supersede after the fact: `engrams decision supersede <old-id> --by <new-id>`.
 - **When you spot a recurring convention:** `engrams pattern log --name "..." --check-kind regex --check '<expr>' --severity error --anchor <path>` — make it machine-enforceable, not just prose.
@@ -41,10 +41,11 @@ Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and `camelCase
 | Attach file anchors | `engrams anchor add --type <decision\|progress-entry\|system-pattern> --id <n> --path <path>` |
 | Attach PR reference | `engrams pr add --type <decision\|system-pattern> --id <n> --pr <n_or_url>` |
 | Promote repeated progress into patterns | `engrams consolidate [--apply]` — propose by default; `--apply` inserts with evidence links + confidence |
-| Schemas (concepts over items) | `engrams schema list` (confirmed, agent-authored first; `guided` = times surfaced) · `engrams schema show <id-or-name>` (summary, members, centroid) |
-| Confirm a schema candidate | `engrams schema confirm <sig-prefix> --name <name>` — promotes a gate-passing candidate; `session close` prints ready-to-run confirm commands |
-| Refine a schema | `engrams schema refine <id-or-name> [--trigger "..." --rule "..."]` — agent-authored summaries rank above drafts |
-| Scan for candidates | `engrams schema scan` — detect and stage candidate clusters from the graph |
+| Schemas (concepts over items) | `engrams schema list` (confirmed, agent-authored first; `guided` = times surfaced) · `engrams schema show <id-or-name>` (statement, summary, scope, origin, members, centroid) |
+| Propose a schema | `engrams schema propose --statement "..." [--summary "..." \| --trigger "..." --rule "..."] [--members <kind:id,...> \| --from <sig-prefix>] [--name <slug>] [--scope-tags a,b] [--scope-paths p,q] [--contrary <kind:id,...>] [--session <key>] [--force]` — stages a reviewed proposal over ≥3 current notes across ≥2 files or days |
+| Review schema proposals | `engrams schema proposals [--status proposed\|confirmed\|rejected\|all]` · `engrams schema confirm proposal:<id>` (or `confirm <schema-id-or-name>` to re-confirm) · `engrams schema reject proposal:<id> [--reason "..."]` |
+| Refine a schema | `engrams schema refine <id-or-name> [--statement "..." --scope-tags a,b --scope-paths p,q --summary "..." \| --trigger "..." --rule "..."]` — update claim, scope, or agent-authored summary |
+| Scan for candidates | `engrams schema scan` — detect and stage candidate evidence clusters from the graph (propose from them via `schema propose --from <sig-prefix>`) |
 | Causal chain ("why"/impact) | `engrams graph why --node decision:7 [--down]` |
 | Bulk operations | `engrams batch --type <decision\|progress\|pattern\|custom-data> --items <json_or_->` |
 | Export to Markdown | `engrams export [--path <dir>]` |
@@ -68,7 +69,7 @@ Before declaring done:
 2. `link add` new items (`implements`/`depends_on`/`supersedes`)
 3. `progress log --status Done`
 4. `active-context update --patch '<json>'`
-5. `engrams session close --reads-skipped <n> --reads-required <n> --tokens-saved <est> --pr <n>` — validates the PR has linked decisions and anchored files. The close payload also reports `schema_value` (schema-guided retrievals this session) and `schema_opportunities` (gate-passing candidates, each with a ready `engrams schema confirm` command): present opportunities to the developer verbatim — confirmation is a human act
+5. `engrams session close --reads-skipped <n> --reads-required <n> --tokens-saved <est> --pr <n>` — validates the PR has linked decisions and anchored files. The close payload also reports `schema_value` (schema-guided retrievals this session) and `schema_opportunities` (gate-passing detector groups, each with a ready-to-fill `propose_command`: `engrams schema propose --from <sig-prefix> --name <suggested> --statement "<claim>" --summary "When <condition>: <directive>"`): draft a proposal when appropriate and present its `confirm_command` / `reject_command` to the developer verbatim — confirmation is a human act
 6. `engrams export`
 7. commit & push `engrams_export/`
 

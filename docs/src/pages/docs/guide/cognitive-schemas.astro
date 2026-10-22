@@ -7,8 +7,10 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
   <p class="lead">
     A cognitive schema is a high-level mental model that organizes many lower-level memories under one
     idea — and tells you when to apply it. Engrams gives your agent the same machinery: a confirmed schema
-    bundles related decisions, patterns, and code under a single summary that states <em>when it fires</em>
-    and <em>what to do</em>, so the agent loads the model instead of re-reading the history.
+    pairs a plain-language <strong>claim</strong> (<code>statement</code>), a conditional <strong>instruction</strong>
+    (<code>summary</code>: <em>when it fires</em> and <em>what to do</em>), an explicit <strong>scope</strong>
+    (<code>tags</code> and <code>paths</code>), and the <strong>cited notes</strong> it rests on, so the agent loads
+    the model instead of re-reading the history.
   </p>
 
   <div class="callout tip reveal">
@@ -42,13 +44,20 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
 
   <h2 class="reveal">How schemas guide LLM retrieval in Engrams</h2>
   <p>
-    An Engrams schema is a confirmed graph node whose <strong>members</strong> are lower-level memories —
-    decisions, system patterns, code nodes, progress entries, custom data, even nested schemas. The schema's
-    summary is written as a conditional sentence:
+    An Engrams schema is a confirmed concept formed from a reviewed proposal. Each proposal cites at least three
+    current knowledge notes (decisions, system patterns, progress entries, or custom data) spanning at least two
+    files or two days, and defines four things:
   </p>
-  <pre><code>Fires when &lt;trigger condition&gt;: &lt;operational rule&gt;</code></pre>
+  <ul>
+    <li><strong>Claim (<code>statement</code>):</strong> What the notes mean together, in plain words (checked against restating any single note).</li>
+    <li><strong>Instruction (<code>summary</code>):</strong> A conditional sentence opening with a trigger phrase:
+      <pre><code>Fires when &lt;trigger condition&gt;: &lt;operational rule&gt;</code></pre>
+    </li>
+    <li><strong>Scope (<code>scope.paths</code> &amp; <code>scope.tags</code>):</strong> Where the schema applies — including brand-new files in those directories before any note is anchored to them.</li>
+    <li><strong>Evidence (<code>members</code>):</strong> The snapshot of cited notes (plus optional counter-evidence in <code>contrary</code>).</li>
+  </ul>
   <p>
-    Every retrieval surface reads that sentence differently:
+    Every retrieval surface explains why a schema appeared (<code>matched_by</code>) and where it came from (<code>origin</code>):
   </p>
   <table>
     <thead><tr><th>Surface</th><th>How the schema guides it</th></tr></thead>
@@ -56,75 +65,99 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
       <tr>
         <td><code>engrams advise &lt;paths&gt;</code></td>
         <td>
-          Resolves active schemas whose member anchors touch the target paths and prints them in a
-          <code>schemas</code> block <strong>above</strong> low-level constraints — the rule arrives before the fine print.
+          Resolves active schemas whose member anchors touch the target paths (<code>member_anchor</code>) or whose
+          <code>scope.paths</code> cover the path (<code>scope_path</code>, including new files not yet on disk), printing
+          each schema's <code>statement</code>, <code>summary</code>, <code>scope</code>, and <code>matched_by</code> in a
+          <code>schemas</code> block <strong>above</strong> low-level constraints (and ahead of violations if an omp pre-edit rule blocks an edit).
         </td>
       </tr>
       <tr>
         <td><code>engrams prime --paths --tags</code></td>
         <td>
-          Ranks schemas that match the target paths or tags above unanchored schemas, each entry carrying
-          its operational rule summary.
+          Ranks schemas that match the target paths or tags above unmatched schemas (with <code>matched_by</code>),
+          and surfaces up to 3 oldest undecided proposals in <code>pending_proposals</code> with ready-to-run
+          <code>confirm_command</code> and <code>reject_command</code> strings.
+        </td>
+      </tr>
+      <tr>
+        <td><code>engrams query &lt;q&gt;</code></td>
+        <td>
+          Matches schemas across <code>statement</code>, <code>summary</code>, member centroids, and <code>scope</code>
+          vocabulary, returning the schema tier ahead of individual notes with <code>matched_by</code>.
         </td>
       </tr>
       <tr>
         <td><code>engrams schema show &lt;target&gt;</code></td>
         <td>
-          Returns the schema plus every member enriched with type-specific details (summaries, descriptions,
-          file anchors), capped at 20 members with a truncation flag for large clusters.
+          Returns the schema's <code>statement</code>, <code>summary</code>, <code>scope</code>, <code>origin</code>
+          (proposal ID, source, and proposed/confirmed timestamps), and every member enriched with type-specific details,
+          capped at 20 members with a truncation flag for large clusters.
         </td>
       </tr>
       <tr>
         <td><code>engrams brief schema:&lt;id&gt;</code></td>
-        <td>One call returns the schema summary, its kind, and enriched details for all immediate members.</td>
+        <td>One call returns the schema's claim, instruction, scope, kind, <code>origin</code>, and enriched details for all immediate members.</td>
       </tr>
     </tbody>
   </table>
   <p>
-    The trigger is what makes this work for an LLM: matching a short conditional sentence against the current
-    prompt or edited paths is cheap, while the rule is a directive the model can comply with immediately —
-    no file reads required. Full-text search (<code>schemas_fts</code>) indexes the whole summary, so triggers
-    and rules are findable from any query surface.
+    The trigger and scope are what make this work for an LLM: matching a path prefix, tag, or short conditional sentence
+    against the current prompt or edited paths is cheap, while the claim and directive tell the model how to act immediately —
+    even when creating a brand-new file inside the scoped directory.
   </p>
 
-  <h2 class="reveal">Designing a schema that guides an agent</h2>
+  <h2 class="reveal">Proposing, reviewing, and refining a schema</h2>
   <p>
-    A schema is only as good as its summary. Engrams enforces the shape — <code>schema refine</code> accepts
-    a structured pair and rejects free-text summaries that lack a conditional trigger:
+    Schemas are never auto-promoted in bulk. An agent proposes a schema over cited notes (or seeds the notes from a
+    detector group via <code>--from &lt;sig-prefix&gt;</code>), Engrams validates the evidence and wording gates, and a
+    person confirms or rejects the proposal:
   </p>
-  <pre><code># Structured authoring (recommended) — formats the summary for you
-engrams schema refine &lt;target&gt; --trigger "editing public documentation" \
-                              --rule "use problem-first risk messaging"
-# =&gt; summary: "Fires when editing public documentation: use problem-first risk messaging."
+  <pre><code># 1. Agent proposes a schema (from a staged detector group or explicit --members)
+engrams schema propose \
+  --from decision:58 \
+  --name error-envelope \
+  --statement "Public fallible functions share one error envelope so callers never handle raw panics" \
+  --trigger "adding or editing a fallible public function in Rust code" \
+  --rule "return the AppError envelope and never unwrap outside tests" \
+  --scope-paths src/ops --scope-tags rust,errors
 
-# Manual summaries must begin with a conditional trigger phrase
-engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
-# Accepted openers: "Fires when", "When", "Applies if", "Activates when"</code></pre>
+# 2. Person reviews pending proposals and confirms (optionally overriding fields inline) or rejects
+engrams schema proposals --status proposed
+engrams schema confirm proposal:1
+engrams schema reject proposal:2 --reason "One-off migration notes, not a recurring rule"
+
+# 3. Refine an existing schema's claim, scope, or instruction at any time
+engrams schema refine error-envelope \
+  --statement "Public fallible functions share one error envelope so callers never handle raw panics" \
+  --scope-paths src/ops --scope-tags rust,errors \
+  --trigger "editing public Rust APIs" \
+  --rule "return Result&lt;T, AppError&gt; and convert inner errors with ?"
+# Accepted summary openers: "Fires when", "When", "Applies if", "Activates when"</code></pre>
   <div class="callout warn reveal">
-    <strong>Validation is deliberate:</strong> <code>--summary</code> strings without a trigger condition are rejected
-    with guidance on the required format, and there is no bypass flag. A schema that cannot say when it fires
-    can never be activated by <code>advise</code> or <code>prime</code>.
+    <strong>Evidence and wording gates:</strong> <code>schema propose</code> refuses proposals with fewer than 3 current
+    knowledge notes, notes confined to a single file and single day, code files cited as notes (put files in
+    <code>--scope-paths</code>), a <code>--statement</code> that merely repeats a single note (token overlap &ge; 0.8),
+    an instruction without a conditional trigger prefix, or notes that repeat pending, confirmed, or recently rejected territory.
   </div>
   <h3 class="reveal">Authoring principles</h3>
   <ul>
     <li>
-      <strong>Write the trigger as observable context.</strong> A file path, a file kind, a task verb — something
-      present in the prompt or the paths being edited. <em>“When working on things”</em> never matches;
-      <em>“Fires when editing files under src/ops/”</em> always does.
+      <strong>Write the claim (<code>--statement</code>) as the synthesized insight.</strong> Say what the notes mean
+      together in plain words, not a copy-paste of one decision summary.
     </li>
     <li>
-      <strong>Write the rule as an imperative.</strong> The agent must be able to comply without more reading.
-      <em>“Error handling matters here”</em> is a description; <em>“return the AppError envelope and never
-      unwrap in library code”</em> is a rule.
+      <strong>Write the trigger as observable context and the rule as an imperative.</strong> A file path, a file kind,
+      or a task verb paired with a concrete directive lets the agent comply without opening more files.
     </li>
     <li>
-      <strong>Anchor members where the rule applies.</strong> <code>advise</code> and <code>prime</code> match through
-      member anchors and centroid tags — an unanchored schema never activates on a path.
+      <strong>Set <code>--scope-paths</code> and <code>--scope-tags</code> where the concept applies.</strong> If omitted,
+      Engrams defaults scope tags to tags carried by at least two cited notes and scope paths to the deepest shared
+      anchor directory — letting <code>advise</code> fire on new files created in that directory.
     </li>
     <li>
-      <strong>Members first, summary second.</strong> Let <code>schema scan</code> cluster related nodes, confirm
-      the cluster, then <code>refine</code> the summary. The schema should summarize memory that exists,
-      not invent memory you wish you had.
+      <strong>Evidence first, proposal second, human confirmation third.</strong> Let <code>schema scan</code> stage
+      candidate clusters, propose from them with <code>schema propose --from &lt;sig-prefix&gt;</code>, and let a person
+      run <code>schema confirm proposal:&lt;id&gt;</code>.
     </li>
     <li>
       <strong>One schema per recurring situation.</strong> If two triggers always fire together, they are one
@@ -137,20 +170,36 @@ engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
     A cluster of error-handling decisions, a result-envelope pattern, and the central error type become one
     schema that fires on any fallible-function work:
   </p>
-  <pre><code>engrams schema refine error-envelope \
+  <pre><code>engrams schema propose \
+  --members system_pattern:12,decision:58,decision:61 \
+  --name error-envelope \
+  --statement "Public fallible functions share one error envelope so callers never handle raw panics" \
   --trigger "adding or editing a fallible public function in Rust code" \
-  --rule "return the AppError envelope and never unwrap outside tests"</code></pre>
+  --rule "return the AppError envelope and never unwrap outside tests" \
+  --scope-paths src/ops --scope-tags rust,errors
+
+engrams schema confirm proposal:1</code></pre>
   <p>
-    Running <code>engrams schema show error-envelope</code> returns the schema plus its enriched members:
+    Running <code>engrams schema show error-envelope</code> returns the schema, its claim, scope, proposal origin, and enriched members:
   </p>
   <pre><code>&#123;
   "status": "success",
   "schema": &#123;
     "id": 4,
     "name": "error-envelope",
+    "statement": "Public fallible functions share one error envelope so callers never handle raw panics",
     "summary": "Fires when adding or editing a fallible public function in Rust code: return the AppError envelope and never unwrap outside tests.",
     "summary_source": "agent",
-    "status": "confirmed",
+    "scope": &#123; "tags": ["errors", "rust"], "paths": ["src/ops"] &#125;,
+    "status": "active",
+    "kind": "schema",
+    "origin": &#123;
+      "proposal_id": 1,
+      "source": &#123; "kind": "manual", "ref": null &#125;,
+      "proposed_at": "2026-10-22T12:00:00Z",
+      "confirmed_at": "2026-10-22T12:05:00Z",
+      "session": "s-42"
+    &#125;,
     "members": [
       &#123;
         "kind": "system_pattern", "id": 12, "name": "result-envelope",
@@ -163,8 +212,9 @@ engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
         "status": "active", "anchors": ["src/ops/schemas/list.rs"]
       &#125;,
       &#123;
-        "kind": "code", "id": 91, "path": "src/errors.rs",
-        "symbol": "AppError", "line_count": 64
+        "kind": "decision", "id": 61,
+        "summary": "Map rusqlite errors into AppError at the ops boundary",
+        "status": "active", "anchors": ["src/ops/db.rs"]
       &#125;
     ],
     "member_count": 3,
@@ -172,9 +222,9 @@ engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
   &#125;
 &#125;</code></pre>
   <p>
-    From now on, <code>engrams advise src/errors.rs</code> surfaces this schema above the constraint list, and
-    <code>engrams prime --paths src/ops</code> ranks it at the top of the schemas block — the agent reads the rule
-    before it reads the code.
+    From now on, <code>engrams advise src/ops/new_handler.rs</code> surfaces this schema above the constraint list
+    with <code>"matched_by": &#123;"via": "scope_path", "value": "src/ops"&#125;</code> — even before
+    <code>new_handler.rs</code> has any individual decision anchored to it.
   </p>
 
   <h2 class="reveal">Example: research</h2>
@@ -215,10 +265,12 @@ engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
   </p>
   <ul>
     <li>
-      <strong>schema_opportunities</strong> — candidate clusters that passed the formation gates and
+      <strong>schema_opportunities</strong> — candidate evidence clusters that passed the formation gates and
       do not overlap any schema you already confirmed. Each one arrives with a suggested name and a
-      ready-to-run <code>engrams schema confirm</code> command. Run it, or don't: an unchanged
-      candidate is not nagged about again, and one that keeps growing comes back louder.
+      ready-to-fill <code>propose_command</code> (<code>engrams schema propose --from &lt;sig-prefix&gt; ...</code>)
+      so the agent can draft a claim and instruction for your review. Any proposal left undecided at session
+      end is raised again in <code>pending_proposals</code> on the next <code>engrams prime</code> (oldest first, up to 3),
+      and rejected proposals are remembered so the same evidence is not proposed again until new notes arrive.
     </li>
     <li>
       <strong>schema_value</strong> — how many retrievals this session were guided by schemas, and
@@ -229,14 +281,14 @@ engrams schema refine &lt;target&gt; --summary "Fires when ...: ..."
   <p>
     The same counter shows up per schema in <code>engrams schema list</code> and
     <code>schema show</code> as the <code>guided</code> field — so a schema that never fires is
-    visible too, and worth refining or retiring.
+    visible too, and worth refining with a broader <code>--scope-paths</code> / <code>--scope-tags</code> or retiring.
   </p>
 
   <div class="callout note reveal">
-    <strong>The loop:</strong> <code>schema scan</code> finds the cluster, <code>schema confirm</code> seals it,
-    <code>schema refine</code> names the trigger and rule, and <code>advise</code> / <code>prime</code> deliver the rule
-    exactly when the trigger appears. Each session that follows the rule without re-reading the underlying
-    memories is the compounding payoff.
+    <strong>The loop:</strong> <code>schema scan</code> stages the evidence cluster, <code>schema propose</code> writes
+    the claim, instruction, and scope, <code>schema confirm proposal:&lt;id&gt;</code> seals it with human review,
+    and <code>advise</code> / <code>prime</code> / <code>query</code> deliver the schema wherever its scope or members
+    apply. Each session that follows the schema without re-reading the underlying memories is the compounding payoff.
   </div>
 </DocsLayout>
 

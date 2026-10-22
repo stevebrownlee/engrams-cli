@@ -147,7 +147,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <li><strong>You ask your AI to build a feature.</strong> For example: "Implement the payment webhook handler."</li>
     <li><strong>Your AI runs <code>engrams advise src/adapters/stripe.rs</code> before editing.</strong> Engrams intercepts the action and injects the matching Cognitive Schema (trigger + rule + contracts) in under 300 tokens.</li>
     <li><strong>Your AI writes code aligned with project context</strong>, respecting architectural decisions on the first turn without defensive file exploration.</li>
-    <li><strong>Session closes and compounds.</strong> You run <code>engrams session close</code>: Engrams validates your PR, reports your exact token savings, and surfaces newly detected schema candidates with ready-to-run confirm commands.</li>
+    <li><strong>Session closes and compounds.</strong> You run <code>engrams session close</code>: Engrams validates your PR, reports your exact token savings, and surfaces newly detected schema candidates with ready-to-fill <code>schema propose</code> commands for human review and confirmation.</li>
   </ol>
   <p>
     That loop is day one: your advisor fetches what you ask for. Every decision, pattern, and link you

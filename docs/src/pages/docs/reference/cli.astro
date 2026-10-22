@@ -197,11 +197,11 @@ engrams batch --type decision --items '[{"summary": "A"}, {"summary": "B"}]'
 cat items.json | engrams batch --type custom_data --items -`}</code></pre>
 
   <h3>15. <code>export</code></h3>
-  <p>Dump the SQLite tables to Markdown files for Git versioning.</p>
+  <p>Dump the SQLite tables (including <code>schemas/{'{id}'}.md</code> with <code>statement</code>/<code>scope_json</code> and <code>schema_proposals/{'{id}'}.md</code>) to Markdown files for Git versioning.</p>
   <pre><code>{`engrams export [--path <DIR>]`}</code></pre>
 
   <h3>16. <code>import</code></h3>
-  <p>Import/update the database using exported Markdown files.</p>
+  <p>Import/update the database using exported Markdown files (including round-tripping schema proposals, schema claims/scopes, and proposal provenance).</p>
   <pre><code>{`engrams import [--path <DIR>]`}</code></pre>
 
   <h3>17. <code>pr</code></h3>
@@ -237,10 +237,9 @@ engrams relevant <PATH>
 engrams relevant --staged [--all]`}</code></pre>
 
   <h3>20. <code>prime</code></h3>
-  <p>Generate a briefing optimized for token budget. Lists every active-context track and expands the one matching your current scope, includes a compact graph summary (the first section dropped under a budget), and demotes superseded decisions into a compact annotated section. Progressively drops less critical sections to fit inside the budget.</p>
+  <p>Generate a briefing optimized for token budget. Surfaces matching active <code>schemas</code> (with <code>statement</code>, <code>scope</code>, and <code>matched_by</code>) and up to 3 oldest undecided schema proposals in <code>pending_proposals</code> (with ready-to-run <code>confirm_command</code> and <code>reject_command</code>). Lists every active-context track and expands the one matching your current scope, includes a compact graph summary, and demotes superseded decisions into a compact annotated section.</p>
   <pre><code>{`# Generate briefing
-engrams prime [--budget <TOKENS>]`}</code></pre>
-
+engrams prime [--budget <TOKENS>] [--paths <PATHS>] [--tags <TAGS>]`}</code></pre>
   <h3>21. <code>doctor</code></h3>
   <p>Run database health audits: missing file anchors, dangling links, stale-decision drift detection, unlinked decisions, orphan graph nodes, graph-rebuild recommendations, cycles in canonical transitive relations (<code>supersedes</code>/<code>depends_on</code>/<code>part_of</code>/<code>refines</code>), and non-canonical relationship vocabulary linting.</p>
   <pre><code>{`engrams doctor`}</code></pre>
@@ -258,10 +257,11 @@ engrams query "auth" --full`}</code></pre>
   <pre><code>{`engrams instructions`}</code></pre>
 
   <h3>24. <code>brief</code></h3>
-  <p>One-call composite architectural brief for a node reference or FTS query in under 200 tokens: returns decision text, contract, tags, PRs, anchors with extracted symbols/docstrings/lines, Git staleness drift, and 1-hop neighbors.</p>
+  <p>One-call composite architectural brief for a node reference or FTS query in under 200 tokens: returns decision text, contract, tags, PRs, anchors with extracted symbols/docstrings/lines, Git staleness drift, and 1-hop neighbors. For <code>schema:&lt;id|name&gt;</code>, includes <code>statement</code>, <code>scope</code>, <code>origin</code>, and enriched members.</p>
   <pre><code>{`# Brief by query or node reference
 engrams brief "payment provider"
-engrams brief decision:62 [--depth 2]`}</code></pre>
+engrams brief decision:62 [--depth 2]
+engrams brief schema:performance-rules`}</code></pre>
 
   <h3>25. <code>usage</code></h3>
   <p>Retrieval telemetry and curation feedback. Tracks call counts, constraints fired, and zero-hit searches.</p>
@@ -289,10 +289,44 @@ engrams session history`}</code></pre>
   <p>
     The close payload also reports <code>schema_value</code> (schema-guided retrievals in the session
     window; omitted when no session key is known) and <code>schema_opportunities</code> (unconfirmed
-    schema candidates that passed formation gates, each with a ready-to-run
-    <code>engrams schema confirm</code> command). See
+    detector groups that passed formation gates, each with a ready-to-fill
+    <code>propose_command</code>: <code>engrams schema propose --from &lt;sig-prefix&gt; --name &lt;suggested&gt; --statement "&lt;claim&gt;" --summary "When &lt;condition&gt;: &lt;directive&gt;"</code>). See
     <a href="/docs/guide/cognitive-schemas">Cognitive Schemas</a>.
   </p>
+
+  <h3>28. <code>schema</code></h3>
+  <p>Form, propose, review, and manage cognitive schemas (higher-order concepts over knowledge items). Detector groups staged by <code>schema scan</code> are evidence; schemas are created only when a reviewed proposal is confirmed via <code>engrams schema confirm proposal:&lt;id&gt;</code>.</p>
+  <pre><code>{`# Stage candidate evidence groups from the knowledge graph (never auto-promotes)
+engrams schema scan
+
+# Propose a reviewed schema over >=3 current notes across >=2 files or days
+engrams schema propose \\
+  --statement "Mara believes she is broken; that hurt carries with her as she grows into a leader" \\
+  --trigger "writing Mara under pressure" \\
+  --rule "she doubts herself aloud and credits others, even as her actions grow stronger" \\
+  [--members decision:4,decision:7,decision:9 | --from <CANDIDATE_SIG_PREFIX>] \\
+  [--name mara-broken-leader] \\
+  [--scope-tags mara] [--scope-paths manuscript] \\
+  [--contrary decision:15] [--session <KEY>] [--force]
+
+# List schema proposals (status: proposed | confirmed | rejected | all; default: proposed)
+engrams schema proposals [--status proposed]
+
+# Confirm a pending proposal (optionally overriding fields inline) or re-confirm an active schema
+engrams schema confirm proposal:1 [--name <NAME>] [--statement "<CLAIM>"] [--summary "<SUMMARY>" | --trigger "<COND>" --rule "<RULE>"] [--scope-tags <TAGS>] [--scope-paths <PATHS>]
+engrams schema confirm <SCHEMA_ID_OR_NAME>
+
+# Reject a pending proposal (remembered so identical evidence is not re-proposed)
+engrams schema reject proposal:1 [--reason "One-off migration notes, not a recurring rule"]
+
+# Refine an existing schema's claim, scope, or agent-authored instruction
+engrams schema refine <SCHEMA_ID_OR_NAME> [--statement "<CLAIM>"] [--scope-tags <TAGS>] [--scope-paths <PATHS>] [--summary "<SUMMARY>" | --trigger "<COND>" --rule "<RULE>"]
+
+# List confirmed schemas (agent-authored ranked first; includes statement, scope, kind, guided)
+engrams schema list [--status active]
+
+# Inspect a schema's statement, summary, scope, origin, enriched members (cap 20), and centroid
+engrams schema show <SCHEMA_ID_OR_NAME>`}</code></pre>
   <p>
     Engrams CLI automatically checks for new releases in the background (at most once every 24 hours). If a new version is available, a notification is printed to standard error.
   </p>

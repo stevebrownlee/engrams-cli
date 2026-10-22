@@ -55,13 +55,19 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <h3>Form and refine a Cognitive Schema</h3>
+        <h3>Propose and confirm a Cognitive Schema</h3>
         <p>
-          Bundle your decisions and code anchors into an active schema with a trigger and operational rule:
+          Propose a reviewed schema with a plain-language claim, conditional trigger-and-rule instruction, and scope, then confirm it:
         </p>
-        <pre><code>engrams schema refine payment-adapters \
+        <pre><code>engrams schema propose \
+  --members decision:1,decision:2,decision:3 \
+  --name payment-adapters \
+  --statement "All payment adapters share one idempotent provider contract and strict PII redaction" \
   --trigger "editing payment adapter implementations" \
-  --rule "implement PaymentProvider; use Stripe idempotent keys; never log raw card numbers"</code></pre>
+  --rule "implement PaymentProvider; use Stripe idempotent keys; never log raw card numbers" \
+  --scope-paths src/adapters --scope-tags payment,adapter
+
+engrams schema confirm proposal:1</code></pre>
       </div>
     </div>
 
@@ -79,7 +85,10 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     &#123;
       "id": 1,
       "name": "payment-adapters",
-      "summary": "Fires when editing payment adapter implementations: implement PaymentProvider..."
+      "statement": "All payment adapters share one idempotent provider contract and strict PII redaction",
+      "summary": "Fires when editing payment adapter implementations: implement PaymentProvider...",
+      "scope": &#123; "tags": ["adapter", "payment"], "paths": ["src/adapters"] &#125;,
+      "matched_by": &#123; "via": "member_anchor", "value": "src/adapters/stripe.rs" &#125;
     &#125;
   ],
   "constraints": [ ... ],
@@ -94,7 +103,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
       <div class="step-body">
         <h3>Close the session, view token ROI, and catch new opportunities</h3>
         <p>
-          At session end, record your PR, view your exact schema guidance count, and receive ready-to-run commands for new candidate schemas:
+          At session end, record your PR, view your exact schema guidance count, and receive ready-to-fill <code>propose_command</code> templates for new candidate schemas:
         </p>
         <pre><code>engrams session close --pr 42</code></pre>
         <pre><code>&#123;

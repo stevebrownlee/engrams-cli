@@ -43,10 +43,10 @@ Repeatable flags (`--anchor`, `--pr`, `--path`) take the same option many times.
 
 | Goal | Command |
 |---|---|
-| One-call startup briefing | `engrams prime [--budget <tokens>] [--paths p1,p2] [--tags a,b]` |
+| One-call startup briefing | `engrams prime [--budget <tokens>] [--paths p1,p2] [--tags a,b]` (includes `schemas` with `matched_by` and up to 3 oldest `pending_proposals`) |
 | What's anchored to these files | `engrams relevant <paths...>` or `engrams relevant --staged` |
-| Pre-edit constraints + violations | `engrams advise <paths...>` or `engrams advise --staged` (compact: only patterns + decisions + current violations; no scores/progress/reinforcement) |
-| Cross-type free-text search | `engrams query "<topic>" [--types decision,pattern,custom] [--tags a,b] [--since <rfc3339>] [--limit 10]` |
+| Pre-edit schemas + constraints + violations | `engrams advise <paths...>` or `engrams advise --staged` (compact: active schemas with `statement`/`scope`/`matched_by`, patterns + decisions, and current violations; no scores/progress/reinforcement) |
+| Cross-type free-text search | `engrams query "<topic>" [--types decision,pattern,custom] [--tags a,b] [--since <rfc3339>] [--limit 10]` (prepends matching `schemas` with `matched_by`) |
 | Decision FTS with highlights | `engrams decision search "<term>" --snippets --limit 10 [--all]` |
 | Single item by ID | `engrams decision get <id>` / `engrams pattern get <id>` / `engrams progress get <id>` / `engrams custom get <key>` |
 | List items | `engrams decision list [--tags a,b]` / `engrams pattern list [--tags a,b]` / `engrams progress list` / `engrams active-context list` |
@@ -141,6 +141,8 @@ Declared **inverse** edges (e.g. `superseded_by`, `depended_on_by`) are material
 |---|---|
 | Decision | `active`, `superseded`, `rejected`, `revisited` |
 | Progress | `Todo`, `InProgress`, `InReview`, `Blocked`, `Done`, `Dropped` |
+| Schema | `active`, `needs_review`, `retired` |
+| Schema proposal | `proposed`, `confirmed`, `rejected` |
 
 Legacy/misspelled values are normalized case-insensitively during `migrate` (schema v4). Unrecognized values are preserved as-is and flagged by `doctor`.
 
@@ -191,7 +193,7 @@ engrams advise src/ops/scoring.rs    # constraints + violations for one file
 engrams advise --staged              # for all git-staged files
 ```
 
-Returns `{"schemas": [...], "constraints": [...], "violations": [...]}`. Schemas are active cognitive schemas whose member nodes anchor to those paths, surfaced above constraints so agents apply high-level guidance first (spec 0005). Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When all arrays are empty, proceed with no constraints.
+Returns `{"schemas": [...], "constraints": [...], "violations": [...]}`. Schemas are active cognitive schemas matched by member anchors (`member_anchor`) or `scope.paths` (`scope_path`, including brand-new files inside the scope that no note mentions yet), surfaced above constraints with `statement`, `summary`, `scope`, and `matched_by: {"via": ..., "value": ...}` so agents apply high-level guidance first (specs 0005, 0007). In omp sessions (`engrams install --harness omp`), the advisor extension (`src/assets/engrams-advisor.ts`) delivers matching schemas (claim, instruction, scope, match reason) before the first `edit` or `write` of a file, and ahead of violations when an error-severity rule blocks an edit. Constraints are decisions and checkable patterns anchored to those paths (patterns first, they're enforceable). Violations come from `engrams check`. No scores, no progress, no reinforcement-on-read — compact and fast for automatic harness injection. When all arrays are empty, proceed with no constraints.
 
 Distinct from `relevant`, which returns full structs with scores and reinforces-on-read — use `relevant` for *understanding* context, `advise` for *checking constraints before editing*.
 
@@ -326,7 +328,7 @@ Records reads skipped vs required and token ROI rollups. When `--pr` is provided
 The close payload also carries the schema adoption surface:
 
 - `schema_value`: `{guided_retrievals, distinct_schemas}` — how often schemas guided retrieval in the session window. Derived from `retrieval_surfaces` telemetry; omitted entirely when no session key is known (manual close without `--session`/`ENGRAMS_SESSION`), never silently substituted with an all-time count.
-- `schema_opportunities`: unconfirmed candidates that passed formation gates, kind-labeled `schema`, sit on unclaimed territory, and have not been notified (or drifted since notification via `notified_at < last_seen_at`). Each carries `suggested_name` and a ready-to-run `confirm_command`; close stamps `notified_at` in the same write path so an unchanged candidate is not re-nagged.
+- `schema_opportunities`: unconfirmed detector groups that passed formation gates, kind-labeled `schema`, sit on unclaimed territory, and have not been notified (or drifted since notification via `notified_at < last_seen_at`). Each carries `suggested_name` and a ready-to-fill `propose_command` (`engrams schema propose --from <sig-prefix> --name <suggested> --statement "<claim>" --summary "When <condition>: <directive>"`); close stamps `notified_at` in the same write path so an unchanged candidate is not re-nagged.
 
 ### PR reverse lookup (`engrams pr find`)
 
@@ -336,24 +338,83 @@ engrams pr find 42
 
 Finds all decisions, patterns, or progress entries that reference a PR number or URL.
 
-## Cognitive Schemas — Formation, Retrieval & Adoption
+## Cognitive Schemas — Reviewed Proposals, Retrieval & Adoption
 
-A schema is a named bundle of related knowledge items (decisions, patterns, progress, other schemas) with a trigger-and-rule summary. Schemas prime individual facts: `prime` leads with the top matching schemas, `advise` surfaces them above constraints, `query` prepends a centroid tier, and `brief schema:<id|name|slug>` resolves them as nodes.
+A schema is a confirmed mental model over related knowledge items with four parts: a human-level **claim** in plain words (`statement`), a conditional **instruction** (`summary`: trigger + directive), an explicit **scope** (`scope: {"tags": [...], "paths": [...]}`), and the **cited notes** (`members`) it rests on.
+
+Three stores stay strictly separated:
+
+| Store | Holds | Written by | Surfaced to agents |
+|---|---|---|---|
+| `schema_candidates` | detector evidence groups | `schema scan` | never (staging only) |
+| `schema_proposals` | claim, instruction, scope, cited notes snapshot, provenance, decision | `propose`, `confirm`, `reject` | pending ones in `prime` (`pending_proposals`, oldest first, up to 3) |
+| `schemas` | confirmed concepts | `confirm`, `refine` | `prime`, `advise`, `query`, `brief`, `schema list`/`show`, omp advisor extension |
+
+### Commands (`engrams schema ...`)
 
 ```text
-engrams schema scan [--apply]                 # detect clusters from the graph, stage candidates; --apply promotes passing schema-kind candidates
-engrams schema list [--status active]         # confirmed schemas ranked agent-authored first; rows carry kind, member count, and guided (times surfaced)
-engrams schema show <id|name|slug>            # summary, enriched members (cap 20, truncation reported), lexical centroid, kind, guided
-engrams schema confirm <id|sig-prefix> [--name <name>]   # promote a gate-passing candidate; rejects territory claimed by an existing schema (subset, superset, or Jaccard ≥ 0.7 on knowledge members)
-engrams schema refine <id|name> [--summary "..." | --trigger "..." --rule "..."]   # rewrite the summary as agent-authored (ranks above drafts)
+engrams schema scan
+  # Detect clusters from the graph and upsert candidate evidence groups in schema_candidates.
+  # Returns {"candidates": [...]}. Never creates schemas directly (no --apply flag).
+
+engrams schema propose --statement "<claim>" \
+  [--summary "Fires when <condition>: <directive>" | --trigger "<condition>" --rule "<directive>"] \
+  [--members <kind:id,...> | --from <candidate-sig-prefix>] \
+  [--name <slug>] [--scope-tags a,b] [--scope-paths p,q] \
+  [--contrary <kind:id,...>] [--session <key>] [--force]
+  # Validate evidence & wording gates and stage a pending proposal in schema_proposals.
+
+engrams schema proposals [--status proposed|confirmed|rejected|all]
+  # List proposals (default: proposed) with enriched members (capped at 20, with truncated/total_members).
+
+engrams schema confirm proposal:<id> \
+  [--name <slug>] [--statement "<claim>"] \
+  [--summary "..." | --trigger "<condition>" --rule "<directive>"] \
+  [--scope-tags a,b] [--scope-paths p,q]
+  # Human review step: promote a pending proposal into an active schema (optionally editing fields inline).
+  # Also accepts an existing schema id/name (`engrams schema confirm <id|name>`) to re-confirm it.
+  # Passing a detector signature prefix errors with the matching `engrams schema propose --from <prefix>` command.
+
+engrams schema reject proposal:<id> [--reason "<why>"]
+  # Reject a pending proposal and record decision_note + decided_at so the same evidence is not re-proposed.
+
+engrams schema refine <id|name> \
+  [--statement "<claim>"] [--scope-tags a,b] [--scope-paths p,q] \
+  [--summary "..." | --trigger "<condition>" --rule "<directive>"]
+  # Update a confirmed schema's claim, scope, or agent-authored instruction (ranks above drafts).
+
+engrams schema list [--status active|needs_review|retired|all]
+  # Confirmed schemas ranked agent-authored first; rows carry statement, summary, scope, kind, member_count, guided.
+
+engrams schema show <id|name|slug>
+  # Full schema detail: statement, summary, scope, origin (from schema_proposals), enriched members (cap 20), centroid, kind, guided.
 ```
 
-Schema summaries are activation contracts: a conditional trigger phrase plus an operational directive ("Fires when editing Rust SQL: hand collections by move, allocate strings once"). Manual summaries must open with one of "Fires when", "When", "Applies if", "Activates when" (byte-prefix match).
+### Proposal validation gates (`schema propose`)
+
+`schema propose` checks every requirement before writing:
+
+1. **Knowledge notes only:** `--members` and `--contrary` accept `decision`, `system_pattern`, `progress_entry`, or `custom_data` keys (`code` and `schema` keys are refused; `--from <sig-prefix>` automatically drops code members from the detector group and reports them in `dropped_code_members`).
+2. **Current & disjoint:** every cited key must exist and be current (`status = 'active'` and `archived = 0` for decisions; `archived = 0` for patterns), and no key may appear in both `--members` and `--contrary`.
+3. **Minimum evidence:** at least 3 cited notes (`MIN_EVIDENCE = 3`) spanning at least 2 distinct anchor files or 2 distinct UTC calendar days. Engrams computes `evidence: {"notes", "files", "days", "contrary"}` itself.
+4. **Non-restatement (`RESTATEMENT_GATE = 0.8`):** the `--statement` token Jaccard overlap with each individual cited note must stay below `0.8`.
+5. **Conditional instruction:** `--summary` (or synthesized `--trigger` + `--rule`) must open with `"Fires when"`, `"When"`, `"Applies if"`, or `"Activates when"`.
+6. **Territory checks:** member Jaccard overlap `>= 0.7` against a pending proposal returns `{"inserted": false, "similar": [...]}`; against a rejected proposal with no cited note newer than `decided_at` returns `{"inserted": false, "rejected_before": [...]}`; overlap with an active schema (subset, superset, or Jaccard `>= 0.7`) errors. `--force` bypasses pending and rejected proposal overlap checks only.
+
+When `--scope-tags` is omitted, it defaults to tags shared by at least two cited notes; when `--scope-paths` is omitted, it defaults to the deepest directory shared by every cited note's anchors. If the proposed `--name` collides with an existing schema or pending proposal, `propose` succeeds with a non-blocking `name_conflict` warning; if the name is taken at `confirm` time, `confirm` saves under the next free variant (`<name>-2`, `<name>-3`, ...) and reports `renamed_from`.
+
+### Scope matching, `matched_by`, and `origin`
+
+- Every schema surfaced by `prime`, `advise`, or `query` includes `statement`, `scope`, and `"matched_by": {"via": "member_anchor" | "scope_path" | "scope_tag" | "member_tag", "value": "<match>"}` (the first reason matched in that priority order).
+- `advise` combines `active_for_members` (`member_anchor`) and `active_for_scope` (`scope_path` exact-or-under matching), so a confirmed schema fires for new files inside `scope.paths` before any note is anchored to them.
+- `schema show <target>` and `brief schema:<id>` include `"origin": {"proposal_id", "source": {"kind", "ref"}, "proposed_at", "confirmed_at", "session"}` (`null` for schemas confirmed before Schema v16).
+- `prime` surfaces up to 3 oldest undecided proposals in `"pending_proposals"` (each with `id`, `name`, `statement`, `evidence`, `created_at`, `confirm_command`, and `reject_command`; omitted when none are pending).
+- `export` and `import` round-trip all proposals via `<path>/schema_proposals/{id}.md` alongside schema `statement` and `scope_json` in `<path>/schemas/{id}.md`.
 
 ### Log-time membership (`--schema`)
 
-`decision log`, `pattern log`, and `progress log` take `--schema <id|name>`: the new item is matched against active schemas' lexical centroids (fit gate 0.4, top 2 suggestions persisted to `schema_suggestions` with status `suggested`), and the explicit flag attaches `member_of` at write time. `--schema none` declines the fired suggestions. Suggestions are human/agent-confirmed — accepted or declined, never auto-attached.
+`decision log`, `pattern log`, and `progress log` take `--schema <id|name>`: the new item is matched against active schemas' lexical centroids and scope vocabulary (fit gate 0.4, top 2 suggestions persisted to `schema_suggestions` with status `suggested`), and the explicit flag attaches `member_of` at write time. `--schema none` declines the fired suggestions. Suggestions are human/agent-confirmed — accepted or declined, never auto-attached.
 
-### Adoption at session close
+### Adoption at session close and session start
 
-Detection runs continuously (`scan` stages candidates; drift tracking re-evaluates them), but surfacing happens once per session: `engrams session close` reports `schema_value` and `schema_opportunities` as described above. The intended loop is zero-effort — close a session, read the suggested name, run the printed `confirm_command`, then `schema refine` the summary if the drafted trigger misses the mark.
+Detection runs continuously (`scan` stages candidates; drift tracking re-evaluates them), and `engrams session close` reports `schema_value` and `schema_opportunities` (each with a ready-to-fill `propose_command`). An agent drafts the proposal with `engrams schema propose`, and a person confirms (`engrams schema confirm proposal:<id>`) or rejects (`engrams schema reject proposal:<id> --reason "..."`) it; any proposal left undecided is raised again in `pending_proposals` on the next `engrams prime`.
