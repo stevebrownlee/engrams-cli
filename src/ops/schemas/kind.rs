@@ -678,7 +678,8 @@ mod tests {
         // schemas.
         conn.execute_batch(
             "CREATE TABLE schema_candidates (id INTEGER PRIMARY KEY AUTOINCREMENT, \
-             cluster_sig TEXT NOT NULL, member_keys_json TEXT NOT NULL); \
+             cluster_sig TEXT NOT NULL, member_keys_json TEXT NOT NULL, \
+             last_seen_at TEXT NOT NULL DEFAULT ''); \
              CREATE TABLE schemas (id INTEGER PRIMARY KEY); \
              PRAGMA user_version = 12;",
         )
@@ -742,7 +743,9 @@ mod tests {
                updated_at        TEXT NOT NULL
              ); \
              CREATE TABLE schema_candidates (id INTEGER PRIMARY KEY AUTOINCREMENT, \
-              cluster_sig TEXT NOT NULL, member_keys_json TEXT NOT NULL); \
+              cluster_sig TEXT NOT NULL, member_keys_json TEXT NOT NULL, \
+              last_seen_at TEXT NOT NULL DEFAULT '', \
+              kind TEXT NOT NULL DEFAULT 'unclear'); \
              PRAGMA user_version = 13;",
         )
         .unwrap();

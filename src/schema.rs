@@ -205,17 +205,23 @@ CREATE TABLE IF NOT EXISTS schema_proposals (
   members_json  TEXT NOT NULL,                  -- sorted "kind:id" knowledge keys: the evidence snapshot
   contrary_json TEXT NOT NULL DEFAULT '[]',     -- sorted "kind:id" counter-evidence, informational
   evidence_json TEXT NOT NULL,                  -- {"notes":n,"files":n,"days":n,"contrary":n}, computed
-  source_kind   TEXT NOT NULL,                  -- 'manual' | 'candidate'
+  source_kind   TEXT NOT NULL,                  -- 'manual' | 'candidate' | 'thread'
   source_ref    TEXT,                           -- detector signature at propose time; provenance text, never a key
   session       TEXT,                           -- --session or ENGRAMS_SESSION when known
   status        TEXT NOT NULL DEFAULT 'proposed', -- 'proposed' | 'confirmed' | 'rejected'
   decision_note TEXT,                           -- rejection reason
   schema_id     INTEGER,                        -- set on confirm; origin joins on it
   created_at    TEXT NOT NULL,
-  decided_at    TEXT
+  decided_at    TEXT,
+  lens          TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_schema_proposals_status ON schema_proposals(status);
 CREATE INDEX IF NOT EXISTS ix_schema_proposals_schema ON schema_proposals(schema_id);
+CREATE TABLE IF NOT EXISTS schema_prompt_notices (
+  source_key    TEXT PRIMARY KEY,  -- 'thread:<tag>' | 'candidate:<signature when shown>'; display identity only
+  evidence_json TEXT NOT NULL,     -- sorted evidence keys as shown; recurrence compares these, never keys
+  notified_at   TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS schema_candidates (
   cluster_sig        TEXT PRIMARY KEY,    -- sorted member-key signature
   member_keys_json   TEXT NOT NULL,
@@ -227,8 +233,7 @@ CREATE TABLE IF NOT EXISTS schema_candidates (
   first_seen_at      TEXT NOT NULL,
   last_seen_at      TEXT NOT NULL,
   kind               TEXT NOT NULL DEFAULT 'unclear',  -- spec 0003: 'schema'|'story'|'inventory'|'unclear'
-  kind_reasons_json  TEXT NOT NULL DEFAULT '[]',       -- labeler's plain-language reasons
-  notified_at        TEXT                              -- session close notification timestamp
+  kind_reasons_json  TEXT NOT NULL DEFAULT '[]'        -- labeler's plain-language reasons
 );
 CREATE TABLE IF NOT EXISTS retrieval_surfaces (
   ts        TEXT NOT NULL,
@@ -556,4 +561,24 @@ CREATE TABLE IF NOT EXISTS schema_proposals (
 );
 CREATE INDEX IF NOT EXISTS ix_schema_proposals_status ON schema_proposals(status);
 CREATE INDEX IF NOT EXISTS ix_schema_proposals_schema ON schema_proposals(schema_id);
+"#;
+
+pub const MIGRATION_V17: &str = r#"
+-- Spec 0008 (schema prompts at session close): once-per-evidence prompt notices,
+-- lens provenance on schema_proposals, and suppression carry-over from schema_candidates.notified_at.
+CREATE TABLE IF NOT EXISTS schema_prompt_notices (
+  source_key    TEXT PRIMARY KEY,  -- 'thread:<tag>' | 'candidate:<signature when shown>'; display identity only
+  evidence_json TEXT NOT NULL,     -- sorted evidence keys as shown; recurrence compares these, never keys
+  notified_at   TEXT NOT NULL
+);
+ALTER TABLE schema_proposals ADD COLUMN lens TEXT;
+-- carry over the suggestions the old release still holds back: shown schema-kind rows that no later scan has refreshed
+INSERT OR IGNORE INTO schema_prompt_notices (source_key, evidence_json, notified_at)
+SELECT 'candidate:' || c.cluster_sig,
+       (SELECT json_group_array(j.value) FROM json_each(c.member_keys_json) j
+         WHERE j.value NOT LIKE 'code:%' AND j.value NOT LIKE 'schema:%' AND j.value NOT LIKE 'pr:%'),
+       c.notified_at
+FROM schema_candidates c
+WHERE c.kind = 'schema' AND c.notified_at IS NOT NULL AND c.notified_at >= c.last_seen_at;
+ALTER TABLE schema_candidates DROP COLUMN notified_at;
 "#;

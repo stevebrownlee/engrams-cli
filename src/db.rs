@@ -5,7 +5,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-pub const LATEST_VERSION: i32 = 16;
+pub const LATEST_VERSION: i32 = 17;
 
 pub fn get_user_version(conn: &Connection) -> Result<i32> {
     let version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -99,6 +99,9 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             }
             16 => {
                 tx.execute_batch(crate::schema::MIGRATION_V16)?;
+            }
+            17 => {
+                tx.execute_batch(crate::schema::MIGRATION_V17)?;
             }
             _ => anyhow::bail!("Unknown migration version {}", v),
         }
@@ -304,23 +307,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_migration_v15_adds_notified_at_to_schema_candidates() {
+    fn test_migration_v17_replaces_candidate_notified_at_with_prompt_notices() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(crate::schema::SCHEMA).unwrap();
         // Baseline SCHEMA is DDL only; open() stamps user_version separately.
         set_user_version(&conn, LATEST_VERSION).unwrap();
         let user_ver = get_user_version(&conn).unwrap();
-        assert_eq!(user_ver, 16);
+        assert_eq!(user_ver, 17);
 
-        let has_col: bool = conn
+        let has_cand_notified: bool = conn
             .prepare("PRAGMA table_info(schema_candidates)")
             .unwrap()
             .query_map([], |r| r.get::<_, String>(1))
             .unwrap()
             .any(|c| c.as_deref() == Ok("notified_at"));
         assert!(
-            has_col,
-            "schema_candidates must have notified_at in baseline"
+            !has_cand_notified,
+            "schema_candidates.notified_at must be dropped in v17 baseline"
+        );
+
+        let notice_cols: Vec<String> = conn
+            .prepare("PRAGMA table_info(schema_prompt_notices)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .map(|c| c.unwrap())
+            .collect();
+        assert_eq!(
+            notice_cols,
+            vec!["source_key", "evidence_json", "notified_at"]
         );
     }
 
@@ -363,11 +378,118 @@ mod tests {
             "schema_id",
             "created_at",
             "decided_at",
+            "lens",
         ] {
             assert!(
                 prop_cols.contains(&col.to_string()),
                 "schema_proposals missing column {col}"
             );
         }
+    }
+
+    #[test]
+    fn test_migration_v17_carries_over_suppressed_schema_candidates_ac12() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::schema::SCHEMA).unwrap();
+        // Rewind to v16 shape: drop schema_prompt_notices, drop schema_proposals.lens,
+        // and re-add schema_candidates.notified_at.
+        conn.execute_batch(
+            "DROP TABLE schema_prompt_notices;
+             ALTER TABLE schema_proposals DROP COLUMN lens;
+             ALTER TABLE schema_candidates ADD COLUMN notified_at TEXT;
+             PRAGMA user_version = 16;",
+        )
+        .unwrap();
+
+        let insert_cand =
+            |sig: &str, members: &str, kind: &str, last_seen: &str, notified: Option<&str>| {
+                conn.execute(
+                    "INSERT INTO schema_candidates \
+                 (cluster_sig, member_keys_json, density, stability_count, reward_hits, \
+                  first_seen_at, last_seen_at, kind, notified_at) \
+                 VALUES (?1, ?2, 0.8, 3, 1, '2026-10-01T00:00:00Z', ?3, ?4, ?5)",
+                    rusqlite::params![sig, members, last_seen, kind, notified],
+                )
+                .unwrap();
+            };
+
+        // 1. Suppressed schema candidate (notified_at == last_seen_at) with non-knowledge refs to strip
+        insert_cand(
+            "code:1,decision:1,decision:2,pr:7,schema:3",
+            r#"["code:1","decision:1","decision:2","pr:7","schema:3"]"#,
+            "schema",
+            "2026-10-10T10:00:00Z",
+            Some("2026-10-10T10:00:00Z"),
+        );
+        // 2. Suppressed schema candidate (notified_at > last_seen_at)
+        insert_cand(
+            "decision:3,decision:4,system_pattern:1",
+            r#"["decision:3","decision:4","system_pattern:1"]"#,
+            "schema",
+            "2026-10-10T10:00:00Z",
+            Some("2026-10-10T12:00:00Z"),
+        );
+        // 3. Refreshed schema candidate (notified_at < last_seen_at) -> must NOT carry over
+        insert_cand(
+            "decision:5,decision:6",
+            r#"["decision:5","decision:6"]"#,
+            "schema",
+            "2026-10-11T00:00:00Z",
+            Some("2026-10-10T12:00:00Z"),
+        );
+        // 4. Never notified schema candidate -> must NOT carry over
+        insert_cand(
+            "decision:7,decision:8",
+            r#"["decision:7","decision:8"]"#,
+            "schema",
+            "2026-10-10T10:00:00Z",
+            None,
+        );
+        // 5. Non-schema kind with notified_at >= last_seen_at -> must NOT carry over
+        insert_cand(
+            "decision:9,decision:10",
+            r#"["decision:9","decision:10"]"#,
+            "unclear",
+            "2026-10-10T10:00:00Z",
+            Some("2026-10-10T12:00:00Z"),
+        );
+
+        run_migrations(&mut conn).unwrap();
+        assert_eq!(get_user_version(&conn).unwrap(), 17);
+
+        let has_cand_notified: bool = conn
+            .prepare("PRAGMA table_info(schema_candidates)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .any(|c| c.as_deref() == Ok("notified_at"));
+        assert!(!has_cand_notified);
+
+        let notices: Vec<(String, String, String)> = conn
+            .prepare(
+                "SELECT source_key, evidence_json, notified_at \
+                 FROM schema_prompt_notices ORDER BY source_key ASC",
+            )
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert_eq!(
+            notices,
+            vec![
+                (
+                    "candidate:code:1,decision:1,decision:2,pr:7,schema:3".to_string(),
+                    r#"["decision:1","decision:2"]"#.to_string(),
+                    "2026-10-10T10:00:00Z".to_string(),
+                ),
+                (
+                    "candidate:decision:3,decision:4,system_pattern:1".to_string(),
+                    r#"["decision:3","decision:4","system_pattern:1"]"#.to_string(),
+                    "2026-10-10T12:00:00Z".to_string(),
+                ),
+            ]
+        );
     }
 }

@@ -3,7 +3,6 @@
 use anyhow::Result;
 use rusqlite::{params, Connection};
 use serde::Serialize;
-use std::collections::BTreeMap;
 
 use super::gates::{claimed_territory, gates_pass};
 
@@ -20,12 +19,12 @@ pub(crate) struct SchemaOpportunity {
 /// Find unconfirmed, gate-passing schema candidates eligible for notification.
 pub(crate) fn find_opportunities(conn: &Connection) -> Result<Vec<SchemaOpportunity>> {
     let mut stmt = conn.prepare(
-        "SELECT cluster_sig, member_keys_json, density, stability_count, reward_hits, \
-                first_seen_at, last_seen_at, kind, notified_at \
-         FROM schema_candidates \
-         WHERE kind = 'schema' \
-           AND (notified_at IS NULL OR notified_at < last_seen_at) \
-         ORDER BY stability_count DESC, reward_hits DESC",
+        "SELECT c.cluster_sig, c.member_keys_json, c.density, c.stability_count, c.reward_hits \
+         FROM schema_candidates c \
+         LEFT JOIN schema_prompt_notices n ON n.source_key = 'candidate:' || c.cluster_sig \
+         WHERE c.kind = 'schema' \
+           AND (n.notified_at IS NULL OR n.notified_at < c.last_seen_at) \
+         ORDER BY c.stability_count DESC, c.reward_hits DESC",
     )?;
 
     let rows = stmt.query_map([], |r| {
@@ -63,7 +62,7 @@ pub(crate) fn find_opportunities(conn: &Connection) -> Result<Vec<SchemaOpportun
             continue;
         }
 
-        let suggested_name = suggest_schema_name(conn, &members)?;
+        let suggested_name = super::propose::suggest_schema_name(conn, &members)?;
 
         // Take unique prefix of cluster_sig: up to first 2 members or 30 chars
         let sig_prefix = if let Some(idx) = sig.match_indices(',').nth(1) {
@@ -94,132 +93,15 @@ pub(crate) fn stamp_notified(conn: &Connection, signatures: &[&str]) -> Result<(
         return Ok(());
     }
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let sql = format!(
-        "UPDATE schema_candidates SET notified_at = ?1 WHERE cluster_sig IN ({})",
-        crate::ops::sql_placeholders(signatures.len())
-    );
-    let mut params_vec = Vec::<&dyn rusqlite::ToSql>::with_capacity(signatures.len() + 1);
-    params_vec.push(&now);
+    let mut stmt = conn.prepare(
+        "INSERT OR REPLACE INTO schema_prompt_notices (source_key, evidence_json, notified_at) \
+         SELECT 'candidate:' || c.cluster_sig, c.member_keys_json, ?1 \
+         FROM schema_candidates c WHERE c.cluster_sig = ?2",
+    )?;
     for sig in signatures {
-        params_vec.push(sig);
+        stmt.execute(params![&now, sig])?;
     }
-    conn.execute(&sql, rusqlite::params_from_iter(params_vec))?;
     Ok(())
-}
-
-/// Propose a base kebab-case schema name from members' dominant tags and anchor
-/// directories, without uniqueness suffixing (so `schema propose` can surface
-/// `name_conflict` when the base name is already taken).
-pub(crate) fn suggest_base_schema_name(conn: &Connection, members: &[String]) -> Result<String> {
-    let mut tag_counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut dir_counts: BTreeMap<String, usize> = BTreeMap::new();
-
-    for m in members {
-        let Some((kind, id_str)) = m.split_once(':') else {
-            continue;
-        };
-        let Ok(id) = id_str.parse::<i64>() else {
-            continue;
-        };
-
-        let table = match kind {
-            "decision" => Some("decisions"),
-            "system_pattern" => Some("system_patterns"),
-            _ => None,
-        };
-        if let Some(table) = table {
-            let tags_raw: Option<Option<String>> = conn
-                .query_row(
-                    &format!("SELECT tags FROM {table} WHERE id = ?1"),
-                    params![id],
-                    |r| r.get(0),
-                )
-                .ok();
-            if let Some(Some(raw)) = tags_raw {
-                for t in crate::models::parse_tags(Some(&raw)) {
-                    *tag_counts.entry(t).or_default() += 1;
-                }
-            }
-        }
-
-        let mut stmt =
-            conn.prepare("SELECT path FROM item_anchors WHERE item_type = ?1 AND item_id = ?2")?;
-        let paths = stmt.query_map(params![kind, id], |r| r.get::<_, String>(0))?;
-        for p in paths {
-            let Ok(p) = p else {
-                continue;
-            };
-            if let Some(parent) = std::path::Path::new(&p).parent() {
-                if let Some(dir_name) = parent.file_name().and_then(|f| f.to_str()) {
-                    if !dir_name.is_empty() && dir_name != "." && dir_name != "src" {
-                        *dir_counts.entry(dir_name.to_string()).or_default() += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    let dominant_tag = tag_counts
-        .into_iter()
-        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.as_str().cmp(a.0.as_str())))
-        .map(|(t, _)| t);
-    let dominant_dir = dir_counts
-        .into_iter()
-        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.as_str().cmp(a.0.as_str())))
-        .map(|(d, _)| d);
-
-    let raw_name = match (dominant_tag, dominant_dir) {
-        (Some(t), _) => t,
-        (None, Some(d)) => d,
-        (None, None) => "proposed-schema".to_string(),
-    };
-
-    Ok(sanitize_kebab(&raw_name))
-}
-
-/// Propose a kebab-case schema name from members' dominant tags and anchor directories.
-pub(crate) fn suggest_schema_name(conn: &Connection, members: &[String]) -> Result<String> {
-    let kebab_base = suggest_base_schema_name(conn, members)?;
-    resolve_unique_name(conn, &kebab_base)
-}
-
-fn sanitize_kebab(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut last_dash = true;
-    for c in s.chars() {
-        if c.is_ascii_alphanumeric() {
-            out.push(c.to_ascii_lowercase());
-            last_dash = false;
-        } else if !last_dash {
-            out.push('-');
-            last_dash = true;
-        }
-    }
-    if out.ends_with('-') {
-        out.pop();
-    }
-    if out.is_empty() {
-        "schema".to_string()
-    } else {
-        out
-    }
-}
-
-fn resolve_unique_name(conn: &Connection, base: &str) -> Result<String> {
-    let mut candidate = base.to_string();
-    let mut counter = 2;
-    loop {
-        let exists: bool = conn.query_row(
-            "SELECT COUNT(*) > 0 FROM schemas WHERE name = ?1",
-            params![&candidate],
-            |r| r.get(0),
-        )?;
-        if !exists {
-            return Ok(candidate);
-        }
-        candidate = format!("{base}-{counter}");
-        counter += 1;
-    }
 }
 
 #[cfg(test)]
@@ -266,20 +148,27 @@ mod tests {
         conn.execute(
             "INSERT INTO schema_candidates \
              (cluster_sig, member_keys_json, density, stability_count, reward_hits, \
-              first_seen_at, last_seen_at, kind, notified_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, '2026-10-01T00:00:00Z', ?6, ?7, ?8)",
+              first_seen_at, last_seen_at, kind) \
+             VALUES (?1, ?2, ?3, ?4, ?5, '2026-10-01T00:00:00Z', ?6, ?7)",
             params![
                 c.sig,
-                members_json,
+                &members_json,
                 c.density,
                 c.stability,
                 c.reward,
                 c.last_seen,
                 c.kind,
-                c.notified
             ],
         )
         .unwrap();
+        if let Some(notified_at) = c.notified {
+            conn.execute(
+                "INSERT INTO schema_prompt_notices (source_key, evidence_json, notified_at) \
+                 VALUES (?1, ?2, ?3)",
+                params![format!("candidate:{}", c.sig), members_json, notified_at],
+            )
+            .unwrap();
+        }
     }
 
     fn seed_decision(conn: &Connection, id: i64, tags_json: &str) {
@@ -310,45 +199,6 @@ mod tests {
             )
             .unwrap();
         }
-    }
-
-    #[test]
-    fn test_suggest_schema_name_prefers_dominant_tag() {
-        let conn = setup_test_db();
-        seed_decision(&conn, 1, r#"["auth", "jwt"]"#);
-        seed_decision(&conn, 2, r#"["auth", "crypto"]"#);
-
-        let members = vec!["decision:1".to_string(), "decision:2".to_string()];
-        let name = suggest_schema_name(&conn, &members).unwrap();
-        assert_eq!(name, "auth");
-    }
-
-    #[test]
-    fn test_suggest_schema_name_falls_back_to_anchor_path() {
-        let conn = setup_test_db();
-        seed_decision(&conn, 1, "[]");
-        conn.execute(
-            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
-             VALUES ('decision', 1, 'src/ops/auth.rs', 't')",
-            [],
-        )
-        .unwrap();
-
-        let members = vec!["decision:1".to_string()];
-        let name = suggest_schema_name(&conn, &members).unwrap();
-        assert_eq!(name, "ops");
-    }
-
-    #[test]
-    fn test_suggest_schema_name_suffixes_on_collision() {
-        let conn = setup_test_db();
-        seed_decision(&conn, 1, r#"["auth"]"#);
-        seed_confirmed_schema(&conn, 1, "auth", &[]);
-        let members = vec!["decision:1".to_string()];
-        assert_eq!(suggest_schema_name(&conn, &members).unwrap(), "auth-2");
-
-        seed_confirmed_schema(&conn, 2, "auth-2", &[]);
-        assert_eq!(suggest_schema_name(&conn, &members).unwrap(), "auth-3");
     }
 
     #[test]
@@ -496,21 +346,17 @@ mod tests {
         // Empty nomination is a no-op, not a SQL error
         stamp_notified(&conn, &[]).unwrap();
         let stamped: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM schema_candidates WHERE notified_at IS NOT NULL",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM schema_prompt_notices", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(stamped, 0);
 
         stamp_notified(&conn, &["decision:1", "decision:2"]).unwrap();
         let stamped: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM schema_candidates WHERE notified_at IS NOT NULL",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM schema_prompt_notices", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(stamped, 2);
 

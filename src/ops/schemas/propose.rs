@@ -484,7 +484,7 @@ pub(crate) fn validate_proposal(
     );
     let resolved_name = match name.map(str::trim).filter(|s| !s.is_empty()) {
         Some(n) => n.to_string(),
-        None => super::opportunities::suggest_base_schema_name(conn, &members)?,
+        None => suggest_base_schema_name(conn, &members)?,
     };
     let evidence = Evidence {
         notes: members.len(),
@@ -545,6 +545,121 @@ fn detect_name_conflict(conn: &Connection, name: &str) -> Result<Option<Value>> 
     Ok(None)
 }
 
+/// Propose a base kebab-case schema name from members' dominant tags and anchor
+/// directories, without uniqueness suffixing (so `schema propose` can surface
+/// `name_conflict` when the base name is already taken).
+pub(crate) fn suggest_base_schema_name(conn: &Connection, members: &[String]) -> Result<String> {
+    let mut tag_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut dir_counts: BTreeMap<String, usize> = BTreeMap::new();
+
+    for m in members {
+        let Some((kind, id_str)) = m.split_once(':') else {
+            continue;
+        };
+        let Ok(id) = id_str.parse::<i64>() else {
+            continue;
+        };
+
+        let table = match kind {
+            "decision" => Some("decisions"),
+            "system_pattern" => Some("system_patterns"),
+            _ => None,
+        };
+        if let Some(table) = table {
+            let tags_raw: Option<Option<String>> = conn
+                .query_row(
+                    &format!("SELECT tags FROM {table} WHERE id = ?1"),
+                    params![id],
+                    |r| r.get(0),
+                )
+                .ok();
+            if let Some(Some(raw)) = tags_raw {
+                for t in crate::models::parse_tags(Some(&raw)) {
+                    *tag_counts.entry(t).or_default() += 1;
+                }
+            }
+        }
+
+        let mut stmt =
+            conn.prepare("SELECT path FROM item_anchors WHERE item_type = ?1 AND item_id = ?2")?;
+        let paths = stmt.query_map(params![kind, id], |r| r.get::<_, String>(0))?;
+        for p in paths {
+            let Ok(p) = p else {
+                continue;
+            };
+            if let Some(parent) = std::path::Path::new(&p).parent() {
+                if let Some(dir_name) = parent.file_name().and_then(|f| f.to_str()) {
+                    if !dir_name.is_empty() && dir_name != "." && dir_name != "src" {
+                        *dir_counts.entry(dir_name.to_string()).or_default() += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let dominant_tag = tag_counts
+        .into_iter()
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.as_str().cmp(a.0.as_str())))
+        .map(|(t, _)| t);
+    let dominant_dir = dir_counts
+        .into_iter()
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.as_str().cmp(a.0.as_str())))
+        .map(|(d, _)| d);
+
+    let raw_name = match (dominant_tag, dominant_dir) {
+        (Some(t), _) => t,
+        (None, Some(d)) => d,
+        (None, None) => "proposed-schema".to_string(),
+    };
+
+    Ok(sanitize_kebab(&raw_name))
+}
+
+/// Propose a kebab-case schema name from members' dominant tags and anchor directories.
+pub(crate) fn suggest_schema_name(conn: &Connection, members: &[String]) -> Result<String> {
+    let kebab_base = suggest_base_schema_name(conn, members)?;
+    resolve_unique_name(conn, &kebab_base)
+}
+
+pub(crate) fn sanitize_kebab(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut last_dash = true;
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+            last_dash = false;
+        } else if !last_dash {
+            out.push('-');
+            last_dash = true;
+        }
+    }
+    if out.ends_with('-') {
+        out.pop();
+    }
+    if out.is_empty() {
+        "schema".to_string()
+    } else {
+        out
+    }
+}
+
+fn resolve_unique_name(conn: &Connection, base: &str) -> Result<String> {
+    let mut candidate = base.to_string();
+    let mut counter = 2;
+    loop {
+        let exists: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM schemas WHERE name = ?1",
+            params![&candidate],
+            |r| r.get(0),
+        )?;
+        if !exists {
+            return Ok(candidate);
+        }
+        candidate = format!("{base}-{counter}");
+        counter += 1;
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn propose(
     conn: &Connection,
@@ -554,6 +669,8 @@ pub fn propose(
     rule: Option<&str>,
     raw_members: &[String],
     from: Option<&str>,
+    thread: Option<&str>,
+    lens: Option<&str>,
     name: Option<&str>,
     scope_tags: Option<&[String]>,
     scope_paths: Option<&[String]>,
@@ -561,32 +678,45 @@ pub fn propose(
     session: Option<&str>,
     force: bool,
 ) -> Result<Value> {
+    if from.is_some() && thread.is_some() {
+        bail!("cannot combine --from and --thread");
+    }
     let mut dropped_code_members: Vec<String> = Vec::new();
     let mut seeded_members: Vec<String> = Vec::new();
-    let (source_kind, source_ref) = match from {
-        Some(prefix) => {
+    let (source_kind, source_ref) = match (from, thread) {
+        (Some(prefix), None) => {
             let cand = super::confirm::try_resolve_candidate(conn, prefix)?.ok_or_else(|| {
                 anyhow::anyhow!(
                     "no staged candidate matches '{prefix}' (run `engrams schema scan`)"
                 )
             })?;
-            for m in &cand.members {
-                let Some((kind, _)) = m.split_once(':') else {
-                    continue;
-                };
-                match normalize_note_kind(kind) {
-                    Ok(_) => seeded_members.push(m.clone()),
-                    Err(Some("code")) => dropped_code_members.push(m.clone()),
-                    Err(_) => {}
+            if raw_members.is_empty() {
+                for m in &cand.members {
+                    let Some((kind, _)) = m.split_once(':') else {
+                        continue;
+                    };
+                    match normalize_note_kind(kind) {
+                        Ok(_) => seeded_members.push(m.clone()),
+                        Err(Some("code")) => dropped_code_members.push(m.clone()),
+                        Err(_) => {}
+                    }
                 }
+                dropped_code_members.sort_unstable();
+                dropped_code_members.dedup();
             }
-            dropped_code_members.sort_unstable();
-            dropped_code_members.dedup();
             ("candidate", Some(cand.cluster_sig))
         }
-        None => ("manual", None),
+        (None, Some(raw_tag)) => {
+            let tag = raw_tag.trim();
+            if tag.is_empty() {
+                bail!("thread tag cannot be empty");
+            }
+            ("thread", Some(tag.to_string()))
+        }
+        (None, None) => ("manual", None),
+        (Some(_), Some(_)) => unreachable!(),
     };
-
+    let resolved_lens = lens.map(str::trim).filter(|s| !s.is_empty());
     let effective_members: &[String] = if !raw_members.is_empty() {
         raw_members
     } else {
@@ -704,8 +834,8 @@ pub fn propose(
     conn.execute(
         "INSERT INTO schema_proposals \
          (uuid, name, statement, summary, scope_json, members_json, contrary_json, \
-          evidence_json, source_kind, source_ref, session, status, created_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+          evidence_json, source_kind, source_ref, lens, session, status, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
             uuid,
             validated.name,
@@ -717,6 +847,7 @@ pub fn propose(
             evidence_json,
             source_kind,
             source_ref,
+            resolved_lens,
             resolved_session,
             ProposalStatus::Proposed.as_str(),
             created_at,
@@ -740,8 +871,8 @@ pub fn propose(
                 "kind": source_kind,
                 "ref": source_ref,
             },
+            "lens": resolved_lens,
             "status": ProposalStatus::Proposed.as_str(),
-            "created_at": created_at,
         },
         "confirm_command": format!("engrams schema confirm proposal:{id}"),
         "reject_command": format!("engrams schema reject proposal:{id} --reason \"<why>\""),
@@ -807,6 +938,7 @@ struct ProposalRow {
     evidence_json: String,
     source_kind: String,
     source_ref: Option<String>,
+    lens: Option<String>,
     session: Option<String>,
     status: String,
     decision_note: Option<String>,
@@ -826,7 +958,7 @@ pub fn proposals(conn: &Connection, status_filter: Option<&str>) -> Result<Value
     };
     let sql = format!(
         "SELECT id, name, statement, summary, scope_json, members_json, contrary_json, \
-                evidence_json, source_kind, source_ref, session, status, decision_note, \
+                evidence_json, source_kind, source_ref, lens, session, status, decision_note, \
                 schema_id, created_at, decided_at \
          FROM schema_proposals {where_clause} ORDER BY id ASC"
     );
@@ -843,12 +975,13 @@ pub fn proposals(conn: &Connection, status_filter: Option<&str>) -> Result<Value
             evidence_json: r.get(7)?,
             source_kind: r.get(8)?,
             source_ref: r.get(9)?,
-            session: r.get(10)?,
-            status: r.get(11)?,
-            decision_note: r.get(12)?,
-            schema_id: r.get(13)?,
-            created_at: r.get(14)?,
-            decided_at: r.get(15)?,
+            lens: r.get(10)?,
+            session: r.get(11)?,
+            status: r.get(12)?,
+            decision_note: r.get(13)?,
+            schema_id: r.get(14)?,
+            created_at: r.get(15)?,
+            decided_at: r.get(16)?,
         })
     };
     let rows: Vec<ProposalRow> = if where_clause.is_empty() {
@@ -891,6 +1024,7 @@ pub fn proposals(conn: &Connection, status_filter: Option<&str>) -> Result<Value
                 "kind": row.source_kind,
                 "ref": row.source_ref,
             },
+            "lens": row.lens,
             "session": row.session,
             "status": row.status,
             "decision_note": row.decision_note,
@@ -1022,6 +1156,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
             &[],
             Some("sess-1"),
             false,
@@ -1087,6 +1223,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
             &[],
             None,
             false,
@@ -1110,6 +1248,8 @@ mod tests {
                 "decision:2".into(),
                 "decision:99".into(),
             ],
+            None,
+            None,
             None,
             None,
             None,
@@ -1138,6 +1278,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
             &["decision:2".into()],
             None,
             false,
@@ -1154,6 +1296,8 @@ mod tests {
             None,
             None,
             &["decision:1".into(), "decision:2".into()],
+            None,
+            None,
             None,
             None,
             None,
@@ -1182,6 +1326,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
             &[],
             None,
             false,
@@ -1205,6 +1351,8 @@ mod tests {
                 "decision:2".into(),
                 "decision:3".into(),
             ],
+            None,
+            None,
             None,
             None,
             None,
@@ -1259,6 +1407,8 @@ mod tests {
             Some("keep self-doubt in dialogue while actions hold firm"),
             &members,
             None,
+            None,
+            None,
             Some("mara-leader"),
             None,
             None,
@@ -1277,6 +1427,8 @@ mod tests {
             None,
             None,
             &members,
+            None,
+            None,
             None,
             Some("mara-leader-2"),
             None,
@@ -1302,6 +1454,8 @@ mod tests {
             None,
             None,
             &members,
+            None,
+            None,
             None,
             Some("mara-leader"),
             None,
@@ -1361,5 +1515,163 @@ mod tests {
             pending[0]["reject_command"],
             "engrams schema reject proposal:2 --reason \"<why>\""
         );
+    }
+
+    #[test]
+    fn test_suggest_schema_name_prefers_dominant_tag_falls_back_to_dir_and_suffixes() {
+        let conn = mem_db();
+        seed_decision(
+            &conn,
+            1,
+            "first auth note",
+            r#"["auth", "jwt"]"#,
+            "2026-09-01T10:00:00Z",
+            None,
+        );
+        seed_decision(
+            &conn,
+            2,
+            "second auth note",
+            r#"["auth", "crypto"]"#,
+            "2026-09-02T10:00:00Z",
+            None,
+        );
+        let members = vec!["decision:1".to_string(), "decision:2".to_string()];
+        assert_eq!(suggest_schema_name(&conn, &members).unwrap(), "auth");
+
+        conn.execute(
+            "INSERT INTO schemas (id, uuid, name, summary, centroid_json, created_at, updated_at) \
+             VALUES (1, 's-1', 'auth', 'When x: y', '{}', 't', 't')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(suggest_schema_name(&conn, &members).unwrap(), "auth-2");
+        conn.execute(
+            "INSERT INTO schemas (id, uuid, name, summary, centroid_json, created_at, updated_at) \
+             VALUES (2, 's-2', 'auth-2', 'When x: y', '{}', 't', 't')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(suggest_schema_name(&conn, &members).unwrap(), "auth-3");
+
+        seed_decision(
+            &conn,
+            3,
+            "untagged note",
+            "[]",
+            "2026-09-03T10:00:00Z",
+            Some("src/ops/auth.rs"),
+        );
+        assert_eq!(
+            suggest_schema_name(&conn, &["decision:3".to_string()]).unwrap(),
+            "ops"
+        );
+    }
+
+    #[test]
+    fn propose_records_thread_and_lens_provenance_and_supports_from_with_explicit_members_ac9() {
+        let conn = mem_db();
+        seed_decision(
+            &conn,
+            1,
+            "Mara fails the spire seal while academy peers succeed",
+            r#"["mara","wound"]"#,
+            "2026-09-01T10:00:00Z",
+            Some("manuscript/ch01.md"),
+        );
+        seed_decision(
+            &conn,
+            2,
+            "Mara deflects praise in council dialogue onto squadmates",
+            r#"["mara","dialogue"]"#,
+            "2026-09-02T10:00:00Z",
+            Some("manuscript/ch03.md"),
+        );
+        seed_decision(
+            &conn,
+            3,
+            "Mara hesitates before issuing her first command at the crossing",
+            r#"["mara","leadership"]"#,
+            "2026-09-03T10:00:00Z",
+            Some("manuscript/ch05.md"),
+        );
+
+        let members = vec![
+            "decision:1".to_string(),
+            "decision:2".to_string(),
+            "decision:3".to_string(),
+        ];
+        let out = propose(
+            &conn,
+            "Mara believes she is broken and carries that doubt into command",
+            Some("When writing Mara under pressure: she doubts herself aloud while acting decisively"),
+            None,
+            None,
+            &members,
+            None,
+            Some("mara"),
+            Some("fiction"),
+            Some("mara-broken-leader"),
+            None,
+            None,
+            &[],
+            Some("sess-ac9"),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(out["inserted"], true);
+        assert_eq!(
+            out["proposal"]["source"],
+            json!({"kind": "thread", "ref": "mara"})
+        );
+        assert_eq!(out["proposal"]["lens"], "fiction");
+
+        let listed = proposals(&conn, None).unwrap();
+        let props = listed["proposals"].as_array().unwrap();
+        assert_eq!(props.len(), 1);
+        assert_eq!(props[0]["source"], json!({"kind": "thread", "ref": "mara"}));
+        assert_eq!(props[0]["lens"], "fiction");
+
+        // Combining --from with explicit --members records candidate provenance while using explicit members (F-2)
+        conn.execute(
+            "INSERT INTO schema_candidates \
+             (cluster_sig, member_keys_json, density, stability_count, reward_hits, \
+              first_seen_at, last_seen_at, kind) \
+             VALUES ('code:99,decision:1,decision:2,decision:3,decision:999', \
+                     '[\"code:99\",\"decision:1\",\"decision:2\",\"decision:3\",\"decision:999\"]', \
+                     0.9, 3, 2, '2026-09-01T00:00:00Z', '2026-09-04T00:00:00Z', 'unclear')",
+            [],
+        )
+        .unwrap();
+        let cand_out = propose(
+            &conn,
+            "Candidate-seeded claim over uncovered notes only",
+            Some("When writing crossing scenes: keep tension grounded in hesitation"),
+            None,
+            None,
+            &members,
+            Some("code:99,decision:1"),
+            None,
+            Some("fiction"),
+            Some("crossing-hesitation"),
+            None,
+            None,
+            &[],
+            None,
+            true,
+        )
+        .unwrap();
+        assert_eq!(cand_out["inserted"], true);
+        assert_eq!(
+            cand_out["proposal"]["source"],
+            json!({
+                "kind": "candidate",
+                "ref": "code:99,decision:1,decision:2,decision:3,decision:999"
+            })
+        );
+        assert_eq!(cand_out["proposal"]["lens"], "fiction");
+        assert_eq!(cand_out["proposal"]["members"], json!(members));
+        assert!(cand_out.get("dropped_code_members").is_none());
     }
 }

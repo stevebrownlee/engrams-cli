@@ -966,6 +966,7 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
                 .and_then(|v| v.as_str())
                 .unwrap_or("manual");
             let source_ref = json.get("source_ref").and_then(|v| v.as_str());
+            let lens = json.get("lens").and_then(|v| v.as_str());
             let session = json.get("session").and_then(|v| v.as_str());
             let status = json
                 .get("status")
@@ -993,9 +994,9 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
             tx.execute(
                 "INSERT OR REPLACE INTO schema_proposals \
                  (id, uuid, name, statement, summary, scope_json, members_json, \
-                  contrary_json, evidence_json, source_kind, source_ref, session, \
+                  contrary_json, evidence_json, source_kind, source_ref, lens, session, \
                   status, decision_note, schema_id, created_at, decided_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 params![
                     id,
                     uuid,
@@ -1008,6 +1009,7 @@ pub fn handle(conn: &Connection, path: &Path, root: Option<&Path>) -> Result<Val
                     evidence_json,
                     source_kind,
                     source_ref,
+                    lens,
                     session,
                     status,
                     decision_note,
@@ -1203,6 +1205,8 @@ mod tests {
                 "decision:3".into(),
             ],
             None,
+            Some("mara"),
+            Some("fiction"),
             Some("mara-broken-leader"),
             Some(&["mara".into(), "wound".into()]),
             Some(&["manuscript".into()]),
@@ -1226,6 +1230,8 @@ mod tests {
                 "decision:7".into(),
             ],
             None,
+            None,
+            Some("fiction"),
             Some("soren-silence"),
             Some(&["soren".into()]),
             Some(&["manuscript".into()]),
@@ -1249,6 +1255,8 @@ mod tests {
                 "decision:10".into(),
             ],
             None,
+            Some("aether"),
+            Some("fiction"),
             Some("aether-cost"),
             Some(&["aether".into(), "magic".into()]),
             Some(&["world".into()]),

@@ -650,7 +650,7 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
     // linkage so `origin` and territory checks survive export/import.
     let mut stmt = conn.prepare(
         "SELECT id, uuid, name, statement, summary, scope_json, members_json, \
-         contrary_json, evidence_json, source_kind, source_ref, session, status, \
+         contrary_json, evidence_json, source_kind, source_ref, lens, session, status, \
          decision_note, schema_id, created_at, decided_at \
          FROM schema_proposals ORDER BY id ASC",
     )?;
@@ -667,12 +667,13 @@ pub fn handle(conn: &Connection, path: &Path) -> Result<Value> {
             "evidence_json": row.get::<_, String>(8)?,
             "source_kind": row.get::<_, String>(9)?,
             "source_ref": row.get::<_, Option<String>>(10)?,
-            "session": row.get::<_, Option<String>>(11)?,
-            "status": row.get::<_, String>(12)?,
-            "decision_note": row.get::<_, Option<String>>(13)?,
-            "schema_id": row.get::<_, Option<i64>>(14)?,
-            "created_at": row.get::<_, String>(15)?,
-            "decided_at": row.get::<_, Option<String>>(16)?,
+            "lens": row.get::<_, Option<String>>(11)?,
+            "session": row.get::<_, Option<String>>(12)?,
+            "status": row.get::<_, String>(13)?,
+            "decision_note": row.get::<_, Option<String>>(14)?,
+            "schema_id": row.get::<_, Option<i64>>(15)?,
+            "created_at": row.get::<_, String>(16)?,
+            "decided_at": row.get::<_, Option<String>>(17)?,
         }))
     })?;
     let mut proposals_count = 0;

@@ -421,6 +421,12 @@ pub enum SchemaCmd {
         /// Seed members from a staged candidate signature or prefix
         #[arg(long)]
         from: Option<String>,
+        /// Subject thread tag that prompted this proposal
+        #[arg(long, conflicts_with = "from")]
+        thread: Option<String>,
+        /// Lens name used when prompting this proposal
+        #[arg(long)]
+        lens: Option<String>,
         /// Proposed schema name (defaults to dominant member tag/directory)
         #[arg(long)]
         name: Option<String>,

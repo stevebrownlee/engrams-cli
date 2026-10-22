@@ -1866,6 +1866,10 @@ fn s17_export_import_round_trips_schema_proposals_statement_scope_and_origin_ac1
             "manuscript",
             "--session",
             "sess-ac10",
+            "--thread",
+            "mara",
+            "--lens",
+            "fiction",
         ])
         .assert()
         .success();
@@ -1926,6 +1930,10 @@ fn s17_export_import_round_trips_schema_proposals_statement_scope_and_origin_ac1
             "world",
             "--session",
             "sess-ac10",
+            "--thread",
+            "aether",
+            "--lens",
+            "fiction",
         ])
         .assert()
         .success();

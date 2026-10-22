@@ -2144,6 +2144,8 @@ fn test_migration_v11_to_v12() {
              DROP TABLE IF EXISTS retrieval_surfaces;
              DROP TABLE IF EXISTS schema_candidates;
              DROP TABLE IF EXISTS schema_suggestions;
+             DROP TABLE IF EXISTS schema_proposals;
+             DROP TABLE IF EXISTS schema_prompt_notices;
              DROP TABLE IF EXISTS schemas;",
         )
         .unwrap();
@@ -2213,8 +2215,8 @@ fn test_migration_v13_to_v14() {
              ALTER TABLE schemas DROP COLUMN kind_reasons_json;
              ALTER TABLE schemas DROP COLUMN statement;
              ALTER TABLE schemas DROP COLUMN scope_json;
-             ALTER TABLE schema_candidates DROP COLUMN notified_at;
-             DROP TABLE schema_proposals;",
+             DROP TABLE schema_proposals;
+             DROP TABLE schema_prompt_notices;",
         )
         .unwrap();
         conn.execute(
@@ -2231,12 +2233,12 @@ fn test_migration_v13_to_v14() {
     // pin — derived from command output), which this contract pins at 15.
     let out = engrams(&db).arg("migrate").output().unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(parsed["version"].as_i64().unwrap(), 16);
+    assert_eq!(parsed["version"].as_i64().unwrap(), 17);
     let conn = rusqlite::Connection::open(&db).unwrap();
     let version: i32 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 16);
+    assert_eq!(version, 17);
 
     // The kind columns exist post-migration.
     let mut stmt = conn.prepare("PRAGMA table_info(schemas)").unwrap();
@@ -2256,7 +2258,7 @@ fn test_migration_v13_to_v14() {
         .unwrap()
         .flatten()
         .collect();
-    assert!(cand_cols.contains(&"notified_at".to_string()));
+    assert!(!cand_cols.contains(&"notified_at".to_string()));
 
     // The pre-existing row backfilled via the column defaults (a successful
     // NOT NULL backfill proves the DEFAULT clauses landed), and every prior
@@ -2294,6 +2296,127 @@ fn test_migration_v13_to_v14() {
     assert_eq!(status, "active");
     assert_eq!(created_at, "2026-01-01T00:00:00Z");
     assert_eq!(updated_at, "2026-01-02T00:00:00Z");
+}
+
+#[test]
+fn test_migration_v16_to_v17_carries_over_suppressed_candidates_and_propose_thread_lens_ac9_ac12() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("e.db");
+
+    engrams(&db).arg("init").assert().success();
+
+    // Rewind to v16 shape and seed schema_candidates rows to exercise AC-12 carry-over.
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "DROP TABLE schema_prompt_notices;
+             ALTER TABLE schema_proposals DROP COLUMN lens;
+             ALTER TABLE schema_candidates ADD COLUMN notified_at TEXT;
+             INSERT INTO schema_candidates
+               (cluster_sig, member_keys_json, density, stability_count, reward_hits,
+                first_seen_at, last_seen_at, kind, notified_at)
+             VALUES
+               ('code:1,decision:1,decision:2,pr:5,schema:2',
+                '[\"code:1\",\"decision:1\",\"decision:2\",\"pr:5\",\"schema:2\"]',
+                0.8, 3, 2, '2026-10-01T00:00:00Z', '2026-10-10T10:00:00Z', 'schema', '2026-10-10T10:00:00Z'),
+               ('decision:3,decision:4',
+                '[\"decision:3\",\"decision:4\"]',
+                0.8, 3, 2, '2026-10-01T00:00:00Z', '2026-10-11T00:00:00Z', 'schema', '2026-10-10T10:00:00Z'),
+               ('decision:5,decision:6',
+                '[\"decision:5\",\"decision:6\"]',
+                0.8, 3, 2, '2026-10-01T00:00:00Z', '2026-10-10T10:00:00Z', 'unclear', '2026-10-10T12:00:00Z');
+             INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+               (1, 'u1', '2026-10-01T00:00:00Z', 'Mara hesitates at the spire gate', '[\"mara\"]'),
+               (2, 'u2', '2026-10-02T00:00:00Z', 'Mara deflects credit after the skirmish', '[\"mara\"]'),
+               (3, 'u3', '2026-10-03T00:00:00Z', 'Mara doubts her command before the crossing', '[\"mara\"]');
+             INSERT INTO item_anchors (item_type, item_id, path, timestamp) VALUES
+               ('decision', 1, 'manuscript/ch01.md', '2026-10-01T00:00:00Z'),
+               ('decision', 2, 'manuscript/ch02.md', '2026-10-02T00:00:00Z'),
+               ('decision', 3, 'manuscript/ch03.md', '2026-10-03T00:00:00Z');
+             PRAGMA user_version = 16;",
+        )
+        .unwrap();
+    }
+
+    let out = engrams(&db).arg("migrate").output().unwrap();
+    assert!(out.status.success());
+    let migrated: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(migrated["version"], 17);
+
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let notices: Vec<(String, String, String)> = conn
+            .prepare("SELECT source_key, evidence_json, notified_at FROM schema_prompt_notices")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(
+            notices,
+            vec![(
+                "candidate:code:1,decision:1,decision:2,pr:5,schema:2".to_string(),
+                r#"["decision:1","decision:2"]"#.to_string(),
+                "2026-10-10T10:00:00Z".to_string(),
+            )]
+        );
+    }
+
+    // AC-9: --thread conflicts with --from on CLI
+    engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--thread",
+            "mara",
+            "--from",
+            "decision:3",
+            "--statement",
+            "Mara carries self-doubt into leadership",
+            "--summary",
+            "When writing Mara: keep her self-doubt visible",
+            "--members",
+            "decision:1,decision:2,decision:3",
+        ])
+        .assert()
+        .failure();
+
+    // AC-9: schema propose --thread mara --lens fiction records source and lens
+    let prop_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--thread",
+            "mara",
+            "--lens",
+            "fiction",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken and carries that doubt into command",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud while acting decisively",
+            "--members",
+            "decision:1,decision:2,decision:3",
+        ])
+        .output()
+        .unwrap();
+    assert!(prop_out.status.success());
+    let prop_json: Value = serde_json::from_slice(&prop_out.stdout).unwrap();
+    assert_eq!(
+        prop_json["proposal"]["source"],
+        serde_json::json!({"kind": "thread", "ref": "mara"})
+    );
+    assert_eq!(prop_json["proposal"]["lens"], "fiction");
+
+    let list_out = engrams(&db).args(["schema", "proposals"]).output().unwrap();
+    assert!(list_out.status.success());
+    let list_json: Value = serde_json::from_slice(&list_out.stdout).unwrap();
+    assert_eq!(
+        list_json["proposals"][0]["source"],
+        serde_json::json!({"kind": "thread", "ref": "mara"})
+    );
+    assert_eq!(list_json["proposals"][0]["lens"], "fiction");
 }
 
 #[test]
@@ -4746,8 +4869,8 @@ fn test_session_close_surfaces_schema_value_and_opportunities() {
     let conn = rusqlite::Connection::open(&db).unwrap();
     let notified: String = conn
         .query_row(
-            "SELECT notified_at FROM schema_candidates WHERE cluster_sig = ?1",
-            rusqlite::params!["decision:1|decision:2"],
+            "SELECT notified_at FROM schema_prompt_notices WHERE source_key = ?1",
+            rusqlite::params!["candidate:decision:1|decision:2"],
             |r| r.get(0),
         )
         .unwrap();
