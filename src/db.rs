@@ -264,34 +264,6 @@ pub fn workspace_root_from_db(db_path: &Path) -> Option<PathBuf> {
     Some(root.to_path_buf())
 }
 
-/// Discover the workspace root by walking up from the cwd looking for known markers.
-/// Best-effort: does not resolve git worktrees (unlike `resolve_db_path`).
-pub fn workspace_root() -> Result<PathBuf> {
-    let cwd = env::current_dir().context("Failed to get current directory")?;
-    let mut current = cwd.clone();
-    loop {
-        for marker in &[
-            ".engrams",
-            ".git",
-            "pyproject.toml",
-            "package.json",
-            "Cargo.toml",
-            "go.mod",
-        ] {
-            if current.join(marker).exists() {
-                return Ok(current);
-            }
-        }
-        if current.join("engrams").join("context.db").exists() {
-            return Ok(current);
-        }
-        match current.parent() {
-            Some(parent) => current = parent.to_path_buf(),
-            None => return Ok(cwd),
-        }
-    }
-}
-
 pub fn open(db_path: &Path) -> Result<Connection> {
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)?;

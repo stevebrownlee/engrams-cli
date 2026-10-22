@@ -103,7 +103,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             crate::ops::graph::rebuild::touch_item(conn, "system_pattern", id, ws.root.as_deref())?;
 
             // Write-through (S7): keep any installed omp rulebook in sync.
-            crate::ops::rules::write_through(conn, &ws.db_path);
+            crate::ops::rules::write_through(conn, ws.root.as_deref());
             // Schema assimilation (AC-8): explicit attach / decline wins;
             // otherwise match the centroid and fire suggestions.
             let schema_block = crate::ops::schemas::assimilate::at_log_time(
@@ -188,7 +188,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             tx.commit()?;
 
             // Write-through (S7): prune removed pattern from any installed rulebook.
-            crate::ops::rules::write_through(conn, &ws.db_path);
+            crate::ops::rules::write_through(conn, ws.root.as_deref());
 
             Ok(serde_json::json!({
                 "deleted": true,

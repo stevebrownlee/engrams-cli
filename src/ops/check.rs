@@ -11,18 +11,16 @@
 //! stderr note, so the omp TTSR engine (which the export produces the rule for)
 //! remains the authoritative matcher for structural patterns.
 
+use crate::models::Pattern;
+use crate::ops::pattern::parse_pattern_row;
 use anyhow::Result;
 use ignore::WalkBuilder;
 use regex::Regex;
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-
-use crate::db;
-use crate::models::Pattern;
-use crate::ops::pattern::parse_pattern_row;
 
 struct Checkable {
     pattern: Pattern,
@@ -30,11 +28,20 @@ struct Checkable {
     regex: Option<Regex>,
 }
 
-pub fn handle(conn: &Connection, staged: bool, paths: &[String], db_path: &Path) -> Result<Value> {
-    let root = db::workspace_root_from_db(db_path).or_else(|| db::workspace_root().ok());
+pub fn handle(
+    conn: &Connection,
+    staged: bool,
+    paths: &[String],
+    root: Option<&Path>,
+) -> Result<Value> {
+    if staged && root.is_none() {
+        anyhow::bail!(
+            "check --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+        );
+    }
     let checkables = load_checkables(conn)?;
-    let files = collect_files(staged, paths, root.as_deref())?;
-    let violations = run(&checkables, &files, root.as_deref())?;
+    let files = collect_files(staged, paths, root)?;
+    let violations = run(&checkables, &files, root)?;
     Ok(json!({
         "violations": violations,
         "files_checked": files.len(),
@@ -78,7 +85,12 @@ fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<
     let mut files = BTreeSet::new();
 
     if staged {
-        for f in crate::ops::git::staged_files()? {
+        let r = root.ok_or_else(|| {
+            anyhow::anyhow!(
+                "check --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+            )
+        })?;
+        for f in crate::ops::git::staged_files(r)? {
             files.insert(f);
         }
     }
@@ -90,11 +102,12 @@ fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<
     }
 
     if !staged && paths.is_empty() {
-        let base = root.unwrap_or_else(|| Path::new("."));
-        for result in WalkBuilder::new(base).build() {
-            let Ok(entry) = result else { continue };
-            if entry.file_type().is_some_and(|t| t.is_file()) {
-                files.insert(relativize(entry.path(), base));
+        if let Some(base) = root {
+            for result in WalkBuilder::new(base).build() {
+                let Ok(entry) = result else { continue };
+                if entry.file_type().is_some_and(|t| t.is_file()) {
+                    files.insert(relativize(entry.path(), base));
+                }
             }
         }
     }
@@ -104,8 +117,12 @@ fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<
 
 /// Expand a single `--paths` entry (file or directory) to repo-relative paths.
 fn collect_path(p: &str, root: Option<&Path>) -> Vec<String> {
-    let base = root.unwrap_or_else(|| Path::new("."));
-    let abs = base.join(p);
+    let path = Path::new(p);
+    let (abs, base) = match root {
+        Some(r) => (r.join(path), Some(r)),
+        None if path.is_absolute() => (path.to_path_buf(), None),
+        None => return Vec::new(),
+    };
     let meta = match fs::metadata(&abs) {
         Ok(m) => m,
         Err(_) => {
@@ -115,14 +132,20 @@ fn collect_path(p: &str, root: Option<&Path>) -> Vec<String> {
         }
     };
     if meta.is_file() {
-        return vec![relativize(&abs, base)];
+        return vec![match base {
+            Some(b) => relativize(&abs, b),
+            None => abs.to_string_lossy().into_owned(),
+        }];
     }
     if meta.is_dir() {
         let mut out = Vec::new();
         for result in WalkBuilder::new(&abs).build() {
             let Ok(entry) = result else { continue };
             if entry.file_type().is_some_and(|t| t.is_file()) {
-                out.push(relativize(entry.path(), base));
+                out.push(match base {
+                    Some(b) => relativize(entry.path(), b),
+                    None => entry.path().to_string_lossy().into_owned(),
+                });
             }
         }
         return out;
@@ -136,9 +159,12 @@ fn run(checkables: &[Checkable], files: &[String], root: Option<&Path>) -> Resul
     let sg_present = sg_available();
 
     for rel in files {
-        let abs = root
-            .map(|r| r.join(rel))
-            .unwrap_or_else(|| PathBuf::from(rel));
+        let rel_path = Path::new(rel);
+        let abs = match root {
+            Some(r) => r.join(rel_path),
+            None if rel_path.is_absolute() => rel_path.to_path_buf(),
+            None => continue,
+        };
         let content = match fs::read_to_string(&abs) {
             Ok(c) => c,
             Err(_) => continue, // deleted / binary / unreadable

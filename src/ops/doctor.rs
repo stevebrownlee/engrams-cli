@@ -2,26 +2,27 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::Value;
 
-pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
+pub fn handle(conn: &Connection, root: Option<&std::path::Path>) -> Result<Value> {
     // 1. Audit missing anchor paths
     let mut missing_anchor_paths = Vec::new();
-    let mut stmt = conn.prepare("SELECT item_type, item_id, path FROM item_anchors")?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
-    for r in rows {
-        let (item_type, item_id, path) = r?;
-        let p = std::path::Path::new(&path);
-        if !p.exists() {
-            missing_anchor_paths.push(serde_json::json!({
-                "item_type": item_type,
-                "item_id": item_id,
-                "path": path,
-            }));
+    if let Some(root) = root {
+        let mut stmt = conn.prepare("SELECT item_type, item_id, path FROM item_anchors")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        for r in rows {
+            let (item_type, item_id, path) = r?;
+            if !root.join(&path).exists() {
+                missing_anchor_paths.push(serde_json::json!({
+                    "item_type": item_type,
+                    "item_id": item_id,
+                    "path": path,
+                }));
+            }
         }
     }
 
@@ -76,37 +77,42 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
     // 3. Audit stale decisions
     let mut stale_decisions = Vec::new();
     let mut git_status = "ok".to_string();
+    let mut skipped_checks: Vec<&'static str> = Vec::new();
 
-    let mut stmt = conn.prepare("SELECT id, summary, commit_sha FROM decisions WHERE status = 'active' AND commit_sha IS NOT NULL")?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i64>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
-    for r in rows {
-        let (id, summary, commit_sha) = r?;
-        let anchors = crate::ops::anchor::anchors_for(conn, "decision", id)?;
-        if !anchors.is_empty() {
-            match crate::ops::git::changed_since(&commit_sha, &anchors) {
-                Ok(changed) => {
-                    if !changed.is_empty() {
-                        stale_decisions.push(serde_json::json!({
-                            "id": id,
-                            "summary": summary,
-                            "commit_sha": commit_sha,
-                            "changed_paths": changed,
-                        }));
+    if let Some(root) = root {
+        let mut stmt = conn.prepare("SELECT id, summary, commit_sha FROM decisions WHERE status = 'active' AND commit_sha IS NOT NULL")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        for r in rows {
+            let (id, summary, commit_sha) = r?;
+            let anchors = crate::ops::anchor::anchors_for(conn, "decision", id)?;
+            if !anchors.is_empty() {
+                match crate::ops::git::changed_since(root, &commit_sha, &anchors) {
+                    Ok(changed) => {
+                        if !changed.is_empty() {
+                            stale_decisions.push(serde_json::json!({
+                                "id": id,
+                                "summary": summary,
+                                "commit_sha": commit_sha,
+                                "changed_paths": changed,
+                            }));
+                        }
                     }
-                }
-                Err(_) => {
-                    git_status = "unavailable".to_string();
-                    stale_decisions.clear();
-                    break;
+                    Err(_) => {
+                        git_status = "unavailable".to_string();
+                        stale_decisions.clear();
+                        break;
+                    }
                 }
             }
         }
+    } else {
+        skipped_checks.push("stale_decisions: no workspace");
     }
 
     // 4. Audit unlinked decisions
@@ -275,7 +281,7 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
         && never_read.is_empty()
         && unconfirmed_patterns.is_empty();
 
-    Ok(serde_json::json!({
+    let mut out = serde_json::json!({
         "missing_anchor_paths": missing_anchor_paths,
         "dangling_links": dangling_links,
         "stale_decisions": stale_decisions,
@@ -294,9 +300,13 @@ pub fn handle(conn: &Connection, db_path: &std::path::Path) -> Result<Value> {
             "non_canonical": non_canonical,
         },
         "git": git_status,
-        "rules": crate::ops::rules::staleness(conn, db_path),
+        "rules": crate::ops::rules::staleness(conn, root),
         "ok": ok,
-    }))
+    });
+    if !skipped_checks.is_empty() {
+        out["skipped_checks"] = serde_json::json!(skipped_checks);
+    }
+    Ok(out)
 }
 
 fn get_table_name(item_type: &str) -> Option<&'static str> {

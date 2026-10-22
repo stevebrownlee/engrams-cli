@@ -83,9 +83,11 @@ pub fn dispatch(
         Command::Decision { cmd } => decision::handle(conn, cmd, ws),
         Command::Progress { cmd } => progress::handle(conn, cmd, ws),
         Command::Pattern { cmd } => pattern::handle(conn, cmd, ws),
-        Command::Rules { cmd } => rules::handle(conn, cmd, &ws.db_path),
-        Command::Install { harness, hooks } => install::handle(conn, &harness, hooks, &ws.db_path),
-        Command::Check { staged, paths } => check::handle(conn, staged, &paths, &ws.db_path),
+        Command::Rules { cmd } => rules::handle(conn, cmd, ws.root.as_deref()),
+        Command::Install { harness, hooks } => {
+            install::handle(conn, &harness, hooks, &ws.db_path, ws.root.as_deref())
+        }
+        Command::Check { staged, paths } => check::handle(conn, staged, &paths, ws.root.as_deref()),
         Command::Custom { cmd } => custom::handle(conn, cmd),
         Command::Link { cmd } => link::handle(conn, cmd),
         Command::Activity(args) => activity::handle(conn, args),
@@ -101,9 +103,11 @@ pub fn dispatch(
         Command::Pr { cmd } => pr::handle(conn, cmd, ws.root.as_deref()),
         Command::Anchor { cmd } => anchor::handle(conn, cmd, ws.root.as_deref()),
         Command::Relevant { paths, staged, all } => {
-            anchor::handle_relevant(conn, paths, staged, all)
+            anchor::handle_relevant(conn, paths, staged, all, ws.root.as_deref())
         }
-        Command::Advise { paths, staged } => advise::handle(conn, paths, staged, &ws.db_path),
+        Command::Advise { paths, staged } => {
+            advise::handle(conn, paths, staged, ws.root.as_deref())
+        }
         Command::Prune(cmd) => prune::handle(conn, cmd),
         Command::Consolidate(cmd) => consolidate::handle(
             conn,
@@ -117,7 +121,7 @@ pub fn dispatch(
             paths,
             tags,
         } => prime::handle(conn, budget, paths, tags),
-        Command::Doctor => doctor::handle(conn, &ws.db_path),
+        Command::Doctor => doctor::handle(conn, ws.root.as_deref()),
         Command::Graph { cmd } => graph::handle(conn, cmd, ws.root.as_deref()),
         Command::Schema { cmd } => schemas::handle(conn, cmd),
         Command::Query {
@@ -129,13 +133,15 @@ pub fn dispatch(
             all,
             full,
         } => query::handle(conn, query, types, tags, since, limit, all, full),
-        Command::Brief { target, depth } => brief::handle(conn, &target, depth),
+        Command::Brief { target, depth } => brief::handle(conn, &target, depth, ws.root.as_deref()),
         Command::Usage {
             since,
             daily,
             misses,
         } => usage::handle(conn, since, daily, misses),
-        Command::Coverage { paths, diff } => coverage::handle(conn, paths, diff),
+        Command::Coverage { paths, diff } => {
+            coverage::handle(conn, paths, diff, ws.root.as_deref())
+        }
         Command::Session { cmd } => session::handle(conn, cmd, ws.root.as_deref()),
         Command::Instructions => unreachable!("handled in main before dispatch"),
     }

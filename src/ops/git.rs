@@ -59,8 +59,10 @@ pub fn origin_base(root: &Path) -> Result<String> {
     }
 }
 
-pub fn staged_files() -> Result<Vec<String>> {
+pub fn staged_files(root: &Path) -> Result<Vec<String>> {
     let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
         .args(["diff", "--cached", "--name-only"])
         .output()
         .context("git command failed")?;
@@ -71,22 +73,22 @@ pub fn staged_files() -> Result<Vec<String>> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let files: Vec<String> = stdout
         .lines()
-        .map(|line| line.trim().to_string())
+        .map(str::trim)
         .filter(|line| !line.is_empty())
+        .map(str::to_owned)
         .collect();
     Ok(files)
 }
 
-pub fn changed_since(sha: &str, paths: &[String]) -> Result<Vec<String>> {
+pub fn changed_since(root: &Path, sha: &str, paths: &[String]) -> Result<Vec<String>> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
-    let mut args = vec!["diff", "--name-only", sha, "HEAD", "--"];
-    for p in paths {
-        args.push(p);
-    }
     let output = Command::new("git")
-        .args(&args)
+        .arg("-C")
+        .arg(root)
+        .args(["diff", "--name-only", sha, "HEAD", "--"])
+        .args(paths)
         .output()
         .context("git command failed")?;
     if !output.status.success() {
@@ -96,8 +98,9 @@ pub fn changed_since(sha: &str, paths: &[String]) -> Result<Vec<String>> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let files: Vec<String> = stdout
         .lines()
-        .map(|line| line.trim().to_string())
+        .map(str::trim)
         .filter(|line| !line.is_empty())
+        .map(str::to_owned)
         .collect();
     Ok(files)
 }

@@ -17,13 +17,23 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::{json, Value};
 
-pub fn handle(conn: &Connection, paths: Vec<String>, diff: Option<String>) -> Result<Value> {
-    let root = crate::db::workspace_root()?;
-
+pub fn handle(
+    conn: &Connection,
+    paths: Vec<String>,
+    diff: Option<String>,
+    root: Option<&Path>,
+) -> Result<Value> {
     let (files, changed_only) = if let Some(base) = &diff {
-        (diff_files(&root, base)?, true)
+        let r = root.ok_or_else(|| {
+            anyhow::anyhow!(
+                "coverage --diff needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+            )
+        })?;
+        (diff_files(r, base)?, true)
+    } else if let Some(r) = root {
+        (walk_files(r, &paths)?, false)
     } else {
-        (walk_files(&root, &paths)?, false)
+        (HashSet::new(), false)
     };
 
     // Live-anchor map for the area: path → (type, id).
@@ -41,12 +51,14 @@ pub fn handle(conn: &Connection, paths: Vec<String>, diff: Option<String>) -> Re
         if live_by_type.contains(&(ty.as_str(), *id)) {
             anchored_files.insert(path.clone());
         }
-        if files.contains(path) && !Path::new(&root).join(path).exists() {
-            dead_anchors.push(json!({
-                "path": path,
-                "item_type": ty,
-                "item_id": id,
-            }));
+        if let Some(r) = root {
+            if files.contains(path) && !r.join(path).exists() {
+                dead_anchors.push(json!({
+                    "path": path,
+                    "item_type": ty,
+                    "item_id": id,
+                }));
+            }
         }
     }
 
@@ -243,13 +255,15 @@ fn walk_files(root: &Path, paths: &[String]) -> Result<HashSet<String>> {
 fn diff_files(root: &Path, base: &str) -> Result<HashSet<String>> {
     let spec = format!("{}...HEAD", base);
     let mut out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
         .args(["diff", "--name-only", &spec])
-        .current_dir(root)
         .output()?;
     if !out.status.success() {
         out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(root)
             .args(["diff", "--name-only", base])
-            .current_dir(root)
             .output()?;
     }
     anyhow::ensure!(
@@ -259,7 +273,8 @@ fn diff_files(root: &Path, base: &str) -> Result<HashSet<String>> {
     );
     Ok(String::from_utf8_lossy(&out.stdout)
         .lines()
-        .filter(|l| !l.trim().is_empty())
-        .map(|l| l.trim().to_string())
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_owned)
         .collect())
 }

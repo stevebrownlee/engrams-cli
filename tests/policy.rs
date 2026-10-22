@@ -711,3 +711,59 @@ fn s10_install_rejects_unknown_harness() {
         .failure()
         .stderr(predicates::str::contains("omp"));
 }
+
+#[test]
+fn s10_install_hooks_writes_into_named_workspace_only() {
+    let repo_a = TempDir::new().unwrap();
+    let repo_b = TempDir::new().unwrap();
+    for repo in [repo_a.path(), repo_b.path()] {
+        std::process::Command::new("git")
+            .arg("init")
+            .current_dir(repo)
+            .output()
+            .unwrap();
+    }
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args(["install", "--harness", "omp", "--hooks"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert!(json.get("hook_installed").is_some());
+    assert!(json.get("extension_installed").is_some());
+    assert!(repo_a.path().join(".git/hooks/pre-commit").exists());
+    assert!(!repo_b.path().join(".git/hooks/pre-commit").exists());
+}
+
+#[test]
+fn s10_install_hooks_without_workspace_fails_closed() {
+    let repo_b = TempDir::new().unwrap();
+    std::process::Command::new("git")
+        .arg("init")
+        .current_dir(repo_b.path())
+        .output()
+        .unwrap();
+    let isolated = TempDir::new().unwrap();
+    let db = isolated.path().join("e.db");
+
+    let out = engrams(&db)
+        .current_dir(repo_b.path())
+        .args(["install", "--harness", "omp", "--hooks"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let err: Value = serde_json::from_slice(&out.stderr).unwrap();
+    assert_eq!(
+        err["error"].as_str(),
+        Some(
+            "install --hooks needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+        )
+    );
+    assert!(!repo_b.path().join(".git/hooks/pre-commit").exists());
+}

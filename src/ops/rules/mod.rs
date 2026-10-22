@@ -8,29 +8,26 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::cli::RulesCmd;
-use crate::db;
 use crate::models::Pattern;
 
 /// Manifest filename written into the rule output directory.
 pub const MANIFEST_FILE: &str = ".engrams-manifest.json";
 
-pub fn handle(conn: &Connection, cmd: RulesCmd, db_path: &Path) -> Result<Value> {
+pub fn handle(conn: &Connection, cmd: RulesCmd, root: Option<&Path>) -> Result<Value> {
     match cmd {
-        RulesCmd::Export { harness, out } => export::handle(conn, &harness, out, db_path),
+        RulesCmd::Export { harness, out } => export::handle(conn, &harness, out, root),
     }
 }
 
 /// Resolve the output directory for rules.
 /// Explicit `out` wins; otherwise `<workspace-root>/.omp/rules`.
-pub fn resolve_rules_dir(out: Option<&Path>, db_path: &Path) -> Result<PathBuf> {
+pub fn resolve_rules_dir(out: Option<&Path>, root: Option<&Path>) -> Result<PathBuf> {
     if let Some(o) = out {
         return Ok(o.to_path_buf());
     }
-    let root = db::workspace_root_from_db(db_path)
-        .or_else(|| db::workspace_root().ok())
-        .ok_or_else(|| {
-            anyhow::anyhow!("could not determine workspace root; pass --out <DIR> explicitly")
-        })?;
+    let root = root.ok_or_else(|| {
+        anyhow::anyhow!("could not determine workspace root; pass --out <DIR> explicitly")
+    })?;
     Ok(root.join(".omp").join("rules"))
 }
 
@@ -42,12 +39,12 @@ pub fn manifest_path(rules_dir: &Path) -> PathBuf {
 /// regenerate the rulebook so generated files never lag the database.
 /// Opt-in by manifest presence; no-op (no surprise file writes) otherwise.
 /// Best-effort: any error is swallowed so a stale export never breaks a `pattern log`.
-pub fn write_through(conn: &Connection, db_path: &Path) {
-    // Anchor strictly to the database's workspace so write-through never
+pub fn write_through(conn: &Connection, root: Option<&Path>) {
+    // Anchor strictly to the resolved workspace root so write-through never
     // crosses into a different workspace (e.g. when run from a test TempDir
     // or with an explicit --db outside the workspace layout).
-    let Some(root) = db::workspace_root_from_db(db_path) else {
-        return; // db path doesn't follow <root>/engrams/context.db — skip.
+    let Some(root) = root else {
+        return;
     };
     let dir = root.join(".omp").join("rules");
     if manifest_path(&dir).exists() {
@@ -59,10 +56,10 @@ pub fn write_through(conn: &Connection, db_path: &Path) {
 /// checkable patterns in the database and report drift. Advisory only: never
 /// errors, never affects DB-integrity `ok`. Independent of `ok` on purpose —
 /// rules sync is a workspace concern, not database health.
-pub fn staleness(conn: &Connection, db_path: &Path) -> Value {
-    // Anchor strictly to the database's workspace, never CWD, so staleness
+pub fn staleness(conn: &Connection, root: Option<&Path>) -> Value {
+    // Anchor strictly to the resolved workspace root, never CWD, so staleness
     // never reports against an unrelated workspace (S6).
-    let Some(root) = db::workspace_root_from_db(db_path) else {
+    let Some(root) = root else {
         return json!({"exported": false, "stale": false});
     };
     let dir = root.join(".omp").join("rules");

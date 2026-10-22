@@ -14,12 +14,12 @@ pub fn handle(
     conn: &Connection,
     harness: &str,
     out: Option<PathBuf>,
-    db_path: &Path,
+    root: Option<&Path>,
 ) -> Result<Value> {
     if harness != "omp" {
         anyhow::bail!("unsupported harness '{}'; only 'omp' is supported", harness);
     }
-    let dir = super::resolve_rules_dir(out.as_deref(), db_path)?;
+    let dir = super::resolve_rules_dir(out.as_deref(), root)?;
     regenerate(conn, &dir)
 }
 

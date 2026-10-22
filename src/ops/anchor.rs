@@ -177,11 +177,17 @@ pub fn handle_relevant(
     paths: Vec<String>,
     staged: bool,
     all: bool,
+    root: Option<&Path>,
 ) -> Result<Value> {
     let mut query_paths = paths;
     if staged {
+        let r = root.ok_or_else(|| {
+            anyhow::anyhow!(
+                "relevant --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+            )
+        })?;
         let staged_files =
-            git::staged_files().map_err(|e| anyhow::anyhow!("cannot read staged files: {}", e))?;
+            git::staged_files(r).map_err(|e| anyhow::anyhow!("cannot read staged files: {}", e))?;
         query_paths.extend(staged_files);
     }
 
@@ -337,8 +343,8 @@ pub fn handle_relevant(
     });
     // Staleness drift (2.3): per-decision trust signal — anchored files
     // committed after the decision. Null (stripped on read) when no signal.
-    if let Ok(root) = crate::db::workspace_root() {
-        let mut drift = crate::ops::drift::Drift::scan(&root);
+    if let Some(root) = root {
+        let mut drift = crate::ops::drift::Drift::scan(root);
         if let Some(arr) = out.get_mut("decisions").and_then(Value::as_array_mut) {
             for d in arr.iter_mut() {
                 let id = d.get("id").and_then(Value::as_i64);

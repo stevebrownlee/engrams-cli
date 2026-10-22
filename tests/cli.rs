@@ -1489,11 +1489,14 @@ fn test_doctor() {
     let repo_temp = TempDir::new().unwrap();
     let repo_path = repo_temp.path();
 
-    // 1. Clean DB
+    // 1. Clean DB (nonstandard --db without --workspace skips stale_decisions)
     let out = engrams(&db).arg("doctor").output().unwrap();
     let j: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(j["ok"].as_bool().unwrap());
-
+    assert_eq!(
+        j["skipped_checks"],
+        serde_json::json!(["stale_decisions: no workspace"])
+    );
     // 2. Initialize git repo, commit a file
     std::process::Command::new("git")
         .arg("init")
@@ -1527,15 +1530,18 @@ fn test_doctor() {
 
     // Log decision with anchor inside the repo
     let mut cmd = engrams(&db);
-    cmd.current_dir(repo_path).args([
-        "decision",
-        "log",
-        "--summary",
-        "Doctor Decision",
-        "--anchor",
-        "anchor.txt",
-        "--force",
-    ]);
+    cmd.current_dir(repo_path)
+        .arg("--workspace")
+        .arg(repo_path)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Doctor Decision",
+            "--anchor",
+            "anchor.txt",
+            "--force",
+        ]);
     let out_dec = cmd.output().unwrap();
     let j_dec: Value = serde_json::from_slice(&out_dec.stdout).unwrap();
     let id = j_dec["id"].as_i64().unwrap();
@@ -1543,7 +1549,11 @@ fn test_doctor() {
 
     // 3. Test unlinked_decisions (has commit_sha but no PR links)
     let mut cmd_doc = engrams(&db);
-    cmd_doc.current_dir(repo_path).arg("doctor");
+    cmd_doc
+        .current_dir(repo_path)
+        .arg("--workspace")
+        .arg(repo_path)
+        .arg("doctor");
     let out_doc = cmd_doc.output().unwrap();
     let j_doc: Value = serde_json::from_slice(&out_doc.stdout).unwrap();
     assert!(!j_doc["ok"].as_bool().unwrap());
@@ -1553,6 +1563,8 @@ fn test_doctor() {
 
     // 4. Test missing_anchor_paths (anchor to non-existent path)
     let out_anchor = engrams(&db)
+        .arg("--workspace")
+        .arg(repo_path)
         .args([
             "anchor",
             "add",
@@ -1568,7 +1580,11 @@ fn test_doctor() {
     assert!(out_anchor.status.success());
 
     let mut cmd_doc2 = engrams(&db);
-    cmd_doc2.current_dir(repo_path).arg("doctor");
+    cmd_doc2
+        .current_dir(repo_path)
+        .arg("--workspace")
+        .arg(repo_path)
+        .arg("doctor");
     let out_doc2 = cmd_doc2.output().unwrap();
     let j_doc2: Value = serde_json::from_slice(&out_doc2.stdout).unwrap();
     let missing = j_doc2["missing_anchor_paths"].as_array().unwrap();
@@ -1589,9 +1605,14 @@ fn test_doctor() {
         .unwrap();
 
     let mut cmd_doc3 = engrams(&db);
-    cmd_doc3.current_dir(repo_path).arg("doctor");
+    cmd_doc3
+        .current_dir(repo_path)
+        .arg("--workspace")
+        .arg(repo_path)
+        .arg("doctor");
     let out_doc3 = cmd_doc3.output().unwrap();
     let j_doc3: Value = serde_json::from_slice(&out_doc3.stdout).unwrap();
+    assert!(j_doc3.get("skipped_checks").is_none());
     let stale = j_doc3["stale_decisions"].as_array().unwrap();
     assert_eq!(stale.len(), 1);
     assert_eq!(stale[0]["id"].as_i64().unwrap(), id);
@@ -5154,4 +5175,253 @@ fn workspace_skips_cochange_without_workspace_ac7() {
     assert_eq!(ingested["ingested"], false);
     assert_eq!(ingested["reason"], "no workspace named");
     assert_eq!(ingested["edges_by_source"]["cochange"], 0);
+}
+
+#[test]
+fn workspace_staged_checks_only_named_workspace_files_ac3() {
+    let repo_a = TempDir::new().unwrap();
+    let repo_b = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_a.path(), "init_a.rs", "pub fn init_a() {}\n");
+    let _ = init_git_repo_with_commit(repo_b.path(), "init_b.rs", "pub fn init_b() {}\n");
+
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args([
+            "pattern",
+            "log",
+            "--name",
+            "No Forbidden Token",
+            "--check-kind",
+            "regex",
+            "--check",
+            "FORBIDDEN_TOKEN",
+            "--severity",
+            "error",
+        ])
+        .assert()
+        .success();
+
+    // Stage a violating file in repo A and a different violating file in repo B.
+    std::fs::write(
+        repo_a.path().join("staged_a.rs"),
+        "pub fn bad_a() { let _ = FORBIDDEN_TOKEN; }\n",
+    )
+    .unwrap();
+    std::process::Command::new("git")
+        .args(["add", "staged_a.rs"])
+        .current_dir(repo_a.path())
+        .output()
+        .unwrap();
+
+    std::fs::write(
+        repo_b.path().join("staged_b.rs"),
+        "pub fn bad_b() { let _ = FORBIDDEN_TOKEN; }\n",
+    )
+    .unwrap();
+    std::process::Command::new("git")
+        .args(["add", "staged_b.rs"])
+        .current_dir(repo_b.path())
+        .output()
+        .unwrap();
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args(["check", "--staged"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "violation in repo A should exit 1");
+    let res: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(res["files_checked"], 1);
+    let violations = res["violations"].as_array().unwrap();
+    assert_eq!(violations.len(), 1);
+    assert_eq!(violations[0]["file"], "staged_a.rs");
+
+    // Fix repo A's staged file while repo B still has staged_b.rs with the violation.
+    std::fs::write(repo_a.path().join("staged_a.rs"), "pub fn clean_a() {}\n").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "staged_a.rs"])
+        .current_dir(repo_a.path())
+        .output()
+        .unwrap();
+
+    let out_clean = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args(["check", "--staged"])
+        .output()
+        .unwrap();
+    assert!(
+        out_clean.status.success(),
+        "repo B's staged file must not be checked when repo A is named"
+    );
+    let res_clean: Value = serde_json::from_slice(&out_clean.stdout).unwrap();
+    assert_eq!(res_clean["files_checked"], 1);
+    assert_eq!(res_clean["violations"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn workspace_refuses_git_only_operations_without_workspace_ac6() {
+    let repo_b = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
+    std::fs::write(repo_b.path().join("b.rs"), "pub fn b2() {}\n").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "b.rs"])
+        .current_dir(repo_b.path())
+        .output()
+        .unwrap();
+
+    let isolated = TempDir::new().unwrap();
+    let db = isolated.path().join("copy.db");
+    engrams(&db).arg("init").assert().success();
+
+    let cases: &[(&[&str], &str)] = &[
+        (
+            &["check", "--staged"],
+            "check --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db",
+        ),
+        (
+            &["advise", "--staged"],
+            "advise --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db",
+        ),
+        (
+            &["relevant", "--staged"],
+            "relevant --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db",
+        ),
+        (
+            &["coverage", "--diff", "HEAD"],
+            "coverage --diff needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db",
+        ),
+        (
+            &["install", "--harness", "omp", "--hooks"],
+            "install --hooks needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db",
+        ),
+    ];
+
+    for (args, expected_err) in cases {
+        let out = engrams(&db)
+            .current_dir(repo_b.path())
+            .args(*args)
+            .output()
+            .unwrap();
+        assert!(
+            !out.status.success(),
+            "expected {:?} to fail without workspace",
+            args
+        );
+        let err: Value = serde_json::from_slice(&out.stderr).unwrap();
+        assert_eq!(err["error"].as_str(), Some(*expected_err));
+    }
+
+    assert!(
+        !repo_b.path().join(".git/hooks/pre-commit").exists(),
+        "shell repository hooks must be left unchanged"
+    );
+}
+
+#[test]
+fn workspace_installs_hooks_only_into_named_workspace_ac8() {
+    let repo_a = TempDir::new().unwrap();
+    let repo_b = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_a.path(), "a.rs", "pub fn a() {}\n");
+    let _ = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
+
+    let out = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo_b.path())
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args(["install", "--harness", "omp", "--hooks"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert!(
+        repo_a.path().join(".git/hooks/pre-commit").exists(),
+        "pre-commit hook must be written into repo A"
+    );
+    assert!(
+        repo_a
+            .path()
+            .join(".omp/extensions/engrams-advisor/index.ts")
+            .exists(),
+        "omp extension must be written into repo A"
+    );
+    assert!(
+        !repo_b.path().join(".git/hooks/pre-commit").exists(),
+        "repo B's hooks must be unchanged"
+    );
+    assert!(
+        !repo_b.path().join(".omp").exists(),
+        "repo B must not receive .omp directory"
+    );
+}
+
+#[test]
+fn workspace_doctor_skips_stale_decisions_without_workspace() {
+    let repo_a = TempDir::new().unwrap();
+    let _ = init_git_repo_with_commit(repo_a.path(), "anchor.txt", "v1\n");
+    let isolated = TempDir::new().unwrap();
+    let db = isolated.path().join("copy.db");
+
+    // Log decision with --workspace repo_a and --db copy.db so commit_sha is recorded.
+    let out_log = engrams(&db)
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Anchored decision",
+            "--contract",
+            "v1",
+            "--anchor",
+            "anchor.txt",
+        ])
+        .output()
+        .unwrap();
+    assert!(out_log.status.success());
+
+    // Modify and commit anchor.txt in repo_a so it would be stale if git were checked.
+    std::fs::write(repo_a.path().join("anchor.txt"), "v2\n").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "anchor.txt"])
+        .current_dir(repo_a.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "v2"])
+        .current_dir(repo_a.path())
+        .output()
+        .unwrap();
+
+    // Run doctor with only --db copy.db (no --workspace) from inside repo_a.
+    let out_doc = engrams(&db)
+        .current_dir(repo_a.path())
+        .arg("doctor")
+        .output()
+        .unwrap();
+    assert!(out_doc.status.success());
+    let doc: Value = serde_json::from_slice(&out_doc.stdout).unwrap();
+    assert_eq!(doc["stale_decisions"], serde_json::json!([]));
+    assert_eq!(
+        doc["skipped_checks"],
+        serde_json::json!(["stale_decisions: no workspace"])
+    );
+    assert_eq!(doc["missing_anchor_paths"], serde_json::json!([]));
 }

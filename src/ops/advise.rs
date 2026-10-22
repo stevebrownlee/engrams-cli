@@ -20,11 +20,16 @@ pub fn handle(
     conn: &Connection,
     paths: Vec<String>,
     staged: bool,
-    db_path: &std::path::Path,
+    root: Option<&std::path::Path>,
 ) -> Result<Value> {
     let mut query_paths = paths;
     if staged {
-        let staged_files = crate::ops::git::staged_files()
+        let r = root.ok_or_else(|| {
+            anyhow::anyhow!(
+                "advise --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+            )
+        })?;
+        let staged_files = crate::ops::git::staged_files(r)
             .map_err(|e| anyhow::anyhow!("cannot read staged files: {}", e))?;
         query_paths.extend(staged_files);
     }
@@ -90,7 +95,7 @@ pub fn handle(
         );
         let mut stmt = conn.prepare(&sql)?;
         // Staleness drift (2.3): one git scan for the whole batch.
-        let mut drift = crate::ops::drift::Drift::scan(&crate::db::workspace_root()?);
+        let mut drift = root.map(crate::ops::drift::Drift::scan);
         let rows = stmt.query_map(rusqlite::params_from_iter(&decision_ids), |row| {
             let mut c = json!({
                 "type": "decision",
@@ -99,15 +104,17 @@ pub fn handle(
                 "status": row.get::<_, String>(2)?,
                 "rationale": row.get::<_, Option<String>>(3)?,
             });
-            let report = drift.report(
-                conn,
-                "decision",
-                row.get::<_, i64>(0)?,
-                &row.get::<_, String>(4)?,
-                row.get::<_, Option<String>>(5)?.as_deref(),
-            );
-            if !report.is_null() {
-                c["drift"] = report;
+            if let Some(drift) = drift.as_mut() {
+                let report = drift.report(
+                    conn,
+                    "decision",
+                    row.get::<_, i64>(0)?,
+                    &row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?.as_deref(),
+                );
+                if !report.is_null() {
+                    c["drift"] = report;
+                }
             }
             Ok(c)
         })?;
@@ -117,7 +124,7 @@ pub fn handle(
     }
 
     // Run check against the specific files for current violations.
-    let violations = crate::ops::check::handle(conn, false, &cleaned, db_path)?;
+    let violations = crate::ops::check::handle(conn, false, &cleaned, root)?;
     let violations = violations
         .get("violations")
         .cloned()

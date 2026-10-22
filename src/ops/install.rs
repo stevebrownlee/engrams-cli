@@ -14,14 +14,25 @@ use std::path::Path;
 
 use crate::ops::rules;
 
-pub fn handle(conn: &Connection, harness: &str, hooks: bool, db_path: &Path) -> Result<Value> {
+pub fn handle(
+    conn: &Connection,
+    harness: &str,
+    hooks: bool,
+    db_path: &Path,
+    root: Option<&Path>,
+) -> Result<Value> {
     if harness != "omp" {
         anyhow::bail!("unsupported harness '{}'; only 'omp' is supported", harness);
+    }
+    if hooks && root.is_none() {
+        anyhow::bail!(
+            "install --hooks needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
+        );
     }
 
     // Always install into the canonical workspace rule dir — install is the
     // standard setup path, so it deliberately ignores any `--out` style knob.
-    let dir = rules::resolve_rules_dir(None, db_path)?;
+    let dir = rules::resolve_rules_dir(None, root)?;
     let summary = rules::export::regenerate(conn, &dir)?;
 
     let written = summary.get("written").cloned().unwrap_or_else(|| json!([]));
@@ -46,14 +57,15 @@ pub fn handle(conn: &Connection, harness: &str, hooks: bool, db_path: &Path) -> 
     });
 
     if hooks {
-        let hook_path = write_pre_commit_hook(db_path)?;
+        let workspace_root = root.expect("checked above");
+        let hook_path = write_pre_commit_hook(db_path, workspace_root)?;
         if let serde_json::Value::Object(map) = &mut result {
             map.insert(
                 "hook_installed".into(),
                 json!(hook_path.display().to_string()),
             );
         }
-        let ext_path = write_omp_extension(db_path)?;
+        let ext_path = write_omp_extension(workspace_root)?;
         if let serde_json::Value::Object(map) = &mut result {
             map.insert(
                 "extension_installed".into(),
@@ -73,9 +85,7 @@ pub fn handle(conn: &Connection, harness: &str, hooks: bool, db_path: &Path) -> 
 
 /// Write a git pre-commit hook that runs `engrams check --staged`.
 /// Returns the path to the installed hook. Errors if no git repo is found.
-fn write_pre_commit_hook(db_path: &Path) -> Result<std::path::PathBuf> {
-    let workspace_root = crate::db::workspace_root()?;
-
+fn write_pre_commit_hook(db_path: &Path, workspace_root: &Path) -> Result<std::path::PathBuf> {
     // Resolve the engrams binary path (use the built binary if it exists,
     // otherwise fall back to `engrams` on PATH).
     let engrams_bin = {
@@ -143,11 +153,15 @@ exit 0
         db_arg = db_arg,
     );
 
-    let hooks_dir = workspace_root.join(".git/hooks");
+    let repo_root = std::path::PathBuf::from(crate::ops::git::toplevel(workspace_root)?);
+    let hooks_dir = if workspace_root.join(".git/hooks").exists() {
+        workspace_root.join(".git/hooks")
+    } else {
+        repo_root.join(".git/hooks")
+    };
     if !hooks_dir.exists() {
         anyhow::bail!(".git/hooks directory not found at {}", hooks_dir.display());
     }
-
     let hook_path = hooks_dir.join("pre-commit");
     std::fs::write(&hook_path, &hook_content)?;
 
@@ -167,8 +181,7 @@ exit 0
 /// This extension intercepts `edit`/`write` tool calls and surfaces engrams
 /// constraints + error violations before the edit lands. omp auto-discovers
 /// extensions in `<workspace>/.omp/extensions/` on session start.
-fn write_omp_extension(_db_path: &Path) -> Result<std::path::PathBuf> {
-    let workspace_root = crate::db::workspace_root()?;
+fn write_omp_extension(workspace_root: &Path) -> Result<std::path::PathBuf> {
     let ext_dir = workspace_root.join(".omp/extensions/engrams-advisor");
     std::fs::create_dir_all(&ext_dir)?;
     let ext_path = ext_dir.join("index.ts");

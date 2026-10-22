@@ -8,6 +8,7 @@
 type CodeRow = (String, Option<String>, Option<String>, Option<i64>);
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension};
@@ -19,11 +20,11 @@ const MAX_TEXT: usize = 300;
 const MAX_NEIGHBOR_TEXT: usize = 120;
 const MAX_DOC_CHARS: usize = 200;
 
-pub fn handle(conn: &Connection, target: &str, depth: i64) -> Result<Value> {
+pub fn handle(conn: &Connection, target: &str, depth: i64, root: Option<&Path>) -> Result<Value> {
     let key = resolve(conn, target)?;
     let depth = depth.clamp(1, 3);
     crate::ops::usage::record(conn, "brief", target, 1, false);
-    let node = node_payload(conn, &key)?;
+    let node = node_payload(conn, &key, root)?;
 
     // BFS over context_links to `depth` hops; neighbors get full enrichment
     // at hop 1, bare refs beyond.
@@ -194,7 +195,7 @@ fn node_exists(conn: &Connection, key: &(String, String)) -> Result<bool> {
 }
 
 /// The node's own composite payload.
-fn node_payload(conn: &Connection, key: &(String, String)) -> Result<Value> {
+fn node_payload(conn: &Connection, key: &(String, String), root: Option<&Path>) -> Result<Value> {
     let (ty, id) = key;
     match ty.as_str() {
         "decision" => {
@@ -242,8 +243,8 @@ fn node_payload(conn: &Connection, key: &(String, String)) -> Result<Value> {
             });
             // Staleness drift (2.3): trust signal — were the anchored files
             // committed after this decision? Null (absent) when no signal.
-            if let Ok(root) = crate::db::workspace_root() {
-                let mut drift = crate::ops::drift::Drift::scan(&root);
+            if let Some(root) = root {
+                let mut drift = crate::ops::drift::Drift::scan(root);
                 let report = drift.report(conn, ty, idv, &row.6, row.8.as_deref());
                 if !report.is_null() {
                     payload["drift"] = report;
