@@ -394,3 +394,22 @@ Verified clean (no findings):
 - Recorded Gate 3 verification filters (`import_`, `--bin engrams schemas`) verified non-vacuous via `-- --list` (7 and 74 tests matched respectively, including `import_skips_missing_references_preserves_existing_rows_and_scans_ac10_ac11`).
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T13:10:00Z — phase 1 of spec 0007-reviewed-schema-proposals (migration v16, test book fixture, and schema propose/reject/proposals)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - Frozen migrations: `MIGRATION_V16` is ALTER/CREATE-only, published `MIGRATION_V2`..`MIGRATION_V15` untouched, baseline `SCHEMA` carries byte-identical `statement`/`scope_json` columns on `schemas`, `schema_proposals` table + indexes, and updated `'active' | 'needs_review' | 'retired'` status comment, and `LATEST_VERSION = 16`.
+  - `#[allow(dead_code)]` seam attributes in `src/ops/schemas/propose.rs` (`ProposalStatus::Confirmed`, `MatchVia`, `PENDING_IN_PRIME`) each cite the exact future phase in spec 0007 (`Phase 2` / `Phase 3`) that wires the symbol.
+  - JSON-only output on all new subcommands (`schema propose`, `schema reject`, `schema proposals`).
+- All Phase 1 ACs (`AC-1`, `AC-2`, `AC-4`, `AC-7`) and API surface items 1, 3, and 4 met in code and pinned with behavioral unit tests (`src/db.rs`, `src/ops/schemas/propose.rs`) and CLI integration tests (`tests/cli.rs` over `tests/fixtures/manuscript-book.json`):
+  - `AC-1`: `test_proposal_ac1_records_pending_without_surfacing_as_schema` and `proposal_records_pending_with_default_scope_and_no_schema_created` verify pending proposal persistence, default and explicit scope calculation, computed evidence counts, enriched `schema proposals` listing, zero `schemas` rows, zero `member_of` links, and absence from `advise` and `query`.
+  - `AC-2`: `test_proposal_ac2_refuses_each_failing_evidence_or_wording_check` and `proposal_validation_rejects_each_failing_check` pin each of the 10 individual failure checks (fewer than 3 notes, 1 file and 1 day, missing note, non-current/superseded note, `code:` cited as note, missing contrary, retired contrary, contrary also in evidence, claim restating a cited note at Jaccard >= 0.8 without tag dilution, and instruction missing a trigger phrase) and verify zero rows written to `schema_proposals`.
+  - `AC-4`: `test_proposal_ac4_refuses_pending_rejected_and_confirmed_territory` and `proposal_overlap_and_reject_lifecycle` pin pending overlap (`inserted: false` + `similar`), `schema reject proposal:<id> --reason`, non-pending reject error, rejected overlap with no newer note (`inserted: false` + `rejected_before` with `id`, `decided_at`, `reason`, `overlap`), and active-schema territory refusal (`claimed_territory` even with `--force`, filtering `code:` members from pre-v16 schemas).
+  - `AC-7`: `test_proposal_ac7_seeds_from_detector_group_drops_code_and_snapshots_evidence` pins `--from <prefix>` seeding knowledge notes while dropping and reporting `dropped_code_members`, recording `source: {"kind": "candidate", "ref": <full_sig>}`, and keeping `members` and `source.ref` immutable across subsequent candidate mutations and `schema scan` runs.
+- Rules 002–006 and `engrams check` (0 violations across 10 touched `src/` files) satisfied: `ProposalStatus::as_str`, `MatchVia::as_str`, and `normalize_note_kind` return `&'static str` (rule 006), `parse_note_key` and `parse_proposal_target` keep slices borrowed (rule 003), `opportunities::suggest_base_schema_name` iterates `query_map` directly without intermediate `Vec` collection (rule 005) and uses `BTreeMap` with deterministic tie-breaking.
+- Recorded Gate 3 verification filters (`--bin engrams proposal`, `--test cli proposal`, `--test policy s1_fresh_db`) verified non-vacuous via `-- --list` (4, 4, and 1 tests matched respectively).
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
