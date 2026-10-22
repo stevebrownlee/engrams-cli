@@ -101,6 +101,24 @@ pub(crate) fn parse_scope(scope_json: &str) -> super::propose::Scope {
     serde_json::from_str(scope_json).unwrap_or_default()
 }
 
+pub(crate) fn path_matches(a: &str, b: &str) -> bool {
+    let a = a.trim_matches('/');
+    let b = b.trim_matches('/');
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
+    a == b
+        || a.strip_prefix(b).is_some_and(|rest| rest.starts_with('/'))
+        || b.strip_prefix(a).is_some_and(|rest| rest.starts_with('/'))
+}
+
+fn matched_by_json(via: super::propose::MatchVia, value: &str) -> Value {
+    json!({
+        "via": via.as_str(),
+        "value": value,
+    })
+}
+
 /// Provenance joined from `schema_proposals` for a confirmed schema, or `null`
 /// for schemas confirmed before v16.
 pub(crate) fn origin_for_schema(conn: &Connection, schema_id: i64) -> Result<Value> {
@@ -177,15 +195,27 @@ pub fn prime_block(
             kind: r.get(7)?,
         })
     })?;
-    let mut ranked: Vec<(usize, i64, i64, RankedSchema)> = Vec::new();
+    let mut ranked: Vec<(usize, i64, i64, RankedSchema, Option<Value>)> = Vec::new();
     for r in rows {
         let s: RankedSchema = r?;
         // Context match (AC-6) leads: both maps die with this loop, so take
-        // each count out by remove() instead of cloning out of the map.
-        let context = path_hits.remove(&s.id).unwrap_or(0) + tag_hits.remove(&s.id).unwrap_or(0);
+        // each entry out by remove() instead of cloning out of the map (rule 004).
+        let pm = path_hits.remove(&s.id).unwrap_or_default();
+        let tm = tag_hits.remove(&s.id).unwrap_or_default();
+        let context = pm.count + tm.count;
+        let matched_by = if let Some(v) = pm.member_anchor {
+            Some(matched_by_json(super::propose::MatchVia::MemberAnchor, &v))
+        } else if let Some(v) = pm.scope_path {
+            Some(matched_by_json(super::propose::MatchVia::ScopePath, &v))
+        } else if let Some(v) = tm.scope_tag {
+            Some(matched_by_json(super::propose::MatchVia::ScopeTag, &v))
+        } else {
+            tm.member_tag
+                .map(|v| matched_by_json(super::propose::MatchVia::MemberTag, &v))
+        };
         let hits = reward.get(&s.id).copied().unwrap_or(0);
         let centrality = members.get(&s.id).copied().unwrap_or(0);
-        ranked.push((context, hits, centrality, s));
+        ranked.push((context, hits, centrality, s, matched_by));
     }
     ranked.sort_by(|a, b| {
         b.0.cmp(&a.0)
@@ -197,8 +227,8 @@ pub fn prime_block(
     Ok(ranked
         .into_iter()
         .take(k)
-        .map(|(context, hits, centrality, s)| {
-            json!({
+        .map(|(context, hits, centrality, s, matched_by)| {
+            let mut entry = json!({
                 "id": s.id,
                 "name": s.name,
                 "statement": s.statement,
@@ -210,7 +240,11 @@ pub fn prime_block(
                 "reward_hits": hits,
                 "member_count": centrality,
                 "context_matches": context,
-            })
+            });
+            if let Some(mb) = matched_by {
+                entry["matched_by"] = mb;
+            }
+            entry
         })
         .collect())
 }
@@ -234,16 +268,31 @@ fn agent_rank(s: &RankedSchema) -> i32 {
     }
 }
 
-/// Schema ids whose member anchors resolve to one of `paths`, with the count
-/// of distinct matching anchors (AC-6). Resolution mirrors
-/// [`crate::ops::anchor::query_relevant_ids`]; paths must be pre-cleaned.
-fn path_match_counts(conn: &Connection, paths: &[String]) -> Result<HashMap<i64, usize>> {
-    let mut counts: HashMap<i64, usize> = HashMap::new();
+#[derive(Default)]
+struct PathMatch {
+    count: usize,
+    member_anchor: Option<String>,
+    scope_path: Option<String>,
+}
+
+#[derive(Default)]
+struct TagMatch {
+    count: usize,
+    scope_tag: Option<String>,
+    member_tag: Option<String>,
+}
+
+/// Schema ids whose member anchors or `scope.paths` resolve to one of `paths`,
+/// with the count of distinct matching paths and first match reasons (AC-5/AC-6).
+/// Resolution mirrors [`crate::ops::anchor::query_relevant_ids`]; paths must be
+/// pre-cleaned.
+fn path_match_counts(conn: &Connection, paths: &[String]) -> Result<HashMap<i64, PathMatch>> {
+    let mut counts: HashMap<i64, PathMatch> = HashMap::new();
     if paths.is_empty() {
         return Ok(counts);
     }
     let mut sql = String::from(
-        "SELECT CAST(l.target_item_id AS INTEGER) AS schema_id, COUNT(DISTINCT a.path) FROM item_anchors a \
+        "SELECT CAST(l.target_item_id AS INTEGER) AS schema_id, a.path FROM item_anchors a \
          JOIN context_links l ON l.relationship_type = 'member_of' \
           AND l.target_item_type = 'schema' \
           AND l.source_item_type = a.item_type \
@@ -256,7 +305,7 @@ fn path_match_counts(conn: &Connection, paths: &[String]) -> Result<HashMap<i64,
         paths.len(),
     ));
     sql.push_str(&conditions.join(" OR "));
-    sql.push_str(" GROUP BY l.target_item_id");
+    sql.push_str(" ORDER BY a.path ASC");
     let mut stmt = conn.prepare(&sql)?;
     // Same binding shape as query_relevant_ids: each path feeds all three
     // arms of its condition, borrowed (AGENTS.md rule 002).
@@ -265,21 +314,54 @@ fn path_match_counts(conn: &Connection, paths: &[String]) -> Result<HashMap<i64,
         params_vec.extend(std::iter::repeat_n(path as &dyn rusqlite::ToSql, 3));
     }
     let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, usize>(1)?))
+        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
     })?;
+    let mut distinct_paths: HashMap<i64, std::collections::BTreeSet<String>> = HashMap::new();
+    let mut first_member_anchor: HashMap<i64, String> = HashMap::new();
     for r in rows {
-        let (id, hits) = r?;
-        counts.insert(id, hits);
+        let (id, anchor_path) = r?;
+        first_member_anchor
+            .entry(id)
+            .or_insert_with(|| anchor_path.clone());
+        distinct_paths.entry(id).or_default().insert(anchor_path);
+    }
+
+    let mut scope_stmt = conn.prepare(
+        "SELECT s.id, je.value FROM schemas s, \
+         json_each(s.scope_json, '$.paths') je WHERE s.status = 'active'",
+    )?;
+    let scope_rows =
+        scope_stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    let mut first_scope_path: HashMap<i64, String> = HashMap::new();
+    for r in scope_rows {
+        let (id, sp) = r?;
+        if paths.iter().any(|target| path_matches(&sp, target)) {
+            first_scope_path.entry(id).or_insert_with(|| sp.clone());
+            distinct_paths.entry(id).or_default().insert(sp);
+        }
+    }
+
+    // Both lookup maps die with this loop; consume by remove() (rule 004).
+    for (id, set) in distinct_paths {
+        counts.insert(
+            id,
+            PathMatch {
+                count: set.len(),
+                member_anchor: first_member_anchor.remove(&id),
+                scope_path: first_scope_path.remove(&id),
+            },
+        );
     }
     Ok(counts)
 }
 
-/// Schema ids whose centroid tags overlap the target `tags`' word parts, with
-/// the count of distinct overlapping parts (AC-6). Tags are compared
-/// convention-aware via [`crate::ops::ident_parts`] — the same vocabulary
-/// [`centroid_match`] scores against free-text queries.
-fn tag_match_counts(conn: &Connection, tags: &[String]) -> Result<HashMap<i64, usize>> {
-    let mut counts: HashMap<i64, usize> = HashMap::new();
+/// Schema ids whose `scope.tags` or centroid tags overlap the target `tags`'
+/// word parts, with the count of distinct overlapping parts and first match
+/// reasons (AC-6). Tags are compared convention-aware via
+/// [`crate::ops::ident_parts`] — the same vocabulary [`centroid_match`] scores
+/// against free-text queries.
+fn tag_match_counts(conn: &Connection, tags: &[String]) -> Result<HashMap<i64, TagMatch>> {
+    let mut counts: HashMap<i64, TagMatch> = HashMap::new();
     let mut wanted = std::collections::BTreeSet::new();
     for t in tags {
         wanted.extend(crate::ops::ident_parts(t));
@@ -287,6 +369,23 @@ fn tag_match_counts(conn: &Connection, tags: &[String]) -> Result<HashMap<i64, u
     if wanted.is_empty() {
         return Ok(counts);
     }
+    let mut by_schema: HashMap<i64, std::collections::BTreeSet<String>> = HashMap::new();
+    let mut first_scope_tag: HashMap<i64, String> = HashMap::new();
+    let mut scope_stmt = conn.prepare(
+        "SELECT s.id, je.value FROM schemas s, \
+         json_each(s.scope_json, '$.tags') je WHERE s.status = 'active'",
+    )?;
+    let scope_rows =
+        scope_stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    for r in scope_rows {
+        let (id, tag) = r?;
+        let parts = crate::ops::ident_parts(&tag);
+        if parts.iter().any(|p| wanted.contains(p)) {
+            first_scope_tag.entry(id).or_insert_with(|| tag.clone());
+        }
+        by_schema.entry(id).or_default().extend(parts);
+    }
+
     // json_each walks the tags object's keys inside SQLite, so no full
     // `centroid_json` Value tree is parsed per row. `centroid()` writes
     // tags as an object of tag → member count; the keys are the vocabulary
@@ -297,27 +396,36 @@ fn tag_match_counts(conn: &Connection, tags: &[String]) -> Result<HashMap<i64, u
          json_each(s.centroid_json, '$.tags') je WHERE s.status = 'active'",
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
-    let mut by_schema: HashMap<i64, std::collections::BTreeSet<String>> = HashMap::new();
+    let mut first_member_tag: HashMap<i64, String> = HashMap::new();
     for r in rows {
         let (id, tag) = r?;
-        by_schema
-            .entry(id)
-            .or_default()
-            .extend(crate::ops::ident_parts(&tag));
+        let parts = crate::ops::ident_parts(&tag);
+        if parts.iter().any(|p| wanted.contains(p)) {
+            first_member_tag.entry(id).or_insert_with(|| tag.clone());
+        }
+        by_schema.entry(id).or_default().extend(parts);
     }
+    // Both lookup maps die with this loop; consume by remove() (rule 004).
     for (id, parts) in by_schema {
         let overlap = wanted.intersection(&parts).count();
         if overlap > 0 {
-            counts.insert(id, overlap);
+            counts.insert(
+                id,
+                TagMatch {
+                    count: overlap,
+                    scope_tag: first_scope_tag.remove(&id),
+                    member_tag: first_member_tag.remove(&id),
+                },
+            );
         }
     }
     Ok(counts)
 }
 
-/// One convention-aware centroid hit: a schema whose centroid tags overlap the
-/// query's word parts. `overlap` counts matched parts; rank is overlap, then
-/// agent-authored, then reward hits, then id. Empty on no overlap — callers
-/// fall through unchanged (AC-7).
+/// One convention-aware centroid/scope hit: a schema whose `scope.paths`,
+/// `scope.tags`, or centroid tags overlap the query's word parts (AC-6/AC-7).
+/// `overlap` counts matched parts; rank is overlap, then agent-authored, then
+/// reward hits, then id. Empty on no overlap — callers fall through unchanged.
 pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Value>> {
     let parts: std::collections::BTreeSet<String> =
         crate::ops::ident_parts(query).into_iter().collect();
@@ -343,13 +451,35 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
     let mut hits: Vec<(usize, i32, i64, i64, Value)> = Vec::new(); // overlap, agent, reward, id, row
     for r in rows {
         let (id, name, statement, summary, source, scope_json, centroid_json) = r?;
+        let scope = parse_scope(&scope_json);
         let centroid: Value = serde_json::from_str(&centroid_json).unwrap_or(Value::Null);
         let mut tag_parts: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        let mut first_scope_path: Option<String> = None;
+        for sp in &scope.paths {
+            let sp_parts = crate::ops::ident_parts(sp);
+            if first_scope_path.is_none() && sp_parts.iter().any(|p| parts.contains(p)) {
+                first_scope_path = Some(sp.clone());
+            }
+            tag_parts.extend(sp_parts);
+        }
+        let mut first_scope_tag: Option<String> = None;
+        for st in &scope.tags {
+            let st_parts = crate::ops::ident_parts(st);
+            if first_scope_tag.is_none() && st_parts.iter().any(|p| parts.contains(p)) {
+                first_scope_tag = Some(st.clone());
+            }
+            tag_parts.extend(st_parts);
+        }
+        let mut first_member_tag: Option<String> = None;
         // `centroid()` writes tags as an object of tag → member count; the
         // keys are the vocabulary scored against the query.
         if let Some(tags) = centroid["tags"].as_object() {
             for t in tags.keys() {
-                tag_parts.extend(crate::ops::ident_parts(t));
+                let t_parts = crate::ops::ident_parts(t);
+                if first_member_tag.is_none() && t_parts.iter().any(|p| parts.contains(p)) {
+                    first_member_tag = Some(t.clone());
+                }
+                tag_parts.extend(t_parts);
             }
         }
         if tag_parts.is_empty() {
@@ -359,6 +489,15 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
         if overlap == 0 {
             continue;
         }
+        let matched_by = if let Some(v) = first_scope_path {
+            matched_by_json(super::propose::MatchVia::ScopePath, &v)
+        } else if let Some(v) = first_scope_tag {
+            matched_by_json(super::propose::MatchVia::ScopeTag, &v)
+        } else if let Some(v) = first_member_tag {
+            matched_by_json(super::propose::MatchVia::MemberTag, &v)
+        } else {
+            unreachable!("overlap > 0 implies at least one scope or centroid token matched")
+        };
         let agent = if source == "agent" { 0 } else { 1 };
         let reward = reward.get(&id).copied().unwrap_or(0);
         hits.push((
@@ -373,8 +512,9 @@ pub fn centroid_match(conn: &Connection, query: &str, k: usize) -> Result<Vec<Va
                 "statement": statement,
                 "summary": summary,
                 "summary_source": source,
-                "scope": parse_scope(&scope_json),
+                "scope": scope,
                 "overlap": overlap,
+                "matched_by": matched_by,
             }),
         ));
     }
@@ -803,26 +943,79 @@ pub fn active_for_members(conn: &Connection, members: &[(String, i64)]) -> Resul
         params_vec.push(item_id);
     }
     let sql = format!(
-        "SELECT DISTINCT s.id, s.name, s.statement, s.summary, s.scope_json, s.kind FROM schemas s \
+        "SELECT s.id, s.name, s.statement, s.summary, s.scope_json, s.kind, MIN(a.path) \
+         FROM schemas s \
          JOIN context_links l ON l.relationship_type = 'member_of' \
           AND l.target_item_type = 'schema' AND l.target_item_id = s.id \
-         WHERE s.status = 'active' AND ({}) ORDER BY s.id",
+         LEFT JOIN item_anchors a ON a.item_type = l.source_item_type \
+          AND l.source_item_id = CAST(a.item_id AS TEXT) \
+         WHERE s.status = 'active' AND ({}) \
+         GROUP BY s.id ORDER BY s.id",
         conditions.join(" OR ")
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(rusqlite::params_from_iter(params_vec), |r| {
         let scope_json: String = r.get(4)?;
-        Ok(json!({
+        let anchor_path: Option<String> = r.get(6)?;
+        let mut entry = json!({
             "id": r.get::<_, i64>(0)?,
             "name": r.get::<_, String>(1)?,
             "statement": r.get::<_, Option<String>>(2)?,
             "summary": r.get::<_, String>(3)?,
             "scope": parse_scope(&scope_json),
             "kind": r.get::<_, String>(5)?,
-        }))
+        });
+        if let Some(p) = anchor_path {
+            entry["matched_by"] = matched_by_json(super::propose::MatchVia::MemberAnchor, &p);
+        }
+        Ok(entry)
     })?;
     rows.collect::<std::result::Result<Vec<_>, _>>()
         .map_err(Into::into)
+}
+
+/// Active schemas whose `scope.paths` prefixes match `paths` with the
+/// exact-or-under semantics of [`path_match_counts`] (spec 0007 AC-5).
+pub fn active_for_scope(conn: &Connection, paths: &[String]) -> Result<Vec<Value>> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.name, s.statement, s.summary, s.scope_json, s.kind \
+         FROM schemas s WHERE s.status = 'active' ORDER BY s.id",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, Option<String>>(2)?,
+            r.get::<_, String>(3)?,
+            r.get::<_, String>(4)?,
+            r.get::<_, String>(5)?,
+        ))
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        let (id, name, statement, summary, scope_json, kind) = r?;
+        let scope = parse_scope(&scope_json);
+        let matched = scope
+            .paths
+            .iter()
+            .find(|sp| paths.iter().any(|target| path_matches(sp, target)))
+            .cloned();
+        if let Some(sp) = matched {
+            out.push(json!({
+                "id": id,
+                "name": name,
+                "statement": statement,
+                "summary": summary,
+                "scope": scope,
+                "kind": kind,
+                "matched_by": matched_by_json(super::propose::MatchVia::ScopePath, &sp),
+            }));
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -1061,5 +1254,117 @@ mod tests {
         assert_eq!(hood.len(), 1);
         assert_eq!(hood[0]["id"], 2);
         assert_eq!(hood[0]["shared_members"], 1);
+    }
+
+    #[test]
+    fn active_for_scope_matches_exact_and_under_and_sets_matched_by() {
+        let conn = mem_db();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, statement, summary, summary_source, scope_json, \
+             status, kind, centroid_json, created_at, updated_at) \
+             VALUES ('u-mara', 'mara-broken-leader', 'Mara believes she is broken', \
+             'When writing Mara: keep self-doubt', 'agent', \
+             '{\"tags\":[\"mara\"],\"paths\":[\"manuscript\"]}', \
+             'active', 'schema', '{}', 't0', 't0')",
+            [],
+        )
+        .unwrap();
+
+        let hits = active_for_scope(&conn, &["manuscript/ch19.md".to_string()]).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0]["name"], "mara-broken-leader");
+        assert_eq!(hits[0]["statement"], "Mara believes she is broken");
+        assert_eq!(
+            hits[0]["matched_by"],
+            json!({"via": "scope_path", "value": "manuscript"})
+        );
+
+        // Unrelated prefix with shared substring (`manuscripts/x.md`) must not match.
+        assert!(
+            active_for_scope(&conn, &["manuscripts/ch19.md".to_string()])
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn prime_block_and_centroid_match_use_scope_and_prioritize_matched_by() {
+        let conn = mem_db();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, statement, summary, summary_source, scope_json, \
+             status, kind, centroid_json, created_at, updated_at) \
+             VALUES ('u-mara', 'mara-broken-leader', 'Mara believes she is broken', \
+             'When writing Mara: keep self-doubt', 'agent', \
+             '{\"tags\":[\"mara\"],\"paths\":[\"manuscript\"]}', \
+             'active', 'schema', '{\"tags\":{\"wound\":2},\"anchors\":{}}', 't0', 't0')",
+            [],
+        )
+        .unwrap();
+        member(&conn, 1, "decision", 1);
+        conn.execute(
+            "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+             VALUES ('decision', 1, 'manuscript/ch01.md', 't0')",
+            [],
+        )
+        .unwrap();
+
+        // Unscoped prime omits matched_by (context_matches == 0).
+        let unscoped = prime_block(&conn, 3, &[], &[]).unwrap();
+        assert_eq!(unscoped[0]["context_matches"], 0);
+        assert!(unscoped[0].get("matched_by").is_none());
+
+        // Priority 1: member_anchor beats scope_path, scope_tag, member_tag.
+        let by_anchor = prime_block(
+            &conn,
+            3,
+            &["manuscript/ch01.md".to_string()],
+            &["mara".to_string()],
+        )
+        .unwrap();
+        assert_eq!(
+            by_anchor[0]["matched_by"],
+            json!({"via": "member_anchor", "value": "manuscript/ch01.md"})
+        );
+
+        // Priority 2: scope_path (new chapter unanchored by any member) beats scope_tag.
+        let by_scope_path = prime_block(
+            &conn,
+            3,
+            &["manuscript/ch19.md".to_string()],
+            &["mara".to_string()],
+        )
+        .unwrap();
+        assert_eq!(
+            by_scope_path[0]["matched_by"],
+            json!({"via": "scope_path", "value": "manuscript"})
+        );
+
+        // Priority 3: scope_tag beats member_tag.
+        let by_scope_tag =
+            prime_block(&conn, 3, &[], &["mara".to_string(), "wound".to_string()]).unwrap();
+        assert_eq!(
+            by_scope_tag[0]["matched_by"],
+            json!({"via": "scope_tag", "value": "mara"})
+        );
+
+        // Priority 4: member_tag when only centroid tag matches.
+        let by_member_tag = prime_block(&conn, 3, &[], &["wound".to_string()]).unwrap();
+        assert_eq!(
+            by_member_tag[0]["matched_by"],
+            json!({"via": "member_tag", "value": "wound"})
+        );
+
+        // centroid_match also matches scope.tags and scope.paths and attaches matched_by.
+        let q_scope_tag = centroid_match(&conn, "mara captain", 3).unwrap();
+        assert_eq!(q_scope_tag.len(), 1);
+        assert_eq!(
+            q_scope_tag[0]["matched_by"],
+            json!({"via": "scope_tag", "value": "mara"})
+        );
+        let q_scope_path = centroid_match(&conn, "manuscript draft", 3).unwrap();
+        assert_eq!(
+            q_scope_path[0]["matched_by"],
+            json!({"via": "scope_path", "value": "manuscript"})
+        );
     }
 }

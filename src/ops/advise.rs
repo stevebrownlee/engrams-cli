@@ -140,10 +140,39 @@ pub fn handle(
     crate::ops::scoring::reinforce(conn, "decisions", &surfaced)?;
     crate::ops::usage::record(conn, "advise", &cleaned.join(","), constraints.len(), false);
 
-    // AC-5: schema-level guidance above the low-level constraints. The
-    // matched member pairs were already resolved by query_relevant_ids, so
-    // this is one composed lookup — no second anchor walk.
-    let schemas = crate::ops::schemas::retrieval::active_for_members(conn, &matched)?;
+    // AC-5: schema-level guidance above the low-level constraints. Union
+    // member-anchored schemas and scope-path-matched schemas, deduplicated
+    // by schema id (member_anchor precedes scope_path in matched_by priority).
+    let mut schemas = crate::ops::schemas::retrieval::active_for_members(conn, &matched)?;
+    for entry in &mut schemas {
+        let current = entry["matched_by"]["value"].as_str().unwrap_or("");
+        if !cleaned
+            .iter()
+            .any(|p| crate::ops::schemas::retrieval::path_matches(current, p))
+        {
+            if let Some(id) = entry["id"].as_i64() {
+                if let Some(matched_anchor) =
+                    crate::ops::schemas::retrieval::member_anchors(conn, id)?
+                        .into_iter()
+                        .find(|a| {
+                            cleaned
+                                .iter()
+                                .any(|p| crate::ops::schemas::retrieval::path_matches(a, p))
+                        })
+                {
+                    entry["matched_by"]["value"] = json!(matched_anchor);
+                }
+            }
+        }
+    }
+    let scope_schemas = crate::ops::schemas::retrieval::active_for_scope(conn, &cleaned)?;
+    for s in scope_schemas {
+        let id = s["id"].as_i64();
+        if !schemas.iter().any(|existing| existing["id"].as_i64() == id) {
+            schemas.push(s);
+        }
+    }
+    schemas.sort_by_key(|s| s["id"].as_i64().unwrap_or(0));
     Ok(json!({
         "schemas": schemas,
         "constraints": constraints,

@@ -62,7 +62,7 @@ pub fn match_schemas(conn: &Connection, summary: &str, tags: &[String]) -> Resul
         return Ok(Vec::new());
     }
     let mut stmt = conn.prepare(
-        "SELECT id, name, centroid_json FROM schemas \
+        "SELECT id, name, scope_json, centroid_json FROM schemas \
          WHERE status = 'active' ORDER BY id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -70,22 +70,26 @@ pub fn match_schemas(conn: &Connection, summary: &str, tags: &[String]) -> Resul
             r.get::<_, i64>(0)?,
             r.get::<_, String>(1)?,
             r.get::<_, String>(2)?,
+            r.get::<_, String>(3)?,
         ))
     })?;
     let mut hits: Vec<Suggestion> = Vec::new();
     for r in rows {
-        let (id, name, centroid_json) = r?;
-        let Ok(centroid) = serde_json::from_str::<Value>(&centroid_json) else {
-            continue;
-        };
-        let Some(tag_keys) = centroid["tags"].as_object() else {
-            continue;
-        };
-        if tag_keys.is_empty() {
+        let (id, name, scope_json, centroid_json) = r?;
+        let scope = super::retrieval::parse_scope(&scope_json);
+        let mut vocab: BTreeSet<String> = BTreeSet::new();
+        vocab.extend(scope.tags);
+        vocab.extend(scope.paths);
+        if let Ok(centroid) = serde_json::from_str::<Value>(&centroid_json) {
+            if let Some(tag_keys) = centroid["tags"].as_object() {
+                vocab.extend(tag_keys.keys().cloned());
+            }
+        }
+        if vocab.is_empty() {
             continue;
         }
-        let matched = tag_keys
-            .keys()
+        let matched = vocab
+            .iter()
             .filter(|t| {
                 crate::ops::ident_parts(t)
                     .iter()
@@ -94,11 +98,11 @@ pub fn match_schemas(conn: &Connection, summary: &str, tags: &[String]) -> Resul
             .count();
         // Avoid the maturity penalty: normalize against the item's tag basis
         // if supplied, or a typical 2-3 topic summary footprint (capped by
-        // actual centroid tags) when untagged, so mature schemas remain matchable.
+        // actual vocabulary size) when untagged, so mature schemas remain matchable.
         let basis = if !tags.is_empty() {
             tags.len()
         } else {
-            tag_keys.len().clamp(1, 3)
+            vocab.len().clamp(1, 3)
         };
         let fit = (matched as f64 / basis as f64).min(1.0);
         if fit >= FIT_GATE {
@@ -631,5 +635,23 @@ mod tests {
         assert_eq!(hits_untagged.len(), 1);
         assert_eq!(hits_untagged[0].schema_id, id);
         assert!((hits_untagged[0].fit - (2.0 / 3.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn match_schemas_includes_scope_tags_and_paths() {
+        let conn = mem_db();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, summary_source, scope_json, status, \
+             centroid_json, last_confirmed_at, created_at, updated_at) \
+             VALUES ('u-mara', 'mara-broken-leader', 'When writing Mara: keep self-doubt', \
+             'agent', '{\"tags\":[\"mara\"],\"paths\":[\"manuscript\"]}', 'active', \
+             '{\"tags\":{},\"anchors\":{}}', '2026-01-01T00:00:00Z', 't0', 't0')",
+            [],
+        )
+        .unwrap();
+
+        let hits = match_schemas(&conn, "Mara hesitates in manuscript chapter", &[]).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].name, "mara-broken-leader");
     }
 }

@@ -491,10 +491,13 @@ pub enum SchemaCmd {
         /// Schema id or exact name
         target: String,
     },
-    /// Refine a schema's summary as agent-authored (ranks above drafts)
+    /// Refine a schema's claim, scope, or summary as agent-authored (ranks above drafts)
     Refine {
         /// Schema id or exact name
         target: String,
+        /// Human-level claim in plain words
+        #[arg(long)]
+        statement: Option<String>,
         /// Manual summary text; must open with a conditional trigger phrase
         /// ("Fires when", "When", "Applies if", "Activates when")
         #[arg(long)]
@@ -506,6 +509,12 @@ pub enum SchemaCmd {
         /// Operational directive; pairs with --trigger to synthesize the summary
         #[arg(long)]
         rule: Option<String>,
+        /// Scope tags (`a,b`)
+        #[arg(long, value_delimiter = ',')]
+        scope_tags: Option<Vec<String>>,
+        /// Scope path prefixes (`p,q`)
+        #[arg(long, value_delimiter = ',')]
+        scope_paths: Option<Vec<String>>,
     },
 }
 

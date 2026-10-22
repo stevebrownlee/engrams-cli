@@ -6496,3 +6496,313 @@ fn test_schema_proposal_ac8_scan_and_confirm_cutover_and_session_close_propose_c
         assert!(opp.get("confirm_command").is_none());
     }
 }
+
+#[test]
+fn test_schema_proposal_ac5_and_ac6_scope_matching_in_advise_query_and_prime() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // Propose and confirm the protagonist schema built from notes on chapters 1-18
+    // with scope paths `manuscript` and scope tags `mara`.
+    let prop_out = engrams(&db)
+        .args([
+            "schema",
+            "propose",
+            "--name",
+            "mara-broken-leader",
+            "--statement",
+            "Mara believes she is broken; that hurt carries with her as she grows into a leader",
+            "--summary",
+            "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger",
+            "--members",
+            "decision:1,decision:2,decision:3,decision:4,decision:5,decision:6,progress_entry:1,progress_entry:2",
+            "--scope-tags",
+            "mara",
+            "--scope-paths",
+            "manuscript",
+        ])
+        .output()
+        .unwrap();
+    assert!(prop_out.status.success());
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
+
+    // AC-5: Request pre-edit advice for a new chapter-19 file (`manuscript/ch19.md`)
+    // that no note mentions. The confirmed schema surfaces with its claim, instruction,
+    // scope, and `"matched_by": {"via": "scope_path", "value": "manuscript"}`.
+    let advise_out = engrams(&db)
+        .args(["advise", "manuscript/ch19.md"])
+        .output()
+        .unwrap();
+    assert!(advise_out.status.success());
+    let advise_json: Value = serde_json::from_slice(&advise_out.stdout).unwrap();
+    let schemas = advise_json["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(schemas[0]["name"], "mara-broken-leader");
+    assert_eq!(
+        schemas[0]["statement"],
+        "Mara believes she is broken; that hurt carries with her as she grows into a leader"
+    );
+    assert_eq!(
+        schemas[0]["summary"],
+        "When writing Mara under pressure: she doubts herself aloud and credits others, even as her actions grow stronger"
+    );
+    assert_eq!(
+        schemas[0]["scope"],
+        serde_json::json!({"tags": ["mara"], "paths": ["manuscript"]})
+    );
+    assert_eq!(
+        schemas[0]["matched_by"],
+        serde_json::json!({"via": "scope_path", "value": "manuscript"})
+    );
+
+    // Advising an anchored chapter (`manuscript/ch01.md`) prioritizes `member_anchor`
+    // over `scope_path` and deduplicates by schema id.
+    let ch01_out = engrams(&db)
+        .args(["advise", "manuscript/ch01.md"])
+        .output()
+        .unwrap();
+    assert!(ch01_out.status.success());
+    let ch01_json: Value = serde_json::from_slice(&ch01_out.stdout).unwrap();
+    let ch01_schemas = ch01_json["schemas"].as_array().unwrap();
+    assert_eq!(ch01_schemas.len(), 1);
+    assert_eq!(
+        ch01_schemas[0]["matched_by"],
+        serde_json::json!({"via": "member_anchor", "value": "manuscript/ch01.md"})
+    );
+
+    // AC-6 (query): Searching for the protagonist's name returns the schema ahead of
+    // individual notes, with `matched_by`.
+    let query_out = engrams(&db).args(["query", "Mara"]).output().unwrap();
+    assert!(query_out.status.success());
+    let query_json: Value = serde_json::from_slice(&query_out.stdout).unwrap();
+    let query_arr = query_json.as_array().unwrap();
+    assert!(query_arr.len() > 1);
+    assert_eq!(query_arr[0]["type"], "schema");
+    assert_eq!(query_arr[0]["name"], "mara-broken-leader");
+    assert_eq!(
+        query_arr[0]["matched_by"],
+        serde_json::json!({"via": "scope_tag", "value": "mara"})
+    );
+    assert_eq!(query_arr[1]["type"], "decision");
+
+    // AC-6 (prime --tags mara): Priming with the protagonist's tag returns the schema
+    // ahead of individual notes, with `matched_by`.
+    let prime_out = engrams(&db)
+        .args(["prime", "--tags", "mara"])
+        .output()
+        .unwrap();
+    assert!(prime_out.status.success());
+    let prime_json: Value = serde_json::from_slice(&prime_out.stdout).unwrap();
+    let prime_schemas = prime_json["schemas"].as_array().unwrap();
+    assert_eq!(prime_schemas.len(), 1);
+    assert_eq!(prime_schemas[0]["name"], "mara-broken-leader");
+    assert_eq!(
+        prime_schemas[0]["matched_by"],
+        serde_json::json!({"via": "scope_tag", "value": "mara"})
+    );
+    assert!(!prime_json["decisions"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn test_schema_proposal_ac9_refine_claim_and_scope_on_existing_schema() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    engrams(&db).arg("init").assert().success();
+
+    // Seed a schema confirmed before this release (statement = NULL, scope = {"tags":[],"paths":[]}).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "INSERT INTO schemas (uuid, name, summary, summary_source, status, kind, centroid_json, created_at, updated_at) \
+             VALUES ('u-perf', 'performance-rules', 'Fires when editing Rust hot paths: follow the four allocation rules', \
+                     'agent', 'active', 'unclear', '{}', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+    }
+
+    // Before refine, advising a new file in `src/ops` returns no schemas.
+    let before_advise = engrams(&db)
+        .args(["advise", "src/ops/new_module.rs"])
+        .output()
+        .unwrap();
+    let before_json: Value = serde_json::from_slice(&before_advise.stdout).unwrap();
+    assert_eq!(before_json["schemas"], serde_json::json!([]));
+
+    // AC-9: Refine the existing schema with a claim (`--statement`) and scope (`--scope-paths` / `--scope-tags`)
+    // without passing `--summary`.
+    let ref_out = engrams(&db)
+        .args([
+            "schema",
+            "refine",
+            "performance-rules",
+            "--statement",
+            "Hot-path Rust edits borrow SQL parameters, keep strings borrowed, and consume lookup maps by move",
+            "--scope-tags",
+            "performance,rust",
+            "--scope-paths",
+            "src/ops",
+        ])
+        .output()
+        .unwrap();
+    assert!(ref_out.status.success());
+    let ref_json: Value = serde_json::from_slice(&ref_out.stdout).unwrap();
+    assert_eq!(
+        ref_json["schema"]["statement"],
+        "Hot-path Rust edits borrow SQL parameters, keep strings borrowed, and consume lookup maps by move"
+    );
+    assert_eq!(
+        ref_json["schema"]["summary"],
+        "Fires when editing Rust hot paths: follow the four allocation rules"
+    );
+    assert_eq!(ref_json["schema"]["summary_source"], "agent");
+    assert_eq!(
+        ref_json["schema"]["scope"],
+        serde_json::json!({"tags": ["performance", "rust"], "paths": ["src/ops"]})
+    );
+
+    // `schema show` shows the refined claim and scope.
+    let show_out = engrams(&db)
+        .args(["schema", "show", "performance-rules"])
+        .output()
+        .unwrap();
+    let show_json: Value = serde_json::from_slice(&show_out.stdout).unwrap();
+    assert_eq!(
+        show_json["schema"]["statement"],
+        ref_json["schema"]["statement"]
+    );
+    assert_eq!(show_json["schema"]["scope"], ref_json["schema"]["scope"]);
+
+    // Pre-edit advice now lists it for a new file inside the scope (`src/ops/new_module.rs`).
+    let after_advise = engrams(&db)
+        .args(["advise", "src/ops/new_module.rs"])
+        .output()
+        .unwrap();
+    assert!(after_advise.status.success());
+    let after_json: Value = serde_json::from_slice(&after_advise.stdout).unwrap();
+    let schemas = after_json["schemas"].as_array().unwrap();
+    assert_eq!(schemas.len(), 1);
+    assert_eq!(schemas[0]["name"], "performance-rules");
+    assert_eq!(schemas[0]["statement"], ref_json["schema"]["statement"]);
+    assert_eq!(schemas[0]["scope"], ref_json["schema"]["scope"]);
+    assert_eq!(
+        schemas[0]["matched_by"],
+        serde_json::json!({"via": "scope_path", "value": "src/ops"})
+    );
+}
+
+#[test]
+fn test_schema_proposal_ac11_prime_surfaces_pending_proposals_oldest_first_capped_at_three() {
+    let temp = TempDir::new().unwrap();
+    let db = temp.path().join("engrams").join("context.db");
+    load_manuscript_book(&db);
+
+    // When no proposals are pending, `pending_proposals` is omitted from `prime`.
+    let empty_prime = engrams(&db).arg("prime").output().unwrap();
+    assert!(empty_prime.status.success());
+    let empty_json: Value = serde_json::from_slice(&empty_prime.stdout).unwrap();
+    assert!(
+        empty_json.get("pending_proposals").is_none(),
+        "pending_proposals must be omitted when none are pending"
+    );
+
+    // Create 4 distinct proposals across different storylines so none overlaps >= 0.7.
+    for (name, statement, summary, members) in [
+        (
+            "mara-wound",
+            "Mara believes she is broken and hides behind her squad",
+            "When writing Mara under pressure: show self-doubt",
+            "decision:1,decision:2,decision:3",
+        ),
+        (
+            "mara-soren",
+            "Trust between Mara and Soren grows through unguarded silence",
+            "When writing Mara and Soren together: use shared quiet beats",
+            "decision:9,decision:10,decision:11",
+        ),
+        (
+            "aether-cost",
+            "Aether draws chill iron and require salt-iron grounding",
+            "When writing aether casting: show frost and salt-iron cost",
+            "decision:13,decision:14,decision:15",
+        ),
+        (
+            "siege-supply",
+            "The northern keep's granaries and cisterns set a 14-day clock",
+            "When writing siege scenes: track rations and water reserves",
+            "decision:17,decision:18,decision:19",
+        ),
+    ] {
+        engrams(&db)
+            .args([
+                "schema",
+                "propose",
+                "--name",
+                name,
+                "--statement",
+                statement,
+                "--summary",
+                summary,
+                "--members",
+                members,
+            ])
+            .assert()
+            .success();
+    }
+
+    // Backdate created_at so proposal 2 is oldest, then 4, then 1, then 3 (newest).
+    {
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute(
+            "UPDATE schema_proposals SET created_at = '2026-10-03T00:00:00Z' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE schema_proposals SET created_at = '2026-10-01T00:00:00Z' WHERE id = 2",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE schema_proposals SET created_at = '2026-10-04T00:00:00Z' WHERE id = 3",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE schema_proposals SET created_at = '2026-10-02T00:00:00Z' WHERE id = 4",
+            [],
+        )
+        .unwrap();
+    }
+
+    // AC-11: `prime` lists pending proposals oldest first, at most 3, with claim,
+    // evidence counts, and ready-to-run confirm and reject commands.
+    let prime_out = engrams(&db).arg("prime").output().unwrap();
+    assert!(prime_out.status.success());
+    let prime_json: Value = serde_json::from_slice(&prime_out.stdout).unwrap();
+    let pending = prime_json["pending_proposals"].as_array().unwrap();
+    assert_eq!(pending.len(), 3);
+    let ids: Vec<i64> = pending.iter().map(|p| p["id"].as_i64().unwrap()).collect();
+    assert_eq!(ids, vec![2, 4, 1], "oldest first, capped at 3");
+    assert_eq!(pending[0]["name"], "mara-soren");
+    assert_eq!(
+        pending[0]["statement"],
+        "Trust between Mara and Soren grows through unguarded silence"
+    );
+    assert_eq!(
+        pending[0]["evidence"],
+        serde_json::json!({"notes": 3, "files": 3, "days": 3, "contrary": 0})
+    );
+    assert_eq!(
+        pending[0]["confirm_command"],
+        "engrams schema confirm proposal:2"
+    );
+    assert_eq!(
+        pending[0]["reject_command"],
+        "engrams schema reject proposal:2 --reason \"<why>\""
+    );
+}

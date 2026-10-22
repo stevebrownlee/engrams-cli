@@ -20,6 +20,7 @@ pub fn handle(
         &cleaned_paths,
         &tags,
     )?;
+    let pending_proposals = crate::ops::schemas::propose::pending_for_prime(conn)?;
 
     let is_scoped = !paths.is_empty() || !tags.is_empty();
     let limit = if is_scoped { 50 } else { 10 };
@@ -334,6 +335,7 @@ pub fn handle(
             budget_info: None,
             superseded_by: &superseded_by,
             schemas: &schema_block,
+            pending_proposals: &pending_proposals,
         }));
         while total > budget {
             if graph_val.is_some() {
@@ -371,6 +373,7 @@ pub fn handle(
             budget_info: None,
             superseded_by: &superseded_by,
             schemas: &schema_block,
+            pending_proposals: &pending_proposals,
         });
         let m = tok_cost(&temp_payload);
         build_payload(PayloadParts {
@@ -386,6 +389,7 @@ pub fn handle(
             })),
             superseded_by: &superseded_by,
             schemas: &schema_block,
+            pending_proposals: &pending_proposals,
         })
     } else {
         build_payload(PayloadParts {
@@ -398,6 +402,7 @@ pub fn handle(
             budget_info: None,
             superseded_by: &superseded_by,
             schemas: &schema_block,
+            pending_proposals: &pending_proposals,
         })
     };
 
@@ -519,6 +524,7 @@ struct PayloadParts<'a> {
     budget_info: Option<Value>,
     superseded_by: &'a std::collections::HashMap<i64, i64>,
     schemas: &'a [Value],
+    pending_proposals: &'a [Value],
 }
 
 fn build_payload(parts: PayloadParts) -> Value {
@@ -532,10 +538,17 @@ fn build_payload(parts: PayloadParts) -> Value {
         budget_info,
         superseded_by,
         schemas,
+        pending_proposals,
     } = parts;
     let mut map = serde_json::Map::new();
     // The schemas block leads: concepts prime individual facts (spec 0002).
     map.insert("schemas".to_string(), Value::Array(schemas.to_vec()));
+    if !pending_proposals.is_empty() {
+        map.insert(
+            "pending_proposals".to_string(),
+            Value::Array(pending_proposals.to_vec()),
+        );
+    }
     map.insert("product_context".to_string(), product_context.clone());
     map.insert("active_context".to_string(), active_context.clone());
     let decisions_json: Vec<Value> = decisions

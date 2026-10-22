@@ -291,36 +291,109 @@ pub(crate) fn refine_text<'a>(
     }
 }
 
-/// Replace a schema's summary as agent-authored (`summary_source = 'agent'`),
-/// bumping `updated_at` so the refinement re-ranks immediately (AC-6).
-/// The summary is either a validated manual `--summary` (AC-4) or synthesized
-/// from `--trigger` + `--rule` (AC-3); validation precedes the single-row
-/// write, so a rejected summary never reaches the database.
+/// Refine a schema's claim (`statement`), scope (`scope.tags`/`scope.paths`),
+/// and/or operational instruction (`summary`, or `--trigger` + `--rule`),
+/// bumping `updated_at` (spec 0007 AC-9, F-4). When `--summary` and
+/// `--trigger`/`--rule` are omitted, the existing `summary` and
+/// `summary_source` are preserved. When only one half of `scope` is passed,
+/// the other half is preserved.
+#[allow(clippy::too_many_arguments)]
 pub fn refine(
     conn: &Connection,
     target: &str,
+    statement: Option<&str>,
     summary: Option<&str>,
     trigger: Option<&str>,
     rule: Option<&str>,
+    scope_tags: Option<&[String]>,
+    scope_paths: Option<&[String]>,
 ) -> Result<Value> {
     let id = resolve_schema(conn, target)?
         .ok_or_else(|| anyhow::anyhow!("no schema matches '{target}'"))?;
-    let text = refine_text(summary, trigger, rule)?;
+    if statement.is_none()
+        && summary.is_none()
+        && trigger.is_none()
+        && rule.is_none()
+        && scope_tags.is_none()
+        && scope_paths.is_none()
+    {
+        anyhow::bail!(
+            "nothing to refine: pass --statement, --scope-tags, --scope-paths, \
+             --summary, or --trigger with --rule"
+        );
+    }
+    let validated_statement = match statement {
+        Some(s) => {
+            let trimmed = s.trim();
+            if trimmed.is_empty() {
+                anyhow::bail!("statement cannot be empty");
+            }
+            Some(trimmed)
+        }
+        None => None,
+    };
+    let validated_summary = if summary.is_some() || trigger.is_some() || rule.is_some() {
+        Some(refine_text(summary, trigger, rule)?)
+    } else {
+        None
+    };
+    let (name, stored_statement, stored_summary, stored_source, stored_scope_json): (
+        String,
+        Option<String>,
+        String,
+        String,
+        String,
+    ) = conn.query_row(
+        "SELECT name, statement, summary, summary_source, scope_json \
+         FROM schemas WHERE id = ?1",
+        [id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+    )?;
+    let final_statement = match validated_statement {
+        Some(s) => Some(s.to_string()),
+        None => stored_statement,
+    };
+    let (final_summary, final_source) = match validated_summary {
+        Some(text) => (text.into_owned(), "agent".to_string()),
+        None => (stored_summary, stored_source),
+    };
+    let mut scope = retrieval::parse_scope(&stored_scope_json);
+    scope.tags = match scope_tags {
+        Some(raw) => super::propose::normalize_scope_tags(raw),
+        None => super::propose::normalize_scope_tags(&scope.tags),
+    };
+    scope.paths = match scope_paths {
+        Some(raw) => super::propose::normalize_scope_paths(raw),
+        None => super::propose::normalize_scope_paths(&scope.paths),
+    };
+    let scope_json = serde_json::to_string(&scope)?;
     let ts = Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true);
     let n = conn.execute(
-        "UPDATE schemas SET summary = ?1, summary_source = 'agent', \
-         updated_at = ?2 WHERE id = ?3",
-        rusqlite::params![text.as_ref(), ts, id],
+        "UPDATE schemas SET statement = ?1, summary = ?2, summary_source = ?3, \
+         scope_json = ?4, updated_at = ?5 WHERE id = ?6",
+        rusqlite::params![
+            final_statement,
+            final_summary,
+            final_source,
+            scope_json,
+            ts,
+            id,
+        ],
     )?;
     if n == 0 {
         anyhow::bail!("no schema matches '{target}'");
     }
-    let name: String =
-        conn.query_row("SELECT name FROM schemas WHERE id = ?1", [id], |r| r.get(0))?;
     Ok(json!({
         "status": "success",
-        "schema": { "id": id, "name": name, "summary": text,
-                    "summary_source": "agent", "updated_at": ts },
+        "schema": {
+            "id": id,
+            "name": name,
+            "statement": final_statement,
+            "summary": final_summary,
+            "summary_source": final_source,
+            "scope": scope,
+            "updated_at": ts,
+        },
     }))
 }
 
@@ -453,7 +526,10 @@ mod tests {
         let out = refine(
             &conn,
             "core",
+            None,
             Some("Fires when gateway requests route: consult the routing decisions"),
+            None,
+            None,
             None,
             None,
         )
@@ -471,7 +547,7 @@ mod tests {
             summary,
             "Fires when gateway requests route: consult the routing decisions"
         );
-        let err = refine(&conn, "ghost", Some("x"), None, None)
+        let err = refine(&conn, "ghost", None, Some("x"), None, None, None, None)
             .unwrap_err()
             .to_string();
         assert!(err.contains("no schema matches"), "{err}");
@@ -487,8 +563,11 @@ mod tests {
             &conn,
             "core",
             None,
+            None,
             Some("editing documentation"),
             Some("apply marketing framing"),
+            None,
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -516,7 +595,7 @@ mod tests {
         seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
         for prefix in TRIGGER_PREFIXES {
             let text = format!("{prefix} deploying: run the smoke suite");
-            let out = refine(&conn, "core", Some(&text), None, None).unwrap();
+            let out = refine(&conn, "core", None, Some(&text), None, None, None, None).unwrap();
             assert_eq!(out["schema"]["summary"], text.as_str());
         }
     }
@@ -526,9 +605,18 @@ mod tests {
         // AC-4: the summary is unchanged when validation fails.
         let conn = mem_db();
         let id = seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
-        let err = refine(&conn, "core", Some("Gateway routing notes"), None, None)
-            .unwrap_err()
-            .to_string();
+        let err = refine(
+            &conn,
+            "core",
+            None,
+            Some("Gateway routing notes"),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("conditional trigger phrase"), "{err}");
         let (source, summary): (String, String) = conn
             .query_row(
@@ -545,13 +633,31 @@ mod tests {
     fn refine_requires_trigger_and_rule_together() {
         let conn = mem_db();
         seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
-        let err = refine(&conn, "core", None, Some("editing docs"), None)
-            .unwrap_err()
-            .to_string();
+        let err = refine(
+            &conn,
+            "core",
+            None,
+            None,
+            Some("editing docs"),
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("--rule"), "{err}");
-        let err = refine(&conn, "core", None, None, Some("apply framing"))
-            .unwrap_err()
-            .to_string();
+        let err = refine(
+            &conn,
+            "core",
+            None,
+            None,
+            None,
+            Some("apply framing"),
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("--trigger"), "{err}");
     }
 
@@ -559,13 +665,80 @@ mod tests {
     fn refine_rejects_summary_mixed_with_trigger_flags() {
         let conn = mem_db();
         seed(&conn, "core", "drafted", "2026-09-05T10:00:00Z");
-        let err = refine(&conn, "core", Some("Fires when x: y"), Some("x"), None)
+        let err = refine(
+            &conn,
+            "core",
+            None,
+            Some("Fires when x: y"),
+            Some("x"),
+            None,
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("--summary"), "{err}");
+        let err = refine(
+            &conn,
+            "core",
+            None,
+            Some("Fires when x: y"),
+            None,
+            Some("y"),
+            None,
+            None,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("--summary"), "{err}");
+    }
+
+    #[test]
+    fn refine_updates_statement_and_scope_preserving_untouched_fields() {
+        let conn = mem_db();
+        let id = seed(&conn, "legacy", "drafted", "2026-09-05T10:00:00Z");
+
+        // Nothing passed -> error.
+        let err = refine(&conn, "legacy", None, None, None, None, None, None)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("--summary"), "{err}");
-        let err = refine(&conn, "core", Some("Fires when x: y"), None, Some("y"))
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("--summary"), "{err}");
+        assert!(err.contains("nothing to refine"), "{err}");
+
+        // Refine statement and scope_paths without touching summary/summary_source.
+        let paths = vec!["./src/ops/".to_string(), "src/ops".to_string()];
+        let out = refine(
+            &conn,
+            "legacy",
+            Some("Allocation rules keep hot paths zero-copy"),
+            None,
+            None,
+            None,
+            None,
+            Some(&paths),
+        )
+        .unwrap();
+        assert_eq!(
+            out["schema"]["statement"],
+            "Allocation rules keep hot paths zero-copy"
+        );
+        assert_eq!(out["schema"]["summary"], "s");
+        assert_eq!(out["schema"]["summary_source"], "drafted");
+        assert_eq!(
+            out["schema"]["scope"],
+            json!({"tags": [], "paths": ["src/ops"]})
+        );
+
+        // Refine scope_tags alone preserves scope_paths and statement.
+        let tags = vec!["perf".to_string(), "rust".to_string(), "perf".to_string()];
+        let out2 = refine(&conn, "legacy", None, None, None, None, Some(&tags), None).unwrap();
+        assert_eq!(
+            out2["schema"]["statement"],
+            "Allocation rules keep hot paths zero-copy"
+        );
+        assert_eq!(
+            out2["schema"]["scope"],
+            json!({"tags": ["perf", "rust"], "paths": ["src/ops"]})
+        );
+        let _ = id;
     }
 }

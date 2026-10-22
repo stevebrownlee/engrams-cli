@@ -50,7 +50,6 @@ impl ProposalStatus {
     }
 }
 
-#[allow(dead_code)] // Wired in spec 0007 Phase 3 (retrieval matched_by).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MatchVia {
     MemberAnchor,
@@ -59,7 +58,6 @@ pub enum MatchVia {
     MemberTag,
 }
 
-#[allow(dead_code)] // Wired in spec 0007 Phase 3 (retrieval matched_by).
 impl MatchVia {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -73,9 +71,7 @@ impl MatchVia {
 
 pub const MIN_EVIDENCE: usize = 3;
 pub const RESTATEMENT_GATE: f64 = 0.8;
-#[allow(dead_code)] // Wired in spec 0007 Phase 3 (prime pending_proposals).
 pub const PENDING_IN_PRIME: usize = 3;
-
 fn now() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
@@ -319,6 +315,29 @@ fn default_scope_tags(notes: &[CitedNote]) -> Vec<String> {
         .collect()
 }
 
+pub(crate) fn normalize_scope_tags(raw: &[String]) -> Vec<String> {
+    let mut set = BTreeSet::new();
+    for t in raw {
+        let trimmed = t.trim();
+        if !trimmed.is_empty() {
+            set.insert(trimmed.to_string());
+        }
+    }
+    set.into_iter().collect()
+}
+
+pub(crate) fn normalize_scope_paths(raw: &[String]) -> Vec<String> {
+    let mut set = BTreeSet::new();
+    for p in raw {
+        let cleaned = crate::ops::anchor::clean_path(p.trim());
+        let trimmed = cleaned.trim_matches('/');
+        if !trimmed.is_empty() && trimmed != "." {
+            set.insert(trimmed.to_string());
+        }
+    }
+    set.into_iter().collect()
+}
+
 pub(crate) fn normalize_scope(
     explicit_tags: Option<&[String]>,
     explicit_paths: Option<&[String]>,
@@ -326,30 +345,11 @@ pub(crate) fn normalize_scope(
     anchors: &BTreeSet<String>,
 ) -> Scope {
     let tags = match explicit_tags {
-        Some(raw) => {
-            let mut set = BTreeSet::new();
-            for t in raw {
-                let trimmed = t.trim();
-                if !trimmed.is_empty() {
-                    set.insert(trimmed.to_string());
-                }
-            }
-            set.into_iter().collect()
-        }
+        Some(raw) => normalize_scope_tags(raw),
         None => default_scope_tags(notes),
     };
     let paths = match explicit_paths {
-        Some(raw) => {
-            let mut set = BTreeSet::new();
-            for p in raw {
-                let cleaned = crate::ops::anchor::clean_path(p.trim());
-                let trimmed = cleaned.trim_matches('/');
-                if !trimmed.is_empty() && trimmed != "." {
-                    set.insert(trimmed.to_string());
-                }
-            }
-            set.into_iter().collect()
-        }
+        Some(raw) => normalize_scope_paths(raw),
         None => default_scope_paths(anchors),
     };
     Scope { tags, paths }
@@ -912,6 +912,37 @@ pub fn proposals(conn: &Connection, status_filter: Option<&str>) -> Result<Value
     }))
 }
 
+/// Up to [`PENDING_IN_PRIME`] pending proposals, oldest first (`created_at ASC, id ASC`),
+/// surfaced in `engrams prime` (spec 0007 AC-11).
+pub fn pending_for_prime(conn: &Connection) -> Result<Vec<Value>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, statement, evidence_json, created_at \
+         FROM schema_proposals \
+         WHERE status = 'proposed' \
+         ORDER BY created_at ASC, id ASC \
+         LIMIT ?1",
+    )?;
+    let rows = stmt.query_map(params![PENDING_IN_PRIME as i64], |r| {
+        let id: i64 = r.get(0)?;
+        let name: String = r.get(1)?;
+        let statement: String = r.get(2)?;
+        let evidence_json: String = r.get(3)?;
+        let created_at: String = r.get(4)?;
+        let evidence: Value = serde_json::from_str(&evidence_json).unwrap_or(Value::Null);
+        Ok(json!({
+            "id": id,
+            "name": name,
+            "statement": statement,
+            "evidence": evidence,
+            "created_at": created_at,
+            "confirm_command": format!("engrams schema confirm proposal:{id}"),
+            "reject_command": format!("engrams schema reject proposal:{id} --reason \"<why>\""),
+        }))
+    })?;
+    rows.collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1285,6 +1316,50 @@ mod tests {
         assert_eq!(
             blocked["rejected_before"][0]["reason"],
             "too early in the draft"
+        );
+    }
+
+    #[test]
+    fn pending_for_prime_orders_oldest_first_and_caps_at_three() {
+        let conn = mem_db();
+        assert!(pending_for_prime(&conn).unwrap().is_empty());
+
+        for (id, name, status, ts) in [
+            (1, "p-late", "proposed", "2026-10-04T00:00:00Z"),
+            (2, "p-first", "proposed", "2026-10-01T00:00:00Z"),
+            (3, "p-confirmed", "confirmed", "2026-09-01T00:00:00Z"),
+            (4, "p-second", "proposed", "2026-10-02T00:00:00Z"),
+            (5, "p-third", "proposed", "2026-10-03T00:00:00Z"),
+        ] {
+            conn.execute(
+                "INSERT INTO schema_proposals \
+                 (id, uuid, name, statement, summary, scope_json, members_json, contrary_json, \
+                  evidence_json, source_kind, status, created_at) \
+                 VALUES (?1, ?2, ?3, ?4, 'When x: y', '{\"tags\":[],\"paths\":[]}', '[]', '[]', \
+                         '{\"notes\":3,\"files\":2,\"days\":2,\"contrary\":0}', 'manual', ?5, ?6)",
+                params![
+                    id,
+                    format!("u-{id}"),
+                    name,
+                    format!("claim {id}"),
+                    status,
+                    ts
+                ],
+            )
+            .unwrap();
+        }
+
+        let pending = pending_for_prime(&conn).unwrap();
+        assert_eq!(pending.len(), 3);
+        let ids: Vec<i64> = pending.iter().map(|p| p["id"].as_i64().unwrap()).collect();
+        assert_eq!(ids, vec![2, 4, 5]);
+        assert_eq!(
+            pending[0]["confirm_command"],
+            "engrams schema confirm proposal:2"
+        );
+        assert_eq!(
+            pending[0]["reject_command"],
+            "engrams schema reject proposal:2 --reason \"<why>\""
         );
     }
 }

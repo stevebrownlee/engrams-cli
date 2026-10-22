@@ -78,15 +78,21 @@ pub fn handle(conn: &Connection, cmd: SchemaCmd) -> Result<Value> {
         SchemaCmd::Show { target } => list::show(conn, &target),
         SchemaCmd::Refine {
             target,
+            statement,
             summary,
             trigger,
             rule,
+            scope_tags,
+            scope_paths,
         } => list::refine(
             conn,
             &target,
+            statement.as_deref(),
             summary.as_deref(),
             trigger.as_deref(),
             rule.as_deref(),
+            scope_tags.as_deref(),
+            scope_paths.as_deref(),
         ),
     }
 }
