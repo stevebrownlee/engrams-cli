@@ -4,7 +4,7 @@
   "spec_name": "reviewed-schema-proposals",
   "spec_path": "specs/0007-reviewed-schema-proposals.md",
   "created_at": "2026-10-22T12:05:00Z",
-  "updated_at": "2026-10-22T15:55:00Z",
+  "updated_at": "2026-10-22T16:12:00Z",
   "status": "in_progress",
   "mode": "autonomous",
   "current_phase": 6,
@@ -234,7 +234,9 @@
       "id": 6,
       "title": "Update instructions and documentation for reviewed schema proposals",
       "type": "standard",
-      "status": "pending",
+      "status": "complete",
+      "started_at": "2026-10-22T16:00:00Z",
+      "completed_at": "2026-10-22T16:12:00Z",
       "depends_on": [
         2,
         3,
@@ -257,9 +259,28 @@
         "cargo clippy --all-targets",
         "npm --prefix docs run build"
       ],
+      "files_touched": [
+        "docs/memory/engrams.md",
+        "docs/src/pages/docs/getting-started.astro",
+        "docs/src/pages/docs/guide/cognitive-schemas.astro",
+        "docs/src/pages/docs/quick-start.astro",
+        "docs/src/pages/docs/reference/cli.astro",
+        "docs/src/pages/index.astro",
+        "src/assets/instructions.md"
+      ],
       "retry_count": 0,
       "blocked_reason": null,
-      "review_findings": []
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "convention-drift",
+          "message": "specs/0007-reviewed-schema-proposals.md line 170 specifies rewriting the schema rows of AGENTS.md (engrams schema confirm <sig-prefix> --name <name>, session close confirm commands, etc.), which Phase 6 left untouched due to the PILOT gate hard constraint ('Gates do not modify AGENTS.md'), so the developer must apply or waive the AGENTS.md schema-row cutover before merging.",
+          "file": "AGENTS.md",
+          "line": 72,
+          "resolution": "deferred"
+        }
+      ],
+      "commit_sha": "ddb64110d9004849ac2f2a81dd1e6ebe2d5dcf9f"
     }
   ]
 }

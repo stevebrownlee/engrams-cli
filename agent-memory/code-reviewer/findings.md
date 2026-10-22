@@ -483,3 +483,18 @@ Verified clean (no findings):
 - `.agents/rules/global.md` and `.agents/rules/clean-expressions.md` conventions satisfied: ASCII-banner section dividers and nested ternary in `resolveEngrams` removed; multi-branch logic extracted to module-scope helpers (`formatSchemaScope`, `formatSchemasSection`, `findEngramsBinary`, `resolveEngrams`, `extractPath`, `runAdvise`, plus exported `parseAdviseOutput`, `formatSteer`, `formatBlockReason`, `resolveFilePath`); JSDoc comments added only on non-trivial exported functions.
 
 Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T16:10:00Z — phase 6 of spec 0007-reviewed-schema-proposals (update instructions and documentation for reviewed schema proposals)
+
+- moderate / convention-drift — `specs/0007-reviewed-schema-proposals.md` line 170 specifies rewriting the schema rows of `AGENTS.md` (`engrams schema confirm <sig-prefix> --name <name>`, `session close` confirm commands, etc.), which Phase 6 left untouched due to the PILOT gate hard constraint ("Gates do not modify AGENTS.md"), so the developer must apply or waive the `AGENTS.md` schema-row cutover before merging (AGENTS.md:72)
+
+Verified clean across all 7 touched files:
+- All `AGENTS.md` architecture invariants satisfied:
+  - Accuracy discipline: every command, subcommand, flag, and JSON payload field documented in `src/assets/instructions.md`, `docs/memory/engrams.md`, `docs/src/pages/docs/getting-started.astro`, `docs/src/pages/docs/quick-start.astro`, `docs/src/pages/docs/guide/cognitive-schemas.astro`, `docs/src/pages/docs/reference/cli.astro`, and `docs/src/pages/index.astro` matches `src/cli.rs` (`SchemaCmd::Scan`, `Propose`, `Reject`, `Proposals`, `Confirm`, `List`, `Show`, `Refine`) and the Phase 1–5 implementation (`statement`, `summary`, `scope`, `matched_by`, `origin`, `pending_proposals`, `propose_command`, `schema_proposals/{id}.md`).
+  - Frozen migrations, Rust source, and commit-excluded paths untouched.
+- Phase 6 AC (`AC-8` documentation and onboarding cutover) met across `src/assets/instructions.md`, `docs/memory/engrams.md`, and `docs/src/pages/`:
+  - `src/assets/instructions.md` replaces `engrams schema confirm <sig-prefix> --name <name>` and `session close` confirm commands with `schema propose`, `schema proposals`, `schema confirm proposal:<id>`, `schema reject proposal:<id>`, updated `schema refine` flags (`--statement`, `--scope-tags`, `--scope-paths`), and `session close` `propose_command` workflow.
+  - `docs/memory/engrams.md` documents the three-store architecture (`schema_candidates`, `schema_proposals`, `schemas`), status vocabularies (`Schema` and `Schema proposal`), all `engrams schema` subcommands, all 6 proposal validation gates, default scope derivation, `name_conflict` vs `renamed_from`, `matched_by` priority order, `origin`, `pending_proposals` in `prime`, `advise` scope-path matching + omp advisor pre-edit and block-reason behavior, and `schema_proposals/{id}.md` export/import round-tripping.
+  - `docs/src/pages/index.astro`, `docs/src/pages/docs/getting-started.astro`, `docs/src/pages/docs/quick-start.astro`, `docs/src/pages/docs/guide/cognitive-schemas.astro`, and `docs/src/pages/docs/reference/cli.astro` updated to the reviewed proposal flow (`propose` -> `confirm proposal:<id>` / `reject proposal:<id>`, `propose_command` in `session close`, and `statement`/`scope`/`matched_by`/`origin` in examples).
+
+Counts: 1 finding = 0 severe, 1 moderate, 0 minor. PASS — continue.
