@@ -1355,3 +1355,389 @@ fn import_restores_code_references_by_path_ac9() {
         assert_eq!(surface_ids, vec![new_code_id]);
     }
 }
+
+#[test]
+fn import_skips_missing_references_preserves_existing_rows_and_scans_ac10_ac11() {
+    let temp = TempDir::new().unwrap();
+    let exp_dir = temp.path().join("export");
+    for sub in [
+        "decisions",
+        "progress",
+        "patterns",
+        "links",
+        "anchors",
+        "schemas",
+    ] {
+        std::fs::create_dir_all(exp_dir.join(sub)).unwrap();
+    }
+
+    let write_md = |rel: &str, value: serde_json::Value| {
+        let body = format!(
+            "---\nidentifier: \"1\"\n---\n\n# item\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&value).unwrap()
+        );
+        std::fs::write(exp_dir.join(rel), body).unwrap();
+    };
+
+    // Valid decisions forming a dense cluster for AC-11 schema scan.
+    for (id, summary) in [
+        (1, "alpha gateway routing"),
+        (2, "beta rendering pipeline"),
+        (3, "gamma policy engine"),
+    ] {
+        write_md(
+            &format!("decisions/{id}.md"),
+            serde_json::json!({
+                "id": id,
+                "uuid": format!("u-d{id}"),
+                "summary": summary,
+                "tags": ["core", "graph"],
+                "timestamp": "2026-01-01T00:00:00Z",
+                "commit_sha": "abc1234"
+            }),
+        );
+    }
+
+    // Progress entries: 10 (root), 11 (valid parent 10), 12 (missing parent 99).
+    write_md(
+        "progress/10.md",
+        serde_json::json!({
+            "id": 10,
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "Done",
+            "description": "root progress",
+            "parent_id": null
+        }),
+    );
+    write_md(
+        "progress/11.md",
+        serde_json::json!({
+            "id": 11,
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "Done",
+            "description": "child progress with valid parent",
+            "parent_id": 10
+        }),
+    );
+    write_md(
+        "progress/12.md",
+        serde_json::json!({
+            "id": 12,
+            "timestamp": "2026-01-01T00:00:00Z",
+            "status": "Done",
+            "description": "orphan progress with missing parent",
+            "parent_id": 99
+        }),
+    );
+
+    // Patterns: id 1 is new; id 50 collides by name with pre-existing id 5 in target DB (F-2).
+    write_md(
+        "patterns/1.md",
+        serde_json::json!({
+            "id": 1,
+            "uuid": "u-p1",
+            "name": "valid-pattern",
+            "description": "valid pattern",
+            "timestamp": "2026-01-01T00:00:00Z"
+        }),
+    );
+    write_md(
+        "patterns/2.md",
+        serde_json::json!({
+            "id": 50,
+            "uuid": "u-p50",
+            "name": "colliding-pattern",
+            "description": "updated description on conflict",
+            "timestamp": "2026-01-02T00:00:00Z"
+        }),
+    );
+
+    // Links: 1..=3 valid decision triangle, 4 valid PR link, 42 dangling -> decision:99.
+    for (id, a, b) in [(1, "1", "2"), (2, "2", "3"), (3, "1", "3")] {
+        write_md(
+            &format!("links/{id}.md"),
+            serde_json::json!({
+                "id": id,
+                "source_item_type": "decision",
+                "source_item_id": a,
+                "target_item_type": "decision",
+                "target_item_id": b,
+                "relationship_type": "relates_to",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "origin": "manual"
+            }),
+        );
+    }
+    write_md(
+        "links/4.md",
+        serde_json::json!({
+            "id": 4,
+            "source_item_type": "decision",
+            "source_item_id": "1",
+            "target_item_type": "pr",
+            "target_item_id": "https://github.com/example/repo/pull/7",
+            "relationship_type": "implemented_in",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "origin": "manual"
+        }),
+    );
+    write_md(
+        "links/42.md",
+        serde_json::json!({
+            "id": 42,
+            "source_item_type": "decision",
+            "source_item_id": "1",
+            "target_item_type": "decision",
+            "target_item_id": "99",
+            "relationship_type": "relates_to",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "origin": "manual"
+        }),
+    );
+
+    // Anchors: 1 valid (decision:1), 41 dangling (decision:99), 50 dangling due to name conflict (system_pattern:50).
+    write_md(
+        "anchors/1.md",
+        serde_json::json!({
+            "id": 1,
+            "item_type": "decision",
+            "item_id": 1,
+            "path": "src/a.rs",
+            "timestamp": "2026-01-01T00:00:00Z"
+        }),
+    );
+    write_md(
+        "anchors/41.md",
+        serde_json::json!({
+            "id": 41,
+            "item_type": "decision",
+            "item_id": 99,
+            "path": "src/dangling.rs",
+            "timestamp": "2026-01-01T00:00:00Z"
+        }),
+    );
+    write_md(
+        "anchors/50.md",
+        serde_json::json!({
+            "id": 50,
+            "item_type": "system_pattern",
+            "item_id": 50,
+            "path": "src/conflict.rs",
+            "timestamp": "2026-01-01T00:00:00Z"
+        }),
+    );
+
+    // Schema 1 with valid and missing members + valid and missing suggestions (F-1).
+    write_md(
+        "schemas/1.md",
+        serde_json::json!({
+            "id": 1,
+            "uuid": "u-s1",
+            "name": "existing-pack",
+            "summary": "Pack with mixed valid and dangling references",
+            "summary_source": "agent",
+            "status": "active",
+            "centroid_json": "{}",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "kind": "schema",
+            "kind_reasons_json": "[]",
+            "members": [
+                {"kind": "decision", "id": "1", "origin": "manual", "source": "schema_confirm"},
+                {"kind": "code", "id": "31975", "path": "src/ops", "origin": "manual", "source": "schema_confirm"},
+                {"kind": "decision", "id": "99", "origin": "manual", "source": "schema_confirm"},
+                {"kind": "code", "id": "77777", "origin": "manual", "source": "schema_confirm"}
+            ],
+            "suggestions": [
+                {"ts": "2026-01-02T00:00:00Z", "item_kind": "pattern", "item_id": 1, "fit": 0.8, "status": "accepted"},
+                {"ts": "2026-01-02T00:00:00Z", "item_kind": "progress-entry", "item_id": 10, "fit": 0.7, "status": "declined"},
+                {"ts": "2026-01-02T00:00:00Z", "item_kind": "pattern", "item_id": 88, "fit": 0.6, "status": "declined"}
+            ]
+        }),
+    );
+
+    std::fs::write(
+        exp_dir.join("schemas/suggestions.json"),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {"ts": "2026-01-02T00:00:00Z", "schema_id": 1, "item_kind": "custom-data", "item_id": 77, "fit": 0.5, "status": "declined"}
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    // Retrieval surfaces: valid decision 1..=3, valid code with path, dangling decision:99.
+    std::fs::write(
+        exp_dir.join("schemas/retrieval_surfaces.json"),
+        serde_json::to_string_pretty(&serde_json::json!([
+            {"ts": "2026-02-15T00:00:00Z", "cmd": "query", "arg": "core", "node_kind": "decision", "node_id": 1},
+            {"ts": "2026-02-15T00:00:00Z", "cmd": "query", "arg": "core", "node_kind": "decision", "node_id": 2},
+            {"ts": "2026-02-15T00:00:00Z", "cmd": "query", "arg": "core", "node_kind": "decision", "node_id": 3},
+            {"ts": "2026-02-15T00:00:00Z", "cmd": "prime", "arg": null, "node_kind": "code", "node_id": 31975, "path": "src/ops"},
+            {"ts": "2026-02-15T00:00:00Z", "cmd": "query", "arg": "core", "node_kind": "decision", "node_id": 99}
+        ]))
+        .unwrap(),
+    )
+    .unwrap();
+
+    // Target DB with pre-existing rows at anchor id 41, link id 42, and pattern id 5 ("colliding-pattern").
+    let db = temp.path().join("target.db");
+    engrams(&db).arg("init").assert().success();
+    {
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "INSERT INTO decisions (id, uuid, timestamp, summary, tags) VALUES
+             (1, 'u-d1', '2026-01-01T00:00:00Z', 'pre-existing d1', '[\"core\"]');
+             INSERT INTO system_patterns (id, uuid, timestamp, name, description) VALUES
+             (5, 'u-p5', '2026-01-01T00:00:00Z', 'colliding-pattern', 'original description');
+             INSERT INTO item_anchors (id, item_type, item_id, path, timestamp) VALUES
+             (41, 'decision', 1, 'src/pre_existing_anchor.rs', '2026-01-01T00:00:00Z');
+             INSERT INTO context_links (id, source_item_type, source_item_id, target_item_type, target_item_id, relationship_type, description, timestamp, origin) VALUES
+             (42, 'decision', '1', 'system_pattern', '5', 'relates_to', 'pre-existing link 42', '2026-01-01T00:00:00Z', 'manual');",
+        )
+        .unwrap();
+    }
+
+    let out = json(engrams(&db).args(["import", "--path"]).arg(&exp_dir));
+    assert_eq!(out["errors"], serde_json::json!([]));
+    assert_eq!(out["imported"]["decisions"], 3);
+    assert_eq!(out["imported"]["progress"], 3);
+    assert_eq!(out["imported"]["patterns"], 2);
+    assert_eq!(out["imported"]["links"], 4);
+    assert_eq!(out["imported"]["anchors"], 1);
+    assert_eq!(out["imported"]["schemas"], 1);
+
+    let skipped = out["skipped_references"].as_array().unwrap();
+    let expected_skipped = [
+        serde_json::json!({
+            "file": "progress/12.md",
+            "reference": "progress_entry:99",
+            "reason": "parent missing; entry imported without its parent link"
+        }),
+        serde_json::json!({
+            "file": "links/42.md",
+            "reference": "decision:99",
+            "reason": "no decision 99"
+        }),
+        serde_json::json!({
+            "file": "anchors/41.md",
+            "reference": "decision:99",
+            "reason": "no decision 99"
+        }),
+        serde_json::json!({
+            "file": "anchors/50.md",
+            "reference": "system_pattern:50",
+            "reason": "no system_pattern 50"
+        }),
+        serde_json::json!({
+            "file": "schemas/1.md",
+            "reference": "decision:99",
+            "reason": "no decision 99"
+        }),
+        serde_json::json!({
+            "file": "schemas/1.md",
+            "reference": "code:77777",
+            "reason": "no code 77777"
+        }),
+        serde_json::json!({
+            "file": "schemas/1.md",
+            "reference": "pattern:88",
+            "reason": "no pattern 88"
+        }),
+        serde_json::json!({
+            "file": "schemas/suggestions.json",
+            "reference": "custom-data:77",
+            "reason": "no custom-data 77"
+        }),
+        serde_json::json!({
+            "file": "schemas/retrieval_surfaces.json",
+            "reference": "decision:99",
+            "reason": "no decision 99"
+        }),
+    ];
+    assert_eq!(skipped.as_slice(), &expected_skipped);
+
+    // Verify DB state: pre-existing rows 41 and 42 untouched, no dangling rows written,
+    // progress 12 imported with parent_id = NULL, progress 11 imported with parent_id = 10.
+    {
+        let conn = Connection::open(&db).unwrap();
+        let anchor_41: (String, i64, String) = conn
+            .query_row(
+                "SELECT item_type, item_id, path FROM item_anchors WHERE id = 41",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            anchor_41,
+            (
+                "decision".to_string(),
+                1,
+                "src/pre_existing_anchor.rs".to_string()
+            ),
+            "skipped anchor 41 must not displace pre-existing anchor 41"
+        );
+
+        let link_42: (String, String, Option<String>) = conn
+            .query_row(
+                "SELECT target_item_type, target_item_id, description FROM context_links WHERE id = 42",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            link_42,
+            (
+                "system_pattern".to_string(),
+                "5".to_string(),
+                Some("pre-existing link 42".to_string())
+            ),
+            "skipped link 42 must not displace pre-existing link 42"
+        );
+
+        let p11_parent: Option<i64> = conn
+            .query_row(
+                "SELECT parent_id FROM progress_entries WHERE id = 11",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(p11_parent, Some(10));
+
+        let p12_parent: Option<i64> = conn
+            .query_row(
+                "SELECT parent_id FROM progress_entries WHERE id = 12",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(p12_parent, None);
+
+        let dangling_members: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM context_links WHERE relationship_type = 'member_of' AND source_item_id IN ('99', '77777')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(dangling_members, 0);
+
+        let suggestions_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schema_suggestions", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            suggestions_count, 2,
+            "valid pattern and progress-entry suggestions imported; missing pattern:88 skipped"
+        );
+    }
+
+    // AC-11: schema scan completes and reports its candidates on the imported database.
+    for _ in 0..3 {
+        let scan_out = json(engrams(&db).args(["schema", "scan"]));
+        assert_eq!(scan_out["status"], "success");
+        let cands = scan_out["candidates"].as_array().unwrap();
+        assert!(
+            !cands.is_empty(),
+            "schema scan must report candidates after import with skipped references"
+        );
+    }
+}

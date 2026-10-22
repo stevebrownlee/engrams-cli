@@ -52,18 +52,7 @@ impl Member {
     }
 }
 
-/// Database table backing each member kind (the graph's node universe).
-pub(super) fn kind_table(kind: &str) -> Option<&'static str> {
-    match kind {
-        "decision" => Some("decisions"),
-        "system_pattern" => Some("system_patterns"),
-        "progress_entry" => Some("progress_entries"),
-        "custom_data" => Some("custom_data"),
-        "code" => Some("code_nodes"),
-        "schema" => Some("schemas"),
-        _ => None,
-    }
-}
+pub(super) use crate::models::kind_table;
 
 /// A confirmed schema with its member set read from the `member_of` links
 /// (member → schema). Membership lives in the edges, so later attaches are

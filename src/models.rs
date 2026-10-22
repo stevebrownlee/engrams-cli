@@ -192,6 +192,19 @@ pub(crate) fn parse_tags(raw: Option<&str>) -> Vec<String> {
         .collect()
 }
 
+/// Database table backing each member kind (the graph's node universe).
+pub(crate) fn kind_table(kind: &str) -> Option<&'static str> {
+    match kind {
+        "decision" => Some("decisions"),
+        "system_pattern" => Some("system_patterns"),
+        "progress_entry" => Some("progress_entries"),
+        "custom_data" => Some("custom_data"),
+        "code" => Some("code_nodes"),
+        "schema" => Some("schemas"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse_tags;
