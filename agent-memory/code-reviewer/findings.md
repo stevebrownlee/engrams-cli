@@ -498,3 +498,80 @@ Verified clean across all 7 touched files:
   - `docs/src/pages/index.astro`, `docs/src/pages/docs/getting-started.astro`, `docs/src/pages/docs/quick-start.astro`, `docs/src/pages/docs/guide/cognitive-schemas.astro`, and `docs/src/pages/docs/reference/cli.astro` updated to the reviewed proposal flow (`propose` -> `confirm proposal:<id>` / `reject proposal:<id>`, `propose_command` in `session close`, and `statement`/`scope`/`matched_by`/`origin` in examples).
 
 Counts: 1 finding = 0 severe, 1 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T21:33:00Z — phase 1 of spec 0008-schema-prompts-at-session-close (migration v17, proposal thread and lens provenance, and transfer support)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - Frozen migrations: `MIGRATION_V17` is additive/DDL-only (`CREATE TABLE IF NOT EXISTS schema_prompt_notices`, `ALTER TABLE schema_proposals ADD COLUMN lens TEXT`, suppression carry-over `INSERT OR IGNORE INTO schema_prompt_notices`, `ALTER TABLE schema_candidates DROP COLUMN notified_at`), published `MIGRATION_V2`..`MIGRATION_V16` untouched, baseline `SCHEMA` carries the exact final column and table shapes, and `LATEST_VERSION = 17`.
+  - JSON-only output on `schema propose` and `schema proposals` (`lens` field added to proposal objects).
+  - Explicit `--db` used across all CLI and memory integration tests; no live database or commit-excluded paths touched.
+  - Zero `#[allow(dead_code)]` attributes introduced.
+- Phase 1 ACs (`AC-9`, `AC-12` migration and provenance half) and Gate 1 clarifications (`F-2`, `F-5`, `F-8`) met in code and pinned with unit, CLI, and memory integration tests (`src/db.rs`, `src/ops/schemas/propose.rs`, `src/ops/transfer/import.rs`, `tests/cli.rs`, `tests/memory.rs`):
+  - `AC-9`: `SchemaCmd::Propose` adds `--thread <tag>` (`conflicts_with = "from"`) and `--lens <name>`. `propose::propose` rejects combining `--from` and `--thread` or passing an empty `--thread`, records `source_kind = "thread"`, `source_ref = Some(tag)`, and `lens`, supports `--from <prefix>` combined with explicit `--members` (recording candidate provenance while validating only explicit uncovered members), and surfaces `source` and `lens` in `schema propose` and `schema proposals` payloads as well as `export`/`import` round-trips. Pinned by `propose_records_thread_and_lens_provenance_and_supports_from_with_explicit_members_ac9`, `test_migration_v16_to_v17_carries_over_suppressed_candidates_and_propose_thread_lens_ac9_ac12`, `proposal_and_schema_statement_scope_export_import_round_trip_ac10`, and `s17_export_import_round_trips_schema_proposals_statement_scope_and_origin_ac10`.
+  - `AC-12`: `MIGRATION_V17` copies `kind = 'schema'` candidates with `notified_at IS NOT NULL AND notified_at >= last_seen_at` into `schema_prompt_notices` (filtering out `code:%`, `schema:%`, and `pr:%` from `evidence_json`) before dropping `schema_candidates.notified_at`, and excludes refreshed (`notified_at < last_seen_at`), never-notified, and non-`schema` rows. Pinned by `test_migration_v17_replaces_candidate_notified_at_with_prompt_notices`, `test_migration_v17_carries_over_suppressed_schema_candidates_ac12`, and `test_migration_v16_to_v17_carries_over_suppressed_candidates_and_propose_thread_lens_ac9_ac12`.
+- Rules 002–006 satisfied: `source_kind` stays `&'static str` (rule 006), `resolved_lens` stays borrowed `Option<&str>` through trim/filter to SQLite and JSON serialization (rule 003), and `suggest_base_schema_name` / `suggest_schema_name` / `sanitize_kebab` moved cleanly from `opportunities.rs` to `propose.rs` with unit tests.
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T21:52:00Z — phase 2 of spec 0008-schema-prompts-at-session-close (add lenses, natural reading order, and schema prompts preview command)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - Frozen migrations untouched (`src/schema.rs` and `src/db.rs` not modified).
+  - JSON-only output on `schema prompts` (`{"status": "success", "lens": ..., "prompts": [...]}`) and structured JSON errors on unknown/malformed lens files.
+  - Explicit `--db` used across all CLI integration tests (`engrams(&db)`), and `schemas::handle` threads `ws.root.as_deref()` from the resolved workspace without CWD or env fallback.
+  - `#[allow(dead_code)]` seam attributes in `src/ops/schemas/prompts.rs` (`Order::as_str` at line 58 and `record_prompt_notices` at line 1035) both document the exact future phase (`Phase 3`) that wires the symbol.
+- Phase 2 ACs (`AC-1`, `AC-2`, `AC-4`, `AC-5`, `AC-6`, `AC-7`, `AC-8`) and Gate 1 clarifications (`F-1`, `F-2`, `F-4`, `F-6`, `F-7`) met in code and pinned with behavioral unit tests (`src/ops/schemas/prompts.rs`) and CLI integration tests (`tests/cli.rs` over `tests/fixtures/manuscript-book.json`):
+  - `AC-1`: `test_schema_prompts_ac1_fiction_novel_top_three_has_protagonist_and_no_decoys` verifies `schema prompts --lens fiction` returns at most 3 prompts, ranks `thread:mara` in the top 3 (rank 1 with 12 notes across 12 files and 12 days), and excludes all decoy notes (`decision:25`, `decision:26`, `progress_entry:1`, `progress_entry:2`, `custom_data:1`).
+  - `AC-2`: `test_natural_cmp_orders_chapters_numerically` and `test_schema_prompts_ac2_reading_order_questions_and_propose_command` verify `natural_cmp` and `Order::Story` list chapters in `ch1`, `ch2`, `ch10` reading order (and `Order::Time` lists chronologically), replace `{subject}` with the thread tag, and emit `propose_command` with `--thread mara --lens fiction --members decision:3,decision:1,decision:2 --name mara`.
+  - `AC-4`: `test_schema_prompts_ac4_skips_handled_subjects_and_covered_candidates` verifies subject threads covered by active schema `scope.tags` (`mara`, `wound`), pending proposal `scope.tags` (`aether`, `magic`), or rejected proposals without a newer note (`voss`, `betrayal`), as well as detector candidates with uncovered share `< COVERED_SHARE` (`0.25 < 0.5`), are skipped while unhandled storylines still surface.
+  - `AC-5`: `test_schema_prompts_ac5_ignores_generic_lens_tags_while_keeping_subject_prompts` verifies lens `ignore_tags` (`plot`, `chapter`) never form threads while notes carrying those tags still form subject prompts (`thread:elena`).
+  - `AC-6`: `test_schema_prompts_ac6_includes_gate_passing_unclear_candidate_with_label` verifies gate-passing `unclear` detector candidates surface with `"label": "unclear"`, `"source": {"kind": "candidate", "ref": "<unique-prefix>"}`, `"these notes"` substituted for `{subject}`, and `--from <prefix> --lens software --members ...` in `propose_command`.
+  - `AC-7`: `test_schema_prompts_ac7_workspace_lens_override_and_error_cases`, `test_builtin_lenses_parse_cleanly`, and `test_unknown_and_traversal_lens_rejected` verify `<root>/engrams/lenses/<name>.json` overrides built-in questions and `ignore_tags`, unknown or path-traversal lens names fail with `"unknown lens '<name>': available general, fiction, software"`, and malformed lens files fail with `serde(deny_unknown_fields)` errors (`lens file engrams/lenses/fiction.json: unknown field 'qestions'`).
+  - `AC-8`: `test_schema_prompts_ac8_preview_never_writes_notices_and_respects_limit` and `test_record_prompt_notices_holds_back_until_newer_note_and_upserts` verify `schema prompts` never writes to `schema_prompt_notices`, respects `--limit`, and `record_prompt_notices` holds back shown prompts (including after note removal) until a newly created note arrives and upserts on `source_key`.
+- Rules 002–006 satisfied: `unique_candidate_prefix` and `trim_leading_zeros` return borrowed slices (rule 003), `load_active_notes` consumes `anchor_map` via `remove()` (rule 004), `join_note_keys` and collection builders pre-size with `with_capacity` without throwaway intermediates (rule 005), and `Order::as_str`, `PromptSourceKind::as_str`, and `ActiveNote.kind` use `&'static str` (rule 006).
+- Recorded Gate 3 verification filter (`cargo test prompt`) matches all 4 unit tests in `src/ops/schemas/prompts.rs` and all 7 CLI integration tests in `tests/cli.rs`.
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T22:15:00Z — phase 3 of spec 0008-schema-prompts-at-session-close (cut over session close to schema prompts, notices, and schema value)
+
+_No findings._
+
+Verified clean (no findings):
+- All `AGENTS.md` architecture invariants satisfied:
+  - Frozen migrations untouched (`src/schema.rs` and `src/db.rs` not modified).
+  - JSON-only output on `session close` (`schema_prompts` replacing `schema_opportunities`, and `schema_value.schemas` added) and structured JSON errors on invalid/malformed lens files.
+  - Explicit `--db` used across all CLI integration tests (`engrams(&db)`), and `session::close` threads `root` (`ws.root.as_deref()`) to `prompts::load_lens`.
+  - Both Phase 2 `#[allow(dead_code)]` seam attributes in `src/ops/schemas/prompts.rs` (`Order::as_str` and `record_prompt_notices`) removed now that Phase 3 wired them (`impl Serialize for Order` and `session::close`).
+  - Clean cutover: `src/ops/schemas/opportunities.rs` deleted and removed from `src/ops/schemas/mod.rs` and `src/ops/session.rs`.
+- Phase 3 ACs (`AC-1`, `AC-3`, `AC-8`, `AC-9`, `AC-10`, `AC-11`, `AC-12`) and Gate 1 clarifications (`F-1`, `F-2`, `F-3`, `F-8`) met in code and pinned with behavioral CLI integration tests in `tests/cli.rs`:
+  - `AC-1`: `test_session_close_schema_prompts_ac1_fiction_novel_top_three_and_invalid_lens_guard` verifies `session close --lens fiction` returns at most 3 prompts, includes `thread:mara`, excludes decoy notes, omits `schema_opportunities`, and fails fast on unknown `--lens` before inserting into `session_closes`.
+  - `AC-3`: `test_session_close_schema_prompts_ac3_holds_back_until_newly_created_note_joins` verifies shown prompts are recorded in `schema_prompt_notices`, stay held back across subsequent closes when notes are removed or older notes are regrouped, resurface at the first close after a newly created note joins the storyline, and upsert `schema_prompt_notices`.
+  - `AC-8`: `test_schema_prompts_ac8_preview_never_writes_notices_and_respects_limit` verifies previewing via `schema prompts --lens fiction` does not suppress the prompts on the subsequent `session close --lens fiction`.
+  - `AC-9` & `AC-11`: `test_schema_loop_session_close_prompt_to_confirmed_schema_ac9_and_ac11` drives the end-to-end loop using only printed commands (`session close --lens fiction` -> printed `propose_command` with `<claim>` and `When <condition>: <directive>` filled -> printed `confirm_command` -> `prime` and `advise manuscript/ch19.md` -> second `session close --lens fiction`), verifying thread and lens provenance (`source: {"kind": "thread", "ref": "mara"}`, `lens: "fiction"`), surfaced claim/instruction in `prime` and `advise`, suppression of `thread:mara` on the second close, and `schema_value.schemas` naming `mara`.
+  - `AC-10`: `src/ops/advise.rs` records schema surfacings via `retrieval::record_surface(conn, "advise", ...)`, `src/ops/session.rs` (`schema_value_rollup`) populates `schema_value.schemas` (`id`, `name`, `guided`) ordered by `guided DESC, s.id ASC` while preserving manual-close windowing and `retrieval_surfaces` totals, and `test_session_close_schema_value_ac10_names_guided_schemas_most_used_first` pins the ordering and counts across `prime`, `advise`, and `query`.
+  - `AC-12`: `test_migration_v16_to_v17_session_close_ac12_holds_back_notified_candidate_until_new_note` verifies a v16 database with a shown `kind = 'schema'` candidate (`notified_at >= last_seen_at`) suppresses that candidate at the first `session close` after `engrams migrate` and prompts it once a newly created note joins its evidence.
+- Rules 002–006 satisfied across all touched files.
+
+Counts: 0 findings = 0 severe, 0 moderate, 0 minor. PASS — continue.
+
+## 2026-10-22T22:25:00Z — phase 4 of spec 0008-schema-prompts-at-session-close (update instructions and documentation for schema prompts at session close)
+
+- moderate / convention-drift — `specs/0008-schema-prompts-at-session-close.md` line 164 specifies updating the Session End Protocol and command tables in `AGENTS.md` (`session close --lens`, `schema prompts`, `schema propose --thread/--lens`, `schema_prompts`, and the six-step agent loop), which Phase 4 left untouched due to the PILOT gate hard constraint ("Gates do not modify AGENTS.md"), so the developer must apply or waive the `AGENTS.md` cutover before merging (AGENTS.md:60)
+
+Verified clean across all 6 touched files:
+- All `AGENTS.md` architecture invariants satisfied:
+  - Accuracy discipline: every command, subcommand, flag, and JSON payload field documented in `src/assets/instructions.md`, `docs/memory/engrams.md`, `docs/src/pages/docs/guide/cognitive-schemas.astro`, `docs/src/pages/docs/reference/cli.astro`, `docs/src/pages/index.astro`, and `docs/src/pages/docs/quick-start.astro` matches `src/cli.rs` (`SessionCmd::Close` `--lens`, `SchemaCmd::Prompts` `--lens` `--limit`, `SchemaCmd::Propose` `--thread` `--lens`) and the Phase 1–3 implementation (`schema_prompts`, `schema_value.schemas`, `schema_prompt_notices`, `lens` on `schema_proposals`, `source.kind` including `"thread"`).
+  - Frozen migrations, Rust source, and commit-excluded paths untouched.
+- Phase 4 AC (`AC-11` documentation and instructions cutover) and Architecture lines 164–171 met across `src/assets/instructions.md`, `docs/memory/engrams.md`, and `docs/src/pages/`:
+  - `src/assets/instructions.md` documents `session close [--lens <name>]`, `schema prompts [--lens <name>] [--limit <n>]`, `schema propose [--thread <tag>] [--lens <name>]`, `schema_value.schemas`, `schema_prompts`, and the six-step agent loop (plus raising `pending_proposals` at session start and naming surfaced schemas in replies).
+  - `docs/memory/engrams.md` replaces `schema_opportunities` with `schema_prompts`, adds `schema_value.schemas` and `schema_prompt_notices` to the store table, documents `schema prompts` and `schema propose --thread --lens`, adds `"thread"` to `origin.source.kind`, adds the `Lenses (general, fiction, software)` section, and lists the six-step agent loop.
+  - `docs/src/pages/docs/guide/cognitive-schemas.astro`, `docs/src/pages/docs/reference/cli.astro`, `docs/src/pages/index.astro`, and `docs/src/pages/docs/quick-start.astro` replace `schema_opportunities` with `schema_prompts`, add `schema_value.schemas`, document `schema prompts` and `--lens` / `--thread`, and include the six-step agent loop.
+
+Counts: 1 finding = 0 severe, 1 moderate, 0 minor. PASS — continue.

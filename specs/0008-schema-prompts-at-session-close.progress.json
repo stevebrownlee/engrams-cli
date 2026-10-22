@@ -1,0 +1,215 @@
+{
+  "schema_version": "1",
+  "spec_id": "0008",
+  "spec_name": "schema-prompts-at-session-close",
+  "spec_path": "specs/0008-schema-prompts-at-session-close.md",
+  "created_at": "2026-10-22T18:05:00Z",
+  "updated_at": "2026-10-22T22:32:00Z",
+  "status": "complete",
+  "mode": "autonomous",
+  "current_phase": 4,
+  "phases": [
+    {
+      "id": 1,
+      "title": "Add migration v17, proposal thread and lens provenance, and transfer support",
+      "type": "standard",
+      "status": "complete",
+      "started_at": "2026-10-22T21:26:00Z",
+      "completed_at": "2026-10-22T21:35:00Z",
+      "depends_on": [],
+      "exemplars": [
+        "src/schema.rs",
+        "src/db.rs",
+        "src/cli.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/propose.rs",
+        "src/ops/schemas/opportunities.rs",
+        "src/ops/transfer/export.rs",
+        "src/ops/transfer/import.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ],
+      "acceptance": [
+        "AC-9",
+        "AC-12"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test migration",
+        "cargo test --bin engrams propose",
+        "cargo test --bin engrams transfer"
+      ],
+      "files_touched": [
+        "src/schema.rs",
+        "src/db.rs",
+        "src/cli.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/propose.rs",
+        "src/ops/schemas/opportunities.rs",
+        "src/ops/schemas/assimilate.rs",
+        "src/ops/schemas/confirm.rs",
+        "src/ops/schemas/kind.rs",
+        "src/ops/transfer/export.rs",
+        "src/ops/transfer/import.rs",
+        "tests/cli.rs",
+        "tests/memory.rs"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": "77b6873c68adf7e73f51b5a6f4fbfd7357e35827"
+    },
+    {
+      "id": 2,
+      "title": "Add lenses, natural reading order, and schema prompts preview command",
+      "type": "standard",
+      "status": "complete",
+      "started_at": "2026-10-22T21:40:00Z",
+      "completed_at": "2026-10-22T22:00:00Z",
+      "depends_on": [
+        1
+      ],
+      "exemplars": [
+        "src/cli.rs",
+        "src/ops/mod.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/gates.rs",
+        "src/ops/schemas/propose.rs",
+        "src/ops/schemas/retrieval.rs",
+        "src/ops/schemas/scan.rs",
+        "src/assets/instructions.md",
+        "tests/fixtures/manuscript-book.json",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-1",
+        "AC-2",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test prompt"
+      ],
+      "files_touched": [
+        "src/assets/lenses/fiction.json",
+        "src/assets/lenses/general.json",
+        "src/assets/lenses/software.json",
+        "src/cli.rs",
+        "src/ops/mod.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/prompts.rs",
+        "src/ops/schemas/propose.rs",
+        "tests/cli.rs"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": "0beece4d823f5a194c3890727c01f9c910aab19c"
+    },
+    {
+      "id": 3,
+      "title": "Cut over session close to schema prompts, notices, and schema value",
+      "type": "standard",
+      "status": "complete",
+      "started_at": "2026-10-22T22:01:00Z",
+      "completed_at": "2026-10-22T22:18:00Z",
+      "depends_on": [
+        1,
+        2
+      ],
+      "exemplars": [
+        "src/cli.rs",
+        "src/ops/session.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/opportunities.rs",
+        "src/ops/schemas/propose.rs",
+        "tests/fixtures/manuscript-book.json",
+        "tests/cli.rs"
+      ],
+      "acceptance": [
+        "AC-1",
+        "AC-3",
+        "AC-8",
+        "AC-9",
+        "AC-10",
+        "AC-11",
+        "AC-12"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "cargo test prompt",
+        "cargo test --test cli session_close",
+        "cargo test schema_loop",
+        "cargo test migration"
+      ],
+      "files_touched": [
+        "src/cli.rs",
+        "src/ops/advise.rs",
+        "src/ops/schemas/mod.rs",
+        "src/ops/schemas/opportunities.rs",
+        "src/ops/schemas/prompts.rs",
+        "src/ops/session.rs",
+        "tests/cli.rs"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [],
+      "commit_sha": "a8adddcccd9f33f441c907ea3eda9bc86ecd5165"
+    },
+    {
+      "id": 4,
+      "title": "Update instructions and documentation for schema prompts at session close",
+      "type": "standard",
+      "status": "complete",
+      "started_at": "2026-10-22T22:20:00Z",
+      "completed_at": "2026-10-22T22:28:00Z",
+      "depends_on": [
+        2,
+        3
+      ],
+      "exemplars": [
+        "AGENTS.md",
+        "src/assets/instructions.md",
+        "docs/memory/engrams.md",
+        "docs/src/pages/docs/guide/cognitive-schemas.astro",
+        "docs/src/pages/docs/reference/cli.astro"
+      ],
+      "acceptance": [
+        "AC-11"
+      ],
+      "verification": [
+        "cargo fmt --check",
+        "cargo clippy --all-targets",
+        "npm --prefix docs run build"
+      ],
+      "files_touched": [
+        "src/assets/instructions.md",
+        "docs/memory/engrams.md",
+        "docs/src/pages/docs/guide/cognitive-schemas.astro",
+        "docs/src/pages/docs/reference/cli.astro",
+        "docs/src/pages/index.astro",
+        "docs/src/pages/docs/quick-start.astro"
+      ],
+      "retry_count": 0,
+      "blocked_reason": null,
+      "review_findings": [
+        {
+          "severity": "moderate",
+          "category": "convention-drift",
+          "message": "specs/0008-schema-prompts-at-session-close.md line 164 specifies updating the Session End Protocol and command tables in AGENTS.md (session close --lens, schema prompts, schema propose --thread/--lens, schema_prompts, and the six-step agent loop), which Phase 4 left untouched due to the PILOT gate hard constraint ('Gates do not modify AGENTS.md'), so the developer must apply or waive the AGENTS.md cutover before merging.",
+          "file": "AGENTS.md",
+          "line": 60,
+          "resolution": "deferred"
+        }
+      ],
+      "commit_sha": "924572cece8067c9100f545cac5725670d714d1e"
+    }
+  ]
+}

@@ -873,6 +873,7 @@ pub fn propose(
             },
             "lens": resolved_lens,
             "status": ProposalStatus::Proposed.as_str(),
+            "created_at": created_at,
         },
         "confirm_command": format!("engrams schema confirm proposal:{id}"),
         "reject_command": format!("engrams schema reject proposal:{id} --reason \"<why>\""),
