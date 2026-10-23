@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-10-22T22:30:08Z
+created: 2026-10-23T02:33:33Z
 ---
 # Active Context
 
@@ -75,7 +75,7 @@ created: 2026-10-22T22:30:08Z
       "PR 6 merge",
       "orchestrator must create feature branch BEFORE first spec commit - main was reset once this session to fix direct-land"
     ],
-    "last_release": "v0.15.0",
+    "last_release": "v0.16.0",
     "schema_kind_surfacing": "shipped in v0.14.0",
     "last_spec_completed": "0007-reviewed-schema-proposals",
     "branch": "spec-0007-reviewed-schema-proposals",
@@ -84,7 +84,7 @@ created: 2026-10-22T22:30:08Z
     "last_completed_spec": "0008-schema-prompts-at-session-close",
     "schema_version": 17
   },
-  "version": 53,
-  "updated_at": "2026-10-22T22:30:08Z"
+  "version": 54,
+  "updated_at": "2026-10-23T02:33:33Z"
 }
 ```

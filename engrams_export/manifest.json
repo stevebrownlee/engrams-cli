@@ -1,14 +1,14 @@
 {
-  "exported_at": "2026-10-23T01:43:20.078529+00:00",
+  "exported_at": "2026-10-23T02:33:33.700721+00:00",
   "counts": {
     "product_context": 1,
     "active_context": 1,
-    "decisions": 100,
-    "progress": 99,
+    "decisions": 101,
+    "progress": 100,
     "patterns": 8,
     "custom_data": 9,
     "links": 178,
-    "anchors": 158,
+    "anchors": 161,
     "schemas": 4,
     "schema_proposals": 2
   }

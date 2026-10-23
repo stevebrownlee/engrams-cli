@@ -5710,5 +5710,152 @@
     "arg": null,
     "node_kind": "system_pattern",
     "node_id": 8
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "schema",
+    "node_id": 3
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "decision",
+    "node_id": 19
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "decision",
+    "node_id": 26
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "system_pattern",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "system_pattern",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "system_pattern",
+    "node_id": 9
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "system_pattern",
+    "node_id": 10
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "system_pattern",
+    "node_id": 11
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/graph/rebuild.rs",
+    "node_kind": "system_pattern",
+    "node_id": 12
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "schema",
+    "node_id": 1
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "schema",
+    "node_id": 4
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "decision",
+    "node_id": 85
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "decision",
+    "node_id": 87
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "decision",
+    "node_id": 93
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "system_pattern",
+    "node_id": 7
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "system_pattern",
+    "node_id": 8
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "system_pattern",
+    "node_id": 9
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "system_pattern",
+    "node_id": 10
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "system_pattern",
+    "node_id": 11
+  },
+  {
+    "ts": "2026-10-23T01:51:21Z",
+    "cmd": "advise",
+    "arg": "src/ops/schemas/scan.rs",
+    "node_kind": "system_pattern",
+    "node_id": 12
   }
 ]
