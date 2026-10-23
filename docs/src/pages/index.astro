@@ -27,8 +27,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
           <span class="version">v0.15.0</span>
         </a>
         <nav class="nav">
+          <a href="#story">See It in Action</a>
           <a href="#what">What is a Schema</a>
-          <a href="#runtime">Why a Runtime</a>
           <a href="#lifecycle">How It Learns</a>
           <a href="/docs/guide/cognitive-schemas" class="highlight">Guide</a>
           <a href="/docs/getting-started">Docs</a>
@@ -51,7 +51,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </p>
 
         <div class="hero-actions">
-          <a href="/docs/quick-start" class="btn-action primary">5-Minute Quick Start</a>
+          <a href="#story" class="btn-action primary">See a Real Conversation</a>
+          <a href="/docs/quick-start" class="btn-action secondary">5-Minute Quick Start</a>
           <a href="/docs/guide/cognitive-schemas" class="btn-action secondary">Read the Schema Guide</a>
         </div>
       </section>
@@ -90,6 +91,246 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
               Autonomously clusters codebase activity, formalizes triggers and directives, and intercepts agent
               edits in 1ms with compact mental models.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 2B. THE TWO-ACT STORY: HUMAN + AGENT DEVELOPING & USING SCHEMAS ══ -->
+      <section id="story" class="content-section">
+        <h2 class="section-heading">How Humans and Agents Build &amp; Use Schemas Together</h2>
+        <p class="section-description">
+          You never hand-write a schema file. As you and your agent log decisions, patterns, and progress during
+          normal work, Engrams spots the recurring threads at the end of a session, asks the agent the right
+          questions, and lets you approve the mental model in plain words. From the very next session onward,
+          that schema guides your agent automatically and skips tens of thousands of tokens of file reads.
+        </p>
+
+        <div class="story-acts">
+          <!-- ACT I: DEVELOPING THE SCHEMA TOGETHER -->
+          <div class="act-panel">
+            <div class="act-banner">
+              <span class="act-tag">ACT I · AT SESSION CLOSE</span>
+              <h3 class="act-title">Developing a Schema Together</h3>
+              <p class="act-sub">
+                After weeks of building the knowledge graph, the developer closes the session. Nobody stopped to
+                write documentation — Engrams notices 12 uncovered decisions sharing the <code>graph</code> thread
+                across 11 files and 6 days, and prompts the agent with software-lens questions.
+              </p>
+            </div>
+
+            <div class="dialogue-timeline">
+              <!-- Step 1: Engrams prompts the agent at session close -->
+              <div class="turn-card turn-engrams">
+                <div class="turn-header">
+                  <span class="turn-actor actor-engrams">⬡ ENGRAMS CLI</span>
+                  <code class="turn-cmd">$ engrams session close --lens software --reads-skipped 12 --tokens-saved 18000</code>
+                </div>
+                <div class="turn-body">
+                  <p class="turn-note">
+                    Engrams returns <strong>schema_prompts</strong>: 12 uncovered decisions ordered in reading sequence,
+                    paired with software-lens questions and a ready-to-run propose command:
+                  </p>
+                  <pre class="turn-code"><code>&#123;
+  "schema_value": &#123;
+    "guided_retrievals": 4,
+    "schemas": [
+      &#123;"id": 1, "name": "performance-rules", "guided": 2&#125;,
+      &#123;"id": 2, "name": "what-to-build-next", "guided": 2&#125;
+    ]
+  &#125;,
+  "schema_prompts": [
+    &#123;
+      "key": "thread:graph",
+      "lens": "software",
+      "spread": &#123;"notes": 12, "files": 11, "days": 6&#125;,
+      "questions": [
+        "What invariant or rule must always hold true for graph?",
+        "Where is the boundary where this rule applies, and what sits outside it?",
+        "What breaks if this rule is violated?"
+      ],
+      "evidence": [
+        &#123;"kind": "decision", "id": 18, "anchors": ["src/ops/graph/rel.rs"],
+         "summary": "Schema v3: context_links gains origin/weight; canonical relationship algebra"&#125;,
+        &#123;"kind": "decision", "id": 19, "anchors": ["src/ops/graph/rebuild.rs"],
+         "summary": "graph ingest no-ops when since==HEAD (empty window guard)"&#125;,
+        &#123;"kind": "decision", "id": 21, "anchors": ["src/ops/link.rs"],
+         "summary": "Disjoint rel pairs rejected at link add: depends_on vs conflicts_with"&#125;,
+        &#123;"kind": "decision", "id": 26, "anchors": ["src/ops/graph/rebuild.rs"],
+         "summary": "Inference materialized as derived edges via EdgeSource"&#125;
+      ],
+      "propose_command": "engrams schema propose --thread graph --lens software --members decision:18,decision:20,... --name graph --statement \"&lt;claim&gt;\" --summary \"When &lt;condition&gt;: &lt;directive&gt;\""
+    &#125;
+  ]
+&#125;</code></pre>
+                </div>
+              </div>
+
+              <!-- Step 2: Agent drafts the proposal and asks the human in plain words -->
+              <div class="turn-card turn-agent">
+                <div class="turn-header">
+                  <span class="turn-actor actor-agent">🤖 LLM AGENT</span>
+                  <code class="turn-cmd">Synthesizes the 12 notes &amp; runs engrams schema propose</code>
+                </div>
+                <div class="turn-body">
+                  <p class="turn-note">
+                    The agent reads the 12 decisions, answers the lens questions, runs <code>schema propose</code>,
+                    and presents the proposed mental model to the developer in plain words:
+                  </p>
+                  <div class="agent-chat-bubble">
+                    <div class="chat-proposal-title">
+                      <strong>Proposal #1 — <code>graph-ontology-and-rebuild</code></strong>
+                      <span class="chat-badge">12 decisions · 11 files · 6 days</span>
+                    </div>
+                    <div class="chat-row">
+                      <span class="chat-k">CLAIM</span>
+                      <p>
+                        "The knowledge graph validates relationship algebra at link-write time and derives analytics,
+                        inverse edges, and code-node enrichment deterministically in memory during rebuild."
+                      </p>
+                    </div>
+                    <div class="chat-row">
+                      <span class="chat-k">INSTRUCTION</span>
+                      <p>
+                        "When editing graph links, ontology rules, or rebuild analytics: enforce <code>RelSpec</code>
+                        domain, range, and disjointness at link write time and keep derived edges and PageRank in the
+                        in-memory graph rebuild pass."
+                      </p>
+                    </div>
+                    <div class="chat-row">
+                      <span class="chat-k">SCOPE</span>
+                      <p>
+                        Paths: <code>src/ops/graph</code>, <code>src/ops/link.rs</code> · Tags: <code>graph</code>,
+                        <code>ontology</code>, <code>validation</code>
+                      </p>
+                    </div>
+                    <div class="chat-question">
+                      Confirm <code>proposal:1</code>, edit the wording, or reject?
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 3: Human confirms, agent activates the schema -->
+              <div class="turn-card turn-human">
+                <div class="turn-header">
+                  <span class="turn-actor actor-human">👤 DEVELOPER</span>
+                  <span class="turn-reply">"Confirm proposal:1 and proposal:2"</span>
+                </div>
+                <div class="turn-body">
+                  <p class="turn-note">
+                    The agent runs the printed command <code>engrams schema confirm proposal:1</code>. Engrams creates
+                    the active schema, links all 12 member decisions, and records its provenance:
+                  </p>
+                  <pre class="turn-code"><code>&#123;
+  "status": "success",
+  "schema": &#123;
+    "id": 3,
+    "name": "graph-ontology-and-rebuild",
+    "kind": "schema",
+    "member_count": 12,
+    "origin": &#123;"proposal_id": 1, "source": &#123;"kind": "thread", "ref": "graph"&#125;&#125;
+  &#125;
+&#125;</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ACT II: USING THE SCHEMA IN FUTURE WORK -->
+          <div class="act-panel act-panel-future">
+            <div class="act-banner banner-future">
+              <span class="act-tag tag-rose">ACT II · WEEKS LATER IN A NEW SESSION</span>
+              <h3 class="act-title">How the Schema Guides Future Work &amp; Saves Tokens</h3>
+              <p class="act-sub">
+                Weeks later, a fresh agent session starts work on a graph feature. It has zero conversation history —
+                and it doesn't need to read 11 source files to rediscover how the graph works.
+              </p>
+            </div>
+
+            <div class="dialogue-timeline">
+              <!-- Step 4: Before editing a file, advise intercepts with the schema + linked decisions/patterns -->
+              <div class="turn-card turn-engrams">
+                <div class="turn-header">
+                  <span class="turn-actor actor-engrams">⬡ PRE-EDIT INTERCEPT</span>
+                  <code class="turn-cmd">$ engrams advise src/ops/graph/rebuild.rs</code>
+                </div>
+                <div class="turn-body">
+                  <p class="turn-note">
+                    Before the agent edits a single line in <code>src/ops/graph/</code> (including brand-new files
+                    matched via <code>scope.paths</code>), Engrams returns the active schemas ahead of the specific
+                    decisions and regex/AST patterns anchored to that territory:
+                  </p>
+                  <pre class="turn-code"><code>&#123;
+  "schemas": [
+    &#123;
+      "id": 3,
+      "name": "graph-ontology-and-rebuild",
+      "statement": "The knowledge graph validates relationship algebra at link-write time and derives analytics, inverse edges, and code-node enrichment deterministically in memory during rebuild",
+      "summary": "When editing graph links, ontology rules, or rebuild analytics: enforce RelSpec domain, range, and disjointness at link write time and keep derived edges and PageRank in the in-memory graph rebuild pass",
+      "scope": &#123;"tags": ["graph", "ontology", "validation"], "paths": ["src/ops/graph", "src/ops/link.rs"]&#125;,
+      "matched_by": &#123;"via": "member_anchor", "value": "src/ops/graph/rebuild.rs"&#125;
+    &#125;,
+    &#123;
+      "id": 1,
+      "name": "performance-rules",
+      "summary": "Fires whenever I edit Rust code that creates, copies, or hands off collections and strings: the four allocation rules...",
+      "matched_by": &#123;"via": "member_anchor", "value": "src/ops"&#125;
+    &#125;
+  ],
+  "constraints": [
+    &#123;"type": "decision", "id": 19, "summary": "graph ingest no-ops when since==HEAD (empty window guard)"&#125;,
+    &#123;"type": "decision", "id": 26, "summary": "Inference materialized as derived edges via EdgeSource: inverse edges first"&#125;,
+    &#123;"type": "pattern",  "id": 7,  "name": "Borrowed SQL Parameters Only", "severity": "error"&#125;,
+    &#123;"type": "pattern",  "id": 9,  "name": "Enrich By Move Not get().clone()", "severity": "warn"&#125;
+  ]
+&#125;</code></pre>
+                </div>
+              </div>
+
+              <!-- Step 5: Agent drills into the schema or acts directly without reading 11 files -->
+              <div class="turn-card turn-agent">
+                <div class="turn-header">
+                  <span class="turn-actor actor-agent">🤖 LLM AGENT</span>
+                  <code class="turn-cmd">Applies guidance immediately · 0 exploratory file reads needed</code>
+                </div>
+                <div class="turn-body">
+                  <div class="agent-chat-bubble">
+                    <p style="margin: 0 0 0.75rem;">
+                      Guided by <code>graph-ontology-and-rebuild</code> and <code>performance-rules</code>:
+                    </p>
+                    <ul class="guidance-outcomes">
+                      <li>
+                        <strong>Right architecture on Turn 1:</strong> Keeps new relationship validation in
+                        <code>src/ops/link.rs</code> (<code>RelSpec</code>) and materializes derived edges in
+                        <code>src/ops/graph/rebuild.rs</code> without breaking the <code>since == HEAD</code> guard
+                        (Decision #19).
+                      </li>
+                      <li>
+                        <strong>Zero-allocation compliance:</strong> Borrows SQL parameters via
+                        <code>Vec&lt;&amp;dyn ToSql&gt;</code> and moves temporary lookup maps (Pattern #7, Pattern #9).
+                      </li>
+                      <li>
+                        <strong>On-demand drill-down:</strong> If the agent needs the full history or progress trail,
+                        one call to <code>engrams brief schema:3</code> returns all 12 linked decisions, contracts, and
+                        code symbols in a single payload.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="token-payoff-bar">
+                    <div class="payoff-stat">
+                      <span class="ps-label">Without Engrams</span>
+                      <span class="ps-val">11 file reads · ~18,400 tokens</span>
+                    </div>
+                    <div class="payoff-arrow">→</div>
+                    <div class="payoff-stat payoff-win">
+                      <span class="ps-label">With Schema Guidance</span>
+                      <span class="ps-val">1ms advise · ~420 tokens · 0 missed invariants</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -814,6 +1055,278 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     margin: 0;
   }
   .matrix-card strong { color: var(--c-night); }
+
+  /* ── 2B. TWO-ACT STORY: HUMAN + AGENT DEVELOPING & USING SCHEMAS ── */
+  .story-acts {
+    display: flex;
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+  .act-panel {
+    background: var(--c-surface-subtle);
+    border: 2px solid var(--c-border);
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(27, 32, 33, 0.05);
+  }
+  .act-panel-future {
+    border-color: var(--c-rose);
+    background: #ffffff;
+  }
+  .act-banner {
+    padding: 1.8rem 2rem 1.5rem;
+    background: #ffffff;
+    border-bottom: 2px solid var(--c-border);
+  }
+  .banner-future {
+    background: #fff8f9;
+    border-bottom-color: var(--c-rose-pale);
+  }
+  .act-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    background: var(--c-burgundy);
+    color: #ffffff;
+    padding: 0.2rem 0.6rem;
+    border-radius: 2px;
+    margin-bottom: 0.6rem;
+  }
+  .act-tag.tag-rose {
+    background: var(--c-rose);
+  }
+  .act-title {
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: var(--c-night);
+    margin: 0 0 0.45rem;
+    letter-spacing: -0.02em;
+  }
+  .act-sub {
+    font-size: 1rem;
+    color: var(--c-slate);
+    line-height: 1.6;
+    margin: 0;
+    max-width: 58rem;
+  }
+  .act-sub code {
+    font-family: var(--font-mono);
+    color: var(--c-burgundy);
+    font-weight: 700;
+    background: #fff0f3;
+    padding: 0.1rem 0.35rem;
+    border-radius: 2px;
+  }
+
+  .dialogue-timeline {
+    padding: 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  @media (max-width: 720px) {
+    .act-banner, .dialogue-timeline { padding: 1.25rem; }
+  }
+  .turn-card {
+    background: #ffffff;
+    border: 1.5px solid var(--c-border);
+    border-left: 4px solid var(--c-slate);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .turn-engrams { border-left-color: var(--c-burgundy); }
+  .turn-agent   { border-left-color: var(--c-rose); }
+  .turn-human   { border-left-color: var(--c-night); }
+
+  .turn-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.75rem 1.25rem;
+    background: var(--c-surface-subtle);
+    border-bottom: 1px solid var(--c-border);
+  }
+  .turn-actor {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+  }
+  .actor-engrams { color: var(--c-burgundy); }
+  .actor-agent   { color: var(--c-rose); }
+  .actor-human   { color: var(--c-night); }
+
+  .turn-cmd {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--c-slate);
+    font-weight: 700;
+  }
+  .turn-reply {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--c-burgundy);
+    background: #fff0f3;
+    border: 1px solid var(--c-rose);
+    padding: 0.15rem 0.6rem;
+    border-radius: 2px;
+  }
+  .turn-body {
+    padding: 1.15rem 1.25rem;
+  }
+  .turn-note {
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem;
+    color: var(--c-slate);
+    line-height: 1.55;
+  }
+  .turn-note code {
+    font-family: var(--font-mono);
+    color: var(--c-burgundy);
+    font-weight: 700;
+  }
+  .turn-code {
+    margin: 0;
+    padding: 1rem 1.15rem;
+    background: #fff8f9;
+    border: 1px solid var(--c-rose-pale);
+    border-radius: 2px;
+    overflow-x: auto;
+  }
+  .turn-code code {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--c-night);
+    line-height: 1.55;
+  }
+
+  .agent-chat-bubble {
+    background: #fffbfa;
+    border: 1px solid var(--c-rose-pale);
+    border-left: 3px solid var(--c-rose);
+    padding: 1.1rem 1.25rem;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .chat-proposal-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px dashed var(--c-border);
+  }
+  .chat-proposal-title code {
+    font-family: var(--font-mono);
+    color: var(--c-burgundy);
+    font-weight: 800;
+  }
+  .chat-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--c-slate);
+    background: #ffffff;
+    border: 1px solid var(--c-border);
+    padding: 0.1rem 0.5rem;
+    border-radius: 2px;
+  }
+  .chat-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+  @media (max-width: 600px) {
+    .chat-row { grid-template-columns: 1fr; gap: 0.2rem; }
+  }
+  .chat-k {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--c-burgundy);
+    letter-spacing: 0.05em;
+  }
+  .chat-row p {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--c-night);
+    line-height: 1.5;
+  }
+  .chat-row code, .agent-chat-bubble code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    color: var(--c-burgundy);
+    font-weight: 700;
+  }
+  .chat-question {
+    margin-top: 0.25rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--c-border);
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    font-weight: 800;
+    color: var(--c-burgundy);
+  }
+  .guidance-outcomes {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.92rem;
+    color: var(--c-night);
+    line-height: 1.55;
+  }
+  .token-payoff-bar {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: #fff0f3;
+    border: 1.5px solid var(--c-rose);
+    padding: 0.85rem 1.25rem;
+    border-radius: 2px;
+  }
+  .payoff-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .ps-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--c-slate);
+  }
+  .ps-val {
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--c-night);
+  }
+  .payoff-win .ps-label, .payoff-win .ps-val {
+    color: var(--c-burgundy);
+    font-weight: 900;
+  }
+  .payoff-arrow {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: var(--c-rose);
+  }
 
   /* ── 3. ISOMETRIC EXPLODED PYRAMID (FULL VERTICAL ALIGNMENT & RELATIVE CONTAINER) ── */
   .pyramid-showcase {
