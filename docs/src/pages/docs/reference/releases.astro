@@ -8,6 +8,36 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.16.0</h2>
+  <div class="release-block">
+    <h3>What was added</h3>
+    <ul>
+      <li>
+        <strong>Session-close schema prompts &amp; domain lenses (Spec 0008):</strong> <code>session close [--lens &lt;name&gt;]</code> replaces <code>schema_opportunities</code> with up to three <code>schema_prompts</code> built from gate-passing detector candidates (of any <code>kind</code> label) and recurring subject-tag storylines (<code>thread:&lt;tag&gt;</code>). Prompts list uncovered notes in reading order (<code>story</code> natural chapter/file order via <code>natural_cmp</code> or <code>time</code> order), fill in project-type lens questions (built-in <code>general</code>, <code>fiction</code>, and <code>software</code> lenses plus <code>&lt;root&gt;/engrams/lenses/&lt;name&gt;.json</code> overrides), and print a ready-to-run <code>engrams schema propose</code> command.
+      </li>
+      <li>
+        <strong>Evidence-based prompt recurrence &amp; preview:</strong> Migration v17 adds <code>schema_prompt_notices</code> and <code>schema_proposals.lens</code>, carries over suppressed v16 candidate notifications, and drops <code>schema_candidates.notified_at</code>. Prompts stay quiet once shown (or rejected) until a newly created note joins their evidence, while <code>engrams schema prompts [--lens &lt;name&gt;] [--limit &lt;n&gt;]</code> previews prompts without recording notices and <code>schema_value.schemas</code> reports per-schema guided retrieval counts ordered most-used first.
+      </li>
+      <li>
+        <strong>Reviewed schema proposals &amp; human confirmation gate (Spec 0007):</strong> Migration v16 adds <code>schema_proposals</code>, <code>schemas.statement</code>, and <code>schemas.scope_json</code>. Agents propose schemas with a plain-language claim (<code>--statement</code>), trigger-and-directive instruction (<code>--summary</code> or <code>--trigger</code> + <code>--rule</code>), scope (<code>--scope-tags</code>, <code>--scope-paths</code>), and cited notes (<code>--members</code>, <code>--from</code>, or <code>--thread</code>). Engrams validates evidence spread, currency, restatement overlap, and territory before staging the proposal for human confirmation (<code>schema confirm proposal:&lt;id&gt;</code>) or rejection (<code>schema reject proposal:&lt;id&gt; --reason</code>). Direct candidate confirmation and <code>schema scan --apply</code> are removed.
+      </li>
+      <li>
+        <strong>Scope-driven pre-edit activation &amp; self-explaining provenance:</strong> Active schemas match brand-new files inside <code>scope.paths</code> via <code>active_for_scope</code>, report <code>matched_by</code> (<code>member_anchor</code>, <code>scope_path</code>, <code>scope_tag</code>, or <code>member_tag</code>) and <code>origin</code> across <code>prime</code>, <code>advise</code>, <code>query</code>, <code>schema show</code>, and <code>brief</code>, surface undecided <code>pending_proposals</code> in <code>prime</code>, and appear ahead of low-level rules in the omp <code>engrams-advisor.ts</code> pre-edit hook.
+      </li>
+      <li>
+        <strong>Workspace-scoped git execution &amp; safe import (Spec 0006):</strong> Every git invocation (commit stamping, PR lookup, graph co-change ingestion, staleness drift, staged checks, coverage, hooks, and <code>doctor</code>) runs via <code>git -C &lt;workspace_root&gt;</code> and fails closed when <code>--db</code> points outside <code>&lt;root&gt;/engrams/context.db</code>. <code>export</code> and <code>import</code> carry code references by file path rather than database ID and validate referential integrity before committing imports.
+      </li>
+      <li>
+        <strong>Interactive homepage showcase &amp; release automation:</strong> Added a two-act human-and-agent schema development and retrieval walkthrough on the landing page alongside the <code>/release</code> skill and command.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <p>
+      Automatic cluster promotion produced thin topic buckets named after tags instead of the human-level claims an engineer or writer actually reasons with, and git/import operations could cross workspace boundaries or leave dangling references when invoked from external directories. v0.16.0 completes the human-in-the-loop schema lifecycle: Engrams gathers recurring storylines and asks domain-specific questions at session close, the agent synthesizes a claim, instruction, and scope into a validated proposal, the human confirms or edits it in plain words, and the confirmed schema intercepts future work across its entire path and tag scope.
+    </p>
+  </div>
+
   <h2>v0.15.0</h2>
   <div class="release-block">
     <h3>What was added</h3>
