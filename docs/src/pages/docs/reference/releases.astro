@@ -8,6 +8,33 @@ import DocsLayout from '../../../layouts/DocsLayout.astro';
     Track the evolution of the Engrams CLI. Below is a detailed view of what was done in each version, the motivation behind the changes, and how they benefit developers.
   </p>
 
+  <h2>v0.17.0</h2>
+  <div class="release-block">
+    <h3>What was added</h3>
+    <ul>
+      <li>
+        <strong>Sub-thread splitting &amp; retrieval-only scope tags:</strong> Secondary <code>scope.tags</code> on confirmed schemas and pending proposals now act strictly as retrieval triggers without silencing subject-tag threads; only explicit <code>source_kind = &apos;thread&apos;</code> <code>source_ref</code> tags (or tags with &ge;50% member coverage) claim a thread. Claimed or oversized (&gt;12 notes) umbrella tags split their remaining uncovered notes into bounded co-tag sub-threads (<code>thread:&lt;parent&gt;+&lt;second_tag&gt;</code>, capped at 2 per parent), and <code>schema propose</code> unions notice snapshots with <code>session close</code> via <code>upsert_prompt_notice</code> so passed-over notes are never re-dumped.
+      </li>
+      <li>
+        <strong>Data-driven schema assimilation &amp; staged review (<code>engrams schema assimilate</code>):</strong> Replaced raw word-stem centroid division with a two-step Evidence Gate and Prevalence/ISF scorer using binary path matching (<code>path_signal</code>) and database-derived umbrella/sibling tag frequencies. Automatic suggestions skip <code>progress-entry</code> rows, <code>attach</code> and <code>refine</code> transactionally refresh <code>centroid_json</code>, and <code>engrams schema assimilate [&lt;schema&gt;] [--accept &lt;kind:id&gt; | --decline &lt;kind:id&gt;]</code> (plus <code>pending_suggestions</code> in <code>session close</code>) closes the loop on staged suggestions.
+      </li>
+      <li>
+        <strong>Repo-qualified Louvain overlays &amp; automatic session-close scan:</strong> <code>co_commit_groups</code> groups single-repo anchored decisions by <code>(repo_prefix, commit_sha)</code> and skips groups exceeding <code>MAX_CO_COMMIT_GROUP = 8</code> before pair generation so umbrella-repo <code>HEAD</code> commits never manufacture mega-cliques. Scoped <code>prime</code> calls record <code>--paths</code>/<code>--tags</code> in <code>retrieval_surfaces.arg</code> while unscoped <code>prime</code> calls are excluded from <code>co_retrieval_groups</code>, and <code>session close</code> automatically runs <code>schema scan</code> when the graph has changed since the last scan.
+      </li>
+      <li>
+        <strong>Two-pass workspace discovery &amp; worktree path canonicalization:</strong> <code>discover_workspace_root_from</code> walks all ancestors (and git worktree main checkouts) looking for an existing <code>engrams/context.db</code> or <code>.engrams</code> store before falling back to <code>.git</code> or <code>package.json</code>, and non-<code>init</code> commands targeting an uninitialized workspace or child folder fail closed before <code>db::open</code>. <code>resolve_workspace_path</code> maps subfolder, absolute, and <code>&lt;repo&gt;.worktrees/&lt;branch&gt;</code> paths to <code>&#123; logical, physical &#125;</code> pairs, and <code>engrams doctor --fix</code> transactionally normalizes stored anchors, schema/proposal scopes, link relationship synonyms, and legacy progress suggestions.
+      </li>
+      <li>
+        <strong>Line-safe <code>--compact</code>, bounded <code>brief</code> neighbors &amp; live <code>omp</code> advisor UX:</strong> <code>--compact</code> wraps objects and arrays at &le;500 bytes per line and clamps overview prose fields with <code>&quot;truncated&quot;: true</code> so 768-byte harness line limits never truncate <code>prime</code>. <code>brief</code> omits duplicate <code>member_of</code>/<code>has_member</code> links on schema targets and bounds hop-1 neighbors and BFS frontiers at 20. The <code>omp</code> extension (<code>engrams-advisor.ts</code>) shows live UI notifications (<code>engrams advised: ...</code>), reminds the model to cite applied schemas, and surfaces schemas once per session on <code>read</code> via <code>advise --schemas-only</code>.
+      </li>
+    </ul>
+
+    <h3>Why it was done</h3>
+    <p>
+      Production dogfooding on a 465-decision, multi-tenant monorepo with git worktrees exposed ten scaling bottlenecks: broad retrieval scope tags silenced 79% of uncovered notes in those domains, word-split path matching produced 80 false <code>fit: 1.0</code> suggestions, umbrella repo commits injected 9,780 synthetic co-commit edges, child <code>package.json</code>/<code>.git</code> markers forked stray empty databases, worktree paths missed schema scopes, single-line <code>--compact</code> lost 98% of <code>prime</code> output under harness line truncation, and passive pre-edit steers gave humans no visual feedback in the terminal. v0.17.0 hardens every layer of the schema runtime for large-scale multi-repo and worktree workspaces.
+    </p>
+  </div>
+
   <h2>v0.16.0</h2>
   <div class="release-block">
     <h3>What was added</h3>
