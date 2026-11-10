@@ -137,7 +137,11 @@ pub enum Command {
     },
 
     /// Analyze project database for orphaned records, drift, and missing context
-    Doctor,
+    Doctor {
+        /// Normalize non-canonical anchor and scope paths in place and refresh centroids
+        #[arg(long)]
+        fix: bool,
+    },
 
     /// Compute and query the knowledge + code graph
     Graph {
@@ -264,6 +268,9 @@ pub enum Command {
         /// Use git diff --cached --name-only as the path list
         #[arg(long)]
         staged: bool,
+        /// Return only matching active schemas (no file checks, reinforcement, or surface writes)
+        #[arg(long)]
+        schemas_only: bool,
     },
 
     /// Archive decayed decisions and patterns (prune-decay)
@@ -530,6 +537,17 @@ pub enum SchemaCmd {
         /// Maximum number of prompts to return
         #[arg(long, default_value_t = crate::ops::schemas::prompts::PROMPTS_PER_CLOSE)]
         limit: usize,
+    },
+    /// Review, accept, or decline staged schema assimilation suggestions
+    Assimilate {
+        /// Target schema id or name (optional when listing pending suggestions)
+        target: Option<String>,
+        /// Accept staged suggestion(s) (`kind:id`) into the target schema
+        #[arg(long, value_delimiter = ',')]
+        accept: Vec<String>,
+        /// Decline staged suggestion(s) (`kind:id`) for the target schema
+        #[arg(long, value_delimiter = ',')]
+        decline: Vec<String>,
     },
 }
 
@@ -841,7 +859,7 @@ pub enum PatternCmd {
         #[arg(long)]
         schema: Option<String>,
     },
-    /// Update a pattern (confidence, confirmation, description, importance)
+    /// Update a pattern (confidence, confirmation, description, importance, check)
     Update {
         id: i64,
         /// Stored consolidation confidence in (0, 1]; re-anchors last_confirmed_at to now
@@ -855,6 +873,15 @@ pub enum PatternCmd {
         /// Importance weight 0-10 for retrieval scoring
         #[arg(long)]
         importance: Option<i64>,
+        /// Machine-checkable expression kind: regex or ast
+        #[arg(long)]
+        check_kind: Option<String>,
+        /// Check expression source (regex pattern or ast-grep pattern); pairs with --check-kind
+        #[arg(long = "check")]
+        check_expr: Option<String>,
+        /// Enforcement severity when a check matches: info, warn, or error
+        #[arg(long)]
+        severity: Option<String>,
     },
     /// List decisions, optionally filtering by tags
     List {

@@ -63,10 +63,19 @@ pub fn handle(conn: &Connection, cmd: LinkCmd) -> Result<Value> {
                 (source_type, source_id, target_type, target_id)
             };
 
+            // Idea 8: Unknown relationship names fail closed unless `--force` is passed.
+            let spec_opt = crate::ops::graph::rel::lookup(&canonical_rel);
+            if spec_opt.is_none() && !force {
+                anyhow::bail!(
+                    "unknown relationship '{}': use a canonical relationship (relates_to, depends_on, part_of, implements, refines, supersedes, conflicts_with, causes, derived_from) or pass --force",
+                    rel
+                );
+            }
+
             // Validate ontology constraints for canonical rels only; unknown
             // rels skip all checks. With --force, violations are computed and
             // reported as overrides instead of rejecting.
-            let violations = match crate::ops::graph::rel::lookup(&canonical_rel) {
+            let violations = match spec_opt {
                 Some(spec) => validate_constraints(
                     conn,
                     spec,

@@ -314,6 +314,7 @@ fn test_links() {
             &id2.to_string(),
             "--rel",
             "blocks",
+            "--force",
         ])
         .assert()
         .success();
@@ -3475,6 +3476,13 @@ fn test_graph_git_cochange() {
     git(&["add", "."]);
     git(&["commit", "-m", "c2"]);
 
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(repo)
+        .arg("init")
+        .assert()
+        .success();
     let mut cmd = Command::cargo_bin("engrams").unwrap();
     cmd.env("ENGRAMS_NO_UPDATE_CHECK", "1");
     cmd.current_dir(repo)
@@ -5194,6 +5202,14 @@ fn workspace_stamps_named_workspace_commit_not_shell_repo_ac1() {
     let sha_b = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
     assert_ne!(sha_a, sha_b);
 
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .arg("init")
+        .assert()
+        .success();
     let out = Command::cargo_bin("engrams")
         .unwrap()
         .env("ENGRAMS_NO_UPDATE_CHECK", "1")
@@ -5262,6 +5278,14 @@ fn workspace_rebuild_uses_named_workspace_history_only_ac2() {
         }
     }
 
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .arg("init")
+        .assert()
+        .success();
     let out = Command::cargo_bin("engrams")
         .unwrap()
         .env("ENGRAMS_NO_UPDATE_CHECK", "1")
@@ -5447,6 +5471,14 @@ fn workspace_staged_checks_only_named_workspace_files_ac3() {
     Command::cargo_bin("engrams")
         .unwrap()
         .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .arg("init")
+        .assert()
+        .success();
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
         .current_dir(repo_b.path())
         .arg("--workspace")
         .arg(repo_a.path())
@@ -5596,6 +5628,14 @@ fn workspace_installs_hooks_only_into_named_workspace_ac8() {
     let _ = init_git_repo_with_commit(repo_a.path(), "a.rs", "pub fn a() {}\n");
     let _ = init_git_repo_with_commit(repo_b.path(), "b.rs", "pub fn b() {}\n");
 
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .arg("init")
+        .assert()
+        .success();
     let out = Command::cargo_bin("engrams")
         .unwrap()
         .env("ENGRAMS_NO_UPDATE_CHECK", "1")
@@ -8260,4 +8300,359 @@ fn test_migration_v16_to_v17_session_close_ac12_holds_back_notified_candidate_un
     assert_eq!(prompts2.len(), 1);
     assert_eq!(prompts2[0]["key"], "candidate:decision:1,decision:2");
     assert_eq!(prompts2[0]["spread"]["notes"], 4);
+}
+
+#[test]
+fn test_work_export_recommendations_ideas_1_to_10_end_to_end() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+
+    // Idea 5: Non-init command on an uninitialized workspace fails closed without creating files.
+    let fail_uninit = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(root)
+        .arg("prime")
+        .output()
+        .unwrap();
+    assert!(!fail_uninit.status.success());
+    assert!(!root.join("engrams/context.db").exists());
+
+    // Initialize root workspace.
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(root)
+        .arg("init")
+        .assert()
+        .success();
+    let db = root.join("engrams").join("context.db");
+    assert!(db.exists());
+
+    // Create a child sub-repo with its own package.json and a worktree sibling.
+    let child_fe = root.join("tenants/acme/frontend");
+    std::fs::create_dir_all(&child_fe).unwrap();
+    std::fs::write(child_fe.join("package.json"), "{}\n").unwrap();
+    let wt_ai = root.join("tenants/harbor.worktrees/0059-branch/backend/apps/tnt/lib/tnt/ai");
+    std::fs::create_dir_all(&wt_ai).unwrap();
+    std::fs::write(
+        wt_ai.join("tool_registry.ex"),
+        "defmodule ToolRegistry do end\n",
+    )
+    .unwrap();
+
+    // Idea 5: Running from child_fe (which has package.json) without --workspace discovers root DB,
+    // and passing `--workspace child_fe` fails closed naming the parent DB without creating a child DB.
+    let fail_child_ws = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .arg("--workspace")
+        .arg(&child_fe)
+        .arg("prime")
+        .output()
+        .unwrap();
+    assert!(!fail_child_ws.status.success());
+    assert!(!child_fe.join("engrams/context.db").exists());
+    let err_str = String::from_utf8_lossy(&fail_child_ws.stderr);
+    assert!(
+        err_str.contains("found parent workspace database"),
+        "{err_str}"
+    );
+
+    // Idea 4: Logging from a worktree or with a `.worktrees/<branch>` path normalizes the anchor
+    // to the main-checkout workspace-relative path (`tenants/harbor/backend/apps/tnt/lib/tnt/ai/tool_registry.ex`).
+    let log_wt = Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .current_dir(&wt_ai)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "ToolRegistry resolves bindings by tool_version id",
+            "--contract",
+            "resolve_bindings(bindings, org_id)",
+            "--tags",
+            "patient-agent,tool-registry",
+            "--anchor",
+            "tenants/harbor.worktrees/0059-branch/backend/apps/tnt/lib/tnt/ai/tool_registry.ex",
+        ])
+        .output()
+        .unwrap();
+    assert!(log_wt.status.success());
+    let dec1: Value = serde_json::from_slice(&log_wt.stdout).unwrap();
+    assert_eq!(
+        dec1["anchors"],
+        serde_json::json!(["tenants/harbor/backend/apps/tnt/lib/tnt/ai/tool_registry.ex"])
+    );
+
+    // Seed two more decisions in the same area across different files to propose a schema.
+    for (summary, tag_list, anchor_path) in [
+        (
+            "PatientScope resolves patient_id and org_id from session context only",
+            "patient-agent,security",
+            "tenants/harbor/backend/apps/tnt/lib/tnt/ai/patient_scope.ex",
+        ),
+        (
+            "ToolAuthz validates asset:action permissions with explicit org_id join",
+            "patient-agent,tool-authz",
+            "tenants/harbor/backend/apps/tnt/lib/tnt/ai/tool_authz.ex",
+        ),
+    ] {
+        engrams(&db)
+            .arg("--workspace")
+            .arg(root)
+            .args([
+                "decision",
+                "log",
+                "--summary",
+                summary,
+                "--contract",
+                "fn check()",
+                "--tags",
+                tag_list,
+                "--anchor",
+                anchor_path,
+                "--force",
+            ])
+            .assert()
+            .success();
+    }
+
+    // Idea 1 & Idea 10: Propose a schema from thread `patient-agent` with secondary retrieval tag `security`.
+    let prop = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "schema",
+            "propose",
+            "--thread",
+            "patient-agent",
+            "--name",
+            "patient-agent-tool-scope",
+            "--statement",
+            "Every patient-agent tool call stays inside one patient and org scope from the session",
+            "--summary",
+            "When adding or changing a patient-agent tool: resolve scope from session and filter by org_id",
+            "--members",
+            "decision:1,decision:2,decision:3",
+            "--scope-tags",
+            "patient-agent,security",
+            "--scope-paths",
+            "tenants/harbor/backend/apps/tnt/lib/tnt/ai",
+        ])
+        .output()
+        .unwrap();
+    assert!(prop.status.success());
+
+    // Idea 10: Before confirming, `prime` includes `pending_proposals` with `summary`, `scope`,
+    // enriched `members` (with summaries), and `action_required`.
+    let prime_pending = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .arg("prime")
+        .output()
+        .unwrap();
+    let prime_json: Value = serde_json::from_slice(&prime_pending.stdout).unwrap();
+    let pending = prime_json["pending_proposals"].as_array().unwrap();
+    assert_eq!(pending.len(), 1);
+    assert!(pending[0]["summary"]
+        .as_str()
+        .unwrap()
+        .starts_with("When adding"));
+    assert_eq!(pending[0]["members"].as_array().unwrap().len(), 3);
+    assert!(pending[0]["members"][0]["summary"].as_str().is_some());
+    assert!(pending[0]["action_required"].as_str().is_some());
+
+    // Confirm proposal:1.
+    engrams(&db)
+        .args(["schema", "confirm", "proposal:1"])
+        .assert()
+        .success();
+
+    // Idea 4: `advise` on a worktree path matches the main-checkout schema scope!
+    let adv_wt = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "advise",
+            "tenants/harbor.worktrees/0059-branch/backend/apps/tnt/lib/tnt/ai/tool_registry.ex",
+        ])
+        .output()
+        .unwrap();
+    let adv_json: Value = serde_json::from_slice(&adv_wt.stdout).unwrap();
+    assert_eq!(adv_json["schemas"].as_array().unwrap().len(), 1);
+    assert_eq!(adv_json["schemas"][0]["name"], "patient-agent-tool-scope");
+
+    // Idea 2 & 2B: Progress entries do NOT auto-suggest into schemas; unrelated decisions do NOT get fit 1.0;
+    // a matching decision stages a suggestion and `schema assimilate` accepts it and refreshes centroid.
+    let prog_out = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "progress",
+            "log",
+            "--status",
+            "Done",
+            "--description",
+            "Updated patient-agent security tool_registry in harbor",
+        ])
+        .output()
+        .unwrap();
+    let prog_json: Value = serde_json::from_slice(&prog_out.stdout).unwrap();
+    assert_eq!(prog_json["schema_suggestions"], serde_json::json!([]));
+
+    let unrelated_dec = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "All engrams reads and writes use the omnibox database in tenants and harbor",
+            "--tags",
+            "engrams,conventions,agents",
+            "--anchor",
+            "AGENTS.md",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let unrelated_json: Value = serde_json::from_slice(&unrelated_dec.stdout).unwrap();
+    assert_eq!(unrelated_json["schema_suggestions"], serde_json::json!([]));
+
+    let matching_dec = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "decision",
+            "log",
+            "--summary",
+            "Patient-agent lookups take parameters only from bound ToolVersion",
+            "--tags",
+            "patient-agent,tool-registry,new-assimilation-tag",
+            "--anchor",
+            "tenants/harbor/backend/apps/tnt/lib/tnt/ai/tool.ex",
+            "--force",
+        ])
+        .output()
+        .unwrap();
+    let matching_json: Value = serde_json::from_slice(&matching_dec.stdout).unwrap();
+    let matched_id = matching_json["id"].as_i64().unwrap();
+    assert_eq!(
+        matching_json["schema_suggestions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // Accept via `schema assimilate` and verify centroid_json refreshed with `new-assimilation-tag`.
+    engrams(&db)
+        .args([
+            "schema",
+            "assimilate",
+            "patient-agent-tool-scope",
+            "--accept",
+            &format!("decision:{matched_id}"),
+        ])
+        .assert()
+        .success();
+    let show_out = engrams(&db)
+        .args(["schema", "show", "patient-agent-tool-scope"])
+        .output()
+        .unwrap();
+    let show_json: Value = serde_json::from_slice(&show_out.stdout).unwrap();
+    assert!(show_json["schema"]["centroid"]["tags"]
+        .get("new-assimilation-tag")
+        .is_some());
+
+    // Idea 6: `--compact prime` keeps every output line <= 500 bytes while remaining valid JSON.
+    let compact_prime = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args(["--compact", "prime"])
+        .output()
+        .unwrap();
+    assert!(compact_prime.status.success());
+    let compact_str = String::from_utf8(compact_prime.stdout).unwrap();
+    let _: Value = serde_json::from_str(&compact_str).expect("--compact prime must be valid JSON");
+    for line in compact_str.lines() {
+        assert!(
+            line.len() <= 500,
+            "--compact line exceeded 500 bytes ({}): {line}",
+            line.len()
+        );
+    }
+
+    // Idea 7: `brief schema:patient-agent-tool-scope` does not duplicate `member_of` in `neighbors`.
+    let brief_out = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args(["brief", "schema:patient-agent-tool-scope"])
+        .output()
+        .unwrap();
+    let brief_json: Value = serde_json::from_slice(&brief_out.stdout).unwrap();
+    assert_eq!(brief_json["brief"]["members"].as_array().unwrap().len(), 4);
+    assert_eq!(brief_json["neighbors"], serde_json::json!([]));
+
+    // Idea 8: `link add` folds `related-to` -> `relates_to` and `implemented-by` -> swapped `implements`,
+    // and `pattern log` without `--check-kind` emits a hint while `pattern update` accepts `--check-kind`.
+    let link_syn = engrams(&db)
+        .args([
+            "link",
+            "add",
+            "--source-type",
+            "decision",
+            "--source-id",
+            "1",
+            "--target-type",
+            "decision",
+            "--target-id",
+            "2",
+            "--rel",
+            "related-to",
+        ])
+        .output()
+        .unwrap();
+    let link_json: Value = serde_json::from_slice(&link_syn.stdout).unwrap();
+    assert_eq!(link_json["relationship_type"], "relates_to");
+
+    let pat_out = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "pattern",
+            "log",
+            "--name",
+            "Checkable Rule Test",
+            "--description",
+            "desc",
+        ])
+        .output()
+        .unwrap();
+    let pat_json: Value = serde_json::from_slice(&pat_out.stdout).unwrap();
+    let pat_id = pat_json["id"].as_i64().unwrap();
+    assert!(pat_json["hint"].as_str().unwrap().contains("--check-kind"));
+
+    let pat_upd = engrams(&db)
+        .arg("--workspace")
+        .arg(root)
+        .args([
+            "pattern",
+            "update",
+            &pat_id.to_string(),
+            "--check-kind",
+            "regex",
+            "--check",
+            "BAD_CALL\\(",
+            "--severity",
+            "error",
+        ])
+        .output()
+        .unwrap();
+    let pat_upd_json: Value = serde_json::from_slice(&pat_upd.stdout).unwrap();
+    assert_eq!(pat_upd_json["check_kind"], "regex");
+    assert_eq!(pat_upd_json["check_expr"], "BAD_CALL\\(");
+    assert_eq!(pat_upd_json["severity"], "error");
 }

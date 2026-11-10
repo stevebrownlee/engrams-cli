@@ -20,6 +20,10 @@ use super::model::{load, Graph, NodeKey};
 /// Sweep constant owned by the dogfood gate; below the cap a pair's layer
 /// weight ramps linearly (`count / CO_CAP`), above it the curve saturates.
 pub const CO_CAP: usize = 5;
+/// Maximum number of anchored decisions allowed in a single `co_commit` group
+/// before the group is treated as a bulk/umbrella commit and skipped prior to
+/// O(N^2) pair construction (Idea 3).
+pub const MAX_CO_COMMIT_GROUP: usize = 8;
 
 /// Local-moving passes per level. Convergence almost always wins well
 /// before this; the bound keeps the protocol fixed under pathological input.
@@ -171,37 +175,68 @@ fn add_layer(
     }
 }
 
+/// Extract the logical sub-repository prefix (`tenants/<name>` or
+/// `core-libs/<name>`) from a canonical anchor path as a borrowed slice (Rule 003).
+#[inline]
+pub(crate) fn anchor_repo_prefix(path: &str) -> &str {
+    let trimmed = path.trim_start_matches('/');
+    for container in ["tenants/", "core-libs/", "packages/", "apps/"] {
+        if let Some(rest) = trimmed.strip_prefix(container) {
+            if let Some(slash_idx) = rest.find('/') {
+                return &trimmed[..container.len() + slash_idx];
+            }
+        }
+    }
+    ""
+}
+
 fn co_commit_groups(conn: &Connection) -> Result<Vec<Vec<NodeKey>>> {
-    let mut groups: BTreeMap<String, Vec<NodeKey>> = BTreeMap::new();
     let mut stmt = conn.prepare(
-        "SELECT commit_sha, id FROM decisions WHERE commit_sha IS NOT NULL \
-         ORDER BY commit_sha, id",
+        "SELECT d.commit_sha, d.id, a.path \
+         FROM decisions d \
+         JOIN item_anchors a ON a.item_type = 'decision' AND a.item_id = d.id \
+         WHERE d.commit_sha IS NOT NULL AND d.status = 'active' AND d.archived = 0 \
+         ORDER BY d.id, a.path",
     )?;
     let rows = stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, String>(2)?,
+        ))
     })?;
+    // Group anchors by decision id first; skip any decision whose anchors span
+    // multiple distinct sub-repositories (a single SHA cannot represent both).
+    let mut per_dec: BTreeMap<i64, (String, Option<String>)> = BTreeMap::new();
     for r in rows {
-        let (sha, id) = r?;
-        groups
-            .entry(sha)
-            .or_default()
-            .push(("decision".to_string(), id.to_string()));
+        let (sha, id, path) = r?;
+        let prefix = anchor_repo_prefix(&path);
+        match per_dec.entry(id) {
+            std::collections::btree_map::Entry::Vacant(v) => {
+                v.insert((sha, Some(prefix.to_string())));
+            }
+            std::collections::btree_map::Entry::Occupied(mut o) => {
+                if let Some(existing) = &o.get().1 {
+                    if existing != prefix {
+                        o.get_mut().1 = None; // multi-repo decision -> skip co-commit
+                    }
+                }
+            }
+        }
     }
-    let mut stmt = conn.prepare(
-        "SELECT commit_sha, id FROM progress_entries WHERE commit_sha IS NOT NULL \
-         ORDER BY commit_sha, id",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-    })?;
-    for r in rows {
-        let (sha, id) = r?;
-        groups
-            .entry(sha)
-            .or_default()
-            .push(("progress_entry".to_string(), id.to_string()));
+    let mut groups: BTreeMap<(String, String), Vec<NodeKey>> = BTreeMap::new();
+    for (id, (sha, prefix_opt)) in per_dec {
+        if let Some(repo_prefix) = prefix_opt {
+            groups
+                .entry((repo_prefix, sha))
+                .or_default()
+                .push(("decision".to_string(), id.to_string()));
+        }
     }
-    Ok(groups.into_values().collect())
+    Ok(groups
+        .into_values()
+        .filter(|g| g.len() >= 2 && g.len() <= MAX_CO_COMMIT_GROUP)
+        .collect())
 }
 
 fn co_anchor_groups(conn: &Connection) -> Result<Vec<Vec<NodeKey>>> {
@@ -231,6 +266,7 @@ fn co_retrieval_groups(conn: &Connection) -> Result<Vec<Vec<NodeKey>>> {
     let mut groups: BTreeMap<(String, String, Option<String>), Vec<NodeKey>> = BTreeMap::new();
     let mut stmt = conn.prepare(
         "SELECT ts, cmd, arg, node_kind, node_id FROM retrieval_surfaces \
+         WHERE NOT (cmd = 'prime' AND arg IS NULL) \
          ORDER BY ts, cmd, arg, node_kind, node_id",
     )?;
     let rows = stmt.query_map([], |row| {
@@ -566,7 +602,7 @@ mod tests {
         let conn = mem_db();
         add_decision(&conn, 1, Some("abc"));
         add_decision(&conn, 2, Some("abc"));
-        add_progress(&conn, Some("abc")); // same commit, cross-kind pair
+        add_progress(&conn, Some("abc")); // progress entries excluded from co-commit
         add_declared(&conn, 1, 2, 0.5);
         conn.execute(
             "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
@@ -589,8 +625,8 @@ mod tests {
         let i2 = gpos(&g, &dkey(2));
         let ip = gpos(&g, &("progress_entry".to_string(), "1".to_string()));
         assert!((pair_strength(&g, i1, i2) - expected).abs() < 1e-9);
-        // progress entry shares only the commit: co-commit alone.
-        assert!((pair_strength(&g, i1, ip) - co_weight(1)).abs() < 1e-9);
+        // progress entry is excluded from co-commit so it does not form cliques.
+        assert_eq!(pair_strength(&g, i1, ip), 0.0);
     }
 
     #[test]
@@ -736,15 +772,21 @@ mod tests {
     #[test]
     fn identical_clusters_on_repeated_db_runs() {
         let conn = mem_db();
-        for (id, commit) in [
-            (1, "s1"),
-            (2, "s1"),
-            (3, "s1"),
-            (4, "s2"),
-            (5, "s2"),
-            (6, "s2"),
+        for (id, commit, path) in [
+            (1, "s1", "src/a1.rs"),
+            (2, "s1", "src/a2.rs"),
+            (3, "s1", "src/a3.rs"),
+            (4, "s2", "src/b1.rs"),
+            (5, "s2", "src/b2.rs"),
+            (6, "s2", "src/b3.rs"),
         ] {
             add_decision(&conn, id, Some(commit));
+            conn.execute(
+                "INSERT INTO item_anchors (item_type, item_id, path, timestamp) \
+                 VALUES ('decision', ?1, ?2, 't')",
+                rusqlite::params![id, path],
+            )
+            .unwrap();
         }
         let first = clusters(&conn, &OverlayWeights::default()).unwrap();
         let second = clusters(&conn, &OverlayWeights::default()).unwrap();

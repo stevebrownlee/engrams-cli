@@ -105,5 +105,10 @@ pub fn handle(
         SchemaCmd::Prompts { lens, limit } => {
             prompts::prompts_cmd(conn, lens.as_deref(), limit, workspace_root)
         }
+        SchemaCmd::Assimilate {
+            target,
+            accept,
+            decline,
+        } => assimilate::assimilate_cmd(conn, target.as_deref(), &accept, &decline),
     }
 }

@@ -724,6 +724,14 @@ fn s10_install_hooks_writes_into_named_workspace_only() {
             .unwrap();
     }
 
+    Command::cargo_bin("engrams")
+        .unwrap()
+        .env("ENGRAMS_NO_UPDATE_CHECK", "1")
+        .arg("--workspace")
+        .arg(repo_a.path())
+        .arg("init")
+        .assert()
+        .success();
     let out = Command::cargo_bin("engrams")
         .unwrap()
         .env("ENGRAMS_NO_UPDATE_CHECK", "1")

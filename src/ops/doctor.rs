@@ -2,7 +2,12 @@ use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::Value;
 
-pub fn handle(conn: &Connection, root: Option<&std::path::Path>) -> Result<Value> {
+pub fn handle(conn: &mut Connection, fix: bool, root: Option<&std::path::Path>) -> Result<Value> {
+    let fixed = if fix {
+        Some(crate::ops::anchor::normalize_stored_paths(conn, root)?)
+    } else {
+        None
+    };
     // 1. Audit missing anchor paths
     let mut missing_anchor_paths = Vec::new();
     if let Some(root) = root {
@@ -92,7 +97,35 @@ pub fn handle(conn: &Connection, root: Option<&std::path::Path>) -> Result<Value
             let (id, summary, commit_sha) = r?;
             let anchors = crate::ops::anchor::anchors_for(conn, "decision", id)?;
             if !anchors.is_empty() {
-                match crate::ops::git::changed_since(root, &commit_sha, &anchors) {
+                let first_prefix = crate::ops::graph::louvain::anchor_repo_prefix(&anchors[0]);
+                let sub_root = (!first_prefix.is_empty())
+                    .then(|| crate::db::resolve_active_subrepo_root(root, first_prefix));
+                let is_sub_repo = anchors
+                    .iter()
+                    .all(|a| crate::ops::graph::louvain::anchor_repo_prefix(a) == first_prefix)
+                    && sub_root.as_ref().is_some_and(|sr| sr.join(".git").exists());
+                let res = if let (true, Some(sub_root)) = (is_sub_repo, sub_root) {
+                    let sub_anchors: Vec<String> = anchors
+                        .iter()
+                        .map(|a| {
+                            a.strip_prefix(first_prefix)
+                                .and_then(|r| r.strip_prefix('/'))
+                                .unwrap_or(a)
+                                .to_string()
+                        })
+                        .collect();
+                    crate::ops::git::changed_since(&sub_root, &commit_sha, &sub_anchors).map(
+                        |changed| {
+                            changed
+                                .into_iter()
+                                .map(|c| format!("{first_prefix}/{c}"))
+                                .collect::<Vec<_>>()
+                        },
+                    )
+                } else {
+                    crate::ops::git::changed_since(root, &commit_sha, &anchors)
+                };
+                match res {
                     Ok(changed) => {
                         if !changed.is_empty() {
                             stale_decisions.push(serde_json::json!({
@@ -305,6 +338,9 @@ pub fn handle(conn: &Connection, root: Option<&std::path::Path>) -> Result<Value
     });
     if !skipped_checks.is_empty() {
         out["skipped_checks"] = serde_json::json!(skipped_checks);
+    }
+    if let Some(fixed_report) = fixed {
+        out["fixed"] = fixed_report;
     }
     Ok(out)
 }

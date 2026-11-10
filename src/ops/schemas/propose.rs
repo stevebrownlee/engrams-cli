@@ -854,6 +854,22 @@ pub fn propose(
         ],
     )?;
     let id = conn.last_insert_rowid();
+    // Idea 1: Stamp `schema_prompt_notices` when a proposal is created from a
+    // `--thread` or `--from` candidate (never on manual `--members`).
+    match (source_kind, source_ref.as_deref()) {
+        ("thread", Some(tref)) => {
+            super::prompts::stamp_thread_notice(conn, tref, &created_at)?;
+        }
+        ("candidate", Some(csig)) => {
+            super::prompts::upsert_prompt_notice(
+                conn,
+                &format!("candidate:{csig}"),
+                &validated.members,
+                &created_at,
+            )?;
+        }
+        _ => {}
+    }
 
     let mut out = json!({
         "status": "success",
@@ -1047,35 +1063,90 @@ pub fn proposals(conn: &Connection, status_filter: Option<&str>) -> Result<Value
     }))
 }
 
+pub const PENDING_MEMBER_CAP: usize = 5;
+
 /// Up to [`PENDING_IN_PRIME`] pending proposals, oldest first (`created_at ASC, id ASC`),
-/// surfaced in `engrams prime` (spec 0007 AC-11).
+/// surfaced in `engrams prime` and `engrams session close` with claim, instruction,
+/// scope, and up to [`PENDING_MEMBER_CAP`] enriched member notes (spec 0007 AC-11 / Idea 10).
+struct PendingRow {
+    id: i64,
+    name: String,
+    statement: String,
+    summary: String,
+    scope_json: String,
+    members_json: String,
+    evidence_json: String,
+    created_at: String,
+}
+
 pub fn pending_for_prime(conn: &Connection) -> Result<Vec<Value>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, statement, evidence_json, created_at \
+        "SELECT id, name, statement, summary, scope_json, members_json, evidence_json, created_at \
          FROM schema_proposals \
          WHERE status = 'proposed' \
          ORDER BY created_at ASC, id ASC \
          LIMIT ?1",
     )?;
-    let rows = stmt.query_map(params![PENDING_IN_PRIME as i64], |r| {
-        let id: i64 = r.get(0)?;
-        let name: String = r.get(1)?;
-        let statement: String = r.get(2)?;
-        let evidence_json: String = r.get(3)?;
-        let created_at: String = r.get(4)?;
+    let rows: Vec<PendingRow> = stmt
+        .query_map(params![PENDING_IN_PRIME as i64], |r| {
+            Ok(PendingRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                statement: r.get(2)?,
+                summary: r.get(3)?,
+                scope_json: r.get(4)?,
+                members_json: r.get(5)?,
+                evidence_json: r.get(6)?,
+                created_at: r.get(7)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let mut out = Vec::with_capacity(rows.len());
+    for PendingRow {
+        id,
+        name,
+        statement,
+        summary,
+        scope_json,
+        members_json,
+        evidence_json,
+        created_at,
+    } in rows
+    {
+        let scope: Scope = serde_json::from_str(&scope_json).unwrap_or_default();
+        let member_keys: Vec<String> = serde_json::from_str(&members_json).unwrap_or_default();
         let evidence: Value = serde_json::from_str(&evidence_json).unwrap_or(Value::Null);
-        Ok(json!({
+        let total = member_keys.len();
+        let cap = total.min(PENDING_MEMBER_CAP);
+        let mut pairs = Vec::with_capacity(cap);
+        for key in &member_keys[..cap] {
+            if let Some((k, i)) = key.split_once(':') {
+                pairs.push((k.to_string(), i.to_string()));
+            }
+        }
+        let enriched = retrieval::enrich_members(conn, &pairs)?;
+        let mut entry = json!({
             "id": id,
             "name": name,
             "statement": statement,
+            "summary": summary,
+            "scope": scope,
+            "members": enriched,
+            "member_count": total,
+            "truncated": total > cap,
             "evidence": evidence,
             "created_at": created_at,
+            "action_required": "Present this pending proposal (claim, instruction, scope, and member notes) to the user in plain words and run confirm_command or reject_command with their answer.",
             "confirm_command": format!("engrams schema confirm proposal:{id}"),
             "reject_command": format!("engrams schema reject proposal:{id} --reason \"<why>\""),
-        }))
-    })?;
-    rows.collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(Into::into)
+        });
+        if total > cap {
+            entry["total_members"] = json!(total);
+        }
+        out.push(entry);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

@@ -20,30 +20,93 @@ pub fn handle(
     conn: &Connection,
     paths: Vec<String>,
     staged: bool,
+    schemas_only: bool,
     root: Option<&std::path::Path>,
 ) -> Result<Value> {
-    let mut query_paths = paths;
+    let mut cleaned: Vec<String> = Vec::with_capacity(paths.len());
+    let mut check_inputs: Vec<String> = Vec::with_capacity(paths.len());
+    for p in &paths {
+        let resolved = anchor::resolve_workspace_path(p, root);
+        if let Some(phys) = &resolved.physical {
+            if phys.exists() {
+                check_inputs.push(phys.to_string_lossy().into_owned());
+            } else {
+                check_inputs.push(resolved.logical.clone());
+            }
+        } else {
+            check_inputs.push(resolved.logical.clone());
+        }
+        cleaned.push(resolved.logical);
+    }
     if staged {
         let r = root.ok_or_else(|| {
             anyhow::anyhow!(
                 "advise --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
             )
         })?;
-        let staged_files = crate::ops::git::staged_files(r)
+        let staged_files = anchor::staged_files_for_workspace(r)
             .map_err(|e| anyhow::anyhow!("cannot read staged files: {}", e))?;
-        query_paths.extend(staged_files);
+        for resolved in staged_files {
+            if let Some(phys) = &resolved.physical {
+                if phys.exists() {
+                    check_inputs.push(phys.to_string_lossy().into_owned());
+                } else {
+                    check_inputs.push(resolved.logical.clone());
+                }
+            } else {
+                check_inputs.push(resolved.logical.clone());
+            }
+            cleaned.push(resolved.logical);
+        }
     }
 
-    if query_paths.is_empty() {
+    if cleaned.is_empty() {
         if staged {
             return Ok(json!({ "schemas": [], "constraints": [], "violations": [] }));
         }
         anyhow::bail!("provide at least one path or --staged");
     }
-
-    let cleaned: Vec<String> = query_paths.iter().map(|p| anchor::clean_path(p)).collect();
     let matched = anchor::query_relevant_ids(conn, &cleaned)?;
 
+    // Idea 9B: lightweight schema-only mode for `read` tool interception —
+    // skips file checks, decision reinforcement, and surfacing telemetry.
+    if schemas_only {
+        let mut schemas = crate::ops::schemas::retrieval::active_for_members(conn, &matched)?;
+        for entry in &mut schemas {
+            let current = entry["matched_by"]["value"].as_str().unwrap_or("");
+            if !cleaned
+                .iter()
+                .any(|p| crate::ops::schemas::retrieval::path_matches(current, p))
+            {
+                if let Some(id) = entry["id"].as_i64() {
+                    if let Some(matched_anchor) =
+                        crate::ops::schemas::retrieval::member_anchors(conn, id)?
+                            .into_iter()
+                            .find(|a| {
+                                cleaned
+                                    .iter()
+                                    .any(|p| crate::ops::schemas::retrieval::path_matches(a, p))
+                            })
+                    {
+                        entry["matched_by"]["value"] = json!(matched_anchor);
+                    }
+                }
+            }
+        }
+        let scope_schemas = crate::ops::schemas::retrieval::active_for_scope(conn, &cleaned)?;
+        for s in scope_schemas {
+            let id = s["id"].as_i64();
+            if !schemas.iter().any(|existing| existing["id"].as_i64() == id) {
+                schemas.push(s);
+            }
+        }
+        schemas.sort_by_key(|s| s["id"].as_i64().unwrap_or(0));
+        return Ok(json!({
+            "schemas": schemas,
+            "constraints": [],
+            "violations": [],
+        }));
+    }
     let mut pattern_ids: Vec<i64> = Vec::new();
     let mut decision_ids: Vec<i64> = Vec::new();
     for (itype, id) in &matched {
@@ -124,12 +187,11 @@ pub fn handle(
     }
 
     // Run check against the specific files for current violations.
-    let violations = crate::ops::check::handle(conn, false, &cleaned, root)?;
+    let violations = crate::ops::check::handle(conn, false, &check_inputs, root)?;
     let violations = violations
         .get("violations")
         .cloned()
         .unwrap_or_else(|| json!([]));
-
     // access_count semantics (tier-4): advise is a retrieval path — reinforce
     // exactly the decisions it surfaced, and log the call.
     let surfaced: Vec<i64> = constraints

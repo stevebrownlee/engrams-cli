@@ -55,7 +55,7 @@ Retrieve with convention-aware terms: `snake_case`, `kebab-case`, and `camelCase
 | Prune decayed records | `engrams prune [--dry-run] [--threshold 0.1]` |
 | Schema migration | `engrams migrate` |
 
-Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Valid `--rel`: `relates_to`, `depends_on`, `part_of`, `implements`, `refines`, `supersedes`, `conflicts_with` (custom labels allowed; ontology at `https://engrams.sh`). Add `--compact` to any command; `--fields <list>` to project specific keys.
+Notes: `--status` ∈ `Todo, InProgress, InReview, Blocked, Done, Dropped`. Valid `--rel`: `relates_to`, `depends_on`, `part_of`, `implements`, `refines`, `supersedes`, `conflicts_with` (use `--force` for custom labels; ontology at `https://engrams.sh`). Use `--fields <list>` to project specific keys; avoid `--compact` on composite reads (`prime`, `brief`) in harnesses that truncate long lines.
 
 ### Core Rules
 

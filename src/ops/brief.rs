@@ -19,6 +19,7 @@ use crate::ops::graph::parse_node;
 const MAX_TEXT: usize = 300;
 const MAX_NEIGHBOR_TEXT: usize = 120;
 const MAX_DOC_CHARS: usize = 200;
+pub const MAX_BRIEF_NEIGHBORS: usize = 20;
 
 pub fn handle(conn: &Connection, target: &str, depth: i64, root: Option<&Path>) -> Result<Value> {
     let key = resolve(conn, target)?;
@@ -27,32 +28,69 @@ pub fn handle(conn: &Connection, target: &str, depth: i64, root: Option<&Path>) 
     let node = node_payload(conn, &key, root)?;
 
     // BFS over context_links to `depth` hops; neighbors get full enrichment
-    // at hop 1, bare refs beyond.
+    // at hop 1, bare refs beyond. Deduplicate by `(kind, id)` and bound both
+    // hop-1 neighbors and BFS frontier expansion at `MAX_BRIEF_NEIGHBORS` (Idea 7).
+    let is_schema_root = key.0 == "schema";
     let mut seen: HashSet<(String, String)> = HashSet::new();
     seen.insert(key.clone());
     let mut frontier: VecDeque<(String, String)> = VecDeque::new();
     frontier.push_back(key.clone());
-    let mut neighbors: Vec<Value> = Vec::new();
+    let mut raw_hop1: Vec<Value> = Vec::new();
     let mut current_depth = 0i64;
     while !frontier.is_empty() && current_depth < depth {
         current_depth += 1;
         let layer: Vec<(String, String)> = frontier.drain(..).collect();
         for (ty, id) in &layer {
-            for n in direct_neighbors(conn, ty, id)? {
+            let mut step_neighbors = direct_neighbors(conn, ty, id)?;
+            if current_depth == 1 && is_schema_root {
+                // Schema members and related schemas are already in `brief.members`
+                // and `brief.related_schemas`; omit both `member_of` and its derived
+                // inverse `has_member` from `neighbors`.
+                step_neighbors.retain(|n| {
+                    !matches!(n["rel"].as_str(), Some("member_of") | Some("has_member"))
+                });
+            }
+            // Sort manual links and higher-weight edges first before deduplicating.
+            step_neighbors.sort_by(|a, b| {
+                let a_manual = a["origin"].as_str() == Some("manual");
+                let b_manual = b["origin"].as_str() == Some("manual");
+                b_manual
+                    .cmp(&a_manual)
+                    .then_with(|| {
+                        let aw = a["weight"].as_f64().unwrap_or(1.0);
+                        let bw = b["weight"].as_f64().unwrap_or(1.0);
+                        bw.partial_cmp(&aw).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .then_with(|| {
+                        a["node"]
+                            .as_str()
+                            .unwrap_or("")
+                            .cmp(b["node"].as_str().unwrap_or(""))
+                    })
+            });
+            let mut expanded_this_node = 0usize;
+            for n in step_neighbors {
                 let nk = (
                     n["kind"].as_str().unwrap_or_default().to_string(),
                     n["id"].as_str().unwrap_or_default().to_string(),
                 );
-                let is_new = seen.insert(nk.clone());
-                if current_depth == 1 {
-                    neighbors.push(n);
+                if !seen.insert(nk.clone()) {
+                    continue;
                 }
-                if is_new && current_depth < depth {
+                if current_depth == 1 {
+                    raw_hop1.push(n);
+                }
+                if current_depth < depth && expanded_this_node < MAX_BRIEF_NEIGHBORS {
                     frontier.push_back(nk);
+                    expanded_this_node += 1;
                 }
             }
         }
     }
+    let total_neighbors = raw_hop1.len();
+    let neighbors_truncated = total_neighbors > MAX_BRIEF_NEIGHBORS;
+    raw_hop1.truncate(MAX_BRIEF_NEIGHBORS);
+    let mut neighbors = raw_hop1;
     // Batched enrichment: one query per node type, not one per neighbor.
     enrich_neighbors(conn, &mut neighbors)?;
 
@@ -71,17 +109,17 @@ pub fn handle(conn: &Connection, target: &str, depth: i64, root: Option<&Path>) 
         _ => {}
     }
     // Surfacing telemetry (AC-10): a schema brief is a schema retrieval, and
-    // its hop-1 neighbors are the co-surfaced set for this event.
-    if key.0 == "schema" {
+    // its enriched members in `brief.members` are the co-surfaced set.
+    if is_schema_root {
         if let Ok(id) = key.1.parse::<i64>() {
-            let co: Vec<(&str, i64)> = neighbors
-                .iter()
-                .filter_map(|n| {
-                    let kind = n["kind"].as_str()?;
-                    let nid = n["id"].as_str()?.parse::<i64>().ok()?;
-                    Some((kind, nid))
-                })
-                .collect();
+            let mut co: Vec<(&str, i64)> = Vec::new();
+            if let Some(members) = node.get("members").and_then(Value::as_array) {
+                for m in members {
+                    if let (Some(kind), Some(nid)) = (m["kind"].as_str(), m["id"].as_i64()) {
+                        co.push((kind, nid));
+                    }
+                }
+            }
             crate::ops::schemas::retrieval::record_surface(
                 conn,
                 "brief",
@@ -92,13 +130,18 @@ pub fn handle(conn: &Connection, target: &str, depth: i64, root: Option<&Path>) 
         }
     }
 
-    Ok(json!({
+    let mut out = json!({
         "node": format!("{}:{}", key.0, key.1),
         "kind": key.0,
         "depth": depth,
         "brief": node,
         "neighbors": neighbors,
-    }))
+    });
+    if neighbors_truncated {
+        out["neighbors_truncated"] = json!(true);
+        out["total_neighbors"] = json!(total_neighbors);
+    }
+    Ok(out)
 }
 
 /// Accept `type:id` refs; anything else is an FTS query over decisions, then

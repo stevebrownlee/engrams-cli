@@ -7,20 +7,21 @@ pub fn handle(
     budget_opt: Option<usize>,
     paths: Vec<String>,
     tags: Vec<String>,
+    root: Option<&std::path::Path>,
 ) -> Result<Value> {
     let product_context = crate::ops::report::query_context_doc(conn, "product_context")?;
-    let active_context_val = load_active_context(conn, &paths, &tags)?;
     let cleaned_paths: Vec<String> = paths
         .iter()
-        .map(|p| crate::ops::anchor::clean_path(p))
+        .map(|p| crate::ops::anchor::normalize_path(p, root))
         .collect();
+    let active_context_val = load_active_context(conn, &cleaned_paths, &tags)?;
     let schema_block = crate::ops::schemas::retrieval::prime_block(
         conn,
         crate::ops::schemas::retrieval::PRIME_SCHEMA_K,
         &cleaned_paths,
         &tags,
     )?;
-    let pending_proposals = crate::ops::schemas::propose::pending_for_prime(conn)?;
+    let mut pending_proposals = crate::ops::schemas::propose::pending_for_prime(conn)?;
 
     let is_scoped = !paths.is_empty() || !tags.is_empty();
     let limit = if is_scoped { 50 } else { 10 };
@@ -356,6 +357,8 @@ pub fn handle(
             } else if !product_context_val.is_null() {
                 total = total.saturating_sub(tok_cost(&product_context_val));
                 product_context_val = Value::Null;
+            } else if let Some(dropped) = pending_proposals.pop() {
+                total = total.saturating_sub(tok_cost(&dropped));
             } else {
                 break;
             }
@@ -419,7 +422,22 @@ pub fn handle(
             .chain(patterns.iter().map(|p| ("system_pattern", p.id)))
             .chain(progress.iter().map(|p| ("progress_entry", p.id)))
             .collect();
-        crate::ops::schemas::retrieval::record_surface(conn, "prime", None, &schema_ids, &co)?;
+        let scope_arg = if is_scoped {
+            Some(format!(
+                "paths={};tags={}",
+                cleaned_paths.join(","),
+                tags.join(",")
+            ))
+        } else {
+            None
+        };
+        crate::ops::schemas::retrieval::record_surface(
+            conn,
+            "prime",
+            scope_arg.as_deref(),
+            &schema_ids,
+            &co,
+        )?;
     }
 
     Ok(payload)

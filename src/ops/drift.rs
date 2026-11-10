@@ -29,8 +29,10 @@ pub struct Drift {
     /// path → last-commit epoch secs; None = git unavailable. Computed on
     /// first report, not at scan time.
     map: OnceCell<Option<HashMap<String, i64>>>,
-    /// commit sha → epoch secs, resolved on demand.
-    sha_cache: HashMap<String, Option<i64>>,
+    /// subrepo prefix → (path → last-commit epoch secs) for nested git repos.
+    sub_maps: HashMap<String, Option<HashMap<String, i64>>>,
+    /// (repo_prefix, commit sha) → epoch secs, resolved on demand.
+    sha_cache: HashMap<(String, String), Option<i64>>,
 }
 
 impl Drift {
@@ -40,14 +42,9 @@ impl Drift {
         Drift {
             root: root.to_path_buf(),
             map: OnceCell::new(),
+            sub_maps: HashMap::new(),
             sha_cache: HashMap::new(),
         }
-    }
-
-    /// The commit map, walking git history on first use.
-    fn commit_map(&self) -> Option<&HashMap<String, i64>> {
-        let root = self.root.clone();
-        self.map.get_or_init(|| git_commit_map(&root)).as_ref()
     }
 
     /// Drift report for one item, or null when there is no signal (no anchors,
@@ -60,15 +57,6 @@ impl Drift {
         base_ts: &str,
         commit_sha: Option<&str>,
     ) -> Value {
-        // Base resolution (mutable sha_cache) must end before the immutable
-        // map borrow below.
-        let Some(base_epoch) = self.base_epoch(commit_sha, base_ts) else {
-            return Value::Null;
-        };
-        let Some(map) = self.commit_map() else {
-            return Value::Null;
-        };
-
         let anchors = match anchor_paths(conn, item_type, id) {
             Ok(a) => a,
             Err(_) => return Value::Null,
@@ -76,11 +64,46 @@ impl Drift {
         if anchors.is_empty() {
             return Value::Null;
         }
+        let first_prefix = crate::ops::graph::louvain::anchor_repo_prefix(&anchors[0]);
+        let first_sub_root = (!first_prefix.is_empty())
+            .then(|| crate::db::resolve_active_subrepo_root(&self.root, first_prefix));
+        let repo_prefix = if first_sub_root
+            .as_ref()
+            .is_some_and(|sr| sr.join(".git").exists())
+        {
+            first_prefix.to_string()
+        } else {
+            String::new()
+        };
+
+        let Some(base_epoch) = self.base_epoch(&repo_prefix, commit_sha, base_ts) else {
+            return Value::Null;
+        };
 
         let mut drifted = Vec::new();
         let mut checked = 0usize;
         for path in &anchors {
-            let Some(&last) = map.get(path) else {
+            let p_prefix = crate::ops::graph::louvain::anchor_repo_prefix(path);
+            let sub_root = (!p_prefix.is_empty())
+                .then(|| crate::db::resolve_active_subrepo_root(&self.root, p_prefix));
+            let last_opt = if let Some(sr) = sub_root.filter(|sr| sr.join(".git").exists()) {
+                let sub_map = self
+                    .sub_maps
+                    .entry(p_prefix.to_string())
+                    .or_insert_with(|| git_commit_map(&sr));
+                let rel_in_sub = path
+                    .strip_prefix(p_prefix)
+                    .and_then(|r| r.strip_prefix('/'))
+                    .unwrap_or(path);
+                sub_map.as_ref().and_then(|m| m.get(rel_in_sub).copied())
+            } else {
+                let root = self.root.clone();
+                self.map
+                    .get_or_init(|| git_commit_map(&root))
+                    .as_ref()
+                    .and_then(|m| m.get(path).copied())
+            };
+            let Some(last) = last_opt else {
                 continue;
             };
             checked += 1;
@@ -107,13 +130,23 @@ impl Drift {
 
     /// Epoch of the comparison base: the decision's own commit when known,
     /// else its RFC3339 timestamp. Unresolvable sha falls back to timestamp.
-    fn base_epoch(&mut self, commit_sha: Option<&str>, base_ts: &str) -> Option<i64> {
+    fn base_epoch(
+        &mut self,
+        repo_prefix: &str,
+        commit_sha: Option<&str>,
+        base_ts: &str,
+    ) -> Option<i64> {
         if let Some(sha) = commit_sha {
             if !sha.is_empty() {
+                let target_root = if repo_prefix.is_empty() {
+                    self.root.clone()
+                } else {
+                    crate::db::resolve_active_subrepo_root(&self.root, repo_prefix)
+                };
                 let entry = self
                     .sha_cache
-                    .entry(sha.to_string())
-                    .or_insert_with(|| commit_epoch(&self.root, sha));
+                    .entry((repo_prefix.to_string(), sha.to_string()))
+                    .or_insert_with(|| commit_epoch(&target_root, sha));
                 if let Some(epoch) = entry {
                     return Some(*epoch);
                 }

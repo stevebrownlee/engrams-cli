@@ -105,9 +105,11 @@ pub fn dispatch(
         Command::Relevant { paths, staged, all } => {
             anchor::handle_relevant(conn, paths, staged, all, ws.root.as_deref())
         }
-        Command::Advise { paths, staged } => {
-            advise::handle(conn, paths, staged, ws.root.as_deref())
-        }
+        Command::Advise {
+            paths,
+            staged,
+            schemas_only,
+        } => advise::handle(conn, paths, staged, schemas_only, ws.root.as_deref()),
         Command::Prune(cmd) => prune::handle(conn, cmd),
         Command::Consolidate(cmd) => consolidate::handle(
             conn,
@@ -120,8 +122,8 @@ pub fn dispatch(
             budget,
             paths,
             tags,
-        } => prime::handle(conn, budget, paths, tags),
-        Command::Doctor => doctor::handle(conn, ws.root.as_deref()),
+        } => prime::handle(conn, budget, paths, tags, ws.root.as_deref()),
+        Command::Doctor { fix } => doctor::handle(conn, fix, ws.root.as_deref()),
         Command::Graph { cmd } => graph::handle(conn, cmd, ws.root.as_deref()),
         Command::Schema { cmd } => schemas::handle(conn, cmd, ws.root.as_deref()),
         Command::Query {

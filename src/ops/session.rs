@@ -65,6 +65,10 @@ pub fn close(
 
     let rollup = usage_rollup(conn, sid.as_deref())?;
 
+    // Idea 3: Auto-run `schema scan` during `session close` when the graph has
+    // new edges or anchored notes since the last candidate scan.
+    maybe_auto_scan(conn)?;
+
     let schema_prompts = crate::ops::schemas::prompts::collect_prompts(
         conn,
         &loaded_lens,
@@ -73,6 +77,9 @@ pub fn close(
     // Record shown prompts AFTER collecting so the stamped set is exactly what
     // was surfaced this close; record_prompt_notices no-ops on an empty list.
     crate::ops::schemas::prompts::record_prompt_notices(conn, &schema_prompts, &now)?;
+
+    let pending_proposals = crate::ops::schemas::propose::pending_for_prime(conn)?;
+    let pending_suggestions = crate::ops::schemas::assimilate::pending_for_close(conn, None)?;
 
     let mut out = json!({
         "closed": true,
@@ -86,11 +93,53 @@ pub fn close(
         "retrievals_this_session": rollup,
         "schema_value": schema_val,
         "schema_prompts": schema_prompts,
+        "pending_proposals": pending_proposals,
+        "pending_suggestions": pending_suggestions,
     });
     if let Some(v) = pr_validation {
         out["pr_validation"] = json!(v);
     }
     Ok(out)
+}
+
+/// Run `schemas::scan::scan` only when there are manual links or shared anchors
+/// and the latest graph write timestamp is newer than `MAX(schema_candidates.last_seen_at)`
+/// (Idea 3: avoids redundant scans and preserves pre-seeded candidate fixtures).
+fn maybe_auto_scan(conn: &Connection) -> Result<()> {
+    let has_graph_signal: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM context_links WHERE origin = 'manual' AND relationship_type != 'member_of') \
+             OR EXISTS(SELECT 1 FROM item_anchors GROUP BY path HAVING COUNT(*) >= 2) \
+             OR EXISTS(SELECT 1 FROM retrieval_surfaces WHERE node_kind != 'schema' AND NOT (cmd = 'prime' AND arg IS NULL) GROUP BY ts, cmd, arg HAVING COUNT(*) >= 2)",
+        [],
+        |r| r.get(0),
+    )?;
+    if !has_graph_signal {
+        return Ok(());
+    }
+    let max_graph_ts: Option<String> = conn.query_row(
+        "SELECT MAX(ts) FROM (\
+            SELECT MAX(timestamp) AS ts FROM decisions \
+            UNION ALL SELECT MAX(timestamp) FROM system_patterns \
+            UNION ALL SELECT MAX(timestamp) FROM context_links WHERE origin = 'manual' \
+            UNION ALL SELECT MAX(timestamp) FROM item_anchors \
+            UNION ALL SELECT MAX(ts) FROM retrieval_surfaces WHERE node_kind != 'schema' AND NOT (cmd = 'prime' AND arg IS NULL)\
+        )",
+        [],
+        |r| r.get(0),
+    )?;
+    let max_scan_ts: Option<String> =
+        conn.query_row("SELECT MAX(last_seen_at) FROM schema_candidates", [], |r| {
+            r.get(0)
+        })?;
+    let should_scan = match (max_graph_ts, max_scan_ts) {
+        (Some(gts), Some(sts)) => gts > sts,
+        (Some(_), None) => true,
+        (None, _) => false,
+    };
+    if should_scan {
+        let _ = crate::ops::schemas::scan::scan(conn)?;
+    }
+    Ok(())
 }
 
 /// PR gate: the pr node must have ≥1 linked decision and ≥1 code file in its

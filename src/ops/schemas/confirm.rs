@@ -252,6 +252,36 @@ pub(crate) fn centroid(conn: &Connection, members: &[Member]) -> Result<String> 
     }))?)
 }
 
+/// Recompute `centroid_json` from the schema's current `member_of` links so
+/// member additions, refinements, and anchor normalizations never leave a
+/// stale centroid (Idea 2 / Idea 4).
+pub(crate) fn refresh_schema_centroid(conn: &Connection, schema_id: i64) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT source_item_type, source_item_id FROM context_links \
+         WHERE relationship_type = 'member_of' AND target_item_type = 'schema' \
+          AND target_item_id = ?1 \
+         ORDER BY source_item_type, id",
+    )?;
+    let rows = stmt.query_map(params![schema_id.to_string()], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    let mut members = Vec::new();
+    for r in rows {
+        let (kind, raw_id) = r?;
+        if let Ok(id) = raw_id.parse::<i64>() {
+            if kind_table(&kind).is_some() {
+                members.push(Member { kind, id });
+            }
+        }
+    }
+    let c_json = centroid(conn, &members)?;
+    conn.execute(
+        "UPDATE schemas SET centroid_json = ?1 WHERE id = ?2",
+        params![c_json, schema_id],
+    )?;
+    Ok(())
+}
+
 /// Confirm a pending proposal (`proposal:<id>`) or re-confirm an existing
 /// schema (spec 0007 API surface item 2). Detector candidate signatures are
 /// refused with the `schema propose --from` command (AC-8).

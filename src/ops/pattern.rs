@@ -66,6 +66,7 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
                 resolved_prs.push(crate::ops::pr::resolve_pr_url(&pr, ws.root.as_deref())?);
             }
 
+            let has_check = check_kind.is_some();
             let (check_kind, check_expr, severity) =
                 validate_check(check_kind, check_expr, severity)?;
 
@@ -78,10 +79,18 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             };
 
             conn.execute(
-                "INSERT INTO system_patterns (uuid, timestamp, name, description, tags, check_kind, check_expr, severity, importance) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) ON CONFLICT(name) DO UPDATE SET description=excluded.description, tags=excluded.tags, timestamp=excluded.timestamp, check_kind=excluded.check_kind, check_expr=excluded.check_expr, severity=excluded.severity, importance=excluded.importance",
+                "INSERT INTO system_patterns (uuid, timestamp, name, description, tags, check_kind, check_expr, severity, importance) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
+                 ON CONFLICT(name) DO UPDATE SET \
+                   description = COALESCE(excluded.description, system_patterns.description), \
+                   tags = COALESCE(excluded.tags, system_patterns.tags), \
+                   timestamp = excluded.timestamp, \
+                   check_kind = COALESCE(excluded.check_kind, system_patterns.check_kind), \
+                   check_expr = COALESCE(excluded.check_expr, system_patterns.check_expr), \
+                   severity = excluded.severity, \
+                   importance = excluded.importance",
                 params![uuid, timestamp, name, description, tags_json, check_kind, check_expr, severity, importance.unwrap_or(5)],
             )?;
-
             let id: i64 = conn.query_row(
                 "SELECT id FROM system_patterns WHERE name = ?",
                 params![name],
@@ -106,12 +115,13 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             crate::ops::rules::write_through(conn, ws.root.as_deref());
             // Schema assimilation (AC-8): explicit attach / decline wins;
             // otherwise match the centroid and fire suggestions.
-            let schema_block = crate::ops::schemas::assimilate::at_log_time(
+            let schema_block = crate::ops::schemas::assimilate::at_log_time_with_anchors(
                 conn,
                 "pattern",
                 id,
                 &name,
                 &tags,
+                &anchors,
                 schema.as_deref(),
             )?;
 
@@ -119,6 +129,18 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             if let (Value::Object(map), Value::Object(block)) = (&mut pattern, schema_block) {
                 for (k, v) in block {
                     map.insert(k, v);
+                }
+            }
+            if !has_check {
+                if let Value::Object(map) = &mut pattern {
+                    if map.get("check_kind").is_none_or(Value::is_null) {
+                        map.insert(
+                            "hint".into(),
+                            serde_json::json!(format!(
+                                "no --check-kind given: if this pattern can be enforced mechanically, run `engrams pattern update {id} --check-kind regex --check '<expr>'` so `engrams check` and omp rules can enforce it"
+                            )),
+                        );
+                    }
                 }
             }
             Ok(pattern)
@@ -202,6 +224,9 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             confirm,
             description,
             importance,
+            check_kind,
+            check_expr,
+            severity,
         } => {
             let _: i64 = conn
                 .query_row(
@@ -211,6 +236,17 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
                 )
                 .optional()?
                 .context(format!("pattern {} not found", id))?;
+
+            let has_check_update =
+                check_kind.is_some() || check_expr.is_some() || severity.is_some();
+            let validated_check = if check_kind.is_some() || check_expr.is_some() {
+                Some(validate_check(check_kind, check_expr, severity.clone())?)
+            } else if let Some(sev) = &severity {
+                let _ = validate_check(None, None, Some(sev.clone()))?;
+                None
+            } else {
+                None
+            };
 
             let mut sets = Vec::new();
             let mut params_vec: Vec<&dyn rusqlite::ToSql> = Vec::new();
@@ -243,9 +279,27 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
                 sets.push("importance = ?");
                 params_vec.push(&imp_val);
             }
+            let ck_str: String;
+            let ce_str: String;
+            let sev_str: String;
+            if let Some((Some(ck), Some(ce), sev)) = validated_check {
+                ck_str = ck;
+                ce_str = ce;
+                sev_str = sev;
+                sets.push("check_kind = ?");
+                params_vec.push(&ck_str);
+                sets.push("check_expr = ?");
+                params_vec.push(&ce_str);
+                sets.push("severity = ?");
+                params_vec.push(&sev_str);
+            } else if let Some(sev) = severity {
+                sev_str = sev;
+                sets.push("severity = ?");
+                params_vec.push(&sev_str);
+            }
             if sets.is_empty() {
                 anyhow::bail!(
-                    "nothing to update: pass --confidence, --confirm, --description, or --importance"
+                    "nothing to update: pass --confidence, --confirm, --description, --importance, --check-kind/--check, or --severity"
                 );
             }
             let sql = format!(
@@ -254,6 +308,10 @@ pub fn handle(conn: &Connection, cmd: PatternCmd, ws: &crate::db::Workspace) -> 
             );
             params_vec.push(&id);
             conn.execute(&sql, rusqlite::params_from_iter(params_vec))?;
+
+            if has_check_update {
+                crate::ops::rules::write_through(conn, ws.root.as_deref());
+            }
 
             get_pattern(conn, id)
         }

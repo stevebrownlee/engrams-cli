@@ -111,20 +111,20 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
     Ok(())
 }
 
-fn resolve_git_worktree(path: &Path) -> Option<PathBuf> {
-    if !path.is_file() || path.file_name()?.to_str()? != ".git" {
+pub fn resolve_git_worktree(path: &Path) -> Option<PathBuf> {
+    let git_file = if path.file_name().and_then(|n| n.to_str()) == Some(".git") {
+        path.to_path_buf()
+    } else {
+        path.join(".git")
+    };
+    if !git_file.is_file() {
         return None;
     }
-    let content = std::fs::read_to_string(path).ok()?;
-    let content = content.trim();
-    if !content.starts_with("gitdir:") {
-        return None;
-    }
-    let gitdir_str = content.strip_prefix("gitdir:")?.trim();
+    let content = std::fs::read_to_string(&git_file).ok()?;
+    let gitdir_str = content.trim().strip_prefix("gitdir:")?.trim();
     let mut gitdir = PathBuf::from(gitdir_str);
     if gitdir.is_relative() {
-        let git_file_parent = path.parent()?;
-        gitdir = git_file_parent.join(gitdir);
+        gitdir = git_file.parent()?.join(gitdir);
     }
     let gitdir = std::fs::canonicalize(gitdir).ok()?;
     let parent = gitdir.parent()?;
@@ -135,6 +135,77 @@ fn resolve_git_worktree(path: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// If `dir` sits inside a `<name>.worktrees/<branch>` directory (or is a git
+/// worktree with a `.git` file), map it to the corresponding `<name>` main
+/// checkout path when that checkout exists.
+pub fn fold_worktree_dir(dir: &Path) -> Option<PathBuf> {
+    if let Some(main_repo) = resolve_git_worktree(dir) {
+        return Some(main_repo);
+    }
+    let mut prefix = PathBuf::new();
+    let mut comps = dir.components().peekable();
+    let mut folded = false;
+    while let Some(c) = comps.next() {
+        if let std::path::Component::Normal(os) = c {
+            if let Some(s) = os.to_str() {
+                if let Some(stem) = s.strip_suffix(".worktrees") {
+                    if !stem.is_empty() && comps.peek().is_some() {
+                        let _branch = comps.next();
+                        prefix.push(stem);
+                        folded = true;
+                        continue;
+                    }
+                }
+            }
+        }
+        prefix.push(c.as_os_str());
+    }
+    folded.then_some(prefix)
+}
+
+fn has_engrams_store(dir: &Path) -> bool {
+    dir.join("engrams").join("context.db").exists() || dir.join(".engrams").exists()
+}
+
+/// Walk upward from `start_dir` (and across any git worktree link to its main
+/// checkout and that checkout's ancestors) looking strictly for an existing
+/// `engrams/context.db` or `.engrams` marker.
+pub fn find_existing_store_root(start_dir: &Path) -> Option<PathBuf> {
+    let mut cur = Some(start_dir.to_path_buf());
+    while let Some(dir) = cur {
+        if has_engrams_store(&dir) {
+            return Some(dir);
+        }
+        if let Some(wt_main) = fold_worktree_dir(&dir) {
+            let mut wt_cur = Some(wt_main);
+            while let Some(wdir) = wt_cur {
+                if has_engrams_store(&wdir) {
+                    return Some(wdir);
+                }
+                wt_cur = wdir.parent().map(Path::to_path_buf);
+            }
+        }
+        cur = dir.parent().map(Path::to_path_buf);
+    }
+    None
+}
+
+/// If `target_root` does not have an existing store yet, check whether any
+/// strict parent (or worktree main-checkout ancestor) already owns one.
+pub fn find_parent_store_root(target_root: &Path) -> Option<PathBuf> {
+    let canonical_target =
+        std::fs::canonicalize(target_root).unwrap_or_else(|_| target_root.to_path_buf());
+    if let Some(wt_main) = fold_worktree_dir(&canonical_target) {
+        if let Some(found) = find_existing_store_root(&wt_main) {
+            if std::fs::canonicalize(&found).unwrap_or_else(|_| found.clone()) != canonical_target {
+                return Some(found);
+            }
+        }
+    }
+    let parent = canonical_target.parent()?;
+    find_existing_store_root(parent)
 }
 
 pub struct Workspace {
@@ -160,6 +231,83 @@ impl Workspace {
             })
             .clone()
     }
+
+    /// Resolve `HEAD` SHA from the git repository owning the anchored files
+    /// when all anchors share one logical repo prefix (so child repos under an
+    /// umbrella workspace stamp their own commit SHA), falling back to
+    /// `self.head_sha()`.
+    pub fn head_sha_for_anchors(&self, anchors: &[String]) -> Option<String> {
+        let root = self.root.as_deref()?;
+        if anchors.is_empty() {
+            return self.head_sha();
+        }
+        let mut resolved_list: Vec<crate::ops::anchor::ResolvedPath> = anchors
+            .iter()
+            .map(|a| crate::ops::anchor::resolve_workspace_path(a, Some(root)))
+            .collect();
+        resolved_list.sort_by(|a, b| a.logical.cmp(&b.logical));
+        let first_prefix =
+            crate::ops::graph::louvain::anchor_repo_prefix(&resolved_list[0].logical);
+        if resolved_list
+            .iter()
+            .any(|r| crate::ops::graph::louvain::anchor_repo_prefix(&r.logical) != first_prefix)
+        {
+            return self.head_sha();
+        }
+        if let Some(phys) = &resolved_list[0].physical {
+            let mut dir = if phys.is_dir() {
+                Some(phys.as_path())
+            } else {
+                phys.parent()
+            };
+            while let Some(d) = dir {
+                if d.exists() {
+                    if let Some(sha) = crate::ops::git::head_sha(d) {
+                        return Some(sha);
+                    }
+                    break;
+                }
+                dir = d.parent();
+            }
+        }
+        if !first_prefix.is_empty() {
+            let sub_repo = resolve_active_subrepo_root(root, first_prefix);
+            if sub_repo.join(".git").exists() {
+                if let Some(sha) = crate::ops::git::head_sha(&sub_repo) {
+                    return Some(sha);
+                }
+            }
+        }
+        self.head_sha()
+    }
+}
+
+/// Resolve the physical git repository root for `repo_prefix` under `ws_root`:
+/// if `cwd` sits inside a git worktree whose folded logical path starts with
+/// `repo_prefix`, return that worktree's checkout root so `HEAD` and `git diff`
+/// inspect the active worktree branch rather than the main checkout.
+pub fn resolve_active_subrepo_root(ws_root: &Path, repo_prefix: &str) -> PathBuf {
+    if let Ok(cwd) = env::current_dir() {
+        let resolved_cwd = crate::ops::anchor::resolve_workspace_path_with_cwd(
+            &cwd.to_string_lossy(),
+            Some(&cwd),
+            Some(ws_root),
+        );
+        if resolved_cwd.logical == repo_prefix
+            || resolved_cwd
+                .logical
+                .strip_prefix(repo_prefix)
+                .is_some_and(|rest| rest.starts_with('/'))
+        {
+            if let Ok(top) = crate::ops::git::toplevel(&cwd) {
+                let top_path = PathBuf::from(top);
+                if top_path.exists() {
+                    return top_path;
+                }
+            }
+        }
+    }
+    ws_root.join(repo_prefix)
 }
 
 pub fn resolve_workspace(db_arg: Option<&str>, workspace_arg: Option<&str>) -> Result<Workspace> {
@@ -192,63 +340,45 @@ pub fn resolve_workspace(db_arg: Option<&str>, workspace_arg: Option<&str>) -> R
 
 fn discover_workspace_root() -> Result<PathBuf> {
     let cwd = env::current_dir().context("Failed to get current directory")?;
-    let mut current = cwd.clone();
-    let mut check_path = current.clone();
+    Ok(discover_workspace_root_from(&cwd))
+}
 
+pub fn discover_workspace_root_from(cwd: &Path) -> PathBuf {
+    // Pass 1: Walk all ancestors (and worktree main-checkout ancestors) looking
+    // strictly for an existing `engrams/context.db` or `.engrams` store so child
+    // `package.json`, `Cargo.toml`, or `.git` markers never shadow a parent DB.
+    if let Some(store_root) = find_existing_store_root(cwd) {
+        return store_root;
+    }
+
+    // Pass 2: No existing store in any ancestor; fall back to project markers.
+    let mut current = cwd.to_path_buf();
     loop {
-        let mut found = false;
-        let mut found_worktree = None;
+        if let Some(worktree_root) = fold_worktree_dir(&current) {
+            if worktree_root != current && worktree_root.exists() {
+                if let Some(store_root) = find_existing_store_root(&worktree_root) {
+                    return store_root;
+                }
+                current = worktree_root;
+                continue;
+            }
+        }
+
         for marker in &[
-            ".engrams",
-            "engrams/context.db",
             ".git",
             "pyproject.toml",
             "package.json",
             "Cargo.toml",
             "go.mod",
         ] {
-            if *marker == "engrams/context.db" {
-                check_path.push("engrams");
-                check_path.push("context.db");
-                let exists = check_path.exists();
-                check_path.pop();
-                check_path.pop();
-                if exists {
-                    found = true;
-                    break;
-                }
-            } else {
-                check_path.push(marker);
-                let exists = check_path.exists();
-                if exists && *marker == ".git" {
-                    if let Some(worktree_root) = resolve_git_worktree(&check_path) {
-                        found_worktree = Some(worktree_root);
-                    }
-                }
-                check_path.pop();
-                if exists && found_worktree.is_none() {
-                    found = true;
-                    break;
-                }
+            if current.join(marker).exists() {
+                return current;
             }
-        }
-
-        if let Some(worktree_root) = found_worktree {
-            current = worktree_root;
-            check_path = current.clone();
-            continue;
-        }
-
-        if found {
-            return Ok(current);
         }
 
         match current.parent() {
-            Some(parent) => {
-                current = parent.to_path_buf();
-                check_path = current.clone();
-            }
-            None => return Ok(cwd), // Default to cwd if none found
+            Some(parent) => current = parent.to_path_buf(),
+            None => return cwd.to_path_buf(),
         }
     }
 }

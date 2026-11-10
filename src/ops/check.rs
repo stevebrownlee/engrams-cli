@@ -78,11 +78,16 @@ fn load_checkables(conn: &Connection) -> Result<Vec<Checkable>> {
     Ok(out)
 }
 
-/// Collect the set of files (repo-relative path strings) to scan.
-/// Uses a `BTreeSet` so dedup is O(n log n) and output order is deterministic.
-fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<Vec<String>> {
-    use std::collections::BTreeSet;
-    let mut files = BTreeSet::new();
+/// Collect the set of `(logical_path, physical_path)` pairs to scan.
+/// Uses a `BTreeMap` keyed by `logical_path` so dedup is O(n log n) and output
+/// order is deterministic while preserving worktree/child-repo physical paths.
+fn collect_files(
+    staged: bool,
+    paths: &[String],
+    root: Option<&Path>,
+) -> Result<Vec<(String, std::path::PathBuf)>> {
+    use std::collections::BTreeMap;
+    let mut files: BTreeMap<String, std::path::PathBuf> = BTreeMap::new();
 
     if staged {
         let r = root.ok_or_else(|| {
@@ -90,14 +95,17 @@ fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<
                 "check --staged needs a workspace: pass --workspace <dir> or keep the database at <dir>/engrams/context.db"
             )
         })?;
-        for f in crate::ops::git::staged_files(r)? {
-            files.insert(f);
+        for resolved in crate::ops::anchor::staged_files_for_workspace(r)? {
+            let phys = resolved
+                .physical
+                .unwrap_or_else(|| r.join(&resolved.logical));
+            files.insert(resolved.logical, phys);
         }
     }
 
     for p in paths {
-        for f in collect_path(p, root) {
-            files.insert(f);
+        for (logical, phys) in collect_path(p, root) {
+            files.insert(logical, phys);
         }
     }
 
@@ -106,7 +114,8 @@ fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<
             for result in WalkBuilder::new(base).build() {
                 let Ok(entry) = result else { continue };
                 if entry.file_type().is_some_and(|t| t.is_file()) {
-                    files.insert(relativize(entry.path(), base));
+                    let rel = relativize(entry.path(), base);
+                    files.insert(rel, entry.path().to_path_buf());
                 }
             }
         }
@@ -115,37 +124,51 @@ fn collect_files(staged: bool, paths: &[String], root: Option<&Path>) -> Result<
     Ok(files.into_iter().collect())
 }
 
-/// Expand a single `--paths` entry (file or directory) to repo-relative paths.
-fn collect_path(p: &str, root: Option<&Path>) -> Vec<String> {
+/// Expand a single `--paths` entry (file or directory) to `(logical, physical)` pairs.
+fn collect_path(p: &str, root: Option<&Path>) -> Vec<(String, std::path::PathBuf)> {
+    let resolved = crate::ops::anchor::resolve_workspace_path(p, root);
     let path = Path::new(p);
-    let (abs, base) = match root {
-        Some(r) => (r.join(path), Some(r)),
-        None if path.is_absolute() => (path.to_path_buf(), None),
-        None => return Vec::new(),
+    let abs = if let Some(phys) = resolved.physical.filter(|ph| ph.exists()) {
+        phys
+    } else if path.is_absolute() {
+        path.to_path_buf()
+    } else if let Some(r) = root {
+        let candidate = r.join(path);
+        if candidate.exists() {
+            candidate
+        } else {
+            r.join(&resolved.logical)
+        }
+    } else {
+        return Vec::new();
     };
     let meta = match fs::metadata(&abs) {
         Ok(m) => m,
         Err(_) => {
             // May be a deleted-in-worktree staged file or a typo; pass it
             // through so a missing staged file is reported by scope, not lost.
-            return vec![p.to_string()];
+            return vec![(resolved.logical, abs)];
         }
     };
     if meta.is_file() {
-        return vec![match base {
-            Some(b) => relativize(&abs, b),
-            None => abs.to_string_lossy().into_owned(),
-        }];
+        return vec![(resolved.logical, abs)];
     }
     if meta.is_dir() {
         let mut out = Vec::new();
         for result in WalkBuilder::new(&abs).build() {
             let Ok(entry) = result else { continue };
             if entry.file_type().is_some_and(|t| t.is_file()) {
-                out.push(match base {
-                    Some(b) => relativize(entry.path(), b),
-                    None => entry.path().to_string_lossy().into_owned(),
-                });
+                let child_logical = match entry.path().strip_prefix(&abs) {
+                    Ok(sub) if !sub.as_os_str().is_empty() => {
+                        if resolved.logical.is_empty() {
+                            sub.to_string_lossy().into_owned()
+                        } else {
+                            format!("{}/{}", resolved.logical, sub.to_string_lossy())
+                        }
+                    }
+                    _ => resolved.logical.clone(),
+                };
+                out.push((child_logical, entry.path().to_path_buf()));
             }
         }
         return out;
@@ -153,23 +176,20 @@ fn collect_path(p: &str, root: Option<&Path>) -> Vec<String> {
     Vec::new()
 }
 
-fn run(checkables: &[Checkable], files: &[String], root: Option<&Path>) -> Result<Vec<Value>> {
+fn run(
+    checkables: &[Checkable],
+    files: &[(String, std::path::PathBuf)],
+    _root: Option<&Path>,
+) -> Result<Vec<Value>> {
     let mut violations = Vec::new();
     let mut sg_checked = false;
     let sg_present = sg_available();
 
-    for rel in files {
-        let rel_path = Path::new(rel);
-        let abs = match root {
-            Some(r) => r.join(rel_path),
-            None if rel_path.is_absolute() => rel_path.to_path_buf(),
-            None => continue,
-        };
-        let content = match fs::read_to_string(&abs) {
+    for (rel, abs) in files {
+        let content = match fs::read_to_string(abs) {
             Ok(c) => c,
             Err(_) => continue, // deleted / binary / unreadable
         };
-
         for c in checkables {
             if !in_scope(rel, &c.anchors) {
                 continue;
@@ -188,7 +208,7 @@ fn run(checkables: &[Checkable], files: &[String], root: Option<&Path>) -> Resul
                     if !sg_present {
                         continue;
                     }
-                    run_ast(&c.pattern, rel, &abs, &mut violations)?;
+                    run_ast(&c.pattern, rel, abs, &mut violations)?;
                 }
                 _ => {}
             }

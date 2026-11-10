@@ -86,7 +86,7 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd, ws: &crate::db::Workspace) ->
                 Some(serde_json::to_string(&tags)?)
             };
 
-            let commit_sha = ws.head_sha();
+            let commit_sha = ws.head_sha_for_anchors(&anchors);
 
             let id = with_transaction(conn, |tx| {
                 tx.execute(
@@ -121,12 +121,13 @@ pub fn handle(conn: &Connection, cmd: DecisionCmd, ws: &crate::db::Workspace) ->
             // Schema assimilation (AC-8): explicit attach / decline wins;
             // otherwise match the centroid and fire suggestions. Output
             // merges into the decision object below.
-            let schema_block = crate::ops::schemas::assimilate::at_log_time(
+            let schema_block = crate::ops::schemas::assimilate::at_log_time_with_anchors(
                 conn,
                 "decision",
                 id,
                 &summary,
                 &tags,
+                &anchors,
                 schema.as_deref(),
             )?;
 

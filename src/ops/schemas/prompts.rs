@@ -27,12 +27,12 @@ use super::propose::{
     is_timestamp_newer, normalize_note_kind, parse_note_key, sanitize_kebab, suggest_schema_name,
     ProposalStatus, MIN_EVIDENCE,
 };
-use super::retrieval::parse_scope;
 
 pub const THREAD_MAX_SHARE: f64 = 0.8;
 pub const PROMPTS_PER_CLOSE: usize = 3;
 pub const COVERED_SHARE: f64 = 0.5;
-
+pub const UMBRELLA_TAG_CAP: usize = 12;
+pub const MAX_SUBTHREADS_PER_TAG: usize = 2;
 const BUILTIN_GENERAL: &str = include_str!("../../assets/lenses/general.json");
 const BUILTIN_FICTION: &str = include_str!("../../assets/lenses/fiction.json");
 const BUILTIN_SOFTWARE: &str = include_str!("../../assets/lenses/software.json");
@@ -429,27 +429,41 @@ fn load_active_notes(conn: &Connection) -> Result<(Vec<ActiveNote>, NoteIndexMap
     Ok((notes, key_to_idx))
 }
 
+type CoverageSets = (BTreeSet<usize>, BTreeSet<Vec<String>>, BTreeSet<String>);
+
 fn load_coverage(
     conn: &Connection,
     key_to_idx: &HashMap<(&'static str, i64), usize>,
-) -> Result<(BTreeSet<usize>, BTreeSet<Vec<String>>)> {
+) -> Result<CoverageSets> {
     let mut covered_notes = BTreeSet::new();
     let mut handled_tag_parts = BTreeSet::new();
+    let mut proposed_notice_keys = BTreeSet::new();
 
-    // Active schemas: scope tags and member_of knowledge notes
+    // 1. Idea 1C: Only explicit `source_kind = 'thread'` `source_ref` claims a
+    // subject-tag thread. Secondary `scope.tags` on any schema or proposal are
+    // retrieval triggers only and never enter `handled_tag_parts`.
     {
-        let mut stmt = conn.prepare("SELECT scope_json FROM schemas WHERE status = 'active'")?;
-        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        let mut stmt = conn.prepare(
+            "SELECT source_kind, source_ref FROM schema_proposals \
+             WHERE status IN ('confirmed', 'proposed') AND source_ref IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
         for row in rows {
-            let scope_json = row?;
-            for tag in parse_scope(&scope_json).tags {
-                let parts = crate::ops::ident_parts(&tag);
+            let (skind, sref) = row?;
+            if skind == "thread" {
+                let parts = crate::ops::ident_parts(&sref);
                 if !parts.is_empty() {
+                    let canon = parts.join("-");
+                    proposed_notice_keys.insert(format!("thread:{canon}"));
                     handled_tag_parts.insert(parts);
                 }
+            } else if skind == "candidate" {
+                proposed_notice_keys.insert(format!("candidate:{sref}"));
             }
         }
     }
+
+    // 2. Active schemas: member_of knowledge notes.
     {
         let mut stmt = conn.prepare(
             "SELECT l.source_item_type, l.source_item_id \
@@ -471,21 +485,15 @@ fn load_coverage(
         }
     }
 
-    // Pending proposals: scope tags and cited members
+    // 3. Pending proposals: cited member notes only.
     {
-        let mut stmt = conn
-            .prepare("SELECT scope_json, members_json FROM schema_proposals WHERE status = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT members_json FROM schema_proposals WHERE status = ?1")?;
         let rows = stmt.query_map(params![ProposalStatus::Proposed.as_str()], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            r.get::<_, String>(0)
         })?;
         for row in rows {
-            let (scope_json, members_json) = row?;
-            for tag in parse_scope(&scope_json).tags {
-                let parts = crate::ops::ident_parts(&tag);
-                if !parts.is_empty() {
-                    handled_tag_parts.insert(parts);
-                }
-            }
+            let members_json = row?;
             let members: Vec<String> = serde_json::from_str(&members_json).unwrap_or_default();
             for m in members {
                 if let Ok((canon_kind, id, _)) = parse_note_key(&m) {
@@ -497,7 +505,7 @@ fn load_coverage(
         }
     }
 
-    Ok((covered_notes, handled_tag_parts))
+    Ok((covered_notes, handled_tag_parts, proposed_notice_keys))
 }
 
 struct PriorNotice {
@@ -726,7 +734,8 @@ pub fn collect_prompts(conn: &Connection, lens: &Lens, limit: usize) -> Result<V
         return Ok(Vec::new());
     }
 
-    let (covered_notes, handled_tag_parts) = load_coverage(conn, &key_to_idx)?;
+    let (covered_notes, handled_tag_parts, proposed_notice_keys) =
+        load_coverage(conn, &key_to_idx)?;
     let (notices, rejected) = load_recurrence_history(conn)?;
 
     let mut ignored_tag_parts: BTreeSet<Vec<String>> = BTreeSet::new();
@@ -856,19 +865,123 @@ pub fn collect_prompts(conn: &Connection, lens: &Lens, limit: usize) -> Result<V
                 {
                     continue;
                 }
-                if handled_tag_parts.contains(&parts) {
+                let mut uncovered_indices: Vec<usize> = all_indices
+                    .iter()
+                    .copied()
+                    .filter(|idx| !covered_notes.contains(idx))
+                    .collect();
+                let tag = parts.join("-");
+                let key = format!("thread:{tag}");
+                let mostly_covered =
+                    (uncovered_indices.len() as f64) / (all_indices.len() as f64) <= COVERED_SHARE;
+                let is_claimed_or_oversized = handled_tag_parts.contains(&parts)
+                    || mostly_covered
+                    || all_indices.len() > UMBRELLA_TAG_CAP;
+
+                // Idea 1B: For claimed or oversized (> 12 notes) umbrella tags,
+                // split remaining uncovered notes into bounded co-tag sub-threads
+                // (`thread:<parent>+<second_tag>`, capped at 2 per parent).
+                let mut subthread_qualified = false;
+                let is_claimed = handled_tag_parts.contains(&parts) || mostly_covered;
+                if is_claimed_or_oversized && uncovered_indices.len() >= MIN_EVIDENCE {
+                    let mut sub_buckets: BTreeMap<Vec<String>, Vec<usize>> = BTreeMap::new();
+                    for &idx in &uncovered_indices {
+                        let mut seen_sub = BTreeSet::new();
+                        for raw_sub in &notes[idx].tags {
+                            let sp = crate::ops::ident_parts(raw_sub);
+                            if sp.is_empty()
+                                || sp == parts
+                                || ignored_tag_parts.contains(&sp)
+                                || handled_tag_parts.contains(&sp)
+                            {
+                                continue;
+                            }
+                            if seen_sub.insert(sp.clone()) {
+                                sub_buckets.entry(sp).or_default().push(idx);
+                            }
+                        }
+                    }
+                    let mut ranked_subs: Vec<(String, PromptSpread, Vec<usize>)> = Vec::new();
+                    for (sp, mut sub_idx) in sub_buckets {
+                        if sub_idx.len() < MIN_EVIDENCE
+                            || (!is_claimed && sub_idx.len() >= uncovered_indices.len())
+                        {
+                            continue;
+                        }
+                        let sub_tag = format!("{tag}+{}", sp.join("-"));
+                        let sub_notice_key = format!("thread:{sub_tag}");
+                        if proposed_notice_keys.contains(&sub_notice_key) {
+                            if let Some(pn) =
+                                notices.iter().find(|n| n.source_key == sub_notice_key)
+                            {
+                                sub_idx.retain(|&i| pn.keys.binary_search(&notes[i].key).is_err());
+                            }
+                        }
+                        if sub_idx.len() < MIN_EVIDENCE {
+                            continue;
+                        }
+                        let spread = compute_spread(&sub_idx, &notes);
+                        if spread.files < 2 && spread.days < 2 {
+                            continue;
+                        }
+                        ranked_subs.push((sub_tag, spread, sub_idx));
+                    }
+                    ranked_subs.sort_by(|a, b| {
+                        b.1.notes
+                            .cmp(&a.1.notes)
+                            .then_with(|| b.1.files.cmp(&a.1.files))
+                            .then_with(|| b.1.days.cmp(&a.1.days))
+                            .then_with(|| a.0.cmp(&b.0))
+                    });
+                    let mut kept_subs: Vec<RankedCandidate> = Vec::new();
+                    for (sub_tag, _spread, sub_idx) in ranked_subs {
+                        if kept_subs.len() >= MAX_SUBTHREADS_PER_TAG {
+                            break;
+                        }
+                        let sub_key = format!("thread:{sub_tag}");
+                        let sub_notice_key = sub_key.clone();
+                        if let Some(rc) = try_qualify_prompt(
+                            conn,
+                            sub_key,
+                            sub_notice_key,
+                            PromptSourceKind::Thread,
+                            sub_tag,
+                            None,
+                            sub_idx,
+                            &notes,
+                            &notices,
+                            &rejected,
+                        )? {
+                            let rc_strs: Vec<&str> =
+                                rc.uncovered_keys.iter().map(String::as_str).collect();
+                            let overlaps_sibling = kept_subs.iter().any(|k| {
+                                let k_strs: Vec<&str> =
+                                    k.uncovered_keys.iter().map(String::as_str).collect();
+                                jaccard(&rc_strs, &k_strs) >= JACCARD_IDENTITY
+                            });
+                            if !overlaps_sibling {
+                                kept_subs.push(rc);
+                            }
+                        }
+                    }
+                    if !kept_subs.is_empty() {
+                        subthread_qualified = true;
+                        candidates.extend(kept_subs);
+                    }
+                }
+
+                if handled_tag_parts.contains(&parts) || mostly_covered || subthread_qualified {
                     continue;
                 }
 
-                let uncovered_indices: Vec<usize> = all_indices
-                    .into_iter()
-                    .filter(|idx| !covered_notes.contains(idx))
-                    .collect();
+                if proposed_notice_keys.contains(&key) {
+                    if let Some(pn) = notices.iter().find(|n| n.source_key == key) {
+                        uncovered_indices
+                            .retain(|&i| pn.keys.binary_search(&notes[i].key).is_err());
+                    }
+                }
 
-                let tag = parts.join("-");
-                let key = format!("thread:{tag}");
                 let notice_key = key.clone();
-
                 if let Some(rc) = try_qualify_prompt(
                     conn,
                     key,
@@ -887,13 +1000,14 @@ pub fn collect_prompts(conn: &Connection, lens: &Lens, limit: usize) -> Result<V
         }
     }
 
-    // Rank by uncovered notes DESC, files DESC, days DESC, key ASC.
+    // Rank by uncovered notes DESC, files DESC, days DESC, primary thread ahead of sub-thread, key ASC.
     candidates.sort_by(|a, b| {
         b.spread
             .notes
             .cmp(&a.spread.notes)
             .then_with(|| b.spread.files.cmp(&a.spread.files))
             .then_with(|| b.spread.days.cmp(&a.spread.days))
+            .then_with(|| a.key.contains('+').cmp(&b.key.contains('+')))
             .then_with(|| a.key.cmp(&b.key))
     });
 
@@ -1034,6 +1148,96 @@ fn try_qualify_prompt(
     }))
 }
 
+/// Shared notice upsert: unions `new_keys` with any existing `evidence_json`
+/// for `source_key` so notices written by `schema propose` and `session close`
+/// never overwrite previously seen note keys (Idea 1).
+pub fn upsert_prompt_notice(
+    conn: &Connection,
+    source_key: &str,
+    new_keys: &[String],
+    notified_at: &str,
+) -> Result<()> {
+    if new_keys.is_empty() {
+        return Ok(());
+    }
+    let existing_raw: Option<String> = conn
+        .query_row(
+            "SELECT evidence_json FROM schema_prompt_notices WHERE source_key = ?1",
+            params![source_key],
+            |r| r.get(0),
+        )
+        .ok();
+    let mut merged: BTreeSet<String> = match existing_raw {
+        Some(raw) => serde_json::from_str::<Vec<String>>(&raw)
+            .unwrap_or_default()
+            .into_iter()
+            .collect(),
+        None => BTreeSet::new(),
+    };
+    for k in new_keys {
+        if let Ok((_, _, canon)) = parse_note_key(k) {
+            merged.insert(canon);
+        }
+    }
+    let sorted: Vec<String> = merged.into_iter().collect();
+    let evidence_json = serde_json::to_string(&sorted)?;
+    conn.execute(
+        "INSERT INTO schema_prompt_notices (source_key, evidence_json, notified_at) \
+         VALUES (?1, ?2, ?3) \
+         ON CONFLICT(source_key) DO UPDATE SET \
+           evidence_json = excluded.evidence_json, \
+           notified_at = excluded.notified_at",
+        params![source_key, evidence_json, notified_at],
+    )?;
+    Ok(())
+}
+
+/// Stamp a prompt notice for all current active notes matching `thread_ref`
+/// (`<tag>` or `<parent>+<second_tag>`) when `schema propose --thread` runs.
+pub fn stamp_thread_notice(conn: &Connection, thread_ref: &str, notified_at: &str) -> Result<()> {
+    let (notes, _) = load_active_notes(conn)?;
+    let sub_parts: Vec<Vec<String>> = thread_ref
+        .split('+')
+        .map(crate::ops::ident_parts)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if sub_parts.is_empty() {
+        return Ok(());
+    }
+    let mut canon_ref = String::with_capacity(thread_ref.len());
+    for (i, p) in sub_parts.iter().enumerate() {
+        if i > 0 {
+            canon_ref.push('+');
+        }
+        for (j, word) in p.iter().enumerate() {
+            if j > 0 {
+                canon_ref.push('-');
+            }
+            canon_ref.push_str(word);
+        }
+    }
+    let mut matching_keys = Vec::new();
+    for n in &notes {
+        let all_match = sub_parts.iter().all(|wanted| {
+            n.tags
+                .iter()
+                .any(|nt| crate::ops::ident_parts(nt) == *wanted)
+        });
+        if all_match {
+            matching_keys.push(n.key.clone());
+        }
+    }
+    if !matching_keys.is_empty() {
+        upsert_prompt_notice(
+            conn,
+            &format!("thread:{canon_ref}"),
+            &matching_keys,
+            notified_at,
+        )?;
+    }
+    Ok(())
+}
+
 /// Record shown prompts in `schema_prompt_notices` at session close.
 /// Upserts on `source_key` so revived threads or candidates refresh their
 /// evidence snapshot and `notified_at` timestamp (review finding F-1).
@@ -1042,19 +1246,8 @@ pub fn record_prompt_notices(
     prompts: &[SchemaPrompt],
     notified_at: &str,
 ) -> Result<()> {
-    if prompts.is_empty() {
-        return Ok(());
-    }
-    let mut stmt = conn.prepare(
-        "INSERT INTO schema_prompt_notices (source_key, evidence_json, notified_at) \
-         VALUES (?1, ?2, ?3) \
-         ON CONFLICT(source_key) DO UPDATE SET \
-           evidence_json = excluded.evidence_json, \
-           notified_at = excluded.notified_at",
-    )?;
     for p in prompts {
-        let evidence_json = serde_json::to_string(&p.sorted_evidence_keys)?;
-        stmt.execute(params![&p.notice_key, &evidence_json, notified_at])?;
+        upsert_prompt_notice(conn, &p.notice_key, &p.sorted_evidence_keys, notified_at)?;
     }
     Ok(())
 }

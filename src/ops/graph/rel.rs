@@ -200,7 +200,31 @@ pub fn normalize(name: &str) -> (String, bool) {
     if let Some(spec) = RELS.iter().find(|r| r.inverse == Some(name)) {
         return (spec.canonical.to_string(), true);
     }
-    (name.to_string(), false)
+    // Fold hyphenated and case variants (e.g. `relates-to`, `implemented-by`, `superseded-by`).
+    let folded: String = name
+        .trim()
+        .chars()
+        .map(|c| {
+            if c == '-' {
+                '_'
+            } else {
+                c.to_ascii_lowercase()
+            }
+        })
+        .collect();
+    if lookup(&folded).is_some() {
+        return (folded, false);
+    }
+    if let Some(spec) = RELS.iter().find(|r| r.inverse == Some(folded.as_str())) {
+        return (spec.canonical.to_string(), true);
+    }
+    // Fold unambiguous relationship synonyms observed in production exports (Idea 8).
+    match folded.as_str() {
+        "related_to" | "related" | "links_to" => ("relates_to".to_string(), false),
+        "caused" => ("causes".to_string(), false),
+        "extends" | "elaborates" | "builds_on" => ("refines".to_string(), false),
+        _ => (name.to_string(), false),
+    }
 }
 
 /// Unknown rels are treated as symmetric for analytics.

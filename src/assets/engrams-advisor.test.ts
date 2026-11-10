@@ -350,7 +350,7 @@ describe("engrams-advisor pure helpers", () => {
         "    Avoid anachronistic military slang such as 'okay' or 'Roger' in manuscript chapters.",
         "  [decision] Keep battle scenes in tight third-person limited on the chapter's point-of-view officer",
         "",
-        "Keep these in mind while editing.",
+        "Keep these in mind while editing, and cite any applied [schema] by name in your reply.",
       ].join("\n"),
     );
 
@@ -376,7 +376,7 @@ describe("engrams-advisor pure helpers", () => {
         "    Fires when editing Rust hot paths: follow the four allocation rules",
         "    scope: paths src/ops (matched: member anchor src/ops/advise.rs)",
         "",
-        "Keep these in mind while editing.",
+        "Keep these in mind while editing, and cite any applied [schema] by name in your reply.",
       ].join("\n"),
     );
   });
@@ -473,7 +473,7 @@ describe("engrams-advisor tool_call handler", () => {
           `    ${ws.fixture.provenance.protagonist_instruction}`,
           "    scope: paths manuscript; tags mara (matched: scope path manuscript)",
           "",
-          "Keep these in mind while editing.",
+          "Keep these in mind while editing, and cite any applied [schema] by name in your reply.",
         ].join("\n"),
       );
 
@@ -557,6 +557,64 @@ describe("engrams-advisor tool_call handler", () => {
       expect(schemaIdx).toBe(0);
       expect(constraintIdx).toBeGreaterThan(schemaIdx);
       expect(messages[0].content).toContain("No Modern Idioms in Dialogue");
+    } finally {
+      ws.cleanup();
+    }
+  });
+
+  test("Idea 4 & 9B: read with line selector in a worktree/subfolder notifies UI and steers schema once without blocking later edit", async () => {
+    const ws = setupManuscriptWorkspace();
+    try {
+      mkdirSync(join(ws.workspaceDir, "manuscript.worktrees", "draft-1"), { recursive: true });
+      const wtFile = join(ws.workspaceDir, "manuscript.worktrees", "draft-1", "ch06.md");
+      writeFileSync(wtFile, '"Understood, captain," Toren said.\n');
+
+      const { messages, invokeToolCall } = createMockExtensionApi();
+      const notifications: Array<{ msg: string; level: string }> = [];
+      const ctx = {
+        cwd: join(ws.workspaceDir, "manuscript.worktrees", "draft-1"),
+        hasUI: true,
+        ui: {
+          notify: (msg: string, level: string) => {
+            notifications.push({ msg, level });
+          },
+        },
+      };
+
+      // 1. Read with a line-range selector inside the worktree surfaces the schema and notifies UI.
+      await invokeToolCall(
+        {
+          toolName: "read",
+          input: { path: "ch06.md:1-10" },
+        },
+        ctx,
+      );
+      expect(messages).toHaveLength(1);
+      expect(messages[0].content).toContain("engrams schemas for manuscript/ch06.md:");
+      expect(messages[0].content).not.toContain("engrams constraints for");
+      expect(notifications).toHaveLength(1);
+      expect(notifications[0].msg).toBe("engrams advised: schema [mara-broken-leader] (ch06.md)");
+
+      // 2. Subsequent read of another chapter in the same schema does not re-steer the same schema.
+      await invokeToolCall(
+        {
+          toolName: "read",
+          input: { path: "ch07.md:1-5" },
+        },
+        ctx,
+      );
+      expect(messages).toHaveLength(1);
+
+      // 3. Editing ch06.md still runs the full pre-edit advise (constraints + schema).
+      await invokeToolCall(
+        {
+          toolName: "edit",
+          input: { input: "[ch06.md#A1B2]\nPUT 1.=1:\n+\"Understood,\" he repeated." },
+        },
+        ctx,
+      );
+      expect(messages).toHaveLength(2);
+      expect(messages[1].content).toContain("engrams constraints for manuscript/ch06.md:");
     } finally {
       ws.cleanup();
     }

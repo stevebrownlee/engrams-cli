@@ -383,6 +383,7 @@ pub fn refine(
     if n == 0 {
         anyhow::bail!("no schema matches '{target}'");
     }
+    super::confirm::refresh_schema_centroid(conn, id)?;
     Ok(json!({
         "status": "success",
         "schema": {
