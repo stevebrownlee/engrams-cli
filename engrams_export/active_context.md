@@ -1,7 +1,7 @@
 ---
 identifier: active_context
 title: Active Context
-created: 2026-10-23T02:33:33Z
+created: 2026-11-10T20:48:50Z
 ---
 # Active Context
 
@@ -22,7 +22,7 @@ created: 2026-10-23T02:33:33Z
       78,
       79
     ],
-    "focus": "Spec 0007 (reviewed schema proposals) complete on spec-0007-reviewed-schema-proposals; ready for spec 0008 (schema prompts at session close)",
+    "focus": "Released v0.17.0 — Scale Hardening, Worktree Canonicalization & Live Advisor Visibility",
     "key_context": "Docs v0.9.0 shipped: three-pillar IA, 3D viz (three.js/3d-force-graph/GSAP), real graph data. 22 pages build green. Decisions #46-49.",
     "last_updated": "2026-08-05",
     "next": [
@@ -75,7 +75,7 @@ created: 2026-10-23T02:33:33Z
       "PR 6 merge",
       "orchestrator must create feature branch BEFORE first spec commit - main was reset once this session to fix direct-land"
     ],
-    "last_release": "v0.16.0",
+    "last_release": "v0.17.0",
     "schema_kind_surfacing": "shipped in v0.14.0",
     "last_spec_completed": "0007-reviewed-schema-proposals",
     "branch": "spec-0007-reviewed-schema-proposals",
@@ -84,7 +84,7 @@ created: 2026-10-23T02:33:33Z
     "last_completed_spec": "0008-schema-prompts-at-session-close",
     "schema_version": 17
   },
-  "version": 54,
-  "updated_at": "2026-10-23T02:33:33Z"
+  "version": 55,
+  "updated_at": "2026-11-10T20:48:50Z"
 }
 ```
